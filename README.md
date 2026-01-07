@@ -1,7 +1,3 @@
-<div align="center">
-<img width="1200" height="475" alt="LiquiTask Banner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
-
 # LiquiTask
 
 A premium Kanban task management desktop app featuring a stunning liquid glass aesthetic and modern frameless window design.
@@ -12,6 +8,7 @@ A premium Kanban task management desktop app featuring a stunning liquid glass a
 - 📋 **Kanban Board** - Drag-and-drop task management with customizable columns
 - 🏷️ **Custom Fields** - Define your own fields for tasks
 - 🔗 **Task Dependencies** - Link tasks with blocking/related relationships
+- 🧱 **Native Persistence** - Secure local file system storage with `electron-store`
 - 📊 **Executive Dashboard** - Cross-project analytics and overview
 - ⌨️ **Keyboard Shortcuts** - Quick actions with Cmd/Ctrl+K, B, C
 
@@ -19,7 +16,8 @@ A premium Kanban task management desktop app featuring a stunning liquid glass a
 
 - **Frontend:** React 19 + TypeScript
 - **Build Tool:** Vite + electron-vite
-- **Desktop:** Electron 33
+- **Desktop:** Electron 33 (`electron-react-boilerplate` architecture)
+- **Data:** `electron-store` (Native), `localStorage` (Web Fallback)
 - **Styling:** TailwindCSS
 
 ## Run Locally
@@ -56,6 +54,23 @@ npm run package          # Current platform
 npm run package:win      # Windows
 npm run package:mac      # macOS
 npm run package:linux    # Linux
+```
+
+## Project Structure
+
+```text
+LiquiTask/
+├── src/
+│   ├── components/     # React UI components
+│   ├── hooks/          # Custom React hooks
+│   ├── services/       # Core services (Storage, etc.)
+│   ├── utils/          # Helper functions
+│   └── types.ts        # TypeScript definitions
+├── electron/
+│   ├── main.ts         # Electron main process
+│   └── preload.ts      # ContextBridge & IPC
+├── build/              # Icons and build assets
+└── .github/            # CI/CD workflows
 ```
 
 ## Keyboard Shortcuts
