@@ -1,0 +1,172 @@
+import { Task, Project, BoardColumn, ProjectType, PriorityDefinition, CustomFieldDefinition } from '../../types';
+import { STORAGE_KEYS, DEFAULT_COLUMNS, DEFAULT_PROJECTS, DEFAULT_PROJECT_TYPES, DEFAULT_PRIORITIES } from '../constants';
+import { validateAndTransformImportedData, ValidatedAppData } from '../utils/validation';
+import { trySaveToStorage, isStorageNearQuota } from '../utils/storageQuota';
+
+// Check if running in Electron
+const isElectron = typeof window !== 'undefined' && !!(window as any).electronAPI;
+
+// Type for all storable data
+export interface AppData {
+    columns: BoardColumn[];
+    projectTypes: ProjectType[];
+    priorities: PriorityDefinition[];
+    customFields: CustomFieldDefinition[];
+    projects: Project[];
+    tasks: Task[];
+    activeProjectId: string;
+    sidebarCollapsed: boolean;
+    grouping: 'none' | 'priority';
+    version?: string; // Data schema version for migration
+}
+
+// Current data schema version
+const CURRENT_DATA_VERSION = '1.0.0';
+
+// Parse tasks with proper date handling
+function parseTasks(data: any[]): Task[] {
+    return data.map((t: any) => ({
+        ...t,
+        createdAt: new Date(t.createdAt),
+        dueDate: t.dueDate ? new Date(t.dueDate) : undefined,
+        attachments: t.attachments || [],
+        customFieldValues: t.customFieldValues || {},
+        links: t.links || [],
+        tags: t.tags || [],
+        timeEstimate: t.timeEstimate || 0,
+        timeSpent: t.timeSpent || 0,
+    }));
+}
+
+// Storage service with localStorage fallback
+class StorageService {
+    private cache: Map<string, any> = new Map();
+
+    get<T>(key: string, defaultValue: T): T {
+        // Check cache first
+        if (this.cache.has(key)) {
+            return this.cache.get(key) as T;
+        }
+
+        try {
+            const stored = localStorage.getItem(key);
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                // Special handling for tasks
+                if (key === STORAGE_KEYS.TASKS) {
+                    const tasks = parseTasks(parsed);
+                    this.cache.set(key, tasks);
+                    return tasks as T;
+                }
+                this.cache.set(key, parsed);
+                return parsed as T;
+            }
+        } catch (e) {
+            console.warn(`Failed to parse stored value for ${key}:`, e);
+        }
+
+        return defaultValue;
+    }
+
+    set<T>(key: string, value: T): void {
+        this.cache.set(key, value);
+        try {
+            const serialized = JSON.stringify(value);
+            const result = trySaveToStorage(key, serialized);
+            
+            if (!result.success) {
+                console.error(`Failed to save ${key}:`, result.error);
+                // Show warning if storage is getting full
+                if (isStorageNearQuota(80)) {
+                    console.warn('Storage is getting full. Consider exporting and clearing old data.');
+                }
+                throw new Error(result.error || 'Failed to save to storage');
+            }
+        } catch (e) {
+            console.error(`Failed to save ${key}:`, e);
+            throw e;
+        }
+    }
+
+    remove(key: string): void {
+        this.cache.delete(key);
+        localStorage.removeItem(key);
+    }
+
+    clear(): void {
+        this.cache.clear();
+        Object.values(STORAGE_KEYS).forEach(key => {
+            localStorage.removeItem(key);
+        });
+    }
+
+    // Get all app data
+    getAllData(): Partial<AppData> {
+        return {
+            columns: this.get(STORAGE_KEYS.COLUMNS, [...DEFAULT_COLUMNS] as BoardColumn[]),
+            projectTypes: this.get(STORAGE_KEYS.PROJECT_TYPES, [...DEFAULT_PROJECT_TYPES] as ProjectType[]),
+            priorities: this.get(STORAGE_KEYS.PRIORITIES, [...DEFAULT_PRIORITIES] as PriorityDefinition[]),
+            customFields: this.get(STORAGE_KEYS.CUSTOM_FIELDS, [] as CustomFieldDefinition[]),
+            projects: this.get(STORAGE_KEYS.PROJECTS, [...DEFAULT_PROJECTS] as Project[]),
+            tasks: this.get(STORAGE_KEYS.TASKS, [] as Task[]),
+            activeProjectId: this.get(STORAGE_KEYS.ACTIVE_PROJECT, 'p1'),
+            sidebarCollapsed: this.get(STORAGE_KEYS.SIDEBAR_COLLAPSED, false),
+            grouping: this.get(STORAGE_KEYS.GROUPING, 'none'),
+        };
+    }
+
+    // Export all data for backup
+    exportData(): string {
+        const data = this.getAllData();
+        const dataWithVersion = {
+            ...data,
+            version: CURRENT_DATA_VERSION,
+        };
+        return JSON.stringify(dataWithVersion, null, 2);
+    }
+
+    // Import data with validation and migration
+    importData(jsonString: string): { data: AppData | null; error?: string } {
+        try {
+            const parsed = JSON.parse(jsonString);
+            
+            // Check version and migrate if needed
+            const importedVersion = parsed.version || '0.0.0';
+            if (importedVersion !== CURRENT_DATA_VERSION) {
+                console.log(`Migrating data from version ${importedVersion} to ${CURRENT_DATA_VERSION}`);
+                // Future: Add migration logic here
+            }
+
+            // Validate with Zod schema
+            const validated = validateAndTransformImportedData(parsed);
+            
+            if (!validated) {
+                return { data: null, error: 'Validation failed' };
+            }
+
+            // Convert ValidatedAppData to AppData format
+            const appData: AppData = {
+                columns: validated.columns,
+                projectTypes: validated.projectTypes,
+                priorities: validated.priorities,
+                customFields: validated.customFields,
+                projects: validated.projects,
+                tasks: validated.tasks,
+                activeProjectId: validated.activeProjectId || 'p1',
+                sidebarCollapsed: validated.sidebarCollapsed ?? false,
+                grouping: validated.grouping || 'none',
+                version: CURRENT_DATA_VERSION,
+            };
+
+            return { data: appData };
+        } catch (e) {
+            const errorMessage = e instanceof Error ? e.message : 'Unknown error';
+            console.error('Failed to import data:', e);
+            return { data: null, error: errorMessage };
+        }
+    }
+}
+
+// Singleton instance
+export const storageService = new StorageService();
+export default storageService;
