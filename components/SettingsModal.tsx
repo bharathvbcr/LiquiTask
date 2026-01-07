@@ -1,0 +1,378 @@
+import React, { useState } from 'react';
+import { ModalWrapper } from './ModalWrapper';
+import { Settings, Shield, Palette, LogOut, Database, Download, Upload, RefreshCw, Kanban, Plus, Trash2, CheckSquare, Flag, Layout, SlidersHorizontal, Type, Hash, List, Link, AlertOctagon, Loader2 } from 'lucide-react';
+import { Project, Task, BoardColumn, ProjectType, PriorityDefinition, GroupingOption, ToastType, CustomFieldDefinition } from '../types';
+
+interface SettingsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  appData?: {
+    projects: Project[];
+    tasks: Task[];
+    columns: BoardColumn[];
+    projectTypes?: ProjectType[];
+    priorities?: PriorityDefinition[];
+    customFields?: CustomFieldDefinition[];
+  };
+  onImportData?: (data: any) => void;
+  onUpdateColumns?: (columns: BoardColumn[]) => void;
+  onUpdateProjectTypes?: (types: ProjectType[]) => void;
+  onUpdatePriorities?: (priorities: PriorityDefinition[]) => void;
+  onUpdateCustomFields?: (fields: CustomFieldDefinition[]) => void;
+  grouping?: GroupingOption;
+  onUpdateGrouping?: (option: GroupingOption) => void;
+  addToast: (msg: string, type: ToastType) => void;
+}
+
+export const SettingsModal: React.FC<SettingsModalProps> = ({
+  isOpen,
+  onClose,
+  appData,
+  onImportData,
+  onUpdateColumns,
+  onUpdateProjectTypes,
+  onUpdatePriorities,
+  onUpdateCustomFields,
+  grouping = 'none',
+  onUpdateGrouping,
+  addToast
+}) => {
+  const [activeTab, setActiveTab] = useState('general');
+  const [importText, setImportText] = useState('');
+  const [importError, setImportError] = useState<string | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+
+  // Local state
+  const [localColumns, setLocalColumns] = useState<BoardColumn[]>(appData?.columns || []);
+  const [localProjectTypes, setLocalProjectTypes] = useState<ProjectType[]>(appData?.projectTypes || []);
+  const [localPriorities, setLocalPriorities] = useState<PriorityDefinition[]>(appData?.priorities || []);
+  const [localCustomFields, setLocalCustomFields] = useState<CustomFieldDefinition[]>(appData?.customFields || []);
+  const [localGrouping, setLocalGrouping] = useState<GroupingOption>(grouping);
+
+  // Sync with appData
+  React.useEffect(() => {
+    if (appData?.columns) setLocalColumns(appData.columns);
+    if (appData?.projectTypes) setLocalProjectTypes(appData.projectTypes);
+    if (appData?.priorities) setLocalPriorities(appData.priorities);
+    if (appData?.customFields) setLocalCustomFields(appData.customFields);
+    setLocalGrouping(grouping);
+  }, [appData, grouping, isOpen]);
+
+  const tabs = [
+    { id: 'general', icon: <Settings size={16} />, label: 'General' },
+    { id: 'workflow', icon: <Kanban size={16} />, label: 'Workflow' },
+    { id: 'fields', icon: <SlidersHorizontal size={16} />, label: 'Fields' },
+    { id: 'priorities', icon: <Flag size={16} />, label: 'Priorities' },
+    { id: 'data', icon: <Database size={16} />, label: 'Data' },
+  ];
+
+  const handleImport = async () => {
+    if (!importText.trim()) return;
+
+    setIsImporting(true);
+    setImportError(null);
+
+    try {
+      // Use storageService for validated import
+      const { storageService } = require('../src/services/storageService');
+      const result = storageService.importData(importText);
+
+      if (result.error || !result.data) {
+        throw new Error(result.error || 'Import validation failed');
+      }
+
+      const validatedData = result.data;
+
+      onImportData?.({
+        projects: validatedData.projects,
+        tasks: validatedData.tasks,
+        columns: validatedData.columns,
+        projectTypes: validatedData.projectTypes,
+        priorities: validatedData.priorities,
+        customFields: validatedData.customFields
+      });
+
+      setImportText('');
+      setImportError(null);
+      addToast('Data imported and validated successfully!', 'success');
+      onClose();
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : 'Invalid JSON syntax';
+      setImportError(errorMessage);
+      addToast(`Import failed: ${errorMessage}`, 'error');
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handleReset = () => {
+    if (window.confirm("WARNING: This will wipe all current data and restore defaults. This cannot be undone.")) {
+      localStorage.clear();
+      window.location.reload();
+    }
+  };
+
+  const saveAll = () => {
+    if (onUpdateColumns) onUpdateColumns(localColumns);
+    if (onUpdateProjectTypes) onUpdateProjectTypes(localProjectTypes);
+    if (onUpdatePriorities) onUpdatePriorities(localPriorities);
+    if (onUpdateCustomFields) onUpdateCustomFields(localCustomFields);
+    if (onUpdateGrouping) onUpdateGrouping(localGrouping);
+    addToast('Configuration saved successfully.', 'success');
+  };
+
+  // Helper functions for array updates
+  const updateItem = <T,>(list: T[], index: number, field: keyof T, value: T[keyof T], setter: React.Dispatch<React.SetStateAction<T[]>>) => {
+    const newList = [...list];
+    newList[index] = { ...newList[index], [field]: value };
+    setter(newList);
+  };
+
+  const deleteItem = <T,>(list: T[], index: number, setter: React.Dispatch<React.SetStateAction<T[]>>, minLength = 0) => {
+    if (list.length <= minLength) {
+      addToast("Cannot remove last item.", 'error');
+      return;
+    }
+    setter(list.filter((_, i) => i !== index));
+  };
+
+  const addColumn = () => {
+    setLocalColumns([...localColumns, { id: `col-${Date.now()}`, title: 'New Column', color: '#64748b', isCompleted: false, wipLimit: 0 }]);
+  };
+
+  const addProjectType = () => {
+    setLocalProjectTypes([...localProjectTypes, { id: `type-${Date.now()}`, label: 'New Type', icon: 'folder' }]);
+  };
+
+  const addPriority = () => {
+    const maxLevel = localPriorities.length > 0 ? Math.max(...localPriorities.map(p => p.level)) : 0;
+    setLocalPriorities([...localPriorities, { id: `prio-${Date.now()}`, label: 'New Priority', color: '#64748b', level: maxLevel + 1, icon: 'minus' }]);
+  };
+
+  // Custom Fields Logic
+  const addCustomField = () => {
+    setLocalCustomFields([...localCustomFields, { id: `cf-${Date.now()}`, label: 'New Field', type: 'text', options: [] }]);
+  };
+
+  const downloadLink = appData
+    ? `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify({ ...appData, customFields: localCustomFields }, null, 2))}`
+    : '#';
+
+  const iconOptions = ['folder', 'code', 'megaphone', 'smartphone', 'box', 'briefcase', 'globe', 'cpu', 'shield', 'wrench', 'zap', 'truck', 'database', 'server', 'layout', 'pen-tool', 'music', 'video', 'camera', 'anchor', 'coffee'];
+  const priorityIconOptions = ['flame', 'clock', 'arrow-down', 'arrow-up', 'zap', 'star', 'shield', 'alert-triangle', 'alert-circle', 'flag', 'minus'];
+
+  return (
+    <ModalWrapper
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Settings"
+      icon={<Settings size={20} />}
+    >
+      <div className="flex flex-col gap-6">
+
+        {/* Tabs */}
+        <div className="flex p-1 bg-[#05080f] rounded-xl border border-white/5 overflow-x-auto">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`
+                 flex-1 flex items-center justify-center gap-2 py-2 px-3 text-sm font-medium rounded-lg transition-all whitespace-nowrap
+                 ${activeTab === tab.id ? 'bg-white/10 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}
+               `}
+            >
+              {tab.icon}
+              <span className="">{tab.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Content Area */}
+        <div className="min-h-[300px] max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
+
+          {activeTab === 'general' && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
+              <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-blue-500/20 text-blue-400"><Shield size={18} /></div>
+                  <div>
+                    <h4 className="text-sm font-medium text-white">Data Encryption</h4>
+                    <p className="text-xs text-slate-500">Local storage enabled</p>
+                  </div>
+                </div>
+                <div className="w-8 h-4 bg-emerald-500/20 rounded-full border border-emerald-500/50 relative">
+                  <div className="absolute right-0 top-[-1px] w-4 h-4 bg-emerald-500 rounded-full shadow-glow-green"></div>
+                </div>
+              </div>
+              <div className="space-y-3 pt-2">
+                <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Board Layout</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => setLocalGrouping('none')}
+                    className={`p-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${localGrouping === 'none' ? 'bg-red-500/10 border-red-500 text-red-400' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'}`}
+                  >
+                    <Kanban size={24} />
+                    <span className="text-xs font-bold">Standard Columns</span>
+                  </button>
+                  <button
+                    onClick={() => setLocalGrouping('priority')}
+                    className={`p-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${localGrouping === 'priority' ? 'bg-red-500/10 border-red-500 text-red-400' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'}`}
+                  >
+                    <Layout size={24} />
+                    <span className="text-xs font-bold">Swimlanes (Priority)</span>
+                  </button>
+                </div>
+              </div>
+              <button onClick={saveAll} className="w-full mt-4 bg-gradient-to-r from-red-600 to-red-800 text-white text-sm font-semibold py-2.5 rounded-xl shadow-glow-red hover:shadow-lg transition-all">Save General Changes</button>
+            </div>
+          )}
+
+          {activeTab === 'workflow' && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
+              <div>
+                <div className="flex justify-between items-center mb-3">
+                  <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Board Columns</h4>
+                  <button onClick={addColumn} className="text-xs flex items-center gap-1 text-red-400 hover:text-red-300"><Plus size={14} /> Add Column</button>
+                </div>
+                <div className="space-y-2">
+                  {localColumns.map((col, idx) => (
+                    <div key={idx} className="flex items-center gap-2 p-2 bg-white/5 rounded-xl border border-white/5">
+                      <input type="color" value={col.color.startsWith('#') ? col.color : '#64748b'} onChange={(e) => updateItem(localColumns, idx, 'color', e.target.value, setLocalColumns)} className="w-6 h-6 rounded border-none bg-transparent cursor-pointer" />
+                      <div className="flex-1 flex flex-col gap-1">
+                        <input type="text" value={col.title} onChange={(e) => updateItem(localColumns, idx, 'title', e.target.value, setLocalColumns)} className="bg-transparent border-none text-sm text-slate-200 focus:outline-none w-full font-bold" placeholder="Name" />
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-slate-500 uppercase tracking-widest">WIP Limit:</span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={col.wipLimit || ''}
+                            onChange={(e) => updateItem(localColumns, idx, 'wipLimit', parseInt(e.target.value) || 0, setLocalColumns)}
+                            className="bg-[#0a0e17] border border-white/10 rounded-md text-xs text-slate-400 p-0.5 w-12 text-center focus:outline-none focus:border-red-500/50"
+                            placeholder="∞"
+                          />
+                        </div>
+                      </div>
+                      <button onClick={() => updateItem(localColumns, idx, 'isCompleted', !col.isCompleted, setLocalColumns)} className={`p-1.5 rounded-md ${col.isCompleted ? 'bg-emerald-500/20 text-emerald-400' : 'text-slate-600'}`} title="Mark as 'Completed' Phase"><CheckSquare size={14} /></button>
+                      <button onClick={() => deleteItem(localColumns, idx, setLocalColumns, 1)} className="text-slate-600 hover:text-red-400 p-1.5"><Trash2 size={14} /></button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div className="flex justify-between items-center mb-3 pt-4 border-t border-white/5">
+                  <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Workspace Icons</h4>
+                  <button onClick={addProjectType} className="text-xs flex items-center gap-1 text-red-400 hover:text-red-300"><Plus size={14} /> Add Type</button>
+                </div>
+                <div className="space-y-2">
+                  {localProjectTypes.map((type, idx) => (
+                    <div key={idx} className="flex items-center gap-2 p-2 bg-white/5 rounded-xl border border-white/5">
+                      <input type="text" value={type.label} onChange={(e) => updateItem(localProjectTypes, idx, 'label', e.target.value, setLocalProjectTypes)} className="bg-transparent border-none text-sm text-slate-200 focus:outline-none w-full" />
+                      <select value={type.icon} onChange={(e) => updateItem(localProjectTypes, idx, 'icon', e.target.value, setLocalProjectTypes)} className="bg-[#0a0e17] border border-white/10 rounded-md text-xs text-slate-400 p-1 w-24 focus:outline-none">
+                        {iconOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                      </select>
+                      <button onClick={() => deleteItem(localProjectTypes, idx, setLocalProjectTypes, 1)} className="text-slate-600 hover:text-red-400 p-1.5"><Trash2 size={14} /></button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <button onClick={saveAll} className="w-full mt-4 bg-gradient-to-r from-red-600 to-red-800 text-white text-sm font-semibold py-2.5 rounded-xl shadow-glow-red hover:shadow-lg transition-all">Save Workflow Changes</button>
+            </div>
+          )}
+
+          {activeTab === 'fields' && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
+              <div>
+                <div className="flex justify-between items-center mb-3">
+                  <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Custom Task Fields</h4>
+                  <button onClick={addCustomField} className="text-xs flex items-center gap-1 text-red-400 hover:text-red-300"><Plus size={14} /> Add Field</button>
+                </div>
+                <div className="space-y-3">
+                  {localCustomFields.map((field, idx) => (
+                    <div key={idx} className="p-3 bg-white/5 rounded-xl border border-white/5 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-white/5 rounded text-slate-400">
+                          {field.type === 'text' && <Type size={14} />}
+                          {field.type === 'number' && <Hash size={14} />}
+                          {field.type === 'dropdown' && <List size={14} />}
+                          {field.type === 'url' && <Link size={14} />}
+                        </div>
+                        <input type="text" value={field.label} onChange={(e) => updateItem(localCustomFields, idx, 'label', e.target.value, setLocalCustomFields)} className="bg-transparent border-none text-sm font-bold text-slate-200 focus:outline-none flex-1" placeholder="Field Name" />
+                        <select value={field.type} onChange={(e) => updateItem(localCustomFields, idx, 'type', e.target.value, setLocalCustomFields)} className="bg-[#0a0e17] border border-white/10 rounded-md text-xs text-slate-400 p-1 focus:outline-none">
+                          <option value="text">Text</option>
+                          <option value="number">Number</option>
+                          <option value="dropdown">Dropdown</option>
+                          <option value="url">URL</option>
+                        </select>
+                        <button onClick={() => deleteItem(localCustomFields, idx, setLocalCustomFields)} className="text-slate-600 hover:text-red-400 p-1.5"><Trash2 size={14} /></button>
+                      </div>
+                      {field.type === 'dropdown' && (
+                        <input
+                          type="text"
+                          value={field.options?.join(', ') || ''}
+                          onChange={(e) => updateItem(localCustomFields, idx, 'options', e.target.value.split(',').map(s => s.trim()), setLocalCustomFields)}
+                          className="w-full bg-black/20 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-300 placeholder-slate-600"
+                          placeholder="Options separated by comma (e.g. High, Low, Medium)"
+                        />
+                      )}
+                    </div>
+                  ))}
+                  {localCustomFields.length === 0 && <p className="text-xs text-slate-600 italic text-center py-4">No custom fields defined.</p>}
+                </div>
+              </div>
+              <button onClick={saveAll} className="w-full mt-4 bg-gradient-to-r from-red-600 to-red-800 text-white text-sm font-semibold py-2.5 rounded-xl shadow-glow-red hover:shadow-lg transition-all">Save Fields</button>
+            </div>
+          )}
+
+          {activeTab === 'priorities' && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
+              <div>
+                <div className="flex justify-between items-center mb-3">
+                  <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Custom Priorities</h4>
+                  <button onClick={addPriority} className="text-xs flex items-center gap-1 text-red-400 hover:text-red-300"><Plus size={14} /> Add Priority</button>
+                </div>
+                <div className="space-y-2">
+                  {localPriorities.map((prio, idx) => (
+                    <div key={idx} className="flex items-center gap-2 p-2 bg-white/5 rounded-xl border border-white/5">
+                      <input type="color" value={prio.color} onChange={(e) => updateItem(localPriorities, idx, 'color', e.target.value, setLocalPriorities)} className="w-6 h-6 rounded border-none bg-transparent cursor-pointer" />
+                      <input type="text" value={prio.label} onChange={(e) => updateItem(localPriorities, idx, 'label', e.target.value, setLocalPriorities)} className="bg-transparent border-none text-sm text-slate-200 focus:outline-none w-full" />
+                      <select value={prio.icon || 'minus'} onChange={(e) => updateItem(localPriorities, idx, 'icon', e.target.value, setLocalPriorities)} className="bg-[#0a0e17] border border-white/10 rounded-md text-xs text-slate-400 p-1 w-24 focus:outline-none">
+                        {priorityIconOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                      </select>
+                      <button onClick={() => deleteItem(localPriorities, idx, setLocalPriorities, 1)} className="text-slate-600 hover:text-red-400 p-1.5"><Trash2 size={14} /></button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <button onClick={saveAll} className="w-full mt-4 bg-gradient-to-r from-red-600 to-red-800 text-white text-sm font-semibold py-2.5 rounded-xl shadow-glow-red hover:shadow-lg transition-all">Save Priority Changes</button>
+            </div>
+          )}
+
+          {activeTab === 'data' && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Export Data</h4>
+                <a href={downloadLink} download={`liquitask-backup.json`} className="flex items-center justify-center gap-2 w-full p-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-xl text-slate-300 transition-all cursor-pointer no-underline"><Download size={16} /><span className="text-sm font-medium">Download JSON Snapshot</span></a>
+              </div>
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Import Data</h4>
+                <textarea value={importText} onChange={(e) => setImportText(e.target.value)} placeholder="Paste JSON schema here..." className="w-full h-24 bg-[#05080f] border border-white/10 rounded-xl p-3 text-xs text-slate-400 font-mono focus:outline-none focus:border-red-500/50 resize-none" />
+                {importError && <p className="text-xs text-red-400 px-1">{importError}</p>}
+                <button onClick={handleImport} disabled={!importText.trim() || isImporting} className="flex items-center justify-center gap-2 w-full p-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 rounded-xl text-red-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                  {isImporting ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                  <span className="text-sm font-medium">{isImporting ? 'Validating & Importing...' : 'Import from JSON'}</span>
+                </button>
+              </div>
+              <div className="pt-4 border-t border-white/5">
+                <button onClick={handleReset} className="flex items-center gap-2 text-xs font-medium text-slate-500 hover:text-red-400 transition-colors w-full justify-center"><RefreshCw size={14} /> Reset App to Defaults</button>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="pt-4 border-t border-white/5 flex justify-between items-center">
+          <span className="text-xs text-slate-600">v3.3.0 (WIP Limits & DnD)</span>
+          <button className="flex items-center gap-2 text-xs font-medium text-red-400 hover:text-red-300 transition-colors"><LogOut size={14} /> Sign Out</button>
+        </div>
+      </div>
+    </ModalWrapper>
+  );
+};
