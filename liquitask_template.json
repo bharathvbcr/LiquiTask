@@ -1,0 +1,104 @@
+{
+    "version": "1.0.0",
+    "activeProjectId": "p1",
+    "sidebarCollapsed": false,
+    "grouping": "none",
+    "columns": [
+        {
+            "id": "c1",
+            "title": "Pending",
+            "color": "bg-slate-500",
+            "wipLimit": 10
+        },
+        {
+            "id": "c2",
+            "title": "In Progress",
+            "color": "bg-blue-500",
+            "wipLimit": 3
+        },
+        {
+            "id": "c3",
+            "title": "Completed",
+            "color": "bg-green-500",
+            "isCompleted": true
+        }
+    ],
+    "projectTypes": [
+        {
+            "id": "t1",
+            "label": "Folder",
+            "icon": "folder"
+        },
+        {
+            "id": "t2",
+            "label": "Project",
+            "icon": "briefcase"
+        }
+    ],
+    "priorities": [
+        {
+            "id": "high",
+            "label": "High",
+            "color": "#ef4444",
+            "level": 1
+        },
+        {
+            "id": "medium",
+            "label": "Medium",
+            "color": "#f59e0b",
+            "level": 2
+        },
+        {
+            "id": "low",
+            "label": "Low",
+            "color": "#3b82f6",
+            "level": 3
+        }
+    ],
+    "projects": [
+        {
+            "id": "p1",
+            "name": "My Workspace",
+            "type": "t1",
+            "order": 0
+        },
+        {
+            "id": "p2",
+            "name": "Q1 Goals",
+            "type": "t2",
+            "parentId": "p1",
+            "order": 0
+        }
+    ],
+    "tasks": [
+        {
+            "id": "task-1",
+            "jobId": "TSK-001",
+            "projectId": "p1",
+            "title": "Example Task",
+            "subtitle": "Imported via JSON",
+            "summary": "This is a sample task to demonstrate the JSON structure.",
+            "assignee": "User",
+            "priority": "medium",
+            "status": "c1",
+            "createdAt": "2024-01-01T12:00:00.000Z",
+            "dueDate": "2024-01-31T12:00:00.000Z",
+            "timeEstimate": 60,
+            "timeSpent": 15,
+            "tags": [
+                "sample",
+                "import"
+            ],
+            "subtasks": [
+                {
+                    "id": "sub-1",
+                    "title": "Check JSON format",
+                    "completed": true
+                }
+            ],
+            "attachments": [],
+            "customFieldValues": {}
+        }
+    ],
+    "customFields": []
+}
