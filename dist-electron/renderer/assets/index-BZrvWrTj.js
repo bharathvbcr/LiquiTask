@@ -17,21 +17,21 @@ function requireReactJsxRuntime_production() {
   if (hasRequiredReactJsxRuntime_production) return reactJsxRuntime_production;
   hasRequiredReactJsxRuntime_production = 1;
   var REACT_ELEMENT_TYPE = Symbol.for("react.transitional.element"), REACT_FRAGMENT_TYPE = Symbol.for("react.fragment");
-  function jsxProd(type, config, maybeKey) {
-    var key = null;
-    void 0 !== maybeKey && (key = "" + maybeKey);
-    void 0 !== config.key && (key = "" + config.key);
-    if ("key" in config) {
+  function jsxProd(type, config2, maybeKey) {
+    var key2 = null;
+    void 0 !== maybeKey && (key2 = "" + maybeKey);
+    void 0 !== config2.key && (key2 = "" + config2.key);
+    if ("key" in config2) {
       maybeKey = {};
-      for (var propName in config)
-        "key" !== propName && (maybeKey[propName] = config[propName]);
-    } else maybeKey = config;
-    config = maybeKey.ref;
+      for (var propName in config2)
+        "key" !== propName && (maybeKey[propName] = config2[propName]);
+    } else maybeKey = config2;
+    config2 = maybeKey.ref;
     return {
       $$typeof: REACT_ELEMENT_TYPE,
       type,
-      key,
-      ref: void 0 !== config ? config : null,
+      key: key2,
+      ref: void 0 !== config2 ? config2 : null,
       props: maybeKey
     };
   }
@@ -113,15 +113,15 @@ function requireReact_production() {
   assign(pureComponentPrototype, Component.prototype);
   pureComponentPrototype.isPureReactComponent = true;
   var isArrayImpl = Array.isArray;
-  function noop() {
+  function noop2() {
   }
   var ReactSharedInternals = { H: null, A: null, T: null, S: null }, hasOwnProperty2 = Object.prototype.hasOwnProperty;
-  function ReactElement(type, key, props) {
+  function ReactElement(type, key2, props) {
     var refProp = props.ref;
     return {
       $$typeof: REACT_ELEMENT_TYPE,
       type,
-      key,
+      key: key2,
       ref: void 0 !== refProp ? refProp : null,
       props
     };
@@ -129,12 +129,12 @@ function requireReact_production() {
   function cloneAndReplaceKey(oldElement, newKey) {
     return ReactElement(oldElement.type, newKey, oldElement.props);
   }
-  function isValidElement(object) {
-    return "object" === typeof object && null !== object && object.$$typeof === REACT_ELEMENT_TYPE;
+  function isValidElement(object2) {
+    return "object" === typeof object2 && null !== object2 && object2.$$typeof === REACT_ELEMENT_TYPE;
   }
-  function escape(key) {
+  function escape(key2) {
     var escaperLookup = { "=": "=0", ":": "=2" };
-    return "$" + key.replace(/[=:]/g, function(match) {
+    return "$" + key2.replace(/[=:]/g, function(match) {
       return escaperLookup[match];
     });
   }
@@ -149,7 +149,7 @@ function requireReact_production() {
       case "rejected":
         throw thenable.reason;
       default:
-        switch ("string" === typeof thenable.status ? thenable.then(noop, noop) : (thenable.status = "pending", thenable.then(
+        switch ("string" === typeof thenable.status ? thenable.then(noop2, noop2) : (thenable.status = "pending", thenable.then(
           function(fulfilledValue) {
             "pending" === thenable.status && (thenable.status = "fulfilled", thenable.value = fulfilledValue);
           },
@@ -165,7 +165,7 @@ function requireReact_production() {
     }
     throw thenable;
   }
-  function mapIntoArray(children, array, escapedPrefix, nameSoFar, callback) {
+  function mapIntoArray(children, array2, escapedPrefix, nameSoFar, callback) {
     var type = typeof children;
     if ("undefined" === type || "boolean" === type) children = null;
     var invokeCallback = false;
@@ -186,7 +186,7 @@ function requireReact_production() {
             case REACT_LAZY_TYPE:
               return invokeCallback = children._init, mapIntoArray(
                 invokeCallback(children._payload),
-                array,
+                array2,
                 escapedPrefix,
                 nameSoFar,
                 callback
@@ -194,7 +194,7 @@ function requireReact_production() {
           }
       }
     if (invokeCallback)
-      return callback = callback(children), invokeCallback = "" === nameSoFar ? "." + getElementKey(children, 0) : nameSoFar, isArrayImpl(callback) ? (escapedPrefix = "", null != invokeCallback && (escapedPrefix = invokeCallback.replace(userProvidedKeyEscapeRegex, "$&/") + "/"), mapIntoArray(callback, array, escapedPrefix, "", function(c) {
+      return callback = callback(children), invokeCallback = "" === nameSoFar ? "." + getElementKey(children, 0) : nameSoFar, isArrayImpl(callback) ? (escapedPrefix = "", null != invokeCallback && (escapedPrefix = invokeCallback.replace(userProvidedKeyEscapeRegex, "$&/") + "/"), mapIntoArray(callback, array2, escapedPrefix, "", function(c) {
         return c;
       })) : null != callback && (isValidElement(callback) && (callback = cloneAndReplaceKey(
         callback,
@@ -202,14 +202,14 @@ function requireReact_production() {
           userProvidedKeyEscapeRegex,
           "$&/"
         ) + "/") + invokeCallback
-      )), array.push(callback)), 1;
+      )), array2.push(callback)), 1;
     invokeCallback = 0;
     var nextNamePrefix = "" === nameSoFar ? "." : nameSoFar + ":";
     if (isArrayImpl(children))
       for (var i = 0; i < children.length; i++)
         nameSoFar = children[i], type = nextNamePrefix + getElementKey(nameSoFar, i), invokeCallback += mapIntoArray(
           nameSoFar,
-          array,
+          array2,
           escapedPrefix,
           type,
           callback
@@ -218,7 +218,7 @@ function requireReact_production() {
       for (children = i.call(children), i = 0; !(nameSoFar = children.next()).done; )
         nameSoFar = nameSoFar.value, type = nextNamePrefix + getElementKey(nameSoFar, i++), invokeCallback += mapIntoArray(
           nameSoFar,
-          array,
+          array2,
           escapedPrefix,
           type,
           callback
@@ -227,14 +227,14 @@ function requireReact_production() {
       if ("function" === typeof children.then)
         return mapIntoArray(
           resolveThenable(children),
-          array,
+          array2,
           escapedPrefix,
           nameSoFar,
           callback
         );
-      array = String(children);
+      array2 = String(children);
       throw Error(
-        "Objects are not valid as a React child (found: " + ("[object Object]" === array ? "object with keys {" + Object.keys(children).join(", ") + "}" : array) + "). If you meant to render a collection of children, use an array instead."
+        "Objects are not valid as a React child (found: " + ("[object Object]" === array2 ? "object with keys {" + Object.keys(children).join(", ") + "}" : array2) + "). If you meant to render a collection of children, use an array instead."
       );
     }
     return invokeCallback;
@@ -334,15 +334,15 @@ function requireReact_production() {
   react_production.cacheSignal = function() {
     return null;
   };
-  react_production.cloneElement = function(element2, config, children) {
+  react_production.cloneElement = function(element2, config2, children) {
     if (null === element2 || void 0 === element2)
       throw Error(
         "The argument must be a React element, but you passed " + element2 + "."
       );
-    var props = assign({}, element2.props), key = element2.key;
-    if (null != config)
-      for (propName in void 0 !== config.key && (key = "" + config.key), config)
-        !hasOwnProperty2.call(config, propName) || "key" === propName || "__self" === propName || "__source" === propName || "ref" === propName && void 0 === config.ref || (props[propName] = config[propName]);
+    var props = assign({}, element2.props), key2 = element2.key;
+    if (null != config2)
+      for (propName in void 0 !== config2.key && (key2 = "" + config2.key), config2)
+        !hasOwnProperty2.call(config2, propName) || "key" === propName || "__self" === propName || "__source" === propName || "ref" === propName && void 0 === config2.ref || (props[propName] = config2[propName]);
     var propName = arguments.length - 2;
     if (1 === propName) props.children = children;
     else if (1 < propName) {
@@ -350,29 +350,29 @@ function requireReact_production() {
         childArray[i] = arguments[i + 2];
       props.children = childArray;
     }
-    return ReactElement(element2.type, key, props);
+    return ReactElement(element2.type, key2, props);
   };
-  react_production.createContext = function(defaultValue) {
-    defaultValue = {
+  react_production.createContext = function(defaultValue2) {
+    defaultValue2 = {
       $$typeof: REACT_CONTEXT_TYPE,
-      _currentValue: defaultValue,
-      _currentValue2: defaultValue,
+      _currentValue: defaultValue2,
+      _currentValue2: defaultValue2,
       _threadCount: 0,
       Provider: null,
       Consumer: null
     };
-    defaultValue.Provider = defaultValue;
-    defaultValue.Consumer = {
+    defaultValue2.Provider = defaultValue2;
+    defaultValue2.Consumer = {
       $$typeof: REACT_CONSUMER_TYPE,
-      _context: defaultValue
+      _context: defaultValue2
     };
-    return defaultValue;
+    return defaultValue2;
   };
-  react_production.createElement = function(type, config, children) {
-    var propName, props = {}, key = null;
-    if (null != config)
-      for (propName in void 0 !== config.key && (key = "" + config.key), config)
-        hasOwnProperty2.call(config, propName) && "key" !== propName && "__self" !== propName && "__source" !== propName && (props[propName] = config[propName]);
+  react_production.createElement = function(type, config2, children) {
+    var propName, props = {}, key2 = null;
+    if (null != config2)
+      for (propName in void 0 !== config2.key && (key2 = "" + config2.key), config2)
+        hasOwnProperty2.call(config2, propName) && "key" !== propName && "__self" !== propName && "__source" !== propName && (props[propName] = config2[propName]);
     var childrenLength = arguments.length - 2;
     if (1 === childrenLength) props.children = children;
     else if (1 < childrenLength) {
@@ -383,7 +383,7 @@ function requireReact_production() {
     if (type && type.defaultProps)
       for (propName in childrenLength = type.defaultProps, childrenLength)
         void 0 === props[propName] && (props[propName] = childrenLength[propName]);
-    return ReactElement(type, key, props);
+    return ReactElement(type, key2, props);
   };
   react_production.createRef = function() {
     return { current: null };
@@ -412,7 +412,7 @@ function requireReact_production() {
     try {
       var returnValue = scope(), onStartTransitionFinish = ReactSharedInternals.S;
       null !== onStartTransitionFinish && onStartTransitionFinish(currentTransition, returnValue);
-      "object" === typeof returnValue && null !== returnValue && "function" === typeof returnValue.then && returnValue.then(noop, reportGlobalError);
+      "object" === typeof returnValue && null !== returnValue && "function" === typeof returnValue.then && returnValue.then(noop2, reportGlobalError);
     } catch (error) {
       reportGlobalError(error);
     } finally {
@@ -431,8 +431,8 @@ function requireReact_production() {
   react_production.useCallback = function(callback, deps) {
     return ReactSharedInternals.H.useCallback(callback, deps);
   };
-  react_production.useContext = function(Context) {
-    return ReactSharedInternals.H.useContext(Context);
+  react_production.useContext = function(Context2) {
+    return ReactSharedInternals.H.useContext(Context2);
   };
   react_production.useDebugValue = function() {
   };
@@ -460,11 +460,11 @@ function requireReact_production() {
   react_production.useMemo = function(create2, deps) {
     return ReactSharedInternals.H.useMemo(create2, deps);
   };
-  react_production.useOptimistic = function(passthrough, reducer) {
-    return ReactSharedInternals.H.useOptimistic(passthrough, reducer);
+  react_production.useOptimistic = function(passthrough, reducer2) {
+    return ReactSharedInternals.H.useOptimistic(passthrough, reducer2);
   };
-  react_production.useReducer = function(reducer, initialArg, init) {
-    return ReactSharedInternals.H.useReducer(reducer, initialArg, init);
+  react_production.useReducer = function(reducer2, initialArg, init) {
+    return ReactSharedInternals.H.useReducer(reducer2, initialArg, init);
   };
   react_production.useRef = function(initialValue) {
     return ReactSharedInternals.H.useRef(initialValue);
@@ -798,30 +798,30 @@ function requireReactDom_production() {
     }
     return "Minified React error #" + code2 + "; visit " + url + " for the full message or use the non-minified dev environment for full errors and additional helpful warnings.";
   }
-  function noop() {
+  function noop2() {
   }
   var Internals = {
     d: {
-      f: noop,
+      f: noop2,
       r: function() {
         throw Error(formatProdErrorMessage(522));
       },
-      D: noop,
-      C: noop,
-      L: noop,
-      m: noop,
-      X: noop,
-      S: noop,
-      M: noop
+      D: noop2,
+      C: noop2,
+      L: noop2,
+      m: noop2,
+      X: noop2,
+      S: noop2,
+      M: noop2
     },
     p: 0,
     findDOMNode: null
   }, REACT_PORTAL_TYPE = Symbol.for("react.portal");
   function createPortal$1(children, containerInfo, implementation) {
-    var key = 3 < arguments.length && void 0 !== arguments[3] ? arguments[3] : null;
+    var key2 = 3 < arguments.length && void 0 !== arguments[3] ? arguments[3] : null;
     return {
       $$typeof: REACT_PORTAL_TYPE,
-      key: null == key ? null : "" + key,
+      key: null == key2 ? null : "" + key2,
       children,
       containerInfo,
       implementation
@@ -835,10 +835,10 @@ function requireReactDom_production() {
   }
   reactDom_production.__DOM_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE = Internals;
   reactDom_production.createPortal = function(children, container) {
-    var key = 2 < arguments.length && void 0 !== arguments[2] ? arguments[2] : null;
+    var key2 = 2 < arguments.length && void 0 !== arguments[2] ? arguments[2] : null;
     if (!container || 1 !== container.nodeType && 9 !== container.nodeType && 11 !== container.nodeType)
       throw Error(formatProdErrorMessage(299));
-    return createPortal$1(children, container, null, key);
+    return createPortal$1(children, container, null, key2);
   };
   reactDom_production.flushSync = function(fn) {
     var previousTransition = ReactSharedInternals.T, previousUpdatePriority = Internals.p;
@@ -1146,8 +1146,8 @@ function requireReactDomClient_production() {
     method: null,
     action: null
   }, valueStack = [], index2 = -1;
-  function createCursor(defaultValue) {
-    return { current: defaultValue };
+  function createCursor(defaultValue2) {
+    return { current: defaultValue2 };
   }
   function pop(cursor) {
     0 > index2 || (cursor.current = valueStack[index2], valueStack[index2] = null, index2--);
@@ -1786,7 +1786,7 @@ function requireReactDomClient_production() {
       }
     );
   }
-  function updateInput(element2, value, defaultValue, lastDefaultValue, checked, defaultChecked, type, name2) {
+  function updateInput(element2, value, defaultValue2, lastDefaultValue, checked, defaultChecked, type, name2) {
     element2.name = "";
     null != type && "function" !== typeof type && "symbol" !== typeof type && "boolean" !== typeof type ? element2.type = type : element2.removeAttribute("type");
     if (null != value)
@@ -1797,20 +1797,20 @@ function requireReactDomClient_production() {
         element2.value !== "" + getToStringValue(value) && (element2.value = "" + getToStringValue(value));
     else
       "submit" !== type && "reset" !== type || element2.removeAttribute("value");
-    null != value ? setDefaultValue(element2, type, getToStringValue(value)) : null != defaultValue ? setDefaultValue(element2, type, getToStringValue(defaultValue)) : null != lastDefaultValue && element2.removeAttribute("value");
+    null != value ? setDefaultValue(element2, type, getToStringValue(value)) : null != defaultValue2 ? setDefaultValue(element2, type, getToStringValue(defaultValue2)) : null != lastDefaultValue && element2.removeAttribute("value");
     null == checked && null != defaultChecked && (element2.defaultChecked = !!defaultChecked);
     null != checked && (element2.checked = checked && "function" !== typeof checked && "symbol" !== typeof checked);
     null != name2 && "function" !== typeof name2 && "symbol" !== typeof name2 && "boolean" !== typeof name2 ? element2.name = "" + getToStringValue(name2) : element2.removeAttribute("name");
   }
-  function initInput(element2, value, defaultValue, checked, defaultChecked, type, name2, isHydrating2) {
+  function initInput(element2, value, defaultValue2, checked, defaultChecked, type, name2, isHydrating2) {
     null != type && "function" !== typeof type && "symbol" !== typeof type && "boolean" !== typeof type && (element2.type = type);
-    if (null != value || null != defaultValue) {
+    if (null != value || null != defaultValue2) {
       if (!("submit" !== type && "reset" !== type || void 0 !== value && null !== value)) {
         track(element2);
         return;
       }
-      defaultValue = null != defaultValue ? "" + getToStringValue(defaultValue) : "";
-      value = null != value ? "" + getToStringValue(value) : defaultValue;
+      defaultValue2 = null != defaultValue2 ? "" + getToStringValue(defaultValue2) : "";
+      value = null != value ? "" + getToStringValue(value) : defaultValue2;
       isHydrating2 || value === element2.value || (element2.value = value);
       element2.defaultValue = value;
     }
@@ -1846,30 +1846,30 @@ function requireReactDomClient_production() {
       null !== multiple && (multiple.selected = true);
     }
   }
-  function updateTextarea(element2, value, defaultValue) {
-    if (null != value && (value = "" + getToStringValue(value), value !== element2.value && (element2.value = value), null == defaultValue)) {
+  function updateTextarea(element2, value, defaultValue2) {
+    if (null != value && (value = "" + getToStringValue(value), value !== element2.value && (element2.value = value), null == defaultValue2)) {
       element2.defaultValue !== value && (element2.defaultValue = value);
       return;
     }
-    element2.defaultValue = null != defaultValue ? "" + getToStringValue(defaultValue) : "";
+    element2.defaultValue = null != defaultValue2 ? "" + getToStringValue(defaultValue2) : "";
   }
-  function initTextarea(element2, value, defaultValue, children) {
+  function initTextarea(element2, value, defaultValue2, children) {
     if (null == value) {
       if (null != children) {
-        if (null != defaultValue) throw Error(formatProdErrorMessage(92));
+        if (null != defaultValue2) throw Error(formatProdErrorMessage(92));
         if (isArrayImpl(children)) {
           if (1 < children.length) throw Error(formatProdErrorMessage(93));
           children = children[0];
         }
-        defaultValue = children;
+        defaultValue2 = children;
       }
-      null == defaultValue && (defaultValue = "");
-      value = defaultValue;
+      null == defaultValue2 && (defaultValue2 = "");
+      value = defaultValue2;
     }
-    defaultValue = getToStringValue(value);
-    element2.defaultValue = defaultValue;
+    defaultValue2 = getToStringValue(value);
+    element2.defaultValue = defaultValue2;
     children = element2.textContent;
-    children === defaultValue && "" !== children && null !== children && (element2.value = children);
+    children === defaultValue2 && "" !== children && null !== children && (element2.value = children);
     track(element2);
   }
   function setTextContent(node2, text2) {
@@ -2110,8 +2110,8 @@ function requireReactDomClient_production() {
       );
     return stateNode;
   }
-  var canUseDOM = !("undefined" === typeof window || "undefined" === typeof window.document || "undefined" === typeof window.document.createElement), passiveBrowserEventsSupported = false;
-  if (canUseDOM)
+  var canUseDOM2 = !("undefined" === typeof window || "undefined" === typeof window.document || "undefined" === typeof window.document.createElement), passiveBrowserEventsSupported = false;
+  if (canUseDOM2)
     try {
       var options = {};
       Object.defineProperty(options, "passive", {
@@ -2283,8 +2283,8 @@ function requireReactDomClient_production() {
   var KeyboardEventInterface = assign({}, UIEventInterface, {
     key: function(nativeEvent) {
       if (nativeEvent.key) {
-        var key = normalizeKey[nativeEvent.key] || nativeEvent.key;
-        if ("Unidentified" !== key) return key;
+        var key2 = normalizeKey[nativeEvent.key] || nativeEvent.key;
+        if ("Unidentified" !== key2) return key2;
       }
       return "keypress" === nativeEvent.type ? (nativeEvent = getEventCharCode(nativeEvent), 13 === nativeEvent ? "Enter" : String.fromCharCode(nativeEvent)) : "keydown" === nativeEvent.type || "keyup" === nativeEvent.type ? translateToKey[nativeEvent.keyCode] || "Unidentified" : "";
     },
@@ -2342,9 +2342,9 @@ function requireReactDomClient_production() {
   }), SyntheticWheelEvent = createSyntheticEvent(WheelEventInterface), ToggleEventInterface = assign({}, EventInterface, {
     newState: 0,
     oldState: 0
-  }), SyntheticToggleEvent = createSyntheticEvent(ToggleEventInterface), END_KEYCODES = [9, 13, 27, 32], canUseCompositionEvent = canUseDOM && "CompositionEvent" in window, documentMode = null;
-  canUseDOM && "documentMode" in document && (documentMode = document.documentMode);
-  var canUseTextInputEvent = canUseDOM && "TextEvent" in window && !documentMode, useFallbackCompositionData = canUseDOM && (!canUseCompositionEvent || documentMode && 8 < documentMode && 11 >= documentMode), SPACEBAR_CHAR = String.fromCharCode(32), hasSpaceKeypress = false;
+  }), SyntheticToggleEvent = createSyntheticEvent(ToggleEventInterface), END_KEYCODES = [9, 13, 27, 32], canUseCompositionEvent = canUseDOM2 && "CompositionEvent" in window, documentMode = null;
+  canUseDOM2 && "documentMode" in document && (documentMode = document.documentMode);
+  var canUseTextInputEvent = canUseDOM2 && "TextEvent" in window && !documentMode, useFallbackCompositionData = canUseDOM2 && (!canUseCompositionEvent || documentMode && 8 < documentMode && 11 >= documentMode), SPACEBAR_CHAR = String.fromCharCode(32), hasSpaceKeypress = false;
   function isFallbackCompositionEnd(domEventName, nativeEvent) {
     switch (domEventName) {
       case "keyup":
@@ -2441,9 +2441,9 @@ function requireReactDomClient_production() {
     if ("change" === domEventName) return targetInst;
   }
   var isInputEventSupported = false;
-  if (canUseDOM) {
+  if (canUseDOM2) {
     var JSCompiler_inline_result$jscomp$286;
-    if (canUseDOM) {
+    if (canUseDOM2) {
       var isSupported$jscomp$inline_427 = "oninput" in document;
       if (!isSupported$jscomp$inline_427) {
         var element$jscomp$inline_428 = document.createElement("div");
@@ -2548,7 +2548,7 @@ function requireReactDomClient_production() {
     var nodeName = elem && elem.nodeName && elem.nodeName.toLowerCase();
     return nodeName && ("input" === nodeName && ("text" === elem.type || "search" === elem.type || "tel" === elem.type || "url" === elem.type || "password" === elem.type) || "textarea" === nodeName || "true" === elem.contentEditable);
   }
-  var skipSelectionChangeEvent = canUseDOM && "documentMode" in document && 11 >= document.documentMode, activeElement = null, activeElementInst = null, lastSelection = null, mouseDown = false;
+  var skipSelectionChangeEvent = canUseDOM2 && "documentMode" in document && 11 >= document.documentMode, activeElement = null, activeElementInst = null, lastSelection = null, mouseDown = false;
   function constructSelectEvent(dispatchQueue, nativeEvent, nativeEventTarget) {
     var doc = nativeEventTarget.window === nativeEventTarget ? nativeEventTarget.document : 9 === nativeEventTarget.nodeType ? nativeEventTarget : nativeEventTarget.ownerDocument;
     mouseDown || null == activeElement || activeElement !== getActiveElement(doc) || (doc = activeElement, "selectionStart" in doc && hasSelectionCapabilities(doc) ? doc = { start: doc.selectionStart, end: doc.selectionEnd } : (doc = (doc.ownerDocument && doc.ownerDocument.defaultView || window).getSelection(), doc = {
@@ -2580,7 +2580,7 @@ function requireReactDomClient_production() {
     transitioncancel: makePrefixMap("Transition", "TransitionCancel"),
     transitionend: makePrefixMap("Transition", "TransitionEnd")
   }, prefixedEventNames = {}, style = {};
-  canUseDOM && (style = document.createElement("div").style, "AnimationEvent" in window || (delete vendorPrefixes.animationend.animation, delete vendorPrefixes.animationiteration.animation, delete vendorPrefixes.animationstart.animation), "TransitionEvent" in window || delete vendorPrefixes.transitionend.transition);
+  canUseDOM2 && (style = document.createElement("div").style, "AnimationEvent" in window || (delete vendorPrefixes.animationend.animation, delete vendorPrefixes.animationiteration.animation, delete vendorPrefixes.animationstart.animation), "TransitionEvent" in window || delete vendorPrefixes.transitionend.transition);
   function getVendorPrefixedEventName(eventName) {
     if (prefixedEventNames[eventName]) return prefixedEventNames[eventName];
     if (!vendorPrefixes[eventName]) return eventName;
@@ -2665,9 +2665,9 @@ function requireReactDomClient_production() {
     return 3 === sourceFiber.tag ? sourceFiber.stateNode : null;
   }
   var emptyContextObject = {};
-  function FiberNode(tag, pendingProps, key, mode) {
+  function FiberNode(tag, pendingProps, key2, mode) {
     this.tag = tag;
-    this.key = key;
+    this.key = key2;
     this.sibling = this.child = this.return = this.stateNode = this.type = this.elementType = null;
     this.index = 0;
     this.refCleanup = this.ref = null;
@@ -2679,8 +2679,8 @@ function requireReactDomClient_production() {
     this.childLanes = this.lanes = 0;
     this.alternate = null;
   }
-  function createFiberImplClass(tag, pendingProps, key, mode) {
-    return new FiberNode(tag, pendingProps, key, mode);
+  function createFiberImplClass(tag, pendingProps, key2, mode) {
+    return new FiberNode(tag, pendingProps, key2, mode);
   }
   function shouldConstruct(Component) {
     Component = Component.prototype;
@@ -2718,7 +2718,7 @@ function requireReactDomClient_production() {
     });
     return workInProgress2;
   }
-  function createFiberFromTypeAndProps(type, key, pendingProps, owner, mode, lanes) {
+  function createFiberFromTypeAndProps(type, key2, pendingProps, owner, mode, lanes) {
     var fiberTag = 0;
     owner = type;
     if ("function" === typeof type) shouldConstruct(type) && (fiberTag = 1);
@@ -2731,19 +2731,19 @@ function requireReactDomClient_production() {
     else
       a: switch (type) {
         case REACT_ACTIVITY_TYPE:
-          return type = createFiberImplClass(31, pendingProps, key, mode), type.elementType = REACT_ACTIVITY_TYPE, type.lanes = lanes, type;
+          return type = createFiberImplClass(31, pendingProps, key2, mode), type.elementType = REACT_ACTIVITY_TYPE, type.lanes = lanes, type;
         case REACT_FRAGMENT_TYPE:
-          return createFiberFromFragment(pendingProps.children, mode, lanes, key);
+          return createFiberFromFragment(pendingProps.children, mode, lanes, key2);
         case REACT_STRICT_MODE_TYPE:
           fiberTag = 8;
           mode |= 24;
           break;
         case REACT_PROFILER_TYPE:
-          return type = createFiberImplClass(12, pendingProps, key, mode | 2), type.elementType = REACT_PROFILER_TYPE, type.lanes = lanes, type;
+          return type = createFiberImplClass(12, pendingProps, key2, mode | 2), type.elementType = REACT_PROFILER_TYPE, type.lanes = lanes, type;
         case REACT_SUSPENSE_TYPE:
-          return type = createFiberImplClass(13, pendingProps, key, mode), type.elementType = REACT_SUSPENSE_TYPE, type.lanes = lanes, type;
+          return type = createFiberImplClass(13, pendingProps, key2, mode), type.elementType = REACT_SUSPENSE_TYPE, type.lanes = lanes, type;
         case REACT_SUSPENSE_LIST_TYPE:
-          return type = createFiberImplClass(19, pendingProps, key, mode), type.elementType = REACT_SUSPENSE_LIST_TYPE, type.lanes = lanes, type;
+          return type = createFiberImplClass(19, pendingProps, key2, mode), type.elementType = REACT_SUSPENSE_LIST_TYPE, type.lanes = lanes, type;
         default:
           if ("object" === typeof type && null !== type)
             switch (type.$$typeof) {
@@ -2770,14 +2770,14 @@ function requireReactDomClient_production() {
           );
           owner = null;
       }
-    key = createFiberImplClass(fiberTag, pendingProps, key, mode);
-    key.elementType = type;
-    key.type = owner;
-    key.lanes = lanes;
-    return key;
+    key2 = createFiberImplClass(fiberTag, pendingProps, key2, mode);
+    key2.elementType = type;
+    key2.type = owner;
+    key2.lanes = lanes;
+    return key2;
   }
-  function createFiberFromFragment(elements, mode, lanes, key) {
-    elements = createFiberImplClass(7, elements, key, mode);
+  function createFiberFromFragment(elements, mode, lanes, key2) {
+    elements = createFiberImplClass(7, elements, key2, mode);
     elements.lanes = lanes;
     return elements;
   }
@@ -3399,13 +3399,13 @@ function requireReactDomClient_production() {
       current.return = returnFiber;
       return current;
     }
-    function updateFragment(returnFiber, current, fragment, lanes, key) {
+    function updateFragment(returnFiber, current, fragment, lanes, key2) {
       if (null === current || 7 !== current.tag)
         return current = createFiberFromFragment(
           fragment,
           returnFiber.mode,
           lanes,
-          key
+          key2
         ), current.return = returnFiber, current;
       current = useFiber(current, fragment);
       current.return = returnFiber;
@@ -3458,20 +3458,20 @@ function requireReactDomClient_production() {
       return null;
     }
     function updateSlot(returnFiber, oldFiber, newChild, lanes) {
-      var key = null !== oldFiber ? oldFiber.key : null;
+      var key2 = null !== oldFiber ? oldFiber.key : null;
       if ("string" === typeof newChild && "" !== newChild || "number" === typeof newChild || "bigint" === typeof newChild)
-        return null !== key ? null : updateTextNode(returnFiber, oldFiber, "" + newChild, lanes);
+        return null !== key2 ? null : updateTextNode(returnFiber, oldFiber, "" + newChild, lanes);
       if ("object" === typeof newChild && null !== newChild) {
         switch (newChild.$$typeof) {
           case REACT_ELEMENT_TYPE:
-            return newChild.key === key ? updateElement(returnFiber, oldFiber, newChild, lanes) : null;
+            return newChild.key === key2 ? updateElement(returnFiber, oldFiber, newChild, lanes) : null;
           case REACT_PORTAL_TYPE:
-            return newChild.key === key ? updatePortal(returnFiber, oldFiber, newChild, lanes) : null;
+            return newChild.key === key2 ? updatePortal(returnFiber, oldFiber, newChild, lanes) : null;
           case REACT_LAZY_TYPE:
             return newChild = resolveLazy(newChild), updateSlot(returnFiber, oldFiber, newChild, lanes);
         }
         if (isArrayImpl(newChild) || getIteratorFn(newChild))
-          return null !== key ? null : updateFragment(returnFiber, oldFiber, newChild, lanes, null);
+          return null !== key2 ? null : updateFragment(returnFiber, oldFiber, newChild, lanes, null);
         if ("function" === typeof newChild.then)
           return updateSlot(
             returnFiber,
@@ -3622,10 +3622,10 @@ function requireReactDomClient_production() {
         switch (newChild.$$typeof) {
           case REACT_ELEMENT_TYPE:
             a: {
-              for (var key = newChild.key; null !== currentFirstChild; ) {
-                if (currentFirstChild.key === key) {
-                  key = newChild.type;
-                  if (key === REACT_FRAGMENT_TYPE) {
+              for (var key2 = newChild.key; null !== currentFirstChild; ) {
+                if (currentFirstChild.key === key2) {
+                  key2 = newChild.type;
+                  if (key2 === REACT_FRAGMENT_TYPE) {
                     if (7 === currentFirstChild.tag) {
                       deleteRemainingChildren(
                         returnFiber,
@@ -3639,7 +3639,7 @@ function requireReactDomClient_production() {
                       returnFiber = lanes;
                       break a;
                     }
-                  } else if (currentFirstChild.elementType === key || "object" === typeof key && null !== key && key.$$typeof === REACT_LAZY_TYPE && resolveLazy(key) === currentFirstChild.type) {
+                  } else if (currentFirstChild.elementType === key2 || "object" === typeof key2 && null !== key2 && key2.$$typeof === REACT_LAZY_TYPE && resolveLazy(key2) === currentFirstChild.type) {
                     deleteRemainingChildren(
                       returnFiber,
                       currentFirstChild.sibling
@@ -3672,8 +3672,8 @@ function requireReactDomClient_production() {
             return placeSingleChild(returnFiber);
           case REACT_PORTAL_TYPE:
             a: {
-              for (key = newChild.key; null !== currentFirstChild; ) {
-                if (currentFirstChild.key === key)
+              for (key2 = newChild.key; null !== currentFirstChild; ) {
+                if (currentFirstChild.key === key2)
                   if (4 === currentFirstChild.tag && currentFirstChild.stateNode.containerInfo === newChild.containerInfo && currentFirstChild.stateNode.implementation === newChild.implementation) {
                     deleteRemainingChildren(
                       returnFiber,
@@ -3711,9 +3711,9 @@ function requireReactDomClient_production() {
             lanes
           );
         if (getIteratorFn(newChild)) {
-          key = getIteratorFn(newChild);
-          if ("function" !== typeof key) throw Error(formatProdErrorMessage(150));
-          newChild = key.call(newChild);
+          key2 = getIteratorFn(newChild);
+          if ("function" !== typeof key2) throw Error(formatProdErrorMessage(150));
+          newChild = key2.call(newChild);
           return reconcileChildrenIterator(
             returnFiber,
             currentFirstChild,
@@ -3815,14 +3815,14 @@ function requireReactDomClient_production() {
       queue = queue.firstBaseUpdate;
       if (null !== queue) {
         do {
-          var clone = {
+          var clone2 = {
             lane: queue.lane,
             tag: queue.tag,
             payload: queue.payload,
             callback: null,
             next: null
           };
-          null === newLast ? newFirst = newLast = clone : newLast = newLast.next = clone;
+          null === newLast ? newFirst = newLast = clone2 : newLast = newLast.next = clone2;
           queue = queue.next;
         } while (null !== queue);
         null === newLast ? newFirst = newLast = capturedUpdate : newLast = newLast.next = capturedUpdate;
@@ -4161,8 +4161,8 @@ function requireReactDomClient_production() {
     if (null == memoCache) {
       var current = currentlyRenderingFiber.alternate;
       null !== current && (current = current.updateQueue, null !== current && (current = current.memoCache, null != current && (memoCache = {
-        data: current.data.map(function(array) {
-          return array.slice();
+        data: current.data.map(function(array2) {
+          return array2.slice();
         }),
         index: 0
       })));
@@ -4180,14 +4180,14 @@ function requireReactDomClient_production() {
   function basicStateReducer(state, action) {
     return "function" === typeof action ? action(state) : action;
   }
-  function updateReducer(reducer) {
+  function updateReducer(reducer2) {
     var hook = updateWorkInProgressHook();
-    return updateReducerImpl(hook, currentHook, reducer);
+    return updateReducerImpl(hook, currentHook, reducer2);
   }
-  function updateReducerImpl(hook, current, reducer) {
+  function updateReducerImpl(hook, current, reducer2) {
     var queue = hook.queue;
     if (null === queue) throw Error(formatProdErrorMessage(311));
-    queue.lastRenderedReducer = reducer;
+    queue.lastRenderedReducer = reducer2;
     var baseQueue = hook.baseQueue, pendingQueue = queue.pending;
     if (null !== pendingQueue) {
       if (null !== baseQueue) {
@@ -4232,8 +4232,8 @@ function requireReactDomClient_production() {
               next: null
             }, null === newBaseQueueLast ? (newBaseQueueFirst = newBaseQueueLast = updateLane, baseFirst = pendingQueue) : newBaseQueueLast = newBaseQueueLast.next = updateLane, currentlyRenderingFiber.lanes |= revertLane, workInProgressRootSkippedLanes |= revertLane;
           updateLane = update.action;
-          shouldDoubleInvokeUserFnsInHooksDEV && reducer(pendingQueue, updateLane);
-          pendingQueue = update.hasEagerState ? update.eagerState : reducer(pendingQueue, updateLane);
+          shouldDoubleInvokeUserFnsInHooksDEV && reducer2(pendingQueue, updateLane);
+          pendingQueue = update.hasEagerState ? update.eagerState : reducer2(pendingQueue, updateLane);
         } else
           revertLane = {
             lane: updateLane,
@@ -4247,8 +4247,8 @@ function requireReactDomClient_production() {
         update = update.next;
       } while (null !== update && update !== current);
       null === newBaseQueueLast ? baseFirst = pendingQueue : newBaseQueueLast.next = newBaseQueueFirst;
-      if (!objectIs(pendingQueue, hook.memoizedState) && (didReceiveUpdate = true, didReadFromEntangledAsyncAction$60 && (reducer = currentEntangledActionThenable, null !== reducer)))
-        throw reducer;
+      if (!objectIs(pendingQueue, hook.memoizedState) && (didReceiveUpdate = true, didReadFromEntangledAsyncAction$60 && (reducer2 = currentEntangledActionThenable, null !== reducer2)))
+        throw reducer2;
       hook.memoizedState = pendingQueue;
       hook.baseState = baseFirst;
       hook.baseQueue = newBaseQueueLast;
@@ -4257,16 +4257,16 @@ function requireReactDomClient_production() {
     null === baseQueue && (queue.lanes = 0);
     return [hook.memoizedState, queue.dispatch];
   }
-  function rerenderReducer(reducer) {
+  function rerenderReducer(reducer2) {
     var hook = updateWorkInProgressHook(), queue = hook.queue;
     if (null === queue) throw Error(formatProdErrorMessage(311));
-    queue.lastRenderedReducer = reducer;
+    queue.lastRenderedReducer = reducer2;
     var dispatch = queue.dispatch, lastRenderPhaseUpdate = queue.pending, newState = hook.memoizedState;
     if (null !== lastRenderPhaseUpdate) {
       queue.pending = null;
       var update = lastRenderPhaseUpdate = lastRenderPhaseUpdate.next;
       do
-        newState = reducer(newState, update.action), update = update.next;
+        newState = reducer2(newState, update.action), update = update.next;
       while (update !== lastRenderPhaseUpdate);
       objectIs(newState, hook.memoizedState) || (didReceiveUpdate = true);
       hook.memoizedState = newState;
@@ -4363,12 +4363,12 @@ function requireReactDomClient_production() {
     };
     return hook;
   }
-  function updateOptimisticImpl(hook, current, passthrough, reducer) {
+  function updateOptimisticImpl(hook, current, passthrough, reducer2) {
     hook.baseState = passthrough;
     return updateReducerImpl(
       hook,
       currentHook,
-      "function" === typeof reducer ? reducer : basicStateReducer
+      "function" === typeof reducer2 ? reducer2 : basicStateReducer
     );
   }
   function dispatchActionState(fiber, actionQueue, setPendingState, setState, payload) {
@@ -4621,8 +4621,8 @@ function requireReactDomClient_production() {
     if (null === componentUpdateQueue)
       componentUpdateQueue = createFunctionComponentUpdateQueue(), currentlyRenderingFiber.updateQueue = componentUpdateQueue, componentUpdateQueue.events = [payload];
     else {
-      var events = componentUpdateQueue.events;
-      null === events ? componentUpdateQueue.events = [payload] : events.push(payload);
+      var events2 = componentUpdateQueue.events;
+      null === events2 ? componentUpdateQueue.events = [payload] : events2.push(payload);
     }
   }
   function updateEvent(callback) {
@@ -4744,7 +4744,7 @@ function requireReactDomClient_production() {
       ReactDOMSharedInternals.p = previousPriority, null !== prevTransition && null !== currentTransition.types && (prevTransition.types = currentTransition.types), ReactSharedInternals.T = prevTransition;
     }
   }
-  function noop() {
+  function noop2() {
   }
   function startHostTransition(formFiber, pendingState, action, formData) {
     if (5 !== formFiber.tag) throw Error(formatProdErrorMessage(476));
@@ -4754,7 +4754,7 @@ function requireReactDomClient_production() {
       queue,
       pendingState,
       sharedNotPendingObject,
-      null === action ? noop : function() {
+      null === action ? noop2 : function() {
         requestFormReset$1(formFiber);
         return action(formData);
       }
@@ -4983,7 +4983,7 @@ function requireReactDomClient_production() {
       hook.memoizedState = [nextValue, deps];
       return nextValue;
     },
-    useReducer: function(reducer, initialArg, init) {
+    useReducer: function(reducer2, initialArg, init) {
       var hook = mountWorkInProgressHook();
       if (void 0 !== init) {
         var initialState = init(initialArg);
@@ -4997,20 +4997,20 @@ function requireReactDomClient_production() {
         }
       } else initialState = initialArg;
       hook.memoizedState = hook.baseState = initialState;
-      reducer = {
+      reducer2 = {
         pending: null,
         lanes: 0,
         dispatch: null,
-        lastRenderedReducer: reducer,
+        lastRenderedReducer: reducer2,
         lastRenderedState: initialState
       };
-      hook.queue = reducer;
-      reducer = reducer.dispatch = dispatchReducerAction.bind(
+      hook.queue = reducer2;
+      reducer2 = reducer2.dispatch = dispatchReducerAction.bind(
         null,
         currentlyRenderingFiber,
-        reducer
+        reducer2
       );
-      return [hook.memoizedState, reducer];
+      return [hook.memoizedState, reducer2];
     },
     useRef: function(initialValue) {
       var hook = mountWorkInProgressHook();
@@ -5163,9 +5163,9 @@ function requireReactDomClient_production() {
     useHostTransitionStatus,
     useFormState: updateActionState,
     useActionState: updateActionState,
-    useOptimistic: function(passthrough, reducer) {
+    useOptimistic: function(passthrough, reducer2) {
       var hook = updateWorkInProgressHook();
-      return updateOptimisticImpl(hook, currentHook, passthrough, reducer);
+      return updateOptimisticImpl(hook, currentHook, passthrough, reducer2);
     },
     useMemoCache,
     useCacheRefresh: updateRefresh
@@ -5208,10 +5208,10 @@ function requireReactDomClient_production() {
     useHostTransitionStatus,
     useFormState: rerenderActionState,
     useActionState: rerenderActionState,
-    useOptimistic: function(passthrough, reducer) {
+    useOptimistic: function(passthrough, reducer2) {
       var hook = updateWorkInProgressHook();
       if (null !== currentHook)
-        return updateOptimisticImpl(hook, currentHook, passthrough, reducer);
+        return updateOptimisticImpl(hook, currentHook, passthrough, reducer2);
       hook.baseState = passthrough;
       return [passthrough, hook.queue.dispatch];
     },
@@ -5421,8 +5421,8 @@ function requireReactDomClient_production() {
     var ref = workInProgress2.ref;
     if ("ref" in nextProps) {
       var propsWithoutRef = {};
-      for (var key in nextProps)
-        "ref" !== key && (propsWithoutRef[key] = nextProps[key]);
+      for (var key2 in nextProps)
+        "ref" !== key2 && (propsWithoutRef[key2] = nextProps[key2]);
     } else propsWithoutRef = nextProps;
     prepareToReadContext(workInProgress2);
     nextProps = renderWithHooks(
@@ -5433,10 +5433,10 @@ function requireReactDomClient_production() {
       ref,
       renderLanes2
     );
-    key = checkDidRenderIdHook();
+    key2 = checkDidRenderIdHook();
     if (null !== current && !didReceiveUpdate)
       return bailoutHooks(current, workInProgress2, renderLanes2), bailoutOnAlreadyFinishedWork(current, workInProgress2, renderLanes2);
-    isHydrating && key && pushMaterializedTreeId(workInProgress2);
+    isHydrating && key2 && pushMaterializedTreeId(workInProgress2);
     workInProgress2.flags |= 1;
     reconcileChildren(current, workInProgress2, nextProps, renderLanes2);
     return workInProgress2.child;
@@ -10191,8 +10191,8 @@ function requireReactDomClient_production() {
     clientText = normalizeMarkupForTextOrAttribute(clientText);
     return normalizeMarkupForTextOrAttribute(serverText) === clientText ? true : false;
   }
-  function setProp(domElement, tag, key, value, props, prevValue) {
-    switch (key) {
+  function setProp(domElement, tag, key2, value, props, prevValue) {
+    switch (key2) {
       case "children":
         "string" === typeof value ? "body" === tag || "textarea" === tag && "" === value || setTextContent(domElement, value) : ("number" === typeof value || "bigint" === typeof value) && "body" !== tag && setTextContent(domElement, "" + value);
         break;
@@ -10207,7 +10207,7 @@ function requireReactDomClient_production() {
       case "viewBox":
       case "width":
       case "height":
-        setValueForKnownAttribute(domElement, key, value);
+        setValueForKnownAttribute(domElement, key2, value);
         break;
       case "style":
         setValueForStyles(domElement, value, prevValue);
@@ -10219,27 +10219,27 @@ function requireReactDomClient_production() {
         }
       case "src":
       case "href":
-        if ("" === value && ("a" !== tag || "href" !== key)) {
-          domElement.removeAttribute(key);
+        if ("" === value && ("a" !== tag || "href" !== key2)) {
+          domElement.removeAttribute(key2);
           break;
         }
         if (null == value || "function" === typeof value || "symbol" === typeof value || "boolean" === typeof value) {
-          domElement.removeAttribute(key);
+          domElement.removeAttribute(key2);
           break;
         }
         value = sanitizeURL("" + value);
-        domElement.setAttribute(key, value);
+        domElement.setAttribute(key2, value);
         break;
       case "action":
       case "formAction":
         if ("function" === typeof value) {
           domElement.setAttribute(
-            key,
+            key2,
             "javascript:throw new Error('A React form was unexpectedly submitted. If you called form.submit() manually, consider using form.requestSubmit() instead. If you\\'re trying to use event.stopPropagation() in a submit event handler, consider also calling event.preventDefault().')"
           );
           break;
         } else
-          "function" === typeof prevValue && ("formAction" === key ? ("input" !== tag && setProp(domElement, tag, "name", props.name, props, null), setProp(
+          "function" === typeof prevValue && ("formAction" === key2 ? ("input" !== tag && setProp(domElement, tag, "name", props.name, props, null), setProp(
             domElement,
             tag,
             "formEncType",
@@ -10262,11 +10262,11 @@ function requireReactDomClient_production() {
             null
           )) : (setProp(domElement, tag, "encType", props.encType, props, null), setProp(domElement, tag, "method", props.method, props, null), setProp(domElement, tag, "target", props.target, props, null)));
         if (null == value || "symbol" === typeof value || "boolean" === typeof value) {
-          domElement.removeAttribute(key);
+          domElement.removeAttribute(key2);
           break;
         }
         value = sanitizeURL("" + value);
-        domElement.setAttribute(key, value);
+        domElement.setAttribute(key2, value);
         break;
       case "onClick":
         null != value && (domElement.onclick = noop$1);
@@ -10281,10 +10281,10 @@ function requireReactDomClient_production() {
         if (null != value) {
           if ("object" !== typeof value || !("__html" in value))
             throw Error(formatProdErrorMessage(61));
-          key = value.__html;
-          if (null != key) {
+          key2 = value.__html;
+          if (null != key2) {
             if (null != props.children) throw Error(formatProdErrorMessage(60));
-            domElement.innerHTML = key;
+            domElement.innerHTML = key2;
           }
         }
         break;
@@ -10308,11 +10308,11 @@ function requireReactDomClient_production() {
           domElement.removeAttribute("xlink:href");
           break;
         }
-        key = sanitizeURL("" + value);
+        key2 = sanitizeURL("" + value);
         domElement.setAttributeNS(
           "http://www.w3.org/1999/xlink",
           "xlink:href",
-          key
+          key2
         );
         break;
       case "contentEditable":
@@ -10323,7 +10323,7 @@ function requireReactDomClient_production() {
       case "externalResourcesRequired":
       case "focusable":
       case "preserveAlpha":
-        null != value && "function" !== typeof value && "symbol" !== typeof value ? domElement.setAttribute(key, "" + value) : domElement.removeAttribute(key);
+        null != value && "function" !== typeof value && "symbol" !== typeof value ? domElement.setAttribute(key2, "" + value) : domElement.removeAttribute(key2);
         break;
       case "inert":
       case "allowFullScreen":
@@ -10348,21 +10348,21 @@ function requireReactDomClient_production() {
       case "scoped":
       case "seamless":
       case "itemScope":
-        value && "function" !== typeof value && "symbol" !== typeof value ? domElement.setAttribute(key, "") : domElement.removeAttribute(key);
+        value && "function" !== typeof value && "symbol" !== typeof value ? domElement.setAttribute(key2, "") : domElement.removeAttribute(key2);
         break;
       case "capture":
       case "download":
-        true === value ? domElement.setAttribute(key, "") : false !== value && null != value && "function" !== typeof value && "symbol" !== typeof value ? domElement.setAttribute(key, value) : domElement.removeAttribute(key);
+        true === value ? domElement.setAttribute(key2, "") : false !== value && null != value && "function" !== typeof value && "symbol" !== typeof value ? domElement.setAttribute(key2, value) : domElement.removeAttribute(key2);
         break;
       case "cols":
       case "rows":
       case "size":
       case "span":
-        null != value && "function" !== typeof value && "symbol" !== typeof value && !isNaN(value) && 1 <= value ? domElement.setAttribute(key, value) : domElement.removeAttribute(key);
+        null != value && "function" !== typeof value && "symbol" !== typeof value && !isNaN(value) && 1 <= value ? domElement.setAttribute(key2, value) : domElement.removeAttribute(key2);
         break;
       case "rowSpan":
       case "start":
-        null == value || "function" === typeof value || "symbol" === typeof value || isNaN(value) ? domElement.removeAttribute(key) : domElement.setAttribute(key, value);
+        null == value || "function" === typeof value || "symbol" === typeof value || isNaN(value) ? domElement.removeAttribute(key2) : domElement.setAttribute(key2, value);
         break;
       case "popover":
         listenToNonDelegatedEvent("beforetoggle", domElement);
@@ -10448,12 +10448,12 @@ function requireReactDomClient_production() {
       case "textContent":
         break;
       default:
-        if (!(2 < key.length) || "o" !== key[0] && "O" !== key[0] || "n" !== key[1] && "N" !== key[1])
-          key = aliases.get(key) || key, setValueForAttribute(domElement, key, value);
+        if (!(2 < key2.length) || "o" !== key2[0] && "O" !== key2[0] || "n" !== key2[1] && "N" !== key2[1])
+          key2 = aliases.get(key2) || key2, setValueForAttribute(domElement, key2, value);
     }
   }
-  function setPropOnCustomElement(domElement, tag, key, value, props, prevValue) {
-    switch (key) {
+  function setPropOnCustomElement(domElement, tag, key2, value, props, prevValue) {
+    switch (key2) {
       case "style":
         setValueForStyles(domElement, value, prevValue);
         break;
@@ -10461,10 +10461,10 @@ function requireReactDomClient_production() {
         if (null != value) {
           if ("object" !== typeof value || !("__html" in value))
             throw Error(formatProdErrorMessage(61));
-          key = value.__html;
-          if (null != key) {
+          key2 = value.__html;
+          if (null != key2) {
             if (null != props.children) throw Error(formatProdErrorMessage(60));
-            domElement.innerHTML = key;
+            domElement.innerHTML = key2;
           }
         }
         break;
@@ -10489,14 +10489,14 @@ function requireReactDomClient_production() {
       case "textContent":
         break;
       default:
-        if (!registrationNameDependencies.hasOwnProperty(key))
+        if (!registrationNameDependencies.hasOwnProperty(key2))
           a: {
-            if ("o" === key[0] && "n" === key[1] && (props = key.endsWith("Capture"), tag = key.slice(2, props ? key.length - 7 : void 0), prevValue = domElement[internalPropsKey] || null, prevValue = null != prevValue ? prevValue[key] : null, "function" === typeof prevValue && domElement.removeEventListener(tag, prevValue, props), "function" === typeof value)) {
-              "function" !== typeof prevValue && null !== prevValue && (key in domElement ? domElement[key] = null : domElement.hasAttribute(key) && domElement.removeAttribute(key));
+            if ("o" === key2[0] && "n" === key2[1] && (props = key2.endsWith("Capture"), tag = key2.slice(2, props ? key2.length - 7 : void 0), prevValue = domElement[internalPropsKey] || null, prevValue = null != prevValue ? prevValue[key2] : null, "function" === typeof prevValue && domElement.removeEventListener(tag, prevValue, props), "function" === typeof value)) {
+              "function" !== typeof prevValue && null !== prevValue && (key2 in domElement ? domElement[key2] = null : domElement.hasAttribute(key2) && domElement.removeAttribute(key2));
               domElement.addEventListener(tag, value, props);
               break a;
             }
-            key in domElement ? domElement[key] = value : true === value ? domElement.setAttribute(key, "") : setValueForAttribute(domElement, key, value);
+            key2 in domElement ? domElement[key2] = value : true === value ? domElement.setAttribute(key2, "") : setValueForAttribute(domElement, key2, value);
           }
     }
   }
@@ -10538,7 +10538,7 @@ function requireReactDomClient_production() {
         return;
       case "input":
         listenToNonDelegatedEvent("invalid", domElement);
-        var defaultValue = propKey = propValue = hasSrcSet = null, checked = null, defaultChecked = null;
+        var defaultValue2 = propKey = propValue = hasSrcSet = null, checked = null, defaultChecked = null;
         for (hasSrc in props)
           if (props.hasOwnProperty(hasSrc)) {
             var propValue$184 = props[hasSrc];
@@ -10560,7 +10560,7 @@ function requireReactDomClient_production() {
                   propKey = propValue$184;
                   break;
                 case "defaultValue":
-                  defaultValue = propValue$184;
+                  defaultValue2 = propValue$184;
                   break;
                 case "children":
                 case "dangerouslySetInnerHTML":
@@ -10574,7 +10574,7 @@ function requireReactDomClient_production() {
         initInput(
           domElement,
           propKey,
-          defaultValue,
+          defaultValue2,
           checked,
           defaultChecked,
           propValue,
@@ -10586,18 +10586,18 @@ function requireReactDomClient_production() {
         listenToNonDelegatedEvent("invalid", domElement);
         hasSrc = propValue = propKey = null;
         for (hasSrcSet in props)
-          if (props.hasOwnProperty(hasSrcSet) && (defaultValue = props[hasSrcSet], null != defaultValue))
+          if (props.hasOwnProperty(hasSrcSet) && (defaultValue2 = props[hasSrcSet], null != defaultValue2))
             switch (hasSrcSet) {
               case "value":
-                propKey = defaultValue;
+                propKey = defaultValue2;
                 break;
               case "defaultValue":
-                propValue = defaultValue;
+                propValue = defaultValue2;
                 break;
               case "multiple":
-                hasSrc = defaultValue;
+                hasSrc = defaultValue2;
               default:
-                setProp(domElement, tag, hasSrcSet, defaultValue, props, null);
+                setProp(domElement, tag, hasSrcSet, defaultValue2, props, null);
             }
         tag = propKey;
         props = propValue;
@@ -10608,22 +10608,22 @@ function requireReactDomClient_production() {
         listenToNonDelegatedEvent("invalid", domElement);
         propKey = hasSrcSet = hasSrc = null;
         for (propValue in props)
-          if (props.hasOwnProperty(propValue) && (defaultValue = props[propValue], null != defaultValue))
+          if (props.hasOwnProperty(propValue) && (defaultValue2 = props[propValue], null != defaultValue2))
             switch (propValue) {
               case "value":
-                hasSrc = defaultValue;
+                hasSrc = defaultValue2;
                 break;
               case "defaultValue":
-                hasSrcSet = defaultValue;
+                hasSrcSet = defaultValue2;
                 break;
               case "children":
-                propKey = defaultValue;
+                propKey = defaultValue2;
                 break;
               case "dangerouslySetInnerHTML":
-                if (null != defaultValue) throw Error(formatProdErrorMessage(91));
+                if (null != defaultValue2) throw Error(formatProdErrorMessage(91));
                 break;
               default:
-                setProp(domElement, tag, propValue, defaultValue, props, null);
+                setProp(domElement, tag, propValue, defaultValue2, props, null);
             }
         initTextarea(domElement, hasSrc, hasSrcSet, propKey);
         return;
@@ -10699,8 +10699,8 @@ function requireReactDomClient_production() {
           return;
         }
     }
-    for (defaultValue in props)
-      props.hasOwnProperty(defaultValue) && (hasSrc = props[defaultValue], null != hasSrc && setProp(domElement, tag, defaultValue, hasSrc, props, null));
+    for (defaultValue2 in props)
+      props.hasOwnProperty(defaultValue2) && (hasSrc = props[defaultValue2], null != hasSrc && setProp(domElement, tag, defaultValue2, hasSrc, props, null));
   }
   function updateProperties(domElement, tag, lastProps, nextProps) {
     switch (tag) {
@@ -10714,7 +10714,7 @@ function requireReactDomClient_production() {
       case "li":
         break;
       case "input":
-        var name2 = null, type = null, value = null, defaultValue = null, lastDefaultValue = null, checked = null, defaultChecked = null;
+        var name2 = null, type = null, value = null, defaultValue2 = null, lastDefaultValue = null, checked = null, defaultChecked = null;
         for (propKey in lastProps) {
           var lastProp = lastProps[propKey];
           if (lastProps.hasOwnProperty(propKey) && null != lastProp)
@@ -10750,7 +10750,7 @@ function requireReactDomClient_production() {
                 value = propKey;
                 break;
               case "defaultValue":
-                defaultValue = propKey;
+                defaultValue2 = propKey;
                 break;
               case "children":
               case "dangerouslySetInnerHTML":
@@ -10771,7 +10771,7 @@ function requireReactDomClient_production() {
         updateInput(
           domElement,
           value,
-          defaultValue,
+          defaultValue2,
           lastDefaultValue,
           checked,
           defaultChecked,
@@ -10780,7 +10780,7 @@ function requireReactDomClient_production() {
         );
         return;
       case "select":
-        propKey = value = defaultValue = propKey$201 = null;
+        propKey = value = defaultValue2 = propKey$201 = null;
         for (type in lastProps)
           if (lastDefaultValue = lastProps[type], lastProps.hasOwnProperty(type) && null != lastDefaultValue)
             switch (type) {
@@ -10805,7 +10805,7 @@ function requireReactDomClient_production() {
                 propKey$201 = type;
                 break;
               case "defaultValue":
-                defaultValue = type;
+                defaultValue2 = type;
                 break;
               case "multiple":
                 value = type;
@@ -10819,22 +10819,22 @@ function requireReactDomClient_production() {
                   lastDefaultValue
                 );
             }
-        tag = defaultValue;
+        tag = defaultValue2;
         lastProps = value;
         nextProps = propKey;
         null != propKey$201 ? updateOptions(domElement, !!lastProps, propKey$201, false) : !!nextProps !== !!lastProps && (null != tag ? updateOptions(domElement, !!lastProps, tag, true) : updateOptions(domElement, !!lastProps, lastProps ? [] : "", false));
         return;
       case "textarea":
         propKey = propKey$201 = null;
-        for (defaultValue in lastProps)
-          if (name2 = lastProps[defaultValue], lastProps.hasOwnProperty(defaultValue) && null != name2 && !nextProps.hasOwnProperty(defaultValue))
-            switch (defaultValue) {
+        for (defaultValue2 in lastProps)
+          if (name2 = lastProps[defaultValue2], lastProps.hasOwnProperty(defaultValue2) && null != name2 && !nextProps.hasOwnProperty(defaultValue2))
+            switch (defaultValue2) {
               case "value":
                 break;
               case "children":
                 break;
               default:
-                setProp(domElement, tag, defaultValue, null, nextProps, name2);
+                setProp(domElement, tag, defaultValue2, null, nextProps, name2);
             }
         for (value in nextProps)
           if (name2 = nextProps[value], type = lastProps[value], nextProps.hasOwnProperty(value) && (null != name2 || null != type))
@@ -10970,15 +10970,15 @@ function requireReactDomClient_production() {
   function estimateBandwidth() {
     if ("function" === typeof performance.getEntriesByType) {
       for (var count = 0, bits = 0, resourceEntries = performance.getEntriesByType("resource"), i = 0; i < resourceEntries.length; i++) {
-        var entry = resourceEntries[i], transferSize = entry.transferSize, initiatorType = entry.initiatorType, duration = entry.duration;
-        if (transferSize && duration && isLikelyStaticResource(initiatorType)) {
+        var entry = resourceEntries[i], transferSize = entry.transferSize, initiatorType = entry.initiatorType, duration2 = entry.duration;
+        if (transferSize && duration2 && isLikelyStaticResource(initiatorType)) {
           initiatorType = 0;
-          duration = entry.responseEnd;
+          duration2 = entry.responseEnd;
           for (i += 1; i < resourceEntries.length; i++) {
             var overlapEntry = resourceEntries[i], overlapStartTime = overlapEntry.startTime;
-            if (overlapStartTime > duration) break;
+            if (overlapStartTime > duration2) break;
             var overlapTransferSize = overlapEntry.transferSize, overlapInitiatorType = overlapEntry.initiatorType;
-            overlapTransferSize && isLikelyStaticResource(overlapInitiatorType) && (overlapEntry = overlapEntry.responseEnd, initiatorType += overlapTransferSize * (overlapEntry < duration ? 1 : (duration - overlapStartTime) / (overlapEntry - overlapStartTime)));
+            overlapTransferSize && isLikelyStaticResource(overlapInitiatorType) && (overlapEntry = overlapEntry.responseEnd, initiatorType += overlapTransferSize * (overlapEntry < duration2 ? 1 : (duration2 - overlapStartTime) / (overlapEntry - overlapStartTime)));
           }
           --i;
           bits += 8 * (transferSize + initiatorType) / (entry.duration / 1e3);
@@ -11308,29 +11308,29 @@ function requireReactDomClient_production() {
       ) + '"]', "string" === typeof options2.imageSizes && (preloadSelector += '[imagesizes="' + escapeSelectorAttributeValueInsideDoubleQuotes(
         options2.imageSizes
       ) + '"]')) : preloadSelector += '[href="' + escapeSelectorAttributeValueInsideDoubleQuotes(href) + '"]' : preloadSelector += '[href="' + escapeSelectorAttributeValueInsideDoubleQuotes(href) + '"]';
-      var key = preloadSelector;
+      var key2 = preloadSelector;
       switch (as) {
         case "style":
-          key = getStyleKey(href);
+          key2 = getStyleKey(href);
           break;
         case "script":
-          key = getScriptKey(href);
+          key2 = getScriptKey(href);
       }
-      preloadPropsMap.has(key) || (href = assign(
+      preloadPropsMap.has(key2) || (href = assign(
         {
           rel: "preload",
           href: "image" === as && options2 && options2.imageSrcSet ? void 0 : href,
           as
         },
         options2
-      ), preloadPropsMap.set(key, href), null !== ownerDocument.querySelector(preloadSelector) || "style" === as && ownerDocument.querySelector(getStylesheetSelectorFromKey(key)) || "script" === as && ownerDocument.querySelector(getScriptSelectorFromKey(key)) || (as = ownerDocument.createElement("link"), setInitialProperties(as, "link", href), markNodeAsHoistable(as), ownerDocument.head.appendChild(as)));
+      ), preloadPropsMap.set(key2, href), null !== ownerDocument.querySelector(preloadSelector) || "style" === as && ownerDocument.querySelector(getStylesheetSelectorFromKey(key2)) || "script" === as && ownerDocument.querySelector(getScriptSelectorFromKey(key2)) || (as = ownerDocument.createElement("link"), setInitialProperties(as, "link", href), markNodeAsHoistable(as), ownerDocument.head.appendChild(as)));
     }
   }
   function preloadModule(href, options2) {
     previousDispatcher.m(href, options2);
     var ownerDocument = globalDocument;
     if (ownerDocument && href) {
-      var as = options2 && "string" === typeof options2.as ? options2.as : "script", preloadSelector = 'link[rel="modulepreload"][as="' + escapeSelectorAttributeValueInsideDoubleQuotes(as) + '"][href="' + escapeSelectorAttributeValueInsideDoubleQuotes(href) + '"]', key = preloadSelector;
+      var as = options2 && "string" === typeof options2.as ? options2.as : "script", preloadSelector = 'link[rel="modulepreload"][as="' + escapeSelectorAttributeValueInsideDoubleQuotes(as) + '"][href="' + escapeSelectorAttributeValueInsideDoubleQuotes(href) + '"]', key2 = preloadSelector;
       switch (as) {
         case "audioworklet":
         case "paintworklet":
@@ -11338,9 +11338,9 @@ function requireReactDomClient_production() {
         case "sharedworker":
         case "worker":
         case "script":
-          key = getScriptKey(href);
+          key2 = getScriptKey(href);
       }
-      if (!preloadPropsMap.has(key) && (href = assign({ rel: "modulepreload", href }, options2), preloadPropsMap.set(key, href), null === ownerDocument.querySelector(preloadSelector))) {
+      if (!preloadPropsMap.has(key2) && (href = assign({ rel: "modulepreload", href }, options2), preloadPropsMap.set(key2, href), null === ownerDocument.querySelector(preloadSelector))) {
         switch (as) {
           case "audioworklet":
           case "paintworklet":
@@ -11348,7 +11348,7 @@ function requireReactDomClient_production() {
           case "sharedworker":
           case "worker":
           case "script":
-            if (ownerDocument.querySelector(getScriptSelectorFromKey(key)))
+            if (ownerDocument.querySelector(getScriptSelectorFromKey(key2)))
               return;
         }
         as = ownerDocument.createElement("link");
@@ -11362,13 +11362,13 @@ function requireReactDomClient_production() {
     previousDispatcher.S(href, precedence, options2);
     var ownerDocument = globalDocument;
     if (ownerDocument && href) {
-      var styles = getResourcesFromRoot(ownerDocument).hoistableStyles, key = getStyleKey(href);
+      var styles = getResourcesFromRoot(ownerDocument).hoistableStyles, key2 = getStyleKey(href);
       precedence = precedence || "default";
-      var resource = styles.get(key);
+      var resource = styles.get(key2);
       if (!resource) {
         var state = { loading: 0, preload: null };
         if (resource = ownerDocument.querySelector(
-          getStylesheetSelectorFromKey(key)
+          getStylesheetSelectorFromKey(key2)
         ))
           state.loading = 5;
         else {
@@ -11376,7 +11376,7 @@ function requireReactDomClient_production() {
             { rel: "stylesheet", href, "data-precedence": precedence },
             options2
           );
-          (options2 = preloadPropsMap.get(key)) && adoptPreloadPropsForStylesheet(href, options2);
+          (options2 = preloadPropsMap.get(key2)) && adoptPreloadPropsForStylesheet(href, options2);
           var link2 = resource = ownerDocument.createElement("link");
           markNodeAsHoistable(link2);
           setInitialProperties(link2, "link", href);
@@ -11399,7 +11399,7 @@ function requireReactDomClient_production() {
           count: 1,
           state
         };
-        styles.set(key, resource);
+        styles.set(key2, resource);
       }
     }
   }
@@ -11407,26 +11407,26 @@ function requireReactDomClient_production() {
     previousDispatcher.X(src, options2);
     var ownerDocument = globalDocument;
     if (ownerDocument && src) {
-      var scripts = getResourcesFromRoot(ownerDocument).hoistableScripts, key = getScriptKey(src), resource = scripts.get(key);
-      resource || (resource = ownerDocument.querySelector(getScriptSelectorFromKey(key)), resource || (src = assign({ src, async: true }, options2), (options2 = preloadPropsMap.get(key)) && adoptPreloadPropsForScript(src, options2), resource = ownerDocument.createElement("script"), markNodeAsHoistable(resource), setInitialProperties(resource, "link", src), ownerDocument.head.appendChild(resource)), resource = {
+      var scripts = getResourcesFromRoot(ownerDocument).hoistableScripts, key2 = getScriptKey(src), resource = scripts.get(key2);
+      resource || (resource = ownerDocument.querySelector(getScriptSelectorFromKey(key2)), resource || (src = assign({ src, async: true }, options2), (options2 = preloadPropsMap.get(key2)) && adoptPreloadPropsForScript(src, options2), resource = ownerDocument.createElement("script"), markNodeAsHoistable(resource), setInitialProperties(resource, "link", src), ownerDocument.head.appendChild(resource)), resource = {
         type: "script",
         instance: resource,
         count: 1,
         state: null
-      }, scripts.set(key, resource));
+      }, scripts.set(key2, resource));
     }
   }
   function preinitModuleScript(src, options2) {
     previousDispatcher.M(src, options2);
     var ownerDocument = globalDocument;
     if (ownerDocument && src) {
-      var scripts = getResourcesFromRoot(ownerDocument).hoistableScripts, key = getScriptKey(src), resource = scripts.get(key);
-      resource || (resource = ownerDocument.querySelector(getScriptSelectorFromKey(key)), resource || (src = assign({ src, async: true, type: "module" }, options2), (options2 = preloadPropsMap.get(key)) && adoptPreloadPropsForScript(src, options2), resource = ownerDocument.createElement("script"), markNodeAsHoistable(resource), setInitialProperties(resource, "link", src), ownerDocument.head.appendChild(resource)), resource = {
+      var scripts = getResourcesFromRoot(ownerDocument).hoistableScripts, key2 = getScriptKey(src), resource = scripts.get(key2);
+      resource || (resource = ownerDocument.querySelector(getScriptSelectorFromKey(key2)), resource || (src = assign({ src, async: true, type: "module" }, options2), (options2 = preloadPropsMap.get(key2)) && adoptPreloadPropsForScript(src, options2), resource = ownerDocument.createElement("script"), markNodeAsHoistable(resource), setInitialProperties(resource, "link", src), ownerDocument.head.appendChild(resource)), resource = {
         type: "script",
         instance: resource,
         count: 1,
         state: null
-      }, scripts.set(key, resource));
+      }, scripts.set(key2, resource));
     }
   }
   function getResource(type, currentProps, pendingProps, currentResource) {
@@ -11496,8 +11496,8 @@ function requireReactDomClient_production() {
   function getStyleKey(href) {
     return 'href="' + escapeSelectorAttributeValueInsideDoubleQuotes(href) + '"';
   }
-  function getStylesheetSelectorFromKey(key) {
-    return 'link[rel="stylesheet"][' + key + "]";
+  function getStylesheetSelectorFromKey(key2) {
+    return 'link[rel="stylesheet"][' + key2 + "]";
   }
   function stylesheetPropsFromRawProps(rawProps) {
     return assign({}, rawProps, {
@@ -11505,18 +11505,18 @@ function requireReactDomClient_production() {
       precedence: null
     });
   }
-  function preloadStylesheet(ownerDocument, key, preloadProps, state) {
-    ownerDocument.querySelector('link[rel="preload"][as="style"][' + key + "]") ? state.loading = 1 : (key = ownerDocument.createElement("link"), state.preload = key, key.addEventListener("load", function() {
+  function preloadStylesheet(ownerDocument, key2, preloadProps, state) {
+    ownerDocument.querySelector('link[rel="preload"][as="style"][' + key2 + "]") ? state.loading = 1 : (key2 = ownerDocument.createElement("link"), state.preload = key2, key2.addEventListener("load", function() {
       return state.loading |= 1;
-    }), key.addEventListener("error", function() {
+    }), key2.addEventListener("error", function() {
       return state.loading |= 2;
-    }), setInitialProperties(key, "link", preloadProps), markNodeAsHoistable(key), ownerDocument.head.appendChild(key));
+    }), setInitialProperties(key2, "link", preloadProps), markNodeAsHoistable(key2), ownerDocument.head.appendChild(key2));
   }
   function getScriptKey(src) {
     return '[src="' + escapeSelectorAttributeValueInsideDoubleQuotes(src) + '"]';
   }
-  function getScriptSelectorFromKey(key) {
-    return "script[async]" + key;
+  function getScriptSelectorFromKey(key2) {
+    return "script[async]" + key2;
   }
   function acquireResource(hoistableRoot, resource, props) {
     resource.count++;
@@ -11665,8 +11665,8 @@ function requireReactDomClient_production() {
   function suspendResource(state, hoistableRoot, resource, props) {
     if ("stylesheet" === resource.type && ("string" !== typeof props.media || false !== matchMedia(props.media).matches) && 0 === (resource.state.loading & 4)) {
       if (null === resource.instance) {
-        var key = getStyleKey(props.href), instance = hoistableRoot.querySelector(
-          getStylesheetSelectorFromKey(key)
+        var key2 = getStyleKey(props.href), instance = hoistableRoot.querySelector(
+          getStylesheetSelectorFromKey(key2)
         );
         if (instance) {
           hoistableRoot = instance._p;
@@ -11678,7 +11678,7 @@ function requireReactDomClient_production() {
         }
         instance = hoistableRoot.ownerDocument || hoistableRoot;
         props = stylesheetPropsFromRawProps(props);
-        (key = preloadPropsMap.get(key)) && adoptPreloadPropsForStylesheet(props, key);
+        (key2 = preloadPropsMap.get(key2)) && adoptPreloadPropsForStylesheet(props, key2);
         instance = instance.createElement("link");
         markNodeAsHoistable(instance);
         var linkInstance = instance;
@@ -12228,8 +12228,8 @@ function requireReactDomClient_production() {
     }
     return true;
   }
-  function attemptReplayContinuousQueuedEventInMap(queuedEvent, key, map2) {
-    attemptReplayContinuousQueuedEvent(queuedEvent) && map2.delete(key);
+  function attemptReplayContinuousQueuedEventInMap(queuedEvent, key2, map2) {
+    attemptReplayContinuousQueuedEvent(queuedEvent) && map2.delete(key2);
   }
   function replayUnblockedEvents() {
     hasScheduledReplayAttempt = false;
@@ -12514,8 +12514,8 @@ const toPascalCase = (string2) => {
   const camelCase = toCamelCase(string2);
   return camelCase.charAt(0).toUpperCase() + camelCase.slice(1);
 };
-const mergeClasses = (...classes) => classes.filter((className, index2, array) => {
-  return Boolean(className) && className.trim() !== "" && array.indexOf(className) === index2;
+const mergeClasses = (...classes) => classes.filter((className, index2, array2) => {
+  return Boolean(className) && className.trim() !== "" && array2.indexOf(className) === index2;
 }).join(" ").trim();
 const hasA11yProp = (props) => {
   for (const prop in props) {
@@ -12530,7 +12530,7 @@ const hasA11yProp = (props) => {
  * This source code is licensed under the ISC license.
  * See the LICENSE file in the root directory of this source tree.
  */
-var defaultAttributes = {
+var defaultAttributes$1 = {
   xmlns: "http://www.w3.org/2000/svg",
   width: 24,
   height: 24,
@@ -12561,7 +12561,7 @@ const Icon = reactExports.forwardRef(
     "svg",
     {
       ref,
-      ...defaultAttributes,
+      ...defaultAttributes$1,
       width: size,
       height: size,
       stroke: color2,
@@ -13736,6 +13736,7 @@ const __iconNode = [
   ]
 ];
 const Zap = createLucideIcon("zap", __iconNode);
+const logo = "" + new URL("logo-BM4ZRm3e.png", import.meta.url).href;
 const Sidebar = ({
   projects,
   activeProjectId,
@@ -13981,20 +13982,11 @@ const Sidebar = ({
         `,
       children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: `p-6 pb-2 flex items-center ${isCollapsed ? "justify-center" : "justify-between"} transition-all`, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "w-10 h-10 rounded-xl bg-gradient-to-br from-red-600 to-red-900 flex items-center justify-center shadow-glow-red shrink-0 relative overflow-hidden group border border-white/10", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-bold text-white text-xl relative z-10", children: "A" })
-          ] }),
-          !isCollapsed && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("h1", { className: "text-xl font-bold text-white tracking-tight whitespace-nowrap text-glow", children: [
-              "Aether",
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-red-500 font-light", children: "Task" })
-            ] }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-1.5", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[10px] text-slate-500 uppercase tracking-wider font-bold", children: "Online" })
-            ] })
-          ] })
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-10 h-10 flex items-center justify-center shrink-0 relative group", children: /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: logo, alt: "Logo", className: "w-8 h-8 object-contain relative z-10 drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]" }) }),
+          !isCollapsed && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { children: /* @__PURE__ */ jsxRuntimeExports.jsxs("h1", { className: "text-xl font-bold text-white tracking-tight whitespace-nowrap text-glow", children: [
+            "Liqui",
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-red-500 font-light", children: "Task" })
+          ] }) })
         ] }) }),
         /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex justify-end px-4 mb-4", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
           "button",
@@ -14092,6 +14084,69 @@ const Sidebar = ({
     }
   );
 };
+const LiquidButton = ({ label, onClick, icon }) => {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "button",
+    {
+      onClick,
+      className: "group relative px-6 py-3 rounded-2xl font-bold text-white transition-all duration-300 transform active:scale-95 overflow-hidden",
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute inset-0 bg-gradient-to-br from-red-700 to-red-900 rounded-2xl border border-red-500/50 shadow-[0_0_15px_rgba(220,38,38,0.4)] z-0 transition-all duration-300 group-hover:shadow-[0_0_30px_rgba(255,30,30,0.6)]" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute inset-0 z-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500", children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute inset-0 bg-red-600/30 mix-blend-overlay animate-ripple rounded-2xl" }) }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/20 to-transparent rounded-t-2xl z-0 pointer-events-none opacity-50" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute bottom-0 left-0 w-full h-1/3 bg-gradient-to-t from-black/20 to-transparent rounded-b-2xl z-0 pointer-events-none" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative z-10 flex items-center gap-2 drop-shadow-md", children: [
+          icon || /* @__PURE__ */ jsxRuntimeExports.jsx(Plus, { size: 20, className: "text-red-100" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "tracking-wide text-sm", children: label })
+        ] })
+      ]
+    }
+  );
+};
+const ModalWrapper = ({
+  isOpen,
+  onClose,
+  title,
+  children,
+  icon
+}) => {
+  reactExports.useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    if (isOpen) window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [isOpen, onClose]);
+  if (!isOpen) return null;
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "fixed inset-0 z-50 flex items-center justify-center p-4", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "div",
+      {
+        className: "absolute inset-0 bg-[#020000]/80 backdrop-blur-md transition-opacity animate-in fade-in duration-300",
+        onClick: onClose
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative w-full max-w-lg liquid-glass flex flex-col transform transition-all animate-in zoom-in-95 duration-300 border border-red-500/20 shadow-[0_0_50px_rgba(0,0,0,0.9)] max-h-[85vh]", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-600 via-red-500 to-red-900 shadow-[0_0_20px_rgba(220,38,38,0.8)] z-20" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute top-1 right-0 w-32 h-32 bg-red-600/10 rounded-full blur-[40px] pointer-events-none z-0" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "p-8 pb-4 relative z-10 shrink-0", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-4", children: [
+          icon && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "p-2.5 bg-red-500/10 rounded-xl border border-red-500/30 text-red-400 shadow-[0_0_15px_rgba(220,38,38,0.2)]", children: icon }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { children: /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-2xl font-bold text-white tracking-tight text-glow", children: title }) })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            onClick: onClose,
+            className: "text-slate-400 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-full",
+            children: /* @__PURE__ */ jsxRuntimeExports.jsx(X, { size: 20 })
+          }
+        )
+      ] }) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "p-8 pt-0 overflow-y-auto custom-scrollbar relative z-10", children })
+    ] })
+  ] });
+};
 function ok$1() {
 }
 function unreachable() {
@@ -14140,7 +14195,7 @@ class Schema {
 Schema.prototype.normal = {};
 Schema.prototype.property = {};
 Schema.prototype.space = void 0;
-function merge(definitions, space2) {
+function merge$1(definitions, space2) {
   const property = {};
   const normal = {};
   for (const definition2 of definitions) {
@@ -14179,10 +14234,10 @@ Info.prototype.property = "";
 Info.prototype.spaceSeparated = false;
 Info.prototype.space = void 0;
 let powers = 0;
-const boolean = increment();
+const boolean$2 = increment();
 const booleanish = increment();
 const overloadedBoolean = increment();
-const number = increment();
+const number$2 = increment();
 const spaceSeparated = increment();
 const commaSeparated = increment();
 const commaOrSpaceSeparated = increment();
@@ -14191,11 +14246,11 @@ function increment() {
 }
 const types = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
-  boolean,
+  boolean: boolean$2,
   booleanish,
   commaOrSpaceSeparated,
   commaSeparated,
-  number,
+  number: number$2,
   overloadedBoolean,
   spaceSeparated
 }, Symbol.toStringTag, { value: "Module" }));
@@ -14230,13 +14285,13 @@ class DefinedInfo extends Info {
   }
 }
 DefinedInfo.prototype.defined = true;
-function mark(values, key, value) {
+function mark(values, key2, value) {
   if (value) {
-    values[key] = value;
+    values[key2] = value;
   }
 }
 function create(definition2) {
-  const properties = {};
+  const properties2 = {};
   const normals = {};
   for (const [property, value] of Object.entries(definition2.properties)) {
     const info = new DefinedInfo(
@@ -14248,11 +14303,11 @@ function create(definition2) {
     if (definition2.mustUseProperty && definition2.mustUseProperty.includes(property)) {
       info.mustUseProperty = true;
     }
-    properties[property] = info;
+    properties2[property] = info;
     normals[normalize$1(property)] = property;
     normals[normalize$1(info.attribute)] = property;
   }
-  return new Schema(properties, normals, definition2.space);
+  return new Schema(properties2, normals, definition2.space);
 }
 const aria = create({
   properties: {
@@ -14261,9 +14316,9 @@ const aria = create({
     ariaAutoComplete: null,
     ariaBusy: booleanish,
     ariaChecked: booleanish,
-    ariaColCount: number,
-    ariaColIndex: number,
-    ariaColSpan: number,
+    ariaColCount: number$2,
+    ariaColIndex: number$2,
+    ariaColSpan: number$2,
     ariaControls: spaceSeparated,
     ariaCurrent: null,
     ariaDescribedBy: spaceSeparated,
@@ -14280,7 +14335,7 @@ const aria = create({
     ariaKeyShortcuts: null,
     ariaLabel: null,
     ariaLabelledBy: spaceSeparated,
-    ariaLevel: number,
+    ariaLevel: number$2,
     ariaLive: null,
     ariaModal: booleanish,
     ariaMultiLine: booleanish,
@@ -14288,21 +14343,21 @@ const aria = create({
     ariaOrientation: null,
     ariaOwns: spaceSeparated,
     ariaPlaceholder: null,
-    ariaPosInSet: number,
+    ariaPosInSet: number$2,
     ariaPressed: booleanish,
     ariaReadOnly: booleanish,
     ariaRelevant: null,
     ariaRequired: booleanish,
     ariaRoleDescription: spaceSeparated,
-    ariaRowCount: number,
-    ariaRowIndex: number,
-    ariaRowSpan: number,
+    ariaRowCount: number$2,
+    ariaRowIndex: number$2,
+    ariaRowSpan: number$2,
     ariaSelected: booleanish,
-    ariaSetSize: number,
+    ariaSetSize: number$2,
     ariaSort: null,
-    ariaValueMax: number,
-    ariaValueMin: number,
-    ariaValueNow: number,
+    ariaValueMax: number$2,
+    ariaValueMin: number$2,
+    ariaValueNow: number$2,
     ariaValueText: null,
     role: null
   },
@@ -14332,38 +14387,38 @@ const html$3 = create({
     accessKey: spaceSeparated,
     action: null,
     allow: null,
-    allowFullScreen: boolean,
-    allowPaymentRequest: boolean,
-    allowUserMedia: boolean,
+    allowFullScreen: boolean$2,
+    allowPaymentRequest: boolean$2,
+    allowUserMedia: boolean$2,
     alt: null,
     as: null,
-    async: boolean,
+    async: boolean$2,
     autoCapitalize: null,
     autoComplete: spaceSeparated,
-    autoFocus: boolean,
-    autoPlay: boolean,
+    autoFocus: boolean$2,
+    autoPlay: boolean$2,
     blocking: spaceSeparated,
     capture: null,
     charSet: null,
-    checked: boolean,
+    checked: boolean$2,
     cite: null,
     className: spaceSeparated,
-    cols: number,
+    cols: number$2,
     colSpan: null,
     content: null,
     contentEditable: booleanish,
-    controls: boolean,
+    controls: boolean$2,
     controlsList: spaceSeparated,
-    coords: number | commaSeparated,
+    coords: number$2 | commaSeparated,
     crossOrigin: null,
     data: null,
     dateTime: null,
     decoding: null,
-    default: boolean,
-    defer: boolean,
+    default: boolean$2,
+    defer: boolean$2,
     dir: null,
     dirName: null,
-    disabled: boolean,
+    disabled: boolean$2,
     download: overloadedBoolean,
     draggable: booleanish,
     encType: null,
@@ -14373,12 +14428,12 @@ const html$3 = create({
     formAction: null,
     formEncType: null,
     formMethod: null,
-    formNoValidate: boolean,
+    formNoValidate: boolean$2,
     formTarget: null,
     headers: spaceSeparated,
-    height: number,
+    height: number$2,
     hidden: overloadedBoolean,
-    high: number,
+    high: number$2,
     href: null,
     hrefLang: null,
     htmlFor: spaceSeparated,
@@ -14386,15 +14441,15 @@ const html$3 = create({
     id: null,
     imageSizes: null,
     imageSrcSet: null,
-    inert: boolean,
+    inert: boolean$2,
     inputMode: null,
     integrity: null,
     is: null,
-    isMap: boolean,
+    isMap: boolean$2,
     itemId: null,
     itemProp: spaceSeparated,
     itemRef: spaceSeparated,
-    itemScope: boolean,
+    itemScope: boolean$2,
     itemType: spaceSeparated,
     kind: null,
     label: null,
@@ -14402,21 +14457,21 @@ const html$3 = create({
     language: null,
     list: null,
     loading: null,
-    loop: boolean,
-    low: number,
+    loop: boolean$2,
+    low: number$2,
     manifest: null,
     max: null,
-    maxLength: number,
+    maxLength: number$2,
     media: null,
     method: null,
     min: null,
-    minLength: number,
-    multiple: boolean,
-    muted: boolean,
+    minLength: number$2,
+    multiple: boolean$2,
+    muted: boolean$2,
     name: null,
     nonce: null,
-    noModule: boolean,
-    noValidate: boolean,
+    noModule: boolean$2,
+    noValidate: boolean$2,
     onAbort: null,
     onAfterPrint: null,
     onAuxClick: null,
@@ -14505,54 +14560,54 @@ const html$3 = create({
     onVolumeChange: null,
     onWaiting: null,
     onWheel: null,
-    open: boolean,
-    optimum: number,
+    open: boolean$2,
+    optimum: number$2,
     pattern: null,
     ping: spaceSeparated,
     placeholder: null,
-    playsInline: boolean,
+    playsInline: boolean$2,
     popover: null,
     popoverTarget: null,
     popoverTargetAction: null,
     poster: null,
     preload: null,
-    readOnly: boolean,
+    readOnly: boolean$2,
     referrerPolicy: null,
     rel: spaceSeparated,
-    required: boolean,
-    reversed: boolean,
-    rows: number,
-    rowSpan: number,
+    required: boolean$2,
+    reversed: boolean$2,
+    rows: number$2,
+    rowSpan: number$2,
     sandbox: spaceSeparated,
     scope: null,
-    scoped: boolean,
-    seamless: boolean,
-    selected: boolean,
-    shadowRootClonable: boolean,
-    shadowRootDelegatesFocus: boolean,
+    scoped: boolean$2,
+    seamless: boolean$2,
+    selected: boolean$2,
+    shadowRootClonable: boolean$2,
+    shadowRootDelegatesFocus: boolean$2,
     shadowRootMode: null,
     shape: null,
-    size: number,
+    size: number$2,
     sizes: null,
     slot: null,
-    span: number,
+    span: number$2,
     spellCheck: booleanish,
     src: null,
     srcDoc: null,
     srcLang: null,
     srcSet: null,
-    start: number,
+    start: number$2,
     step: null,
     style: null,
-    tabIndex: number,
+    tabIndex: number$2,
     target: null,
     title: null,
     translate: null,
     type: null,
-    typeMustMatch: boolean,
+    typeMustMatch: boolean$2,
     useMap: null,
     value: booleanish,
-    width: number,
+    width: number$2,
     wrap: null,
     writingSuggestions: null,
     // Legacy.
@@ -14569,11 +14624,11 @@ const html$3 = create({
     // `<body>`. Use CSS `background-image` instead
     bgColor: null,
     // `<body>` and table elements. Use CSS `background-color` instead
-    border: number,
+    border: number$2,
     // `<table>`. Use CSS `border-width` instead,
     borderColor: null,
     // `<table>`. Use CSS `border-color` instead,
-    bottomMargin: number,
+    bottomMargin: number$2,
     // `<body>`
     cellPadding: null,
     // `<table>`
@@ -14595,9 +14650,9 @@ const html$3 = create({
     // `<object>`
     color: null,
     // `<font>` and `<hr>`. Use CSS instead
-    compact: boolean,
+    compact: boolean$2,
     // Lists. Use CSS to reduce space between items instead
-    declare: boolean,
+    declare: boolean$2,
     // `<object>`
     event: null,
     // `<script>`
@@ -14607,9 +14662,9 @@ const html$3 = create({
     // `<table>`
     frameBorder: null,
     // `<iframe>`. Use CSS `border` instead
-    hSpace: number,
+    hSpace: number$2,
     // `<img>` and `<object>`
-    leftMargin: number,
+    leftMargin: number$2,
     // `<body>`
     link: null,
     // `<body>`. Use CSS `a:link {color: *}` instead
@@ -14617,17 +14672,17 @@ const html$3 = create({
     // `<frame>`, `<iframe>`, and `<img>`. Use an `<a>`
     lowSrc: null,
     // `<img>`. Use a `<picture>`
-    marginHeight: number,
+    marginHeight: number$2,
     // `<body>`
-    marginWidth: number,
+    marginWidth: number$2,
     // `<body>`
-    noResize: boolean,
+    noResize: boolean$2,
     // `<frame>`
-    noHref: boolean,
+    noHref: boolean$2,
     // `<area>`. Use no href instead of an explicit `nohref`
-    noShade: boolean,
+    noShade: boolean$2,
     // `<hr>`. Use background-color and height instead of borders
-    noWrap: boolean,
+    noWrap: boolean$2,
     // `<td>` and `<th>`
     object: null,
     // `<applet>`
@@ -14637,7 +14692,7 @@ const html$3 = create({
     // `<isindex>`
     rev: null,
     // `<link>`
-    rightMargin: number,
+    rightMargin: number$2,
     // `<body>`
     rules: null,
     // `<table>`
@@ -14651,7 +14706,7 @@ const html$3 = create({
     // `<table>`
     text: null,
     // `<body>`. Use CSS `color` instead
-    topMargin: number,
+    topMargin: number$2,
     // `<body>`
     valueType: null,
     // `<param>`
@@ -14661,17 +14716,17 @@ const html$3 = create({
     // Several. Use CSS `vertical-align` instead
     vLink: null,
     // `<body>`. Use CSS `a:visited {color}` instead
-    vSpace: number,
+    vSpace: number$2,
     // `<img>` and `<object>`
     // Non-standard Properties.
     allowTransparency: null,
     autoCorrect: null,
     autoSave: null,
-    disablePictureInPicture: boolean,
-    disableRemotePlayback: boolean,
+    disablePictureInPicture: boolean$2,
+    disableRemotePlayback: boolean$2,
     prefix: null,
     property: null,
-    results: number,
+    results: number$2,
     security: null,
     unselectable: null
   },
@@ -14856,27 +14911,27 @@ const svg$1 = create({
   },
   properties: {
     about: commaOrSpaceSeparated,
-    accentHeight: number,
+    accentHeight: number$2,
     accumulate: null,
     additive: null,
     alignmentBaseline: null,
-    alphabetic: number,
-    amplitude: number,
+    alphabetic: number$2,
+    amplitude: number$2,
     arabicForm: null,
-    ascent: number,
+    ascent: number$2,
     attributeName: null,
     attributeType: null,
-    azimuth: number,
+    azimuth: number$2,
     bandwidth: null,
     baselineShift: null,
     baseFrequency: null,
     baseProfile: null,
     bbox: null,
     begin: null,
-    bias: number,
+    bias: number$2,
     by: null,
     calcMode: null,
-    capHeight: number,
+    capHeight: number$2,
     className: spaceSeparated,
     clip: null,
     clipPath: null,
@@ -14897,26 +14952,26 @@ const svg$1 = create({
     d: null,
     dataType: null,
     defaultAction: null,
-    descent: number,
-    diffuseConstant: number,
+    descent: number$2,
+    diffuseConstant: number$2,
     direction: null,
     display: null,
     dur: null,
-    divisor: number,
+    divisor: number$2,
     dominantBaseline: null,
-    download: boolean,
+    download: boolean$2,
     dx: null,
     dy: null,
     edgeMode: null,
     editable: null,
-    elevation: number,
+    elevation: number$2,
     enableBackground: null,
     end: null,
     event: null,
-    exponent: number,
+    exponent: number$2,
     externalResourcesRequired: null,
     fill: null,
-    fillOpacity: number,
+    fillOpacity: number$2,
     fillRule: null,
     filter: null,
     filterRes: null,
@@ -14946,27 +15001,27 @@ const svg$1 = create({
     gradientTransform: null,
     gradientUnits: null,
     handler: null,
-    hanging: number,
+    hanging: number$2,
     hatchContentUnits: null,
     hatchUnits: null,
     height: null,
     href: null,
     hrefLang: null,
-    horizAdvX: number,
-    horizOriginX: number,
-    horizOriginY: number,
+    horizAdvX: number$2,
+    horizOriginX: number$2,
+    horizOriginY: number$2,
     id: null,
-    ideographic: number,
+    ideographic: number$2,
     imageRendering: null,
     initialVisibility: null,
     in: null,
     in2: null,
-    intercept: number,
-    k: number,
-    k1: number,
-    k2: number,
-    k3: number,
-    k4: number,
+    intercept: number$2,
+    k: number$2,
+    k1: number$2,
+    k2: number$2,
+    k3: number$2,
+    k4: number$2,
     kernelMatrix: commaOrSpaceSeparated,
     kernelUnitLength: null,
     keyPoints: null,
@@ -14980,7 +15035,7 @@ const svg$1 = create({
     lengthAdjust: null,
     letterSpacing: null,
     lightingColor: null,
-    limitingConeAngle: number,
+    limitingConeAngle: number$2,
     local: null,
     markerEnd: null,
     markerMid: null,
@@ -14996,7 +15051,7 @@ const svg$1 = create({
     media: null,
     mediaCharacterEncoding: null,
     mediaContentEncodings: null,
-    mediaSize: number,
+    mediaSize: number$2,
     mediaTime: null,
     method: null,
     min: null,
@@ -15102,12 +15157,12 @@ const svg$1 = create({
     origin: null,
     overflow: null,
     overlay: null,
-    overlinePosition: number,
-    overlineThickness: number,
+    overlinePosition: number$2,
+    overlineThickness: number$2,
     paintOrder: null,
     panose1: null,
     path: null,
-    pathLength: number,
+    pathLength: number$2,
     patternContentUnits: null,
     patternTransform: null,
     patternUnits: null,
@@ -15117,9 +15172,9 @@ const svg$1 = create({
     playbackOrder: null,
     pointerEvents: null,
     points: null,
-    pointsAtX: number,
-    pointsAtY: number,
-    pointsAtZ: number,
+    pointsAtX: number$2,
+    pointsAtY: number$2,
+    pointsAtZ: number$2,
     preserveAlpha: null,
     preserveAspectRatio: null,
     primitiveUnits: null,
@@ -15151,8 +15206,8 @@ const svg$1 = create({
     side: null,
     slope: null,
     snapshotTime: null,
-    specularConstant: number,
-    specularExponent: number,
+    specularConstant: number$2,
+    specularExponent: number$2,
     spreadMethod: null,
     spacing: null,
     startOffset: null,
@@ -15162,30 +15217,30 @@ const svg$1 = create({
     stitchTiles: null,
     stopColor: null,
     stopOpacity: null,
-    strikethroughPosition: number,
-    strikethroughThickness: number,
+    strikethroughPosition: number$2,
+    strikethroughThickness: number$2,
     string: null,
     stroke: null,
     strokeDashArray: commaOrSpaceSeparated,
     strokeDashOffset: null,
     strokeLineCap: null,
     strokeLineJoin: null,
-    strokeMiterLimit: number,
-    strokeOpacity: number,
+    strokeMiterLimit: number$2,
+    strokeOpacity: number$2,
     strokeWidth: null,
     style: null,
-    surfaceScale: number,
+    surfaceScale: number$2,
     syncBehavior: null,
     syncBehaviorDefault: null,
     syncMaster: null,
     syncTolerance: null,
     syncToleranceDefault: null,
     systemLanguage: commaOrSpaceSeparated,
-    tabIndex: number,
+    tabIndex: number$2,
     tableValues: null,
     target: null,
-    targetX: number,
-    targetY: number,
+    targetX: number$2,
+    targetY: number$2,
     textAnchor: null,
     textDecoration: null,
     textRendering: null,
@@ -15200,22 +15255,22 @@ const svg$1 = create({
     transformOrigin: null,
     u1: null,
     u2: null,
-    underlinePosition: number,
-    underlineThickness: number,
+    underlinePosition: number$2,
+    underlineThickness: number$2,
     unicode: null,
     unicodeBidi: null,
     unicodeRange: null,
-    unitsPerEm: number,
+    unitsPerEm: number$2,
     values: null,
-    vAlphabetic: number,
-    vMathematical: number,
+    vAlphabetic: number$2,
+    vMathematical: number$2,
     vectorEffect: null,
-    vHanging: number,
-    vIdeographic: number,
+    vHanging: number$2,
+    vIdeographic: number$2,
     version: null,
-    vertAdvY: number,
-    vertOriginX: number,
-    vertOriginY: number,
+    vertAdvY: number$2,
+    vertOriginX: number$2,
+    vertOriginY: number$2,
     viewBox: null,
     viewTarget: null,
     visibility: null,
@@ -15227,7 +15282,7 @@ const svg$1 = create({
     x1: null,
     x2: null,
     xChannelSelector: null,
-    xHeight: number,
+    xHeight: number$2,
     y: null,
     y1: null,
     y2: null,
@@ -15319,8 +15374,8 @@ function kebab($0) {
 function camelcase($0) {
   return $0.charAt(1).toUpperCase();
 }
-const html$2 = merge([aria, html$3, xlink, xmlns, xml], "html");
-const svg = merge([aria, svg$1, xlink, xmlns, xml], "svg");
+const html$2 = merge$1([aria, html$3, xlink, xmlns, xml], "html");
+const svg = merge$1([aria, svg$1, xlink, xmlns, xml], "svg");
 function stringify(values) {
   return values.join(" ").trim();
 }
@@ -15798,27 +15853,27 @@ function toJsxRuntime(tree, options) {
     void 0
   );
 }
-function one$1(state, node2, key) {
+function one$1(state, node2, key2) {
   if (node2.type === "element") {
-    return element$1(state, node2, key);
+    return element$1(state, node2, key2);
   }
   if (node2.type === "mdxFlowExpression" || node2.type === "mdxTextExpression") {
     return mdxExpression(state, node2);
   }
   if (node2.type === "mdxJsxFlowElement" || node2.type === "mdxJsxTextElement") {
-    return mdxJsxElement(state, node2, key);
+    return mdxJsxElement(state, node2, key2);
   }
   if (node2.type === "mdxjsEsm") {
     return mdxEsm(state, node2);
   }
   if (node2.type === "root") {
-    return root$3(state, node2, key);
+    return root$3(state, node2, key2);
   }
   if (node2.type === "text") {
     return text$5(state, node2);
   }
 }
-function element$1(state, node2, key) {
+function element$1(state, node2, key2) {
   const parentSchema = state.schema;
   let schema = parentSchema;
   if (node2.tagName.toLowerCase() === "svg" && parentSchema.space === "html") {
@@ -15838,7 +15893,7 @@ function element$1(state, node2, key) {
   addChildren(props, children);
   state.ancestors.pop();
   state.schema = parentSchema;
-  return state.create(node2, type, props, key);
+  return state.create(node2, type, props, key2);
 }
 function mdxExpression(state, node2) {
   if (node2.data && node2.data.estree && state.evaluater) {
@@ -15861,7 +15916,7 @@ function mdxEsm(state, node2) {
   }
   crashEstree(state, node2.position);
 }
-function mdxJsxElement(state, node2, key) {
+function mdxJsxElement(state, node2, key2) {
   const parentSchema = state.schema;
   let schema = parentSchema;
   if (node2.name === "svg" && parentSchema.space === "html") {
@@ -15876,12 +15931,12 @@ function mdxJsxElement(state, node2, key) {
   addChildren(props, children);
   state.ancestors.pop();
   state.schema = parentSchema;
-  return state.create(node2, type, props, key);
+  return state.create(node2, type, props, key2);
 }
-function root$3(state, node2, key) {
+function root$3(state, node2, key2) {
   const props = {};
   addChildren(props, createChildren(state, node2));
-  return state.create(node2, state.Fragment, props, key);
+  return state.create(node2, state.Fragment, props, key2);
 }
 function text$5(_, node2) {
   return node2.value;
@@ -15901,21 +15956,21 @@ function addChildren(props, children) {
 }
 function productionCreate(_, jsx, jsxs) {
   return create2;
-  function create2(_2, type, props, key) {
+  function create2(_2, type, props, key2) {
     const isStaticChildren = Array.isArray(props.children);
     const fn = isStaticChildren ? jsxs : jsx;
-    return key ? fn(type, props, key) : fn(type, props);
+    return key2 ? fn(type, props, key2) : fn(type, props);
   }
 }
 function developmentCreate(filePath, jsxDEV) {
   return create2;
-  function create2(node2, type, props, key) {
+  function create2(node2, type, props, key2) {
     const isStaticChildren = Array.isArray(props.children);
     const point2 = pointStart(node2);
     return jsxDEV(
       type,
       props,
-      key,
+      key2,
       isStaticChildren,
       {
         columnNumber: point2 ? point2.column - 1 : void 0,
@@ -15934,11 +15989,11 @@ function createElementProps(state, node2) {
     if (prop !== "children" && own$3.call(node2.properties, prop)) {
       const result = createProperty(state, prop, node2.properties[prop]);
       if (result) {
-        const [key, value] = result;
-        if (state.tableCellAlignToStyle && key === "align" && typeof value === "string" && tableCellElement.has(node2.tagName)) {
+        const [key2, value] = result;
+        if (state.tableCellAlignToStyle && key2 === "align" && typeof value === "string" && tableCellElement.has(node2.tagName)) {
           alignValue = value;
         } else {
-          props[key] = value;
+          props[key2] = value;
         }
       }
     }
@@ -15998,16 +16053,16 @@ function createChildren(state, node2) {
   const countsByName = state.passKeys ? /* @__PURE__ */ new Map() : emptyMap;
   while (++index2 < node2.children.length) {
     const child = node2.children[index2];
-    let key;
+    let key2;
     if (state.passKeys) {
       const name2 = child.type === "element" ? child.tagName : child.type === "mdxJsxFlowElement" || child.type === "mdxJsxTextElement" ? child.name : void 0;
       if (name2) {
         const count = countsByName.get(name2) || 0;
-        key = name2 + "-" + count;
+        key2 = name2 + "-" + count;
         countsByName.set(name2, count + 1);
       }
     }
-    const result = one$1(state, child, key);
+    const result = one$1(state, child, key2);
     if (result !== void 0) children.push(result);
   }
   return children;
@@ -16603,24 +16658,24 @@ function classifyCharacter(code2) {
     return 2;
   }
 }
-function resolveAll(constructs2, events, context) {
+function resolveAll(constructs2, events2, context) {
   const called = [];
   let index2 = -1;
   while (++index2 < constructs2.length) {
     const resolve = constructs2[index2].resolveAll;
     if (resolve && !called.includes(resolve)) {
-      events = resolve(events, context);
+      events2 = resolve(events2, context);
       called.push(resolve);
     }
   }
-  return events;
+  return events2;
 }
 const attention = {
   name: "attention",
   resolveAll: resolveAllAttention,
   tokenize: tokenizeAttention
 };
-function resolveAllAttention(events, context) {
+function resolveAllAttention(events2, context) {
   let index2 = -1;
   let open;
   let group;
@@ -16630,21 +16685,21 @@ function resolveAllAttention(events, context) {
   let use;
   let nextEvents;
   let offset;
-  while (++index2 < events.length) {
-    if (events[index2][0] === "enter" && events[index2][1].type === "attentionSequence" && events[index2][1]._close) {
+  while (++index2 < events2.length) {
+    if (events2[index2][0] === "enter" && events2[index2][1].type === "attentionSequence" && events2[index2][1]._close) {
       open = index2;
       while (open--) {
-        if (events[open][0] === "exit" && events[open][1].type === "attentionSequence" && events[open][1]._open && // If the markers are the same:
-        context.sliceSerialize(events[open][1]).charCodeAt(0) === context.sliceSerialize(events[index2][1]).charCodeAt(0)) {
-          if ((events[open][1]._close || events[index2][1]._open) && (events[index2][1].end.offset - events[index2][1].start.offset) % 3 && !((events[open][1].end.offset - events[open][1].start.offset + events[index2][1].end.offset - events[index2][1].start.offset) % 3)) {
+        if (events2[open][0] === "exit" && events2[open][1].type === "attentionSequence" && events2[open][1]._open && // If the markers are the same:
+        context.sliceSerialize(events2[open][1]).charCodeAt(0) === context.sliceSerialize(events2[index2][1]).charCodeAt(0)) {
+          if ((events2[open][1]._close || events2[index2][1]._open) && (events2[index2][1].end.offset - events2[index2][1].start.offset) % 3 && !((events2[open][1].end.offset - events2[open][1].start.offset + events2[index2][1].end.offset - events2[index2][1].start.offset) % 3)) {
             continue;
           }
-          use = events[open][1].end.offset - events[open][1].start.offset > 1 && events[index2][1].end.offset - events[index2][1].start.offset > 1 ? 2 : 1;
+          use = events2[open][1].end.offset - events2[open][1].start.offset > 1 && events2[index2][1].end.offset - events2[index2][1].start.offset > 1 ? 2 : 1;
           const start = {
-            ...events[open][1].end
+            ...events2[open][1].end
           };
           const end = {
-            ...events[index2][1].start
+            ...events2[index2][1].start
           };
           movePoint(start, -use);
           movePoint(end, use);
@@ -16652,23 +16707,23 @@ function resolveAllAttention(events, context) {
             type: use > 1 ? "strongSequence" : "emphasisSequence",
             start,
             end: {
-              ...events[open][1].end
+              ...events2[open][1].end
             }
           };
           closingSequence = {
             type: use > 1 ? "strongSequence" : "emphasisSequence",
             start: {
-              ...events[index2][1].start
+              ...events2[index2][1].start
             },
             end
           };
           text2 = {
             type: use > 1 ? "strongText" : "emphasisText",
             start: {
-              ...events[open][1].end
+              ...events2[open][1].end
             },
             end: {
-              ...events[index2][1].start
+              ...events2[index2][1].start
             }
           };
           group = {
@@ -16680,26 +16735,26 @@ function resolveAllAttention(events, context) {
               ...closingSequence.end
             }
           };
-          events[open][1].end = {
+          events2[open][1].end = {
             ...openingSequence.start
           };
-          events[index2][1].start = {
+          events2[index2][1].start = {
             ...closingSequence.end
           };
           nextEvents = [];
-          if (events[open][1].end.offset - events[open][1].start.offset) {
-            nextEvents = push(nextEvents, [["enter", events[open][1], context], ["exit", events[open][1], context]]);
+          if (events2[open][1].end.offset - events2[open][1].start.offset) {
+            nextEvents = push(nextEvents, [["enter", events2[open][1], context], ["exit", events2[open][1], context]]);
           }
           nextEvents = push(nextEvents, [["enter", group, context], ["enter", openingSequence, context], ["exit", openingSequence, context], ["enter", text2, context]]);
-          nextEvents = push(nextEvents, resolveAll(context.parser.constructs.insideSpan.null, events.slice(open + 1, index2), context));
+          nextEvents = push(nextEvents, resolveAll(context.parser.constructs.insideSpan.null, events2.slice(open + 1, index2), context));
           nextEvents = push(nextEvents, [["exit", text2, context], ["enter", closingSequence, context], ["exit", closingSequence, context], ["exit", group, context]]);
-          if (events[index2][1].end.offset - events[index2][1].start.offset) {
+          if (events2[index2][1].end.offset - events2[index2][1].start.offset) {
             offset = 2;
-            nextEvents = push(nextEvents, [["enter", events[index2][1], context], ["exit", events[index2][1], context]]);
+            nextEvents = push(nextEvents, [["enter", events2[index2][1], context], ["exit", events2[index2][1], context]]);
           } else {
             offset = 0;
           }
-          splice(events, open - 1, index2 - open + 3, nextEvents);
+          splice(events2, open - 1, index2 - open + 3, nextEvents);
           index2 = open + nextEvents.length - offset - 2;
           break;
         }
@@ -16707,12 +16762,12 @@ function resolveAllAttention(events, context) {
     }
   }
   index2 = -1;
-  while (++index2 < events.length) {
-    if (events[index2][1].type === "attentionSequence") {
-      events[index2][1].type = "data";
+  while (++index2 < events2.length) {
+    if (events2[index2][1].type === "attentionSequence") {
+      events2[index2][1].type = "data";
     }
   }
-  return events;
+  return events2;
 }
 function tokenizeAttention(effects, ok2) {
   const attentionMarkers2 = this.parser.constructs.attentionMarkers.null;
@@ -17248,17 +17303,17 @@ const codeText = {
   resolve: resolveCodeText,
   tokenize: tokenizeCodeText
 };
-function resolveCodeText(events) {
-  let tailExitIndex = events.length - 4;
+function resolveCodeText(events2) {
+  let tailExitIndex = events2.length - 4;
   let headEnterIndex = 3;
   let index2;
   let enter;
-  if ((events[headEnterIndex][1].type === "lineEnding" || events[headEnterIndex][1].type === "space") && (events[tailExitIndex][1].type === "lineEnding" || events[tailExitIndex][1].type === "space")) {
+  if ((events2[headEnterIndex][1].type === "lineEnding" || events2[headEnterIndex][1].type === "space") && (events2[tailExitIndex][1].type === "lineEnding" || events2[tailExitIndex][1].type === "space")) {
     index2 = headEnterIndex;
     while (++index2 < tailExitIndex) {
-      if (events[index2][1].type === "codeTextData") {
-        events[headEnterIndex][1].type = "codeTextPadding";
-        events[tailExitIndex][1].type = "codeTextPadding";
+      if (events2[index2][1].type === "codeTextData") {
+        events2[headEnterIndex][1].type = "codeTextPadding";
+        events2[tailExitIndex][1].type = "codeTextPadding";
         headEnterIndex += 2;
         tailExitIndex -= 2;
         break;
@@ -17269,21 +17324,21 @@ function resolveCodeText(events) {
   tailExitIndex++;
   while (++index2 <= tailExitIndex) {
     if (enter === void 0) {
-      if (index2 !== tailExitIndex && events[index2][1].type !== "lineEnding") {
+      if (index2 !== tailExitIndex && events2[index2][1].type !== "lineEnding") {
         enter = index2;
       }
-    } else if (index2 === tailExitIndex || events[index2][1].type === "lineEnding") {
-      events[enter][1].type = "codeTextData";
+    } else if (index2 === tailExitIndex || events2[index2][1].type === "lineEnding") {
+      events2[enter][1].type = "codeTextData";
       if (index2 !== enter + 2) {
-        events[enter][1].end = events[index2 - 1][1].end;
-        events.splice(enter + 2, index2 - enter - 2);
+        events2[enter][1].end = events2[index2 - 1][1].end;
+        events2.splice(enter + 2, index2 - enter - 2);
         tailExitIndex -= index2 - enter - 2;
         index2 = enter + 2;
       }
       enter = void 0;
     }
   }
-  return events;
+  return events2;
 }
 function previous$1(code2) {
   return code2 !== 96 || this.events[this.events.length - 1][1].type === "characterEscape";
@@ -17555,13 +17610,13 @@ function subtokenize(eventsArray) {
   let parameters;
   let subevents;
   let more;
-  const events = new SpliceBuffer(eventsArray);
-  while (++index2 < events.length) {
+  const events2 = new SpliceBuffer(eventsArray);
+  while (++index2 < events2.length) {
     while (index2 in jumps) {
       index2 = jumps[index2];
     }
-    event = events.get(index2);
-    if (index2 && event[1].type === "chunkFlow" && events.get(index2 - 1)[1].type === "listItemPrefix") {
+    event = events2.get(index2);
+    if (index2 && event[1].type === "chunkFlow" && events2.get(index2 - 1)[1].type === "listItemPrefix") {
       subevents = event[1]._tokenizer.events;
       otherIndex = 0;
       if (otherIndex < subevents.length && subevents[otherIndex][1].type === "lineEndingBlank") {
@@ -17581,7 +17636,7 @@ function subtokenize(eventsArray) {
     }
     if (event[0] === "enter") {
       if (event[1].contentType) {
-        Object.assign(jumps, subcontent(events, index2));
+        Object.assign(jumps, subcontent(events2, index2));
         index2 = jumps[index2];
         more = true;
       }
@@ -17589,11 +17644,11 @@ function subtokenize(eventsArray) {
       otherIndex = index2;
       lineIndex = void 0;
       while (otherIndex--) {
-        otherEvent = events.get(otherIndex);
+        otherEvent = events2.get(otherIndex);
         if (otherEvent[1].type === "lineEnding" || otherEvent[1].type === "lineEndingBlank") {
           if (otherEvent[0] === "enter") {
             if (lineIndex) {
-              events.get(lineIndex)[1].type = "lineEndingBlank";
+              events2.get(lineIndex)[1].type = "lineEndingBlank";
             }
             otherEvent[1].type = "lineEnding";
             lineIndex = otherIndex;
@@ -17605,20 +17660,20 @@ function subtokenize(eventsArray) {
       }
       if (lineIndex) {
         event[1].end = {
-          ...events.get(lineIndex)[1].start
+          ...events2.get(lineIndex)[1].start
         };
-        parameters = events.slice(lineIndex, index2);
+        parameters = events2.slice(lineIndex, index2);
         parameters.unshift(event);
-        events.splice(lineIndex, index2 - lineIndex + 1, parameters);
+        events2.splice(lineIndex, index2 - lineIndex + 1, parameters);
       }
     }
   }
-  splice(eventsArray, 0, Number.POSITIVE_INFINITY, events.slice(0));
+  splice(eventsArray, 0, Number.POSITIVE_INFINITY, events2.slice(0));
   return !more;
 }
-function subcontent(events, eventIndex) {
-  const token = events.get(eventIndex)[1];
-  const context = events.get(eventIndex)[2];
+function subcontent(events2, eventIndex) {
+  const token = events2.get(eventIndex)[1];
+  const context = events2.get(eventIndex)[2];
   let startPosition = eventIndex - 1;
   const startPositions = [];
   let tokenizer = token._tokenizer;
@@ -17639,7 +17694,7 @@ function subcontent(events, eventIndex) {
   let start = 0;
   const breaks = [start];
   while (current) {
-    while (events.get(++startPosition)[1] !== current) {
+    while (events2.get(++startPosition)[1] !== current) {
     }
     startPositions.push(startPosition);
     if (!current._tokenizer) {
@@ -17686,7 +17741,7 @@ function subcontent(events, eventIndex) {
     const slice = childEvents.slice(breaks[index2], breaks[index2 + 1]);
     const start2 = startPositions.pop();
     jumps.push([start2, start2 + slice.length - 1]);
-    events.splice(start2, 2, slice);
+    events2.splice(start2, 2, slice);
   }
   jumps.reverse();
   index2 = -1;
@@ -17704,9 +17759,9 @@ const continuationConstruct = {
   partial: true,
   tokenize: tokenizeContinuation
 };
-function resolveContent(events) {
-  subtokenize(events);
-  return events;
+function resolveContent(events2) {
+  subtokenize(events2);
+  return events2;
 }
 function tokenizeContent(effects, ok2) {
   let previous2;
@@ -18099,35 +18154,35 @@ const headingAtx = {
   resolve: resolveHeadingAtx,
   tokenize: tokenizeHeadingAtx
 };
-function resolveHeadingAtx(events, context) {
-  let contentEnd = events.length - 2;
+function resolveHeadingAtx(events2, context) {
+  let contentEnd = events2.length - 2;
   let contentStart = 3;
   let content2;
   let text2;
-  if (events[contentStart][1].type === "whitespace") {
+  if (events2[contentStart][1].type === "whitespace") {
     contentStart += 2;
   }
-  if (contentEnd - 2 > contentStart && events[contentEnd][1].type === "whitespace") {
+  if (contentEnd - 2 > contentStart && events2[contentEnd][1].type === "whitespace") {
     contentEnd -= 2;
   }
-  if (events[contentEnd][1].type === "atxHeadingSequence" && (contentStart === contentEnd - 1 || contentEnd - 4 > contentStart && events[contentEnd - 2][1].type === "whitespace")) {
+  if (events2[contentEnd][1].type === "atxHeadingSequence" && (contentStart === contentEnd - 1 || contentEnd - 4 > contentStart && events2[contentEnd - 2][1].type === "whitespace")) {
     contentEnd -= contentStart + 1 === contentEnd ? 2 : 4;
   }
   if (contentEnd > contentStart) {
     content2 = {
       type: "atxHeadingText",
-      start: events[contentStart][1].start,
-      end: events[contentEnd][1].end
+      start: events2[contentStart][1].start,
+      end: events2[contentEnd][1].end
     };
     text2 = {
       type: "chunkText",
-      start: events[contentStart][1].start,
-      end: events[contentEnd][1].end,
+      start: events2[contentStart][1].start,
+      end: events2[contentEnd][1].end,
       contentType: "text"
     };
-    splice(events, contentStart, contentEnd - contentStart + 1, [["enter", content2, context], ["enter", text2, context], ["exit", text2, context], ["exit", content2, context]]);
+    splice(events2, contentStart, contentEnd - contentStart + 1, [["enter", content2, context], ["enter", text2, context], ["exit", text2, context], ["exit", content2, context]]);
   }
-  return events;
+  return events2;
 }
 function tokenizeHeadingAtx(effects, ok2, nok) {
   let size = 0;
@@ -18262,19 +18317,19 @@ const nonLazyContinuationStart = {
   partial: true,
   tokenize: tokenizeNonLazyContinuationStart
 };
-function resolveToHtmlFlow(events) {
-  let index2 = events.length;
+function resolveToHtmlFlow(events2) {
+  let index2 = events2.length;
   while (index2--) {
-    if (events[index2][0] === "enter" && events[index2][1].type === "htmlFlow") {
+    if (events2[index2][0] === "enter" && events2[index2][1].type === "htmlFlow") {
       break;
     }
   }
-  if (index2 > 1 && events[index2 - 2][1].type === "linePrefix") {
-    events[index2][1].start = events[index2 - 2][1].start;
-    events[index2 + 1][1].start = events[index2 - 2][1].start;
-    events.splice(index2 - 2, 2);
+  if (index2 > 1 && events2[index2 - 2][1].type === "linePrefix") {
+    events2[index2][1].start = events2[index2 - 2][1].start;
+    events2[index2 + 1][1].start = events2[index2 - 2][1].start;
+    events2.splice(index2 - 2, 2);
   }
-  return events;
+  return events2;
 }
 function tokenizeHtmlFlow(effects, ok2, nok) {
   const self2 = this;
@@ -18944,41 +18999,41 @@ const referenceFullConstruct = {
 const referenceCollapsedConstruct = {
   tokenize: tokenizeReferenceCollapsed
 };
-function resolveAllLabelEnd(events) {
+function resolveAllLabelEnd(events2) {
   let index2 = -1;
   const newEvents = [];
-  while (++index2 < events.length) {
-    const token = events[index2][1];
-    newEvents.push(events[index2]);
+  while (++index2 < events2.length) {
+    const token = events2[index2][1];
+    newEvents.push(events2[index2]);
     if (token.type === "labelImage" || token.type === "labelLink" || token.type === "labelEnd") {
       const offset = token.type === "labelImage" ? 4 : 2;
       token.type = "data";
       index2 += offset;
     }
   }
-  if (events.length !== newEvents.length) {
-    splice(events, 0, events.length, newEvents);
+  if (events2.length !== newEvents.length) {
+    splice(events2, 0, events2.length, newEvents);
   }
-  return events;
+  return events2;
 }
-function resolveToLabelEnd(events, context) {
-  let index2 = events.length;
+function resolveToLabelEnd(events2, context) {
+  let index2 = events2.length;
   let offset = 0;
   let token;
   let open;
   let close;
   let media;
   while (index2--) {
-    token = events[index2][1];
+    token = events2[index2][1];
     if (open) {
       if (token.type === "link" || token.type === "labelLink" && token._inactive) {
         break;
       }
-      if (events[index2][0] === "enter" && token.type === "labelLink") {
+      if (events2[index2][0] === "enter" && token.type === "labelLink") {
         token._inactive = true;
       }
     } else if (close) {
-      if (events[index2][0] === "enter" && (token.type === "labelImage" || token.type === "labelLink") && !token._balanced) {
+      if (events2[index2][0] === "enter" && (token.type === "labelImage" || token.type === "labelLink") && !token._balanced) {
         open = index2;
         if (token.type !== "labelLink") {
           offset = 2;
@@ -18990,41 +19045,41 @@ function resolveToLabelEnd(events, context) {
     }
   }
   const group = {
-    type: events[open][1].type === "labelLink" ? "link" : "image",
+    type: events2[open][1].type === "labelLink" ? "link" : "image",
     start: {
-      ...events[open][1].start
+      ...events2[open][1].start
     },
     end: {
-      ...events[events.length - 1][1].end
+      ...events2[events2.length - 1][1].end
     }
   };
   const label = {
     type: "label",
     start: {
-      ...events[open][1].start
+      ...events2[open][1].start
     },
     end: {
-      ...events[close][1].end
+      ...events2[close][1].end
     }
   };
   const text2 = {
     type: "labelText",
     start: {
-      ...events[open + offset + 2][1].end
+      ...events2[open + offset + 2][1].end
     },
     end: {
-      ...events[close - 2][1].start
+      ...events2[close - 2][1].start
     }
   };
   media = [["enter", group, context], ["enter", label, context]];
-  media = push(media, events.slice(open + 1, open + offset + 3));
+  media = push(media, events2.slice(open + 1, open + offset + 3));
   media = push(media, [["enter", text2, context]]);
-  media = push(media, resolveAll(context.parser.constructs.insideSpan.null, events.slice(open + offset + 4, close - 3), context));
-  media = push(media, [["exit", text2, context], events[close - 2], events[close - 1], ["exit", label, context]]);
-  media = push(media, events.slice(close + 1));
+  media = push(media, resolveAll(context.parser.constructs.insideSpan.null, events2.slice(open + offset + 4, close - 3), context));
+  media = push(media, [["exit", text2, context], events2[close - 2], events2[close - 1], ["exit", label, context]]);
+  media = push(media, events2.slice(close + 1));
   media = push(media, [["exit", group, context]]);
-  splice(events, open, events.length, media);
-  return events;
+  splice(events2, open, events2.length, media);
+  return events2;
 }
 function tokenizeLabelEnd(effects, ok2, nok) {
   const self2 = this;
@@ -19385,25 +19440,25 @@ const setextUnderline = {
   resolveTo: resolveToSetextUnderline,
   tokenize: tokenizeSetextUnderline
 };
-function resolveToSetextUnderline(events, context) {
-  let index2 = events.length;
+function resolveToSetextUnderline(events2, context) {
+  let index2 = events2.length;
   let content2;
   let text2;
   let definition2;
   while (index2--) {
-    if (events[index2][0] === "enter") {
-      if (events[index2][1].type === "content") {
+    if (events2[index2][0] === "enter") {
+      if (events2[index2][1].type === "content") {
         content2 = index2;
         break;
       }
-      if (events[index2][1].type === "paragraph") {
+      if (events2[index2][1].type === "paragraph") {
         text2 = index2;
       }
     } else {
-      if (events[index2][1].type === "content") {
-        events.splice(index2, 1);
+      if (events2[index2][1].type === "content") {
+        events2.splice(index2, 1);
       }
-      if (!definition2 && events[index2][1].type === "definition") {
+      if (!definition2 && events2[index2][1].type === "definition") {
         definition2 = index2;
       }
     }
@@ -19411,24 +19466,24 @@ function resolveToSetextUnderline(events, context) {
   const heading2 = {
     type: "setextHeading",
     start: {
-      ...events[content2][1].start
+      ...events2[content2][1].start
     },
     end: {
-      ...events[events.length - 1][1].end
+      ...events2[events2.length - 1][1].end
     }
   };
-  events[text2][1].type = "setextHeadingText";
+  events2[text2][1].type = "setextHeadingText";
   if (definition2) {
-    events.splice(text2, 0, ["enter", heading2, context]);
-    events.splice(definition2 + 1, 0, ["exit", events[content2][1], context]);
-    events[content2][1].end = {
-      ...events[definition2][1].end
+    events2.splice(text2, 0, ["enter", heading2, context]);
+    events2.splice(definition2 + 1, 0, ["exit", events2[content2][1], context]);
+    events2[content2][1].end = {
+      ...events2[definition2][1].end
     };
   } else {
-    events[content2][1] = heading2;
+    events2[content2][1] = heading2;
   }
-  events.push(["exit", heading2, context]);
-  return events;
+  events2.push(["exit", heading2, context]);
+  return events2;
 }
 function tokenizeSetextUnderline(effects, ok2, nok) {
   const self2 = this;
@@ -19509,7 +19564,7 @@ function initializeFlow(effects) {
 const resolver = {
   resolveAll: createResolver()
 };
-const string$1 = initializeFactory("string");
+const string$3 = initializeFactory("string");
 const text$4 = initializeFactory("text");
 function initializeFactory(field) {
   return {
@@ -19561,32 +19616,32 @@ function initializeFactory(field) {
 }
 function createResolver(extraResolver) {
   return resolveAllText;
-  function resolveAllText(events, context) {
+  function resolveAllText(events2, context) {
     let index2 = -1;
     let enter;
-    while (++index2 <= events.length) {
+    while (++index2 <= events2.length) {
       if (enter === void 0) {
-        if (events[index2] && events[index2][1].type === "data") {
+        if (events2[index2] && events2[index2][1].type === "data") {
           enter = index2;
           index2++;
         }
-      } else if (!events[index2] || events[index2][1].type !== "data") {
+      } else if (!events2[index2] || events2[index2][1].type !== "data") {
         if (index2 !== enter + 2) {
-          events[enter][1].end = events[index2 - 1][1].end;
-          events.splice(enter + 2, index2 - enter - 2);
+          events2[enter][1].end = events2[index2 - 1][1].end;
+          events2.splice(enter + 2, index2 - enter - 2);
           index2 = enter + 2;
         }
         enter = void 0;
       }
     }
-    return extraResolver ? extraResolver(events, context) : events;
+    return extraResolver ? extraResolver(events2, context) : events2;
   }
 }
-function resolveAllLineSuffixes(events, context) {
+function resolveAllLineSuffixes(events2, context) {
   let eventIndex = 0;
-  while (++eventIndex <= events.length) {
-    if ((eventIndex === events.length || events[eventIndex][1].type === "lineEnding") && events[eventIndex - 1][1].type === "data") {
-      const data = events[eventIndex - 1][1];
+  while (++eventIndex <= events2.length) {
+    if ((eventIndex === events2.length || events2[eventIndex][1].type === "lineEnding") && events2[eventIndex - 1][1].type === "data") {
+      const data = events2[eventIndex - 1][1];
       const chunks = context.sliceStream(data);
       let index2 = chunks.length;
       let bufferIndex = -1;
@@ -19611,12 +19666,12 @@ function resolveAllLineSuffixes(events, context) {
           break;
         }
       }
-      if (context._contentTypeTextTrailing && eventIndex === events.length) {
+      if (context._contentTypeTextTrailing && eventIndex === events2.length) {
         size = 0;
       }
       if (size) {
         const token = {
-          type: eventIndex === events.length || tabs || size < 2 ? "lineSuffix" : "hardBreakTrailing",
+          type: eventIndex === events2.length || tabs || size < 2 ? "lineSuffix" : "hardBreakTrailing",
           start: {
             _bufferIndex: index2 ? bufferIndex : data.start._bufferIndex + bufferIndex,
             _index: data.start._index + index2,
@@ -19634,14 +19689,14 @@ function resolveAllLineSuffixes(events, context) {
         if (data.start.offset === data.end.offset) {
           Object.assign(data, token);
         } else {
-          events.splice(eventIndex, 0, ["enter", token, context], ["exit", token, context]);
+          events2.splice(eventIndex, 0, ["enter", token, context], ["exit", token, context]);
           eventIndex += 2;
         }
       }
       eventIndex++;
     }
   }
-  return events;
+  return events2;
 }
 const document$1 = {
   [42]: list$2,
@@ -19677,7 +19732,7 @@ const flow = {
   [96]: codeFenced,
   [126]: codeFenced
 };
-const string = {
+const string$2 = {
   [38]: characterReference,
   [92]: characterEscape
 };
@@ -19713,7 +19768,7 @@ const defaultConstructs = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.d
   flow,
   flowInitial,
   insideSpan,
-  string,
+  string: string$2,
   text: text$3
 }, Symbol.toStringTag, { value: "Module" }));
 function createTokenizer(parser, initialize, from) {
@@ -20030,7 +20085,7 @@ function serializeChunks(chunks, expandTabs) {
   }
   return result.join("");
 }
-function parse(options) {
+function parse$1(options) {
   const settings = options || {};
   const constructs2 = (
     /** @type {FullNormalizedExtension} */
@@ -20043,7 +20098,7 @@ function parse(options) {
     document: create2(document$2),
     flow: create2(flow$1),
     lazy: {},
-    string: create2(string$1),
+    string: create2(string$3),
     text: create2(text$4)
   };
   return parser;
@@ -20054,10 +20109,10 @@ function parse(options) {
     }
   }
 }
-function postprocess(events) {
-  while (!subtokenize(events)) {
+function postprocess(events2) {
+  while (!subtokenize(events2)) {
   }
-  return events;
+  return events2;
 }
 const search = /[\0\t\n\r]/g;
 function preprocess() {
@@ -20138,9 +20193,9 @@ function preprocess() {
 }
 const characterEscapeOrReference = /\\([!-/:-@[-`{-~])|&(#(?:\d{1,7}|x[\da-f]{1,6})|[\da-z]{1,31});/gi;
 function decodeString(value) {
-  return value.replace(characterEscapeOrReference, decode);
+  return value.replace(characterEscapeOrReference, decode$1);
 }
-function decode($0, $1, $2) {
+function decode$1($0, $1, $2) {
   if ($1) {
     return $1;
   }
@@ -20158,10 +20213,10 @@ function fromMarkdown(value, encoding, options) {
     options = encoding;
     encoding = void 0;
   }
-  return compiler(options)(postprocess(parse(options).document().write(preprocess()(value, encoding, true))));
+  return compiler(options)(postprocess(parse$1(options).document().write(preprocess()(value, encoding, true))));
 }
 function compiler(options) {
-  const config = {
+  const config2 = {
     transforms: [],
     canContainEols: ["emphasis", "fragment", "heading", "paragraph", "strong"],
     enter: {
@@ -20259,10 +20314,10 @@ function compiler(options) {
       thematicBreak: closer()
     }
   };
-  configure(config, (options || {}).mdastExtensions || []);
+  configure(config2, (options || {}).mdastExtensions || []);
   const data = {};
   return compile;
-  function compile(events) {
+  function compile(events2) {
     let tree = {
       type: "root",
       children: []
@@ -20270,7 +20325,7 @@ function compiler(options) {
     const context = {
       stack: [tree],
       tokenStack: [],
-      config,
+      config: config2,
       enter,
       exit: exit2,
       buffer,
@@ -20279,23 +20334,23 @@ function compiler(options) {
     };
     const listStack = [];
     let index2 = -1;
-    while (++index2 < events.length) {
-      if (events[index2][1].type === "listOrdered" || events[index2][1].type === "listUnordered") {
-        if (events[index2][0] === "enter") {
+    while (++index2 < events2.length) {
+      if (events2[index2][1].type === "listOrdered" || events2[index2][1].type === "listUnordered") {
+        if (events2[index2][0] === "enter") {
           listStack.push(index2);
         } else {
           const tail = listStack.pop();
-          index2 = prepareList(events, tail, index2);
+          index2 = prepareList(events2, tail, index2);
         }
       }
     }
     index2 = -1;
-    while (++index2 < events.length) {
-      const handler = config[events[index2][0]];
-      if (own$2.call(handler, events[index2][1].type)) {
-        handler[events[index2][1].type].call(Object.assign({
-          sliceSerialize: events[index2][2].sliceSerialize
-        }, context), events[index2][1]);
+    while (++index2 < events2.length) {
+      const handler = config2[events2[index2][0]];
+      if (own$2.call(handler, events2[index2][1].type)) {
+        handler[events2[index2][1].type].call(Object.assign({
+          sliceSerialize: events2[index2][2].sliceSerialize
+        }, context), events2[index2][1]);
       }
     }
     if (context.tokenStack.length > 0) {
@@ -20304,24 +20359,24 @@ function compiler(options) {
       handler.call(context, void 0, tail[0]);
     }
     tree.position = {
-      start: point(events.length > 0 ? events[0][1].start : {
+      start: point(events2.length > 0 ? events2[0][1].start : {
         line: 1,
         column: 1,
         offset: 0
       }),
-      end: point(events.length > 0 ? events[events.length - 2][1].end : {
+      end: point(events2.length > 0 ? events2[events2.length - 2][1].end : {
         line: 1,
         column: 1,
         offset: 0
       })
     };
     index2 = -1;
-    while (++index2 < config.transforms.length) {
-      tree = config.transforms[index2](tree) || tree;
+    while (++index2 < config2.transforms.length) {
+      tree = config2.transforms[index2](tree) || tree;
     }
     return tree;
   }
-  function prepareList(events, start, length) {
+  function prepareList(events2, start, length) {
     let index2 = start - 1;
     let containerBalance = -1;
     let listSpread = false;
@@ -20330,7 +20385,7 @@ function compiler(options) {
     let firstBlankLineIndex;
     let atMarker;
     while (++index2 <= length) {
-      const event = events[index2];
+      const event = events2[index2];
       switch (event[1].type) {
         case "listUnordered":
         case "listOrdered":
@@ -20368,11 +20423,11 @@ function compiler(options) {
           let tailIndex = index2;
           lineIndex = void 0;
           while (tailIndex--) {
-            const tailEvent = events[tailIndex];
+            const tailEvent = events2[tailIndex];
             if (tailEvent[1].type === "lineEnding" || tailEvent[1].type === "lineEndingBlank") {
               if (tailEvent[0] === "exit") continue;
               if (lineIndex) {
-                events[lineIndex][1].type = "lineEndingBlank";
+                events2[lineIndex][1].type = "lineEndingBlank";
                 listSpread = true;
               }
               tailEvent[1].type = "lineEnding";
@@ -20385,8 +20440,8 @@ function compiler(options) {
           if (firstBlankLineIndex && (!lineIndex || firstBlankLineIndex < lineIndex)) {
             listItem3._spread = true;
           }
-          listItem3.end = Object.assign({}, lineIndex ? events[lineIndex][1].start : event[1].end);
-          events.splice(lineIndex || index2, 0, ["exit", listItem3, event[2]]);
+          listItem3.end = Object.assign({}, lineIndex ? events2[lineIndex][1].start : event[1].end);
+          events2.splice(lineIndex || index2, 0, ["exit", listItem3, event[2]]);
           index2++;
           length++;
         }
@@ -20399,7 +20454,7 @@ function compiler(options) {
             end: void 0
           };
           listItem3 = item;
-          events.splice(index2, 0, ["enter", item, event[2]]);
+          events2.splice(index2, 0, ["enter", item, event[2]]);
           index2++;
           length++;
           firstBlankLineIndex = void 0;
@@ -20407,7 +20462,7 @@ function compiler(options) {
         }
       }
     }
-    events[start][1]._spread = listSpread;
+    events2[start][1]._spread = listSpread;
     return length;
   }
   function opener(create2, and) {
@@ -20560,7 +20615,7 @@ function compiler(options) {
       this.data.atHardBreak = void 0;
       return;
     }
-    if (!this.data.setextHeadingSlurpLineEnding && config.canContainEols.includes(context.type)) {
+    if (!this.data.setextHeadingSlurpLineEnding && config2.canContainEols.includes(context.type)) {
       onenterdata.call(this, token);
       onexitdata.call(this, token);
     }
@@ -20813,29 +20868,29 @@ function configure(combined, extensions) {
   }
 }
 function extension(combined, extension2) {
-  let key;
-  for (key in extension2) {
-    if (own$2.call(extension2, key)) {
-      switch (key) {
+  let key2;
+  for (key2 in extension2) {
+    if (own$2.call(extension2, key2)) {
+      switch (key2) {
         case "canContainEols": {
-          const right = extension2[key];
+          const right = extension2[key2];
           if (right) {
-            combined[key].push(...right);
+            combined[key2].push(...right);
           }
           break;
         }
         case "transforms": {
-          const right = extension2[key];
+          const right = extension2[key2];
           if (right) {
-            combined[key].push(...right);
+            combined[key2].push(...right);
           }
           break;
         }
         case "enter":
         case "exit": {
-          const right = extension2[key];
+          const right = extension2[key2];
           if (right) {
-            Object.assign(combined[key], right);
+            Object.assign(combined[key2], right);
           }
           break;
         }
@@ -20891,15 +20946,15 @@ function hardBreak$1(state, node2) {
 }
 function code$2(state, node2) {
   const value = node2.value ? node2.value + "\n" : "";
-  const properties = {};
+  const properties2 = {};
   const language = node2.lang ? node2.lang.split(/\s+/) : [];
   if (language.length > 0) {
-    properties.className = ["language-" + language[0]];
+    properties2.className = ["language-" + language[0]];
   }
   let result = {
     type: "element",
     tagName: "code",
-    properties,
+    properties: properties2,
     children: [{ type: "text", value }]
   };
   if (node2.meta) {
@@ -21018,23 +21073,23 @@ function imageReference$1(state, node2) {
   if (!definition2) {
     return revert(state, node2);
   }
-  const properties = { src: normalizeUri(definition2.url || ""), alt: node2.alt };
+  const properties2 = { src: normalizeUri(definition2.url || ""), alt: node2.alt };
   if (definition2.title !== null && definition2.title !== void 0) {
-    properties.title = definition2.title;
+    properties2.title = definition2.title;
   }
-  const result = { type: "element", tagName: "img", properties, children: [] };
+  const result = { type: "element", tagName: "img", properties: properties2, children: [] };
   state.patch(node2, result);
   return state.applyData(node2, result);
 }
 function image$1(state, node2) {
-  const properties = { src: normalizeUri(node2.url) };
+  const properties2 = { src: normalizeUri(node2.url) };
   if (node2.alt !== null && node2.alt !== void 0) {
-    properties.alt = node2.alt;
+    properties2.alt = node2.alt;
   }
   if (node2.title !== null && node2.title !== void 0) {
-    properties.title = node2.title;
+    properties2.title = node2.title;
   }
-  const result = { type: "element", tagName: "img", properties, children: [] };
+  const result = { type: "element", tagName: "img", properties: properties2, children: [] };
   state.patch(node2, result);
   return state.applyData(node2, result);
 }
@@ -21056,28 +21111,28 @@ function linkReference$1(state, node2) {
   if (!definition2) {
     return revert(state, node2);
   }
-  const properties = { href: normalizeUri(definition2.url || "") };
+  const properties2 = { href: normalizeUri(definition2.url || "") };
   if (definition2.title !== null && definition2.title !== void 0) {
-    properties.title = definition2.title;
+    properties2.title = definition2.title;
   }
   const result = {
     type: "element",
     tagName: "a",
-    properties,
+    properties: properties2,
     children: state.all(node2)
   };
   state.patch(node2, result);
   return state.applyData(node2, result);
 }
 function link$1(state, node2) {
-  const properties = { href: normalizeUri(node2.url) };
+  const properties2 = { href: normalizeUri(node2.url) };
   if (node2.title !== null && node2.title !== void 0) {
-    properties.title = node2.title;
+    properties2.title = node2.title;
   }
   const result = {
     type: "element",
     tagName: "a",
-    properties,
+    properties: properties2,
     children: state.all(node2)
   };
   state.patch(node2, result);
@@ -21086,7 +21141,7 @@ function link$1(state, node2) {
 function listItem$1(state, node2, parent) {
   const results = state.all(node2);
   const loose = parent ? listLoose(parent) : listItemLoose(node2);
-  const properties = {};
+  const properties2 = {};
   const children = [];
   if (typeof node2.checked === "boolean") {
     const head = results[0];
@@ -21106,7 +21161,7 @@ function listItem$1(state, node2, parent) {
       properties: { type: "checkbox", checked: node2.checked, disabled: true },
       children: []
     });
-    properties.className = ["task-list-item"];
+    properties2.className = ["task-list-item"];
   }
   let index2 = -1;
   while (++index2 < results.length) {
@@ -21124,7 +21179,7 @@ function listItem$1(state, node2, parent) {
   if (tail && (loose || tail.type !== "element" || tail.tagName !== "p")) {
     children.push({ type: "text", value: "\n" });
   }
-  const result = { type: "element", tagName: "li", properties, children };
+  const result = { type: "element", tagName: "li", properties: properties2, children };
   state.patch(node2, result);
   return state.applyData(node2, result);
 }
@@ -21145,23 +21200,23 @@ function listItemLoose(node2) {
   return spread === null || spread === void 0 ? node2.children.length > 1 : spread;
 }
 function list$1(state, node2) {
-  const properties = {};
+  const properties2 = {};
   const results = state.all(node2);
   let index2 = -1;
   if (typeof node2.start === "number" && node2.start !== 1) {
-    properties.start = node2.start;
+    properties2.start = node2.start;
   }
   while (++index2 < results.length) {
     const child = results[index2];
     if (child.type === "element" && child.tagName === "li" && child.properties && Array.isArray(child.properties.className) && child.properties.className.includes("task-list-item")) {
-      properties.className = ["contains-task-list"];
+      properties2.className = ["contains-task-list"];
       break;
     }
   }
   const result = {
     type: "element",
     tagName: node2.ordered ? "ol" : "ul",
-    properties,
+    properties: properties2,
     children: state.wrap(results, true)
   };
   state.patch(node2, result);
@@ -21237,12 +21292,12 @@ function tableRow(state, node2, parent) {
   const cells = [];
   while (++cellIndex < length) {
     const cell = node2.children[cellIndex];
-    const properties = {};
+    const properties2 = {};
     const alignValue = align ? align[cellIndex] : void 0;
     if (alignValue) {
-      properties.align = alignValue;
+      properties2.align = alignValue;
     }
-    let result2 = { type: "element", tagName, properties, children: [] };
+    let result2 = { type: "element", tagName, properties: properties2, children: [] };
     if (cell) {
       result2.children = state.all(cell);
       state.patch(cell, result2);
@@ -21387,10 +21442,10 @@ const deserializer = ($, _) => {
         return arr;
       }
       case OBJECT: {
-        const object = as({}, index2);
-        for (const [key, index3] of value)
-          object[unpair(key)] = unpair(index3);
-        return object;
+        const object2 = as({}, index2);
+        for (const [key2, index3] of value)
+          object2[unpair(key2)] = unpair(index3);
+        return object2;
       }
       case DATE:
         return as(new Date(value), index2);
@@ -21400,8 +21455,8 @@ const deserializer = ($, _) => {
       }
       case MAP: {
         const map2 = as(/* @__PURE__ */ new Map(), index2);
-        for (const [key, index3] of value)
-          map2.set(unpair(key), unpair(index3));
+        for (const [key2, index3] of value)
+          map2.set(unpair(key2), unpair(index3));
         return map2;
       }
       case SET: {
@@ -21521,9 +21576,9 @@ const serializer = (strict, json, $, _) => {
           return pair(value.toJSON());
         const entries = [];
         const index2 = as([TYPE, entries], value);
-        for (const key of keys(value)) {
-          if (strict || !shouldSkip(typeOf(value[key])))
-            entries.push([pair(key), pair(value[key])]);
+        for (const key2 of keys(value)) {
+          if (strict || !shouldSkip(typeOf(value[key2])))
+            entries.push([pair(key2), pair(value[key2])]);
         }
         return index2;
       }
@@ -21536,9 +21591,9 @@ const serializer = (strict, json, $, _) => {
       case MAP: {
         const entries = [];
         const index2 = as([TYPE, entries], value);
-        for (const [key, entry] of value) {
-          if (strict || !(shouldSkip(typeOf(key)) || shouldSkip(typeOf(entry))))
-            entries.push([pair(key), pair(entry)]);
+        for (const [key2, entry] of value) {
+          if (strict || !(shouldSkip(typeOf(key2)) || shouldSkip(typeOf(entry))))
+            entries.push([pair(key2), pair(entry)]);
         }
         return index2;
       }
@@ -21738,9 +21793,9 @@ function propertiesFactory(check) {
       /** @type {unknown} */
       node2
     );
-    let key;
-    for (key in check) {
-      if (nodeAsRecord[key] !== checkAsRecord[key]) return false;
+    let key2;
+    for (key2 in check) {
+      if (nodeAsRecord[key2] !== checkAsRecord[key2]) return false;
     }
     return true;
   }
@@ -21914,8 +21969,8 @@ function createState(tree, options) {
       }
       return structuredClone$1(node2);
     }
-    const unknown = state.options.unknownHandler || defaultUnknownHandler;
-    return unknown(state, node2, parent);
+    const unknown2 = state.options.unknownHandler || defaultUnknownHandler;
+    return unknown2(state, node2, parent);
   }
   function all2(parent) {
     const values = [];
@@ -22040,10 +22095,10 @@ function bail(error) {
     throw error;
   }
 }
-var extend$1;
+var extend$2;
 var hasRequiredExtend;
 function requireExtend() {
-  if (hasRequiredExtend) return extend$1;
+  if (hasRequiredExtend) return extend$2;
   hasRequiredExtend = 1;
   var hasOwn = Object.prototype.hasOwnProperty;
   var toStr = Object.prototype.toString;
@@ -22064,10 +22119,10 @@ function requireExtend() {
     if (obj.constructor && !hasOwnConstructor && !hasIsPrototypeOf) {
       return false;
     }
-    var key;
-    for (key in obj) {
+    var key2;
+    for (key2 in obj) {
     }
-    return typeof key === "undefined" || hasOwn.call(obj, key);
+    return typeof key2 === "undefined" || hasOwn.call(obj, key2);
   };
   var setProperty = function setProperty2(target, options) {
     if (defineProperty && options.name === "__proto__") {
@@ -22091,8 +22146,8 @@ function requireExtend() {
     }
     return obj[name2];
   };
-  extend$1 = function extend2() {
-    var options, name2, src, copy, copyIsArray, clone;
+  extend$2 = function extend2() {
+    var options, name2, src, copy, copyIsArray, clone2;
     var target = arguments[0];
     var i = 1;
     var length = arguments.length;
@@ -22115,11 +22170,11 @@ function requireExtend() {
             if (deep && copy && (isPlainObject2(copy) || (copyIsArray = isArray(copy)))) {
               if (copyIsArray) {
                 copyIsArray = false;
-                clone = src && isArray(src) ? src : [];
+                clone2 = src && isArray(src) ? src : [];
               } else {
-                clone = src && isPlainObject2(src) ? src : {};
+                clone2 = src && isPlainObject2(src) ? src : {};
               }
-              setProperty(target, { name: name2, newValue: extend2(deep, clone, copy) });
+              setProperty(target, { name: name2, newValue: extend2(deep, clone2, copy) });
             } else if (typeof copy !== "undefined") {
               setProperty(target, { name: name2, newValue: copy });
             }
@@ -22129,11 +22184,11 @@ function requireExtend() {
     }
     return target;
   };
-  return extend$1;
+  return extend$2;
 }
 var extendExports = requireExtend();
-const extend = /* @__PURE__ */ getDefaultExportFromCjs(extendExports);
-function isPlainObject(value) {
+const extend$1 = /* @__PURE__ */ getDefaultExportFromCjs(extendExports);
+function isPlainObject$1(value) {
   if (typeof value !== "object" || value === null) {
     return false;
   }
@@ -23003,7 +23058,7 @@ class Processor extends CallableInstance {
       const attacher = this.attachers[index2];
       destination.use(...attacher);
     }
-    destination.data(extend(true, {}, this.namespace));
+    destination.data(extend$1(true, {}, this.namespace));
     return destination;
   }
   /**
@@ -23065,18 +23120,18 @@ class Processor extends CallableInstance {
    *   The current processor when setting, the value at `key` when getting, or
    *   the entire dataset when getting without key.
    */
-  data(key, value) {
-    if (typeof key === "string") {
+  data(key2, value) {
+    if (typeof key2 === "string") {
       if (arguments.length === 2) {
         assertUnfrozen("data", this.frozen);
-        this.namespace[key] = value;
+        this.namespace[key2] = value;
         return this;
       }
-      return own.call(this.namespace, key) && this.namespace[key] || void 0;
+      return own.call(this.namespace, key2) && this.namespace[key2] || void 0;
     }
-    if (key) {
+    if (key2) {
       assertUnfrozen("data", this.frozen);
-      this.namespace = key;
+      this.namespace = key2;
       return this;
     }
     return this.namespace;
@@ -23483,7 +23538,7 @@ class Processor extends CallableInstance {
       throw new TypeError("Expected usable value, not `" + value + "`");
     }
     return this;
-    function add(value2) {
+    function add2(value2) {
       if (typeof value2 === "function") {
         addPlugin(value2, []);
       } else if (typeof value2 === "object") {
@@ -23508,7 +23563,7 @@ class Processor extends CallableInstance {
       }
       addList(result.plugins);
       if (result.settings) {
-        namespace.settings = extend(true, namespace.settings, result.settings);
+        namespace.settings = extend$1(true, namespace.settings, result.settings);
       }
     }
     function addList(plugins) {
@@ -23517,7 +23572,7 @@ class Processor extends CallableInstance {
       else if (Array.isArray(plugins)) {
         while (++index2 < plugins.length) {
           const thing = plugins[index2];
-          add(thing);
+          add2(thing);
         }
       } else {
         throw new TypeError("Expected a list of plugins, not `" + plugins + "`");
@@ -23537,8 +23592,8 @@ class Processor extends CallableInstance {
       } else if (parameters2.length > 0) {
         let [primary, ...rest] = parameters2;
         const currentPrimary = attachers[entryIndex][1];
-        if (isPlainObject(currentPrimary) && isPlainObject(primary)) {
-          primary = extend(true, currentPrimary, primary);
+        if (isPlainObject$1(currentPrimary) && isPlainObject$1(primary)) {
+          primary = extend$1(true, currentPrimary, primary);
         }
         attachers[entryIndex] = [plugin, primary, ...rest];
       }
@@ -23564,7 +23619,7 @@ function assertUnfrozen(name2, frozen) {
   }
 }
 function assertNode(node2) {
-  if (!isPlainObject(node2) || typeof node2.type !== "string") {
+  if (!isPlainObject$1(node2) || typeof node2.type !== "string") {
     throw new TypeError("Expected node, got `" + node2 + "`");
   }
 }
@@ -23667,7 +23722,7 @@ function Markdown(options) {
       )
     };
   }
-  visit(hastTree, transform);
+  visit(hastTree, transform2);
   return toJsxRuntime(hastTree, {
     Fragment: jsxRuntimeExports.Fragment,
     components,
@@ -23677,7 +23732,7 @@ function Markdown(options) {
     passKeys: true,
     passNode: true
   });
-  function transform(node2, index2, parent) {
+  function transform2(node2, index2, parent) {
     if (node2.type === "raw" && parent && typeof index2 === "number") {
       if (skipHtml) {
         parent.children.splice(index2, 1);
@@ -23687,13 +23742,13 @@ function Markdown(options) {
       return index2;
     }
     if (node2.type === "element") {
-      let key;
-      for (key in urlAttributes) {
-        if (Object.hasOwn(urlAttributes, key) && Object.hasOwn(node2.properties, key)) {
-          const value = node2.properties[key];
-          const test = urlAttributes[key];
+      let key2;
+      for (key2 in urlAttributes) {
+        if (Object.hasOwn(urlAttributes, key2) && Object.hasOwn(node2.properties, key2)) {
+          const value = node2.properties[key2];
+          const test = urlAttributes[key2];
           if (test === null || test.includes(node2.tagName)) {
-            node2.properties[key] = urlTransform(String(value || ""), key, node2);
+            node2.properties[key2] = urlTransform(String(value || ""), key2, node2);
           }
         }
       }
@@ -23994,10 +24049,10 @@ function splitUrl(url) {
   }
   return [url, trail2];
 }
-function previous(match, email) {
+function previous(match, email2) {
   const code2 = match.input.charCodeAt(match.index - 1);
   return (match.index === 0 || unicodeWhitespace(code2) || unicodePunctuation(code2)) && // If it’s an email, the previous character should not be a slash.
-  (!email || code2 !== 47);
+  (!email2 || code2 !== 47);
 }
 footnoteReference.peek = footnoteReferencePeek;
 function enterFootnoteCallString() {
@@ -25698,11 +25753,11 @@ function previousEmail(code2) {
 function gfmAtext(code2) {
   return code2 === 43 || code2 === 45 || code2 === 46 || code2 === 95 || asciiAlphanumeric(code2);
 }
-function previousUnbalanced(events) {
-  let index2 = events.length;
+function previousUnbalanced(events2) {
+  let index2 = events2.length;
   let result = false;
   while (index2--) {
-    const token = events[index2][1];
+    const token = events2[index2][1];
     if ((token.type === "labelLink" || token.type === "labelImage") && !token._balanced) {
       result = true;
       break;
@@ -25712,8 +25767,8 @@ function previousUnbalanced(events) {
       break;
     }
   }
-  if (events.length > 0 && !result) {
-    events[events.length - 1][1]._gfmAutolinkLiteralWalkedInto = true;
+  if (events2.length > 0 && !result) {
+    events2[events2.length - 1][1]._gfmAutolinkLiteralWalkedInto = true;
   }
   return result;
 }
@@ -25780,25 +25835,25 @@ function tokenizePotentialGfmFootnoteCall(effects, ok2, nok) {
     return ok2(code2);
   }
 }
-function resolveToPotentialGfmFootnoteCall(events, context) {
-  let index2 = events.length;
+function resolveToPotentialGfmFootnoteCall(events2, context) {
+  let index2 = events2.length;
   while (index2--) {
-    if (events[index2][1].type === "labelImage" && events[index2][0] === "enter") {
-      events[index2][1];
+    if (events2[index2][1].type === "labelImage" && events2[index2][0] === "enter") {
+      events2[index2][1];
       break;
     }
   }
-  events[index2 + 1][1].type = "data";
-  events[index2 + 3][1].type = "gfmFootnoteCallLabelMarker";
+  events2[index2 + 1][1].type = "data";
+  events2[index2 + 3][1].type = "gfmFootnoteCallLabelMarker";
   const call = {
     type: "gfmFootnoteCall",
-    start: Object.assign({}, events[index2 + 3][1].start),
-    end: Object.assign({}, events[events.length - 1][1].end)
+    start: Object.assign({}, events2[index2 + 3][1].start),
+    end: Object.assign({}, events2[events2.length - 1][1].end)
   };
   const marker = {
     type: "gfmFootnoteCallMarker",
-    start: Object.assign({}, events[index2 + 3][1].end),
-    end: Object.assign({}, events[index2 + 3][1].end)
+    start: Object.assign({}, events2[index2 + 3][1].end),
+    end: Object.assign({}, events2[index2 + 3][1].end)
   };
   marker.end.column++;
   marker.end.offset++;
@@ -25806,7 +25861,7 @@ function resolveToPotentialGfmFootnoteCall(events, context) {
   const string2 = {
     type: "gfmFootnoteCallString",
     start: Object.assign({}, marker.end),
-    end: Object.assign({}, events[events.length - 1][1].start)
+    end: Object.assign({}, events2[events2.length - 1][1].start)
   };
   const chunk = {
     type: "chunkString",
@@ -25816,12 +25871,12 @@ function resolveToPotentialGfmFootnoteCall(events, context) {
   };
   const replacement = [
     // Take the `labelImageMarker` (now `data`, the `!`)
-    events[index2 + 1],
-    events[index2 + 2],
+    events2[index2 + 1],
+    events2[index2 + 2],
     ["enter", call, context],
     // The `[`
-    events[index2 + 3],
-    events[index2 + 4],
+    events2[index2 + 3],
+    events2[index2 + 4],
     // The `^`.
     ["enter", marker, context],
     ["exit", marker, context],
@@ -25831,12 +25886,12 @@ function resolveToPotentialGfmFootnoteCall(events, context) {
     ["exit", chunk, context],
     ["exit", string2, context],
     // The ending (`]`, properly parsed and labelled).
-    events[events.length - 2],
-    events[events.length - 1],
+    events2[events2.length - 2],
+    events2[events2.length - 1],
     ["exit", call, context]
   ];
-  events.splice(index2, events.length - index2 + 1, ...replacement);
-  return events;
+  events2.splice(index2, events2.length - index2 + 1, ...replacement);
+  return events2;
 }
 function tokenizeGfmFootnoteCall(effects, ok2, nok) {
   const self2 = this;
@@ -26011,33 +26066,33 @@ function gfmStrikethrough(options) {
       null: [126]
     }
   };
-  function resolveAllStrikethrough(events, context) {
+  function resolveAllStrikethrough(events2, context) {
     let index2 = -1;
-    while (++index2 < events.length) {
-      if (events[index2][0] === "enter" && events[index2][1].type === "strikethroughSequenceTemporary" && events[index2][1]._close) {
+    while (++index2 < events2.length) {
+      if (events2[index2][0] === "enter" && events2[index2][1].type === "strikethroughSequenceTemporary" && events2[index2][1]._close) {
         let open = index2;
         while (open--) {
-          if (events[open][0] === "exit" && events[open][1].type === "strikethroughSequenceTemporary" && events[open][1]._open && // If the sizes are the same:
-          events[index2][1].end.offset - events[index2][1].start.offset === events[open][1].end.offset - events[open][1].start.offset) {
-            events[index2][1].type = "strikethroughSequence";
-            events[open][1].type = "strikethroughSequence";
+          if (events2[open][0] === "exit" && events2[open][1].type === "strikethroughSequenceTemporary" && events2[open][1]._open && // If the sizes are the same:
+          events2[index2][1].end.offset - events2[index2][1].start.offset === events2[open][1].end.offset - events2[open][1].start.offset) {
+            events2[index2][1].type = "strikethroughSequence";
+            events2[open][1].type = "strikethroughSequence";
             const strikethrough2 = {
               type: "strikethrough",
-              start: Object.assign({}, events[open][1].start),
-              end: Object.assign({}, events[index2][1].end)
+              start: Object.assign({}, events2[open][1].start),
+              end: Object.assign({}, events2[index2][1].end)
             };
             const text2 = {
               type: "strikethroughText",
-              start: Object.assign({}, events[open][1].end),
-              end: Object.assign({}, events[index2][1].start)
+              start: Object.assign({}, events2[open][1].end),
+              end: Object.assign({}, events2[index2][1].start)
             };
-            const nextEvents = [["enter", strikethrough2, context], ["enter", events[open][1], context], ["exit", events[open][1], context], ["enter", text2, context]];
+            const nextEvents = [["enter", strikethrough2, context], ["enter", events2[open][1], context], ["exit", events2[open][1], context], ["enter", text2, context]];
             const insideSpan2 = context.parser.constructs.insideSpan.null;
             if (insideSpan2) {
-              splice(nextEvents, nextEvents.length, 0, resolveAll(insideSpan2, events.slice(open + 1, index2), context));
+              splice(nextEvents, nextEvents.length, 0, resolveAll(insideSpan2, events2.slice(open + 1, index2), context));
             }
-            splice(nextEvents, nextEvents.length, 0, [["exit", text2, context], ["enter", events[index2][1], context], ["exit", events[index2][1], context], ["exit", strikethrough2, context]]);
-            splice(events, open - 1, index2 - open + 3, nextEvents);
+            splice(nextEvents, nextEvents.length, 0, [["exit", text2, context], ["enter", events2[index2][1], context], ["exit", events2[index2][1], context], ["exit", strikethrough2, context]]);
+            splice(events2, open - 1, index2 - open + 3, nextEvents);
             index2 = open + nextEvents.length - 2;
             break;
           }
@@ -26045,20 +26100,20 @@ function gfmStrikethrough(options) {
       }
     }
     index2 = -1;
-    while (++index2 < events.length) {
-      if (events[index2][1].type === "strikethroughSequenceTemporary") {
-        events[index2][1].type = "data";
+    while (++index2 < events2.length) {
+      if (events2[index2][1].type === "strikethroughSequenceTemporary") {
+        events2[index2][1].type = "data";
       }
     }
-    return events;
+    return events2;
   }
   function tokenizeStrikethrough(effects, ok2, nok) {
     const previous2 = this.previous;
-    const events = this.events;
+    const events2 = this.events;
     let size = 0;
     return start;
     function start(code2) {
-      if (previous2 === 126 && events[events.length - 1][1].type !== "characterEscape") {
+      if (previous2 === 126 && events2[events2.length - 1][1].type !== "characterEscape") {
         return nok(code2);
       }
       effects.enter("strikethroughSequenceTemporary");
@@ -26096,8 +26151,8 @@ class EditMap {
    * @param {Array<Event>} add
    * @returns {undefined}
    */
-  add(index2, remove, add) {
-    addImplementation(this, index2, remove, add);
+  add(index2, remove, add2) {
+    addImplementation(this, index2, remove, add2);
   }
   // To do: add this when moving to `micromark`.
   // /**
@@ -26117,7 +26172,7 @@ class EditMap {
    * @param {Array<Event>} events
    * @returns {undefined}
    */
-  consume(events) {
+  consume(events2) {
     this.map.sort(function(a, b) {
       return a[0] - b[0];
     });
@@ -26128,48 +26183,48 @@ class EditMap {
     const vecs = [];
     while (index2 > 0) {
       index2 -= 1;
-      vecs.push(events.slice(this.map[index2][0] + this.map[index2][1]), this.map[index2][2]);
-      events.length = this.map[index2][0];
+      vecs.push(events2.slice(this.map[index2][0] + this.map[index2][1]), this.map[index2][2]);
+      events2.length = this.map[index2][0];
     }
-    vecs.push(events.slice());
-    events.length = 0;
+    vecs.push(events2.slice());
+    events2.length = 0;
     let slice = vecs.pop();
     while (slice) {
       for (const element2 of slice) {
-        events.push(element2);
+        events2.push(element2);
       }
       slice = vecs.pop();
     }
     this.map.length = 0;
   }
 }
-function addImplementation(editMap, at, remove, add) {
+function addImplementation(editMap, at, remove, add2) {
   let index2 = 0;
-  if (remove === 0 && add.length === 0) {
+  if (remove === 0 && add2.length === 0) {
     return;
   }
   while (index2 < editMap.map.length) {
     if (editMap.map[index2][0] === at) {
       editMap.map[index2][1] += remove;
-      editMap.map[index2][2].push(...add);
+      editMap.map[index2][2].push(...add2);
       return;
     }
     index2 += 1;
   }
-  editMap.map.push([at, remove, add]);
+  editMap.map.push([at, remove, add2]);
 }
-function gfmTableAlign(events, index2) {
+function gfmTableAlign(events2, index2) {
   let inDelimiterRow = false;
   const align = [];
-  while (index2 < events.length) {
-    const event = events[index2];
+  while (index2 < events2.length) {
+    const event = events2[index2];
     if (inDelimiterRow) {
       if (event[0] === "enter") {
         if (event[1].type === "tableContent") {
-          align.push(events[index2 + 1][1].type === "tableDelimiterMarker" ? "left" : "none");
+          align.push(events2[index2 + 1][1].type === "tableDelimiterMarker" ? "left" : "none");
         }
       } else if (event[1].type === "tableContent") {
-        if (events[index2 - 1][1].type === "tableDelimiterMarker") {
+        if (events2[index2 - 1][1].type === "tableDelimiterMarker") {
           const alignIndex = align.length - 1;
           align[alignIndex] = align[alignIndex] === "left" ? "center" : "right";
         }
@@ -26409,7 +26464,7 @@ function tokenizeTable(effects, ok2, nok) {
     return bodyRowData(code2);
   }
 }
-function resolveTable(events, context) {
+function resolveTable(events2, context) {
   let index2 = -1;
   let inFirstCellAwaitingPipe = true;
   let rowKind = 0;
@@ -26421,8 +26476,8 @@ function resolveTable(events, context) {
   let currentBody;
   let currentCell;
   const map2 = new EditMap();
-  while (++index2 < events.length) {
-    const event = events[index2];
+  while (++index2 < events2.length) {
+    const event = events2[index2];
     const token = event[1];
     if (event[0] === "enter") {
       if (token.type === "tableHead") {
@@ -26504,7 +26559,7 @@ function resolveTable(events, context) {
       event[1]._align = gfmTableAlign(context.events, index2);
     }
   }
-  return events;
+  return events2;
 }
 function flushCell(map2, context, range, rowKind, rowEnd, previousCell) {
   const groupName = rowKind === 1 ? "tableHeader" : rowKind === 2 ? "tableDelimiter" : "tableData";
@@ -26562,8 +26617,8 @@ function flushTableEnd(map2, context, index2, table2, tableBody) {
   exits.push(["exit", table2, context]);
   map2.add(index2 + 1, 0, exits);
 }
-function getPoint(events, index2) {
-  const event = events[index2];
+function getPoint(events2, index2) {
+  const event = events2[index2];
   const side = event[0] === "enter" ? "start" : "end";
   return event[1][side];
 }
@@ -26663,289 +26718,6 @@ function remarkGfm(options) {
   fromMarkdownExtensions.push(gfmFromMarkdown());
   toMarkdownExtensions.push(gfmToMarkdown(settings));
 }
-const getDueDateStatus = (dueDate) => {
-  if (!dueDate) return null;
-  const now = /* @__PURE__ */ new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const due = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
-  const diffTime = due.getTime() - today.getTime();
-  const diffDays = Math.ceil(diffTime / (1e3 * 60 * 60 * 24));
-  if (diffDays < 0) return { status: "overdue", label: `${Math.abs(diffDays)}d overdue`, color: "text-red-400 font-bold" };
-  if (diffDays === 0) return { status: "today", label: "Due Today", color: "text-amber-400 font-bold" };
-  if (diffDays === 1) return { status: "tomorrow", label: "Due Tomorrow", color: "text-blue-300" };
-  return {
-    status: "future",
-    label: new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(due),
-    color: "text-slate-400"
-  };
-};
-const getPriorityIcon = (iconName, size = 12) => {
-  switch (iconName) {
-    case "alert-circle":
-      return /* @__PURE__ */ jsxRuntimeExports.jsx(CircleAlert, { size });
-    case "clock":
-      return /* @__PURE__ */ jsxRuntimeExports.jsx(Clock, { size });
-    case "arrow-down":
-      return /* @__PURE__ */ jsxRuntimeExports.jsx(ArrowDown, { size });
-    case "arrow-up":
-      return /* @__PURE__ */ jsxRuntimeExports.jsx(ArrowUp, { size });
-    case "zap":
-      return /* @__PURE__ */ jsxRuntimeExports.jsx(Zap, { size });
-    case "star":
-      return /* @__PURE__ */ jsxRuntimeExports.jsx(Star, { size });
-    case "shield":
-      return /* @__PURE__ */ jsxRuntimeExports.jsx(Shield, { size });
-    case "flame":
-      return /* @__PURE__ */ jsxRuntimeExports.jsx(Flame, { size });
-    case "alert-triangle":
-      return /* @__PURE__ */ jsxRuntimeExports.jsx(TriangleAlert, { size });
-    case "flag":
-      return /* @__PURE__ */ jsxRuntimeExports.jsx(Flag, { size });
-    case "minus":
-      return /* @__PURE__ */ jsxRuntimeExports.jsx(Minus, { size });
-    default:
-      return null;
-  }
-};
-const TaskCard = ({ task, isCompletedColumn, onMoveTask, onEditTask, onUpdateTask, onDeleteTask, priorities = [], allTasks = [] }) => {
-  const [isSubtasksExpanded, setIsSubtasksExpanded] = reactExports.useState(false);
-  const [isDragging, setIsDragging] = reactExports.useState(false);
-  const handleDeliver = (e) => {
-    e.stopPropagation();
-    onMoveTask(task.id, "Delivered");
-  };
-  const handleDragStart = (e) => {
-    e.stopPropagation();
-    e.dataTransfer.setData("taskId", task.id);
-    e.dataTransfer.effectAllowed = "move";
-    setTimeout(() => setIsDragging(true), 0);
-  };
-  const handleDragEnd = () => {
-    setIsDragging(false);
-  };
-  const handleSubtaskToggle = (e, subtaskId) => {
-    e.stopPropagation();
-    const newSubtasks = task.subtasks.map(
-      (s) => s.id === subtaskId ? { ...s, completed: !s.completed } : s
-    );
-    onUpdateTask({ ...task, subtasks: newSubtasks });
-  };
-  const handleSubtaskTitleChange = (subtaskId, newTitle) => {
-    const newSubtasks = task.subtasks.map(
-      (s) => s.id === subtaskId ? { ...s, title: newTitle } : s
-    );
-    onUpdateTask({ ...task, subtasks: newSubtasks });
-  };
-  const dueInfo = getDueDateStatus(task.dueDate);
-  const subtasks = task.subtasks || [];
-  const completedSubtasks = subtasks.filter((s) => s.completed).length;
-  const progress = subtasks.length > 0 ? completedSubtasks / subtasks.length * 100 : 0;
-  const attachments = task.attachments || [];
-  const priorityDef = priorities.find((p) => p.id === task.priority) || { label: "Unknown", color: "#64748b", icon: void 0 };
-  const blockingTasks = task.links?.filter((l) => l.type === "blocked-by").map((l) => {
-    return allTasks.find((t) => t.id === l.targetTaskId);
-  }).filter((t) => t && t.status !== "Completed" && t.status !== "Delivered") || [];
-  const isBlocked = blockingTasks.length > 0;
-  const blockerIds = blockingTasks.map((t) => t.jobId).join(", ");
-  const getProgressStyles = (percent) => {
-    if (percent === 100) return "bg-gradient-to-r from-emerald-500 to-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.5)]";
-    if (percent >= 66) return "bg-gradient-to-r from-blue-500 to-cyan-400 shadow-[0_0_12px_rgba(59,130,246,0.5)]";
-    if (percent >= 33) return "bg-gradient-to-r from-amber-500 to-orange-400 shadow-[0_0_12px_rgba(245,158,11,0.5)]";
-    return "bg-gradient-to-r from-red-500 to-pink-500 shadow-[0_0_12px_rgba(239,68,68,0.5)]";
-  };
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
-    "div",
-    {
-      draggable: true,
-      onDragStart: handleDragStart,
-      onDragEnd: handleDragEnd,
-      className: `
-        liquid-card group relative w-full rounded-2xl p-5 cursor-grab active:cursor-grabbing
-        transition-all duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]
-        ${isDragging ? "opacity-40 scale-95 border-2 border-dashed border-slate-500/50 grayscale rotate-1 shadow-none" : ""}
-        ${!isDragging && isBlocked ? "border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.3)]" : ""}
-        ${!isDragging && dueInfo?.status === "overdue" && !isBlocked ? "border-red-500/30 shadow-[0_0_15px_rgba(239,68,68,0.15)]" : ""}
-      `,
-      children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between items-center mb-3", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsxs(
-              "div",
-              {
-                className: "flex items-center gap-1.5 px-3 py-1 rounded-lg border border-transparent shadow-sm transition-all",
-                style: {
-                  backgroundColor: `${priorityDef.color}25`,
-                  color: priorityDef.color,
-                  borderColor: `${priorityDef.color}30`
-                },
-                children: [
-                  priorityDef.icon ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "opacity-90", children: getPriorityIcon(priorityDef.icon) }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-2 h-2 rounded-full", style: { backgroundColor: priorityDef.color } }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-bold uppercase tracking-wider", children: priorityDef.label })
-                ]
-              }
-            ),
-            isBlocked && /* @__PURE__ */ jsxRuntimeExports.jsxs(
-              "div",
-              {
-                title: `Blocked by: ${blockerIds}`,
-                className: "flex items-center gap-1 px-2 py-1 rounded-lg bg-red-600/20 text-red-400 border border-red-500/30 text-[10px] font-bold uppercase tracking-wide cursor-help hover:bg-red-600/30 transition-colors",
-                children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx(Lock, { size: 10 }),
-                  " Blocked"
-                ]
-              }
-            )
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300 mr-2 bg-black/40 rounded-lg p-0.5 border border-white/5 backdrop-blur-sm", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: () => onEditTask(task), className: "p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-md transition-colors", title: "Edit", children: /* @__PURE__ */ jsxRuntimeExports.jsx(Pencil, { size: 12 }) }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: () => onDeleteTask(task.id), className: "p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors", title: "Delete", children: /* @__PURE__ */ jsxRuntimeExports.jsx(Trash2, { size: 12 }) })
-            ] }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[10px] font-mono text-slate-500 tracking-wider bg-black/30 px-2 py-0.5 rounded border border-white/5", children: task.jobId }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(GripVertical, { size: 14, className: "text-slate-700 opacity-0 group-hover:opacity-100 transition-opacity" })
-          ] })
-        ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { onDoubleClick: () => onEditTask(task), className: "cursor-pointer mb-3", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-lg font-bold text-slate-100 leading-tight mb-1 drop-shadow-sm", children: task.title }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-slate-400 font-semibold tracking-wide uppercase", children: task.subtitle })
-        ] }),
-        task.summary && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "bg-[#050000]/40 rounded-xl p-3 border border-white/5 shadow-inner mb-3 max-h-32 overflow-y-auto custom-scrollbar group/markdown", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-start gap-2 h-full", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(TextAlignStart, { size: 14, className: "text-slate-600 mt-1 shrink-0 group-hover/markdown:text-slate-500 transition-colors" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-sm text-slate-300 leading-relaxed font-medium w-full markdown-content", children: /* @__PURE__ */ jsxRuntimeExports.jsx(Markdown, { remarkPlugins: [remarkGfm], components: { a: ({ node: node2, ...props }) => /* @__PURE__ */ jsxRuntimeExports.jsx("a", { ...props, target: "_blank", rel: "noopener noreferrer", className: "text-blue-400 hover:underline" }) }, children: task.summary }) })
-        ] }) }),
-        task.customFieldValues && Object.keys(task.customFieldValues).length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-2 mb-3", children: Object.entries(task.customFieldValues).map(([key, value]) => {
-          if (!value) return null;
-          const isUrl2 = String(value).startsWith("http");
-          return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-1 px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/5 max-w-full truncate", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(Info$1, { size: 10, className: "text-slate-500" }),
-            isUrl2 ? /* @__PURE__ */ jsxRuntimeExports.jsxs("a", { href: String(value), target: "_blank", rel: "noopener noreferrer", className: "text-blue-400 hover:underline flex items-center gap-1", onClick: (e) => e.stopPropagation(), children: [
-              "Link ",
-              /* @__PURE__ */ jsxRuntimeExports.jsx(ExternalLink, { size: 8 })
-            ] }) : /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: value })
-          ] }, key);
-        }) }),
-        attachments.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-4 flex flex-wrap gap-2 pt-2 border-t border-white/5", children: attachments.map((att) => /* @__PURE__ */ jsxRuntimeExports.jsxs("a", { href: att.url, target: "_blank", rel: "noopener noreferrer", onClick: (e) => e.stopPropagation(), className: "group/att flex items-center gap-2 px-2.5 py-1.5 bg-black/40 hover:bg-white/5 border border-white/10 hover:border-white/20 rounded-lg text-[10px] font-medium text-slate-400 hover:text-slate-200 transition-all duration-200 hover:scale-105 hover:shadow-sm", title: att.name, children: [
-          att.type === "file" ? /* @__PURE__ */ jsxRuntimeExports.jsx(Paperclip, { size: 11, className: "text-slate-500 group-hover/att:text-red-400 transition-colors" }) : /* @__PURE__ */ jsxRuntimeExports.jsx(Link, { size: 11, className: "text-slate-500 group-hover/att:text-blue-400 transition-colors" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "truncate max-w-[120px] decoration-slate-600/50 group-hover/att:underline", children: att.name })
-        ] }, att.id)) }),
-        task.links && task.links.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-1.5 mb-3", children: task.links.map((link2, i) => {
-          const target = allTasks.find((t) => t.id === link2.targetTaskId);
-          if (!target) return null;
-          return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border ${link2.type === "blocked-by" ? "bg-red-900/20 border-red-500/20 text-red-300" : "bg-blue-900/20 border-blue-500/20 text-blue-300"}`, children: [
-            link2.type === "blocked-by" ? /* @__PURE__ */ jsxRuntimeExports.jsx(Lock, { size: 8 }) : link2.type === "blocks" ? /* @__PURE__ */ jsxRuntimeExports.jsx(Shield, { size: 8 }) : /* @__PURE__ */ jsxRuntimeExports.jsx(ArrowRightLeft, { size: 8 }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-bold", children: link2.type === "blocked-by" ? "Blocked by" : link2.type === "blocks" ? "Blocks" : "Links" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "opacity-70", children: target.jobId })
-          ] }, i);
-        }) }),
-        subtasks.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-3 mb-4 group/progress", onClick: (e) => e.stopPropagation(), children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between items-center text-[10px] text-slate-500 mb-1.5 font-medium uppercase tracking-wide cursor-pointer hover:text-slate-300 transition-colors", onClick: () => setIsSubtasksExpanded(!isSubtasksExpanded), children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-1.5", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx(SquareCheckBig, { size: 12 }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Progress" }),
-              isSubtasksExpanded ? /* @__PURE__ */ jsxRuntimeExports.jsx(ChevronUp, { size: 10 }) : /* @__PURE__ */ jsxRuntimeExports.jsx(ChevronDown, { size: 10 })
-            ] }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-slate-600", children: [
-                completedSubtasks,
-                "/",
-                subtasks.length
-              ] }),
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: `font-bold transition-colors ${progress === 100 ? "text-emerald-400" : "text-slate-400"}`, children: [
-                Math.round(progress),
-                "%"
-              ] })
-            ] })
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-full h-1.5 bg-black/40 rounded-full overflow-hidden border border-white/5 p-[1px] cursor-pointer", onClick: () => setIsSubtasksExpanded(!isSubtasksExpanded), children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: `h-full rounded-full transition-all duration-700 ease-out ${getProgressStyles(progress)}`, style: { width: `${progress}%` } }) }),
-          isSubtasksExpanded && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-3 space-y-1 animate-in slide-in-from-top-2 duration-200 pl-1", children: subtasks.map((subtask) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 group/subtask", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: (e) => handleSubtaskToggle(e, subtask.id), className: `w-4 h-4 rounded border flex items-center justify-center transition-all shrink-0 ${subtask.completed ? "bg-emerald-500/20 border-emerald-500 text-emerald-500" : "border-slate-700 hover:border-slate-500 bg-black/20 text-transparent"}`, children: /* @__PURE__ */ jsxRuntimeExports.jsx(Check, { size: 10, strokeWidth: 3 }) }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("input", { type: "text", value: subtask.title, onClick: (e) => e.stopPropagation(), onChange: (e) => handleSubtaskTitleChange(subtask.id, e.target.value), className: `bg-transparent border-none outline-none text-xs w-full transition-colors p-0.5 rounded hover:bg-white/5 focus:bg-white/5 ${subtask.completed ? "text-slate-600 line-through decoration-slate-700" : "text-slate-300 focus:text-white"}` })
-          ] }, subtask.id)) })
-        ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between mt-auto pt-3 border-t border-white/5", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 text-xs text-slate-400", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-900 to-slate-800 flex items-center justify-center border border-white/10 shadow-sm", children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[10px] font-bold text-indigo-300", children: task.assignee ? task.assignee.charAt(0).toUpperCase() : "U" }) }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-medium text-slate-300", children: task.assignee || "Unassigned" })
-          ] }),
-          dueInfo && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `flex items-center gap-1.5 text-xs font-semibold ${dueInfo.color}`, children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(Calendar, { size: 14 }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: dueInfo.label })
-          ] })
-        ] }),
-        isCompletedColumn && /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { onClick: handleDeliver, className: "mt-3 w-full flex items-center justify-center gap-2 bg-emerald-900/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 hover:border-emerald-400 p-2.5 rounded-xl transition-all duration-300 shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] group/btn", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(CircleCheckBig, { size: 16, className: "group-hover/btn:scale-110 transition-transform" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs font-bold uppercase tracking-wide", children: "Mark Verified & Close" })
-        ] })
-      ]
-    }
-  );
-};
-reactExports.memo(TaskCard, (prevProps, nextProps) => {
-  return prevProps.task.id === nextProps.task.id && prevProps.task.title === nextProps.task.title && prevProps.task.status === nextProps.task.status && prevProps.task.priority === nextProps.task.priority && prevProps.task.dueDate?.getTime() === nextProps.task.dueDate?.getTime() && prevProps.task.subtasks?.length === nextProps.task.subtasks?.length && prevProps.task.subtasks?.filter((s) => s.completed).length === nextProps.task.subtasks?.filter((s) => s.completed).length && prevProps.isCompletedColumn === nextProps.isCompletedColumn;
-});
-const LiquidButton = ({ label, onClick, icon }) => {
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
-    "button",
-    {
-      onClick,
-      className: "group relative px-6 py-3 rounded-2xl font-bold text-white transition-all duration-300 transform active:scale-95 overflow-hidden",
-      children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute inset-0 bg-gradient-to-br from-red-700 to-red-900 rounded-2xl border border-red-500/50 shadow-[0_0_15px_rgba(220,38,38,0.4)] z-0 transition-all duration-300 group-hover:shadow-[0_0_30px_rgba(255,30,30,0.6)]" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute inset-0 z-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500", children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute inset-0 bg-red-600/30 mix-blend-overlay animate-ripple rounded-2xl" }) }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/20 to-transparent rounded-t-2xl z-0 pointer-events-none opacity-50" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute bottom-0 left-0 w-full h-1/3 bg-gradient-to-t from-black/20 to-transparent rounded-b-2xl z-0 pointer-events-none" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative z-10 flex items-center gap-2 drop-shadow-md", children: [
-          icon || /* @__PURE__ */ jsxRuntimeExports.jsx(Plus, { size: 20, className: "text-red-100" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "tracking-wide text-sm", children: label })
-        ] })
-      ]
-    }
-  );
-};
-const ModalWrapper = ({
-  isOpen,
-  onClose,
-  title,
-  children,
-  icon
-}) => {
-  reactExports.useEffect(() => {
-    const handleEsc = (e) => {
-      if (e.key === "Escape") onClose();
-    };
-    if (isOpen) window.addEventListener("keydown", handleEsc);
-    return () => window.removeEventListener("keydown", handleEsc);
-  }, [isOpen, onClose]);
-  if (!isOpen) return null;
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "fixed inset-0 z-50 flex items-center justify-center p-4", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx(
-      "div",
-      {
-        className: "absolute inset-0 bg-[#020000]/80 backdrop-blur-md transition-opacity animate-in fade-in duration-300",
-        onClick: onClose
-      }
-    ),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative w-full max-w-lg liquid-glass flex flex-col transform transition-all animate-in zoom-in-95 duration-300 border border-red-500/20 shadow-[0_0_50px_rgba(0,0,0,0.9)] max-h-[85vh]", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-600 via-red-500 to-red-900 shadow-[0_0_20px_rgba(220,38,38,0.8)] z-20" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "absolute top-1 right-0 w-32 h-32 bg-red-600/10 rounded-full blur-[40px] pointer-events-none z-0" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "p-8 pb-4 relative z-10 shrink-0", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-4", children: [
-          icon && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "p-2.5 bg-red-500/10 rounded-xl border border-red-500/30 text-red-400 shadow-[0_0_15px_rgba(220,38,38,0.2)]", children: icon }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { children: /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-2xl font-bold text-white tracking-tight text-glow", children: title }) })
-        ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(
-          "button",
-          {
-            onClick: onClose,
-            className: "text-slate-400 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-full",
-            children: /* @__PURE__ */ jsxRuntimeExports.jsx(X, { size: 20 })
-          }
-        )
-      ] }) }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "p-8 pt-0 overflow-y-auto custom-scrollbar relative z-10", children })
-    ] })
-  ] });
-};
 const TaskFormModal = ({
   isOpen,
   onClose,
@@ -27533,8 +27305,8 @@ const SettingsModal = ({
     setIsImporting(true);
     setImportError(null);
     try {
-      const { storageService } = require("../src/services/storageService");
-      const result = storageService.importData(importText);
+      const { storageService: storageService2 } = require("../src/services/storageService");
+      const result = storageService2.importData(importText);
       if (result.error || !result.data) {
         throw new Error(result.error || "Import validation failed");
       }
@@ -27808,6 +27580,226 @@ const SettingsModal = ({
     }
   );
 };
+const getDueDateStatus = (dueDate) => {
+  if (!dueDate) return null;
+  const now = /* @__PURE__ */ new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const due = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
+  const diffTime = due.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1e3 * 60 * 60 * 24));
+  if (diffDays < 0) return { status: "overdue", label: `${Math.abs(diffDays)}d overdue`, color: "text-red-400 font-bold" };
+  if (diffDays === 0) return { status: "today", label: "Due Today", color: "text-amber-400 font-bold" };
+  if (diffDays === 1) return { status: "tomorrow", label: "Due Tomorrow", color: "text-blue-300" };
+  return {
+    status: "future",
+    label: new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(due),
+    color: "text-slate-400"
+  };
+};
+const getPriorityIcon = (iconName, size = 12) => {
+  switch (iconName) {
+    case "alert-circle":
+      return /* @__PURE__ */ jsxRuntimeExports.jsx(CircleAlert, { size });
+    case "clock":
+      return /* @__PURE__ */ jsxRuntimeExports.jsx(Clock, { size });
+    case "arrow-down":
+      return /* @__PURE__ */ jsxRuntimeExports.jsx(ArrowDown, { size });
+    case "arrow-up":
+      return /* @__PURE__ */ jsxRuntimeExports.jsx(ArrowUp, { size });
+    case "zap":
+      return /* @__PURE__ */ jsxRuntimeExports.jsx(Zap, { size });
+    case "star":
+      return /* @__PURE__ */ jsxRuntimeExports.jsx(Star, { size });
+    case "shield":
+      return /* @__PURE__ */ jsxRuntimeExports.jsx(Shield, { size });
+    case "flame":
+      return /* @__PURE__ */ jsxRuntimeExports.jsx(Flame, { size });
+    case "alert-triangle":
+      return /* @__PURE__ */ jsxRuntimeExports.jsx(TriangleAlert, { size });
+    case "flag":
+      return /* @__PURE__ */ jsxRuntimeExports.jsx(Flag, { size });
+    case "minus":
+      return /* @__PURE__ */ jsxRuntimeExports.jsx(Minus, { size });
+    default:
+      return null;
+  }
+};
+const TaskCard = ({ task, isCompletedColumn, onMoveTask, onEditTask, onUpdateTask, onDeleteTask, priorities = [], allTasks = [] }) => {
+  const [isSubtasksExpanded, setIsSubtasksExpanded] = reactExports.useState(false);
+  const [isDragging, setIsDragging] = reactExports.useState(false);
+  const handleDeliver = (e) => {
+    e.stopPropagation();
+    onMoveTask(task.id, "Delivered");
+  };
+  const handleDragStart = (e) => {
+    e.stopPropagation();
+    e.dataTransfer.setData("taskId", task.id);
+    e.dataTransfer.effectAllowed = "move";
+    setTimeout(() => setIsDragging(true), 0);
+  };
+  const handleDragEnd = () => {
+    setIsDragging(false);
+  };
+  const handleSubtaskToggle = (e, subtaskId) => {
+    e.stopPropagation();
+    const newSubtasks = task.subtasks.map(
+      (s) => s.id === subtaskId ? { ...s, completed: !s.completed } : s
+    );
+    onUpdateTask({ ...task, subtasks: newSubtasks });
+  };
+  const handleSubtaskTitleChange = (subtaskId, newTitle) => {
+    const newSubtasks = task.subtasks.map(
+      (s) => s.id === subtaskId ? { ...s, title: newTitle } : s
+    );
+    onUpdateTask({ ...task, subtasks: newSubtasks });
+  };
+  const dueInfo = getDueDateStatus(task.dueDate);
+  const subtasks = task.subtasks || [];
+  const completedSubtasks = subtasks.filter((s) => s.completed).length;
+  const progress = subtasks.length > 0 ? completedSubtasks / subtasks.length * 100 : 0;
+  const attachments = task.attachments || [];
+  const priorityDef = priorities.find((p) => p.id === task.priority) || { label: "Unknown", color: "#64748b", icon: void 0 };
+  const blockingTasks = task.links?.filter((l) => l.type === "blocked-by").map((l) => {
+    return allTasks.find((t) => t.id === l.targetTaskId);
+  }).filter((t) => t && t.status !== "Completed" && t.status !== "Delivered") || [];
+  const isBlocked = blockingTasks.length > 0;
+  const blockerIds = blockingTasks.map((t) => t.jobId).join(", ");
+  const getProgressStyles = (percent) => {
+    if (percent === 100) return "bg-gradient-to-r from-emerald-500 to-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.5)]";
+    if (percent >= 66) return "bg-gradient-to-r from-blue-500 to-cyan-400 shadow-[0_0_12px_rgba(59,130,246,0.5)]";
+    if (percent >= 33) return "bg-gradient-to-r from-amber-500 to-orange-400 shadow-[0_0_12px_rgba(245,158,11,0.5)]";
+    return "bg-gradient-to-r from-red-500 to-pink-500 shadow-[0_0_12px_rgba(239,68,68,0.5)]";
+  };
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "div",
+    {
+      draggable: true,
+      onDragStart: handleDragStart,
+      onDragEnd: handleDragEnd,
+      className: `
+        liquid-card group relative w-full rounded-2xl p-5 cursor-grab active:cursor-grabbing
+        transition-all duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]
+        ${isDragging ? "opacity-40 scale-95 border-2 border-dashed border-slate-500/50 grayscale rotate-1 shadow-none" : ""}
+        ${!isDragging && isBlocked ? "border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.3)]" : ""}
+        ${!isDragging && dueInfo?.status === "overdue" && !isBlocked ? "border-red-500/30 shadow-[0_0_15px_rgba(239,68,68,0.15)]" : ""}
+      `,
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between items-center mb-3", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "div",
+              {
+                className: "flex items-center gap-1.5 px-3 py-1 rounded-lg border border-transparent shadow-sm transition-all",
+                style: {
+                  backgroundColor: `${priorityDef.color}25`,
+                  color: priorityDef.color,
+                  borderColor: `${priorityDef.color}30`
+                },
+                children: [
+                  priorityDef.icon ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "opacity-90", children: getPriorityIcon(priorityDef.icon) }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-2 h-2 rounded-full", style: { backgroundColor: priorityDef.color } }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-bold uppercase tracking-wider", children: priorityDef.label })
+                ]
+              }
+            ),
+            isBlocked && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "div",
+              {
+                title: `Blocked by: ${blockerIds}`,
+                className: "flex items-center gap-1 px-2 py-1 rounded-lg bg-red-600/20 text-red-400 border border-red-500/30 text-[10px] font-bold uppercase tracking-wide cursor-help hover:bg-red-600/30 transition-colors",
+                children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(Lock, { size: 10 }),
+                  " Blocked"
+                ]
+              }
+            )
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300 mr-2 bg-black/40 rounded-lg p-0.5 border border-white/5 backdrop-blur-sm", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: () => onEditTask(task), className: "p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-md transition-colors", title: "Edit", children: /* @__PURE__ */ jsxRuntimeExports.jsx(Pencil, { size: 12 }) }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: () => onDeleteTask(task.id), className: "p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors", title: "Delete", children: /* @__PURE__ */ jsxRuntimeExports.jsx(Trash2, { size: 12 }) })
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[10px] font-mono text-slate-500 tracking-wider bg-black/30 px-2 py-0.5 rounded border border-white/5", children: task.jobId }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(GripVertical, { size: 14, className: "text-slate-700 opacity-0 group-hover:opacity-100 transition-opacity" })
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { onDoubleClick: () => onEditTask(task), className: "cursor-pointer mb-3", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-lg font-bold text-slate-100 leading-tight mb-1 drop-shadow-sm", children: task.title }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-slate-400 font-semibold tracking-wide uppercase", children: task.subtitle })
+        ] }),
+        task.summary && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "bg-[#050000]/40 rounded-xl p-3 border border-white/5 shadow-inner mb-3 max-h-32 overflow-y-auto custom-scrollbar group/markdown", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-start gap-2 h-full", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(TextAlignStart, { size: 14, className: "text-slate-600 mt-1 shrink-0 group-hover/markdown:text-slate-500 transition-colors" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-sm text-slate-300 leading-relaxed font-medium w-full markdown-content", children: /* @__PURE__ */ jsxRuntimeExports.jsx(Markdown, { remarkPlugins: [remarkGfm], components: { a: ({ node: node2, ...props }) => /* @__PURE__ */ jsxRuntimeExports.jsx("a", { ...props, target: "_blank", rel: "noopener noreferrer", className: "text-blue-400 hover:underline" }) }, children: task.summary }) })
+        ] }) }),
+        task.customFieldValues && Object.keys(task.customFieldValues).length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-2 mb-3", children: Object.entries(task.customFieldValues).map(([key2, value]) => {
+          if (!value) return null;
+          const isUrl2 = String(value).startsWith("http");
+          return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-1 px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/5 max-w-full truncate", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Info$1, { size: 10, className: "text-slate-500" }),
+            isUrl2 ? /* @__PURE__ */ jsxRuntimeExports.jsxs("a", { href: String(value), target: "_blank", rel: "noopener noreferrer", className: "text-blue-400 hover:underline flex items-center gap-1", onClick: (e) => e.stopPropagation(), children: [
+              "Link ",
+              /* @__PURE__ */ jsxRuntimeExports.jsx(ExternalLink, { size: 8 })
+            ] }) : /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: value })
+          ] }, key2);
+        }) }),
+        attachments.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-4 flex flex-wrap gap-2 pt-2 border-t border-white/5", children: attachments.map((att) => /* @__PURE__ */ jsxRuntimeExports.jsxs("a", { href: att.url, target: "_blank", rel: "noopener noreferrer", onClick: (e) => e.stopPropagation(), className: "group/att flex items-center gap-2 px-2.5 py-1.5 bg-black/40 hover:bg-white/5 border border-white/10 hover:border-white/20 rounded-lg text-[10px] font-medium text-slate-400 hover:text-slate-200 transition-all duration-200 hover:scale-105 hover:shadow-sm", title: att.name, children: [
+          att.type === "file" ? /* @__PURE__ */ jsxRuntimeExports.jsx(Paperclip, { size: 11, className: "text-slate-500 group-hover/att:text-red-400 transition-colors" }) : /* @__PURE__ */ jsxRuntimeExports.jsx(Link, { size: 11, className: "text-slate-500 group-hover/att:text-blue-400 transition-colors" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "truncate max-w-[120px] decoration-slate-600/50 group-hover/att:underline", children: att.name })
+        ] }, att.id)) }),
+        task.links && task.links.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-1.5 mb-3", children: task.links.map((link2, i) => {
+          const target = allTasks.find((t) => t.id === link2.targetTaskId);
+          if (!target) return null;
+          return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border ${link2.type === "blocked-by" ? "bg-red-900/20 border-red-500/20 text-red-300" : "bg-blue-900/20 border-blue-500/20 text-blue-300"}`, children: [
+            link2.type === "blocked-by" ? /* @__PURE__ */ jsxRuntimeExports.jsx(Lock, { size: 8 }) : link2.type === "blocks" ? /* @__PURE__ */ jsxRuntimeExports.jsx(Shield, { size: 8 }) : /* @__PURE__ */ jsxRuntimeExports.jsx(ArrowRightLeft, { size: 8 }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-bold", children: link2.type === "blocked-by" ? "Blocked by" : link2.type === "blocks" ? "Blocks" : "Links" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "opacity-70", children: target.jobId })
+          ] }, i);
+        }) }),
+        subtasks.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-3 mb-4 group/progress", onClick: (e) => e.stopPropagation(), children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between items-center text-[10px] text-slate-500 mb-1.5 font-medium uppercase tracking-wide cursor-pointer hover:text-slate-300 transition-colors", onClick: () => setIsSubtasksExpanded(!isSubtasksExpanded), children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-1.5", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(SquareCheckBig, { size: 12 }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Progress" }),
+              isSubtasksExpanded ? /* @__PURE__ */ jsxRuntimeExports.jsx(ChevronUp, { size: 10 }) : /* @__PURE__ */ jsxRuntimeExports.jsx(ChevronDown, { size: 10 })
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-slate-600", children: [
+                completedSubtasks,
+                "/",
+                subtasks.length
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: `font-bold transition-colors ${progress === 100 ? "text-emerald-400" : "text-slate-400"}`, children: [
+                Math.round(progress),
+                "%"
+              ] })
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-full h-1.5 bg-black/40 rounded-full overflow-hidden border border-white/5 p-[1px] cursor-pointer", onClick: () => setIsSubtasksExpanded(!isSubtasksExpanded), children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: `h-full rounded-full transition-all duration-700 ease-out ${getProgressStyles(progress)}`, style: { width: `${progress}%` } }) }),
+          isSubtasksExpanded && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-3 space-y-1 animate-in slide-in-from-top-2 duration-200 pl-1", children: subtasks.map((subtask) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 group/subtask", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: (e) => handleSubtaskToggle(e, subtask.id), className: `w-4 h-4 rounded border flex items-center justify-center transition-all shrink-0 ${subtask.completed ? "bg-emerald-500/20 border-emerald-500 text-emerald-500" : "border-slate-700 hover:border-slate-500 bg-black/20 text-transparent"}`, children: /* @__PURE__ */ jsxRuntimeExports.jsx(Check, { size: 10, strokeWidth: 3 }) }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("input", { type: "text", value: subtask.title, onClick: (e) => e.stopPropagation(), onChange: (e) => handleSubtaskTitleChange(subtask.id, e.target.value), className: `bg-transparent border-none outline-none text-xs w-full transition-colors p-0.5 rounded hover:bg-white/5 focus:bg-white/5 ${subtask.completed ? "text-slate-600 line-through decoration-slate-700" : "text-slate-300 focus:text-white"}` })
+          ] }, subtask.id)) })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between mt-auto pt-3 border-t border-white/5", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 text-xs text-slate-400", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-900 to-slate-800 flex items-center justify-center border border-white/10 shadow-sm", children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[10px] font-bold text-indigo-300", children: task.assignee ? task.assignee.charAt(0).toUpperCase() : "U" }) }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-medium text-slate-300", children: task.assignee || "Unassigned" })
+          ] }),
+          dueInfo && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `flex items-center gap-1.5 text-xs font-semibold ${dueInfo.color}`, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Calendar, { size: 14 }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: dueInfo.label })
+          ] })
+        ] }),
+        isCompletedColumn && /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { onClick: handleDeliver, className: "mt-3 w-full flex items-center justify-center gap-2 bg-emerald-900/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 hover:border-emerald-400 p-2.5 rounded-xl transition-all duration-300 shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] group/btn", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(CircleCheckBig, { size: 16, className: "group-hover/btn:scale-110 transition-transform" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs font-bold uppercase tracking-wide", children: "Mark Verified & Close" })
+        ] })
+      ]
+    }
+  );
+};
+reactExports.memo(TaskCard, (prevProps, nextProps) => {
+  return prevProps.task.id === nextProps.task.id && prevProps.task.title === nextProps.task.title && prevProps.task.status === nextProps.task.status && prevProps.task.priority === nextProps.task.priority && prevProps.task.dueDate?.getTime() === nextProps.task.dueDate?.getTime() && prevProps.task.subtasks?.length === nextProps.task.subtasks?.length && prevProps.task.subtasks?.filter((s) => s.completed).length === nextProps.task.subtasks?.filter((s) => s.completed).length && prevProps.isCompletedColumn === nextProps.isCompletedColumn;
+});
 const Dashboard = ({ tasks, projects, priorities = [], onEditTask, onDeleteTask, onMoveTask, onUpdateTask }) => {
   const getTaskPriorityLevel = (task) => {
     const p = priorities.find((p2) => p2.id === task.priority);
@@ -27964,12 +27956,12 @@ const Toast = ({ toast, onClose }) => {
 };
 const TitleBar = () => {
   const [isMaximized, setIsMaximized] = reactExports.useState(false);
-  const isElectron = !!window.electronAPI;
+  const isElectron2 = !!window.electronAPI;
   reactExports.useEffect(() => {
-    if (isElectron) {
+    if (isElectron2) {
       window.electronAPI?.isMaximized().then(setIsMaximized);
     }
-  }, [isElectron]);
+  }, [isElectron2]);
   const handleMinimize = () => window.electronAPI?.minimize();
   const handleMaximize = async () => {
     await window.electronAPI?.maximize();
@@ -27977,7 +27969,7 @@ const TitleBar = () => {
     setIsMaximized(maximized || false);
   };
   const handleClose = () => window.electronAPI?.close();
-  if (!isElectron) return null;
+  if (!isElectron2) return null;
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "fixed top-0 left-0 right-0 h-10 z-[100] flex items-center justify-between bg-[#0a0505]/95 backdrop-blur-md border-b border-white/5 titlebar-drag-region", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3 px-4", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: "/build/icon.png", alt: "LiquiTask", className: "w-5 h-5 rounded" }),
@@ -28027,6 +28019,9294 @@ function debounce(func, wait) {
     timeout = setTimeout(later, wait);
   };
 }
+const STORAGE_KEYS = {
+  COLUMNS: "liquitask-columns",
+  PROJECT_TYPES: "liquitask-project-types",
+  PRIORITIES: "liquitask-priorities",
+  CUSTOM_FIELDS: "liquitask-custom-fields",
+  PROJECTS: "liquitask-projects",
+  TASKS: "liquitask-tasks",
+  ACTIVE_PROJECT: "liquitask-active-project",
+  SIDEBAR_COLLAPSED: "liquitask-sidebar-collapsed",
+  GROUPING: "liquitask-grouping",
+  TASK_TEMPLATES: "liquitask-task-templates",
+  SEARCH_HISTORY: "liquitask-search-history"
+};
+const DEFAULT_COLUMNS = [
+  { id: "Pending", title: "Pending", color: "#64748b", wipLimit: 0 },
+  { id: "InProgress", title: "In Progress", color: "#3b82f6", wipLimit: 3 },
+  { id: "Completed", title: "Completed", color: "#10b981", isCompleted: true, wipLimit: 0 },
+  { id: "Delivered", title: "Delivered", color: "#a855f7", wipLimit: 0 }
+];
+const DEFAULT_PROJECT_TYPES = [
+  { id: "folder", label: "General", icon: "folder" },
+  { id: "dev", label: "Development", icon: "code" },
+  { id: "marketing", label: "Marketing", icon: "megaphone" },
+  { id: "mobile", label: "Mobile App", icon: "smartphone" },
+  { id: "inventory", label: "Inventory", icon: "box" }
+];
+const DEFAULT_PRIORITIES = [
+  { id: "high", label: "High", color: "#ef4444", level: 1, icon: "flame" },
+  { id: "medium", label: "Medium", color: "#eab308", level: 2, icon: "clock" },
+  { id: "low", label: "Low", color: "#10b981", level: 3, icon: "arrow-down" }
+];
+const DEFAULT_PROJECTS = [
+  { id: "p1", name: "Daily Operations", type: "folder", order: 0 },
+  { id: "p2", name: "Web Development", type: "dev", order: 1 },
+  { id: "p3", name: "Marketing Q4", type: "marketing", order: 2 },
+  { id: "p4", name: "Backend API", type: "code", parentId: "p2", order: 0 }
+];
+function $constructor(name2, initializer2, params) {
+  function init(inst, def) {
+    if (!inst._zod) {
+      Object.defineProperty(inst, "_zod", {
+        value: {
+          def,
+          constr: _,
+          traits: /* @__PURE__ */ new Set()
+        },
+        enumerable: false
+      });
+    }
+    if (inst._zod.traits.has(name2)) {
+      return;
+    }
+    inst._zod.traits.add(name2);
+    initializer2(inst, def);
+    const proto = _.prototype;
+    const keys2 = Object.keys(proto);
+    for (let i = 0; i < keys2.length; i++) {
+      const k = keys2[i];
+      if (!(k in inst)) {
+        inst[k] = proto[k].bind(inst);
+      }
+    }
+  }
+  const Parent = params?.Parent ?? Object;
+  class Definition extends Parent {
+  }
+  Object.defineProperty(Definition, "name", { value: name2 });
+  function _(def) {
+    var _a2;
+    const inst = params?.Parent ? new Definition() : this;
+    init(inst, def);
+    (_a2 = inst._zod).deferred ?? (_a2.deferred = []);
+    for (const fn of inst._zod.deferred) {
+      fn();
+    }
+    return inst;
+  }
+  Object.defineProperty(_, "init", { value: init });
+  Object.defineProperty(_, Symbol.hasInstance, {
+    value: (inst) => {
+      if (params?.Parent && inst instanceof params.Parent)
+        return true;
+      return inst?._zod?.traits?.has(name2);
+    }
+  });
+  Object.defineProperty(_, "name", { value: name2 });
+  return _;
+}
+class $ZodAsyncError extends Error {
+  constructor() {
+    super(`Encountered Promise during synchronous parse. Use .parseAsync() instead.`);
+  }
+}
+class $ZodEncodeError extends Error {
+  constructor(name2) {
+    super(`Encountered unidirectional transform during encode: ${name2}`);
+    this.name = "ZodEncodeError";
+  }
+}
+const globalConfig = {};
+function config(newConfig) {
+  return globalConfig;
+}
+function getEnumValues(entries) {
+  const numericValues = Object.values(entries).filter((v) => typeof v === "number");
+  const values = Object.entries(entries).filter(([k, _]) => numericValues.indexOf(+k) === -1).map(([_, v]) => v);
+  return values;
+}
+function jsonStringifyReplacer(_, value) {
+  if (typeof value === "bigint")
+    return value.toString();
+  return value;
+}
+function cached(getter) {
+  return {
+    get value() {
+      {
+        const value = getter();
+        Object.defineProperty(this, "value", { value });
+        return value;
+      }
+    }
+  };
+}
+function nullish(input) {
+  return input === null || input === void 0;
+}
+function cleanRegex(source) {
+  const start = source.startsWith("^") ? 1 : 0;
+  const end = source.endsWith("$") ? source.length - 1 : source.length;
+  return source.slice(start, end);
+}
+function floatSafeRemainder(val, step) {
+  const valDecCount = (val.toString().split(".")[1] || "").length;
+  const stepString = step.toString();
+  let stepDecCount = (stepString.split(".")[1] || "").length;
+  if (stepDecCount === 0 && /\d?e-\d?/.test(stepString)) {
+    const match = stepString.match(/\d?e-(\d?)/);
+    if (match?.[1]) {
+      stepDecCount = Number.parseInt(match[1]);
+    }
+  }
+  const decCount = valDecCount > stepDecCount ? valDecCount : stepDecCount;
+  const valInt = Number.parseInt(val.toFixed(decCount).replace(".", ""));
+  const stepInt = Number.parseInt(step.toFixed(decCount).replace(".", ""));
+  return valInt % stepInt / 10 ** decCount;
+}
+const EVALUATING = Symbol("evaluating");
+function defineLazy(object2, key2, getter) {
+  let value = void 0;
+  Object.defineProperty(object2, key2, {
+    get() {
+      if (value === EVALUATING) {
+        return void 0;
+      }
+      if (value === void 0) {
+        value = EVALUATING;
+        value = getter();
+      }
+      return value;
+    },
+    set(v) {
+      Object.defineProperty(object2, key2, {
+        value: v
+        // configurable: true,
+      });
+    },
+    configurable: true
+  });
+}
+function assignProp(target, prop, value) {
+  Object.defineProperty(target, prop, {
+    value,
+    writable: true,
+    enumerable: true,
+    configurable: true
+  });
+}
+function mergeDefs(...defs) {
+  const mergedDescriptors = {};
+  for (const def of defs) {
+    const descriptors = Object.getOwnPropertyDescriptors(def);
+    Object.assign(mergedDescriptors, descriptors);
+  }
+  return Object.defineProperties({}, mergedDescriptors);
+}
+function esc(str) {
+  return JSON.stringify(str);
+}
+function slugify(input) {
+  return input.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/[\s_-]+/g, "-").replace(/^-+|-+$/g, "");
+}
+const captureStackTrace = "captureStackTrace" in Error ? Error.captureStackTrace : (..._args) => {
+};
+function isObject(data) {
+  return typeof data === "object" && data !== null && !Array.isArray(data);
+}
+const allowsEval = cached(() => {
+  if (typeof navigator !== "undefined" && navigator?.userAgent?.includes("Cloudflare")) {
+    return false;
+  }
+  try {
+    const F = Function;
+    new F("");
+    return true;
+  } catch (_) {
+    return false;
+  }
+});
+function isPlainObject(o) {
+  if (isObject(o) === false)
+    return false;
+  const ctor = o.constructor;
+  if (ctor === void 0)
+    return true;
+  if (typeof ctor !== "function")
+    return true;
+  const prot = ctor.prototype;
+  if (isObject(prot) === false)
+    return false;
+  if (Object.prototype.hasOwnProperty.call(prot, "isPrototypeOf") === false) {
+    return false;
+  }
+  return true;
+}
+function shallowClone(o) {
+  if (isPlainObject(o))
+    return { ...o };
+  if (Array.isArray(o))
+    return [...o];
+  return o;
+}
+const propertyKeyTypes = /* @__PURE__ */ new Set(["string", "number", "symbol"]);
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+function clone(inst, def, params) {
+  const cl = new inst._zod.constr(def ?? inst._zod.def);
+  if (!def || params?.parent)
+    cl._zod.parent = inst;
+  return cl;
+}
+function normalizeParams(_params) {
+  const params = _params;
+  if (!params)
+    return {};
+  if (typeof params === "string")
+    return { error: () => params };
+  if (params?.message !== void 0) {
+    if (params?.error !== void 0)
+      throw new Error("Cannot specify both `message` and `error` params");
+    params.error = params.message;
+  }
+  delete params.message;
+  if (typeof params.error === "string")
+    return { ...params, error: () => params.error };
+  return params;
+}
+function optionalKeys(shape) {
+  return Object.keys(shape).filter((k) => {
+    return shape[k]._zod.optin === "optional" && shape[k]._zod.optout === "optional";
+  });
+}
+const NUMBER_FORMAT_RANGES = {
+  safeint: [Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER],
+  int32: [-2147483648, 2147483647],
+  uint32: [0, 4294967295],
+  float32: [-34028234663852886e22, 34028234663852886e22],
+  float64: [-Number.MAX_VALUE, Number.MAX_VALUE]
+};
+function pick(schema, mask) {
+  const currDef = schema._zod.def;
+  const checks2 = currDef.checks;
+  const hasChecks = checks2 && checks2.length > 0;
+  if (hasChecks) {
+    throw new Error(".pick() cannot be used on object schemas containing refinements");
+  }
+  const def = mergeDefs(schema._zod.def, {
+    get shape() {
+      const newShape = {};
+      for (const key2 in mask) {
+        if (!(key2 in currDef.shape)) {
+          throw new Error(`Unrecognized key: "${key2}"`);
+        }
+        if (!mask[key2])
+          continue;
+        newShape[key2] = currDef.shape[key2];
+      }
+      assignProp(this, "shape", newShape);
+      return newShape;
+    },
+    checks: []
+  });
+  return clone(schema, def);
+}
+function omit(schema, mask) {
+  const currDef = schema._zod.def;
+  const checks2 = currDef.checks;
+  const hasChecks = checks2 && checks2.length > 0;
+  if (hasChecks) {
+    throw new Error(".omit() cannot be used on object schemas containing refinements");
+  }
+  const def = mergeDefs(schema._zod.def, {
+    get shape() {
+      const newShape = { ...schema._zod.def.shape };
+      for (const key2 in mask) {
+        if (!(key2 in currDef.shape)) {
+          throw new Error(`Unrecognized key: "${key2}"`);
+        }
+        if (!mask[key2])
+          continue;
+        delete newShape[key2];
+      }
+      assignProp(this, "shape", newShape);
+      return newShape;
+    },
+    checks: []
+  });
+  return clone(schema, def);
+}
+function extend(schema, shape) {
+  if (!isPlainObject(shape)) {
+    throw new Error("Invalid input to extend: expected a plain object");
+  }
+  const checks2 = schema._zod.def.checks;
+  const hasChecks = checks2 && checks2.length > 0;
+  if (hasChecks) {
+    const existingShape = schema._zod.def.shape;
+    for (const key2 in shape) {
+      if (Object.getOwnPropertyDescriptor(existingShape, key2) !== void 0) {
+        throw new Error("Cannot overwrite keys on object schemas containing refinements. Use `.safeExtend()` instead.");
+      }
+    }
+  }
+  const def = mergeDefs(schema._zod.def, {
+    get shape() {
+      const _shape = { ...schema._zod.def.shape, ...shape };
+      assignProp(this, "shape", _shape);
+      return _shape;
+    }
+  });
+  return clone(schema, def);
+}
+function safeExtend(schema, shape) {
+  if (!isPlainObject(shape)) {
+    throw new Error("Invalid input to safeExtend: expected a plain object");
+  }
+  const def = mergeDefs(schema._zod.def, {
+    get shape() {
+      const _shape = { ...schema._zod.def.shape, ...shape };
+      assignProp(this, "shape", _shape);
+      return _shape;
+    }
+  });
+  return clone(schema, def);
+}
+function merge(a, b) {
+  const def = mergeDefs(a._zod.def, {
+    get shape() {
+      const _shape = { ...a._zod.def.shape, ...b._zod.def.shape };
+      assignProp(this, "shape", _shape);
+      return _shape;
+    },
+    get catchall() {
+      return b._zod.def.catchall;
+    },
+    checks: []
+    // delete existing checks
+  });
+  return clone(a, def);
+}
+function partial(Class, schema, mask) {
+  const currDef = schema._zod.def;
+  const checks2 = currDef.checks;
+  const hasChecks = checks2 && checks2.length > 0;
+  if (hasChecks) {
+    throw new Error(".partial() cannot be used on object schemas containing refinements");
+  }
+  const def = mergeDefs(schema._zod.def, {
+    get shape() {
+      const oldShape = schema._zod.def.shape;
+      const shape = { ...oldShape };
+      if (mask) {
+        for (const key2 in mask) {
+          if (!(key2 in oldShape)) {
+            throw new Error(`Unrecognized key: "${key2}"`);
+          }
+          if (!mask[key2])
+            continue;
+          shape[key2] = Class ? new Class({
+            type: "optional",
+            innerType: oldShape[key2]
+          }) : oldShape[key2];
+        }
+      } else {
+        for (const key2 in oldShape) {
+          shape[key2] = Class ? new Class({
+            type: "optional",
+            innerType: oldShape[key2]
+          }) : oldShape[key2];
+        }
+      }
+      assignProp(this, "shape", shape);
+      return shape;
+    },
+    checks: []
+  });
+  return clone(schema, def);
+}
+function required(Class, schema, mask) {
+  const def = mergeDefs(schema._zod.def, {
+    get shape() {
+      const oldShape = schema._zod.def.shape;
+      const shape = { ...oldShape };
+      if (mask) {
+        for (const key2 in mask) {
+          if (!(key2 in shape)) {
+            throw new Error(`Unrecognized key: "${key2}"`);
+          }
+          if (!mask[key2])
+            continue;
+          shape[key2] = new Class({
+            type: "nonoptional",
+            innerType: oldShape[key2]
+          });
+        }
+      } else {
+        for (const key2 in oldShape) {
+          shape[key2] = new Class({
+            type: "nonoptional",
+            innerType: oldShape[key2]
+          });
+        }
+      }
+      assignProp(this, "shape", shape);
+      return shape;
+    }
+  });
+  return clone(schema, def);
+}
+function aborted(x, startIndex = 0) {
+  if (x.aborted === true)
+    return true;
+  for (let i = startIndex; i < x.issues.length; i++) {
+    if (x.issues[i]?.continue !== true) {
+      return true;
+    }
+  }
+  return false;
+}
+function prefixIssues(path2, issues) {
+  return issues.map((iss) => {
+    var _a2;
+    (_a2 = iss).path ?? (_a2.path = []);
+    iss.path.unshift(path2);
+    return iss;
+  });
+}
+function unwrapMessage(message) {
+  return typeof message === "string" ? message : message?.message;
+}
+function finalizeIssue(iss, ctx, config2) {
+  const full = { ...iss, path: iss.path ?? [] };
+  if (!iss.message) {
+    const message = unwrapMessage(iss.inst?._zod.def?.error?.(iss)) ?? unwrapMessage(ctx?.error?.(iss)) ?? unwrapMessage(config2.customError?.(iss)) ?? unwrapMessage(config2.localeError?.(iss)) ?? "Invalid input";
+    full.message = message;
+  }
+  delete full.inst;
+  delete full.continue;
+  if (!ctx?.reportInput) {
+    delete full.input;
+  }
+  return full;
+}
+function getLengthableOrigin(input) {
+  if (Array.isArray(input))
+    return "array";
+  if (typeof input === "string")
+    return "string";
+  return "unknown";
+}
+function issue(...args) {
+  const [iss, input, inst] = args;
+  if (typeof iss === "string") {
+    return {
+      message: iss,
+      code: "custom",
+      input,
+      inst
+    };
+  }
+  return { ...iss };
+}
+const initializer$1 = (inst, def) => {
+  inst.name = "$ZodError";
+  Object.defineProperty(inst, "_zod", {
+    value: inst._zod,
+    enumerable: false
+  });
+  Object.defineProperty(inst, "issues", {
+    value: def,
+    enumerable: false
+  });
+  inst.message = JSON.stringify(def, jsonStringifyReplacer, 2);
+  Object.defineProperty(inst, "toString", {
+    value: () => inst.message,
+    enumerable: false
+  });
+};
+const $ZodError = $constructor("$ZodError", initializer$1);
+const $ZodRealError = $constructor("$ZodError", initializer$1, { Parent: Error });
+function flattenError(error, mapper = (issue2) => issue2.message) {
+  const fieldErrors = {};
+  const formErrors = [];
+  for (const sub of error.issues) {
+    if (sub.path.length > 0) {
+      fieldErrors[sub.path[0]] = fieldErrors[sub.path[0]] || [];
+      fieldErrors[sub.path[0]].push(mapper(sub));
+    } else {
+      formErrors.push(mapper(sub));
+    }
+  }
+  return { formErrors, fieldErrors };
+}
+function formatError(error, mapper = (issue2) => issue2.message) {
+  const fieldErrors = { _errors: [] };
+  const processError = (error2) => {
+    for (const issue2 of error2.issues) {
+      if (issue2.code === "invalid_union" && issue2.errors.length) {
+        issue2.errors.map((issues) => processError({ issues }));
+      } else if (issue2.code === "invalid_key") {
+        processError({ issues: issue2.issues });
+      } else if (issue2.code === "invalid_element") {
+        processError({ issues: issue2.issues });
+      } else if (issue2.path.length === 0) {
+        fieldErrors._errors.push(mapper(issue2));
+      } else {
+        let curr = fieldErrors;
+        let i = 0;
+        while (i < issue2.path.length) {
+          const el = issue2.path[i];
+          const terminal = i === issue2.path.length - 1;
+          if (!terminal) {
+            curr[el] = curr[el] || { _errors: [] };
+          } else {
+            curr[el] = curr[el] || { _errors: [] };
+            curr[el]._errors.push(mapper(issue2));
+          }
+          curr = curr[el];
+          i++;
+        }
+      }
+    }
+  };
+  processError(error);
+  return fieldErrors;
+}
+const _parse = (_Err) => (schema, value, _ctx, _params) => {
+  const ctx = _ctx ? Object.assign(_ctx, { async: false }) : { async: false };
+  const result = schema._zod.run({ value, issues: [] }, ctx);
+  if (result instanceof Promise) {
+    throw new $ZodAsyncError();
+  }
+  if (result.issues.length) {
+    const e = new (_params?.Err ?? _Err)(result.issues.map((iss) => finalizeIssue(iss, ctx, config())));
+    captureStackTrace(e, _params?.callee);
+    throw e;
+  }
+  return result.value;
+};
+const _parseAsync = (_Err) => async (schema, value, _ctx, params) => {
+  const ctx = _ctx ? Object.assign(_ctx, { async: true }) : { async: true };
+  let result = schema._zod.run({ value, issues: [] }, ctx);
+  if (result instanceof Promise)
+    result = await result;
+  if (result.issues.length) {
+    const e = new (params?.Err ?? _Err)(result.issues.map((iss) => finalizeIssue(iss, ctx, config())));
+    captureStackTrace(e, params?.callee);
+    throw e;
+  }
+  return result.value;
+};
+const _safeParse = (_Err) => (schema, value, _ctx) => {
+  const ctx = _ctx ? { ..._ctx, async: false } : { async: false };
+  const result = schema._zod.run({ value, issues: [] }, ctx);
+  if (result instanceof Promise) {
+    throw new $ZodAsyncError();
+  }
+  return result.issues.length ? {
+    success: false,
+    error: new (_Err ?? $ZodError)(result.issues.map((iss) => finalizeIssue(iss, ctx, config())))
+  } : { success: true, data: result.value };
+};
+const safeParse$1 = /* @__PURE__ */ _safeParse($ZodRealError);
+const _safeParseAsync = (_Err) => async (schema, value, _ctx) => {
+  const ctx = _ctx ? Object.assign(_ctx, { async: true }) : { async: true };
+  let result = schema._zod.run({ value, issues: [] }, ctx);
+  if (result instanceof Promise)
+    result = await result;
+  return result.issues.length ? {
+    success: false,
+    error: new _Err(result.issues.map((iss) => finalizeIssue(iss, ctx, config())))
+  } : { success: true, data: result.value };
+};
+const safeParseAsync$1 = /* @__PURE__ */ _safeParseAsync($ZodRealError);
+const _encode = (_Err) => (schema, value, _ctx) => {
+  const ctx = _ctx ? Object.assign(_ctx, { direction: "backward" }) : { direction: "backward" };
+  return _parse(_Err)(schema, value, ctx);
+};
+const _decode = (_Err) => (schema, value, _ctx) => {
+  return _parse(_Err)(schema, value, _ctx);
+};
+const _encodeAsync = (_Err) => async (schema, value, _ctx) => {
+  const ctx = _ctx ? Object.assign(_ctx, { direction: "backward" }) : { direction: "backward" };
+  return _parseAsync(_Err)(schema, value, ctx);
+};
+const _decodeAsync = (_Err) => async (schema, value, _ctx) => {
+  return _parseAsync(_Err)(schema, value, _ctx);
+};
+const _safeEncode = (_Err) => (schema, value, _ctx) => {
+  const ctx = _ctx ? Object.assign(_ctx, { direction: "backward" }) : { direction: "backward" };
+  return _safeParse(_Err)(schema, value, ctx);
+};
+const _safeDecode = (_Err) => (schema, value, _ctx) => {
+  return _safeParse(_Err)(schema, value, _ctx);
+};
+const _safeEncodeAsync = (_Err) => async (schema, value, _ctx) => {
+  const ctx = _ctx ? Object.assign(_ctx, { direction: "backward" }) : { direction: "backward" };
+  return _safeParseAsync(_Err)(schema, value, ctx);
+};
+const _safeDecodeAsync = (_Err) => async (schema, value, _ctx) => {
+  return _safeParseAsync(_Err)(schema, value, _ctx);
+};
+const cuid = /^[cC][^\s-]{8,}$/;
+const cuid2 = /^[0-9a-z]+$/;
+const ulid = /^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$/;
+const xid = /^[0-9a-vA-V]{20}$/;
+const ksuid = /^[A-Za-z0-9]{27}$/;
+const nanoid = /^[a-zA-Z0-9_-]{21}$/;
+const duration$1 = /^P(?:(\d+W)|(?!.*W)(?=\d|T\d)(\d+Y)?(\d+M)?(\d+D)?(T(?=\d)(\d+H)?(\d+M)?(\d+([.,]\d+)?S)?)?)$/;
+const guid = /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$/;
+const uuid = (version2) => {
+  if (!version2)
+    return /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$/;
+  return new RegExp(`^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-${version2}[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$`);
+};
+const email = /^(?!\.)(?!.*\.\.)([A-Za-z0-9_'+\-\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\-]*\.)+[A-Za-z]{2,}$/;
+const _emoji$1 = `^(\\p{Extended_Pictographic}|\\p{Emoji_Component})+$`;
+function emoji() {
+  return new RegExp(_emoji$1, "u");
+}
+const ipv4 = /^(?:(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$/;
+const ipv6 = /^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:))$/;
+const cidrv4 = /^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\/([0-9]|[1-2][0-9]|3[0-2])$/;
+const cidrv6 = /^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|::|([0-9a-fA-F]{1,4})?::([0-9a-fA-F]{1,4}:?){0,6})\/(12[0-8]|1[01][0-9]|[1-9]?[0-9])$/;
+const base64 = /^$|^(?:[0-9a-zA-Z+/]{4})*(?:(?:[0-9a-zA-Z+/]{2}==)|(?:[0-9a-zA-Z+/]{3}=))?$/;
+const base64url = /^[A-Za-z0-9_-]*$/;
+const e164 = /^\+[1-9]\d{6,14}$/;
+const dateSource = `(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))`;
+const date$2 = /* @__PURE__ */ new RegExp(`^${dateSource}$`);
+function timeSource(args) {
+  const hhmm = `(?:[01]\\d|2[0-3]):[0-5]\\d`;
+  const regex = typeof args.precision === "number" ? args.precision === -1 ? `${hhmm}` : args.precision === 0 ? `${hhmm}:[0-5]\\d` : `${hhmm}:[0-5]\\d\\.\\d{${args.precision}}` : `${hhmm}(?::[0-5]\\d(?:\\.\\d+)?)?`;
+  return regex;
+}
+function time$1(args) {
+  return new RegExp(`^${timeSource(args)}$`);
+}
+function datetime$1(args) {
+  const time2 = timeSource({ precision: args.precision });
+  const opts = ["Z"];
+  if (args.local)
+    opts.push("");
+  if (args.offset)
+    opts.push(`([+-](?:[01]\\d|2[0-3]):[0-5]\\d)`);
+  const timeRegex = `${time2}(?:${opts.join("|")})`;
+  return new RegExp(`^${dateSource}T(?:${timeRegex})$`);
+}
+const string$1 = (params) => {
+  const regex = params ? `[\\s\\S]{${params?.minimum ?? 0},${params?.maximum ?? ""}}` : `[\\s\\S]*`;
+  return new RegExp(`^${regex}$`);
+};
+const integer = /^-?\d+$/;
+const number$1 = /^-?\d+(?:\.\d+)?$/;
+const boolean$1 = /^(?:true|false)$/i;
+const lowercase = /^[^A-Z]*$/;
+const uppercase = /^[^a-z]*$/;
+const $ZodCheck = /* @__PURE__ */ $constructor("$ZodCheck", (inst, def) => {
+  var _a2;
+  inst._zod ?? (inst._zod = {});
+  inst._zod.def = def;
+  (_a2 = inst._zod).onattach ?? (_a2.onattach = []);
+});
+const numericOriginMap = {
+  number: "number",
+  bigint: "bigint",
+  object: "date"
+};
+const $ZodCheckLessThan = /* @__PURE__ */ $constructor("$ZodCheckLessThan", (inst, def) => {
+  $ZodCheck.init(inst, def);
+  const origin = numericOriginMap[typeof def.value];
+  inst._zod.onattach.push((inst2) => {
+    const bag = inst2._zod.bag;
+    const curr = (def.inclusive ? bag.maximum : bag.exclusiveMaximum) ?? Number.POSITIVE_INFINITY;
+    if (def.value < curr) {
+      if (def.inclusive)
+        bag.maximum = def.value;
+      else
+        bag.exclusiveMaximum = def.value;
+    }
+  });
+  inst._zod.check = (payload) => {
+    if (def.inclusive ? payload.value <= def.value : payload.value < def.value) {
+      return;
+    }
+    payload.issues.push({
+      origin,
+      code: "too_big",
+      maximum: typeof def.value === "object" ? def.value.getTime() : def.value,
+      input: payload.value,
+      inclusive: def.inclusive,
+      inst,
+      continue: !def.abort
+    });
+  };
+});
+const $ZodCheckGreaterThan = /* @__PURE__ */ $constructor("$ZodCheckGreaterThan", (inst, def) => {
+  $ZodCheck.init(inst, def);
+  const origin = numericOriginMap[typeof def.value];
+  inst._zod.onattach.push((inst2) => {
+    const bag = inst2._zod.bag;
+    const curr = (def.inclusive ? bag.minimum : bag.exclusiveMinimum) ?? Number.NEGATIVE_INFINITY;
+    if (def.value > curr) {
+      if (def.inclusive)
+        bag.minimum = def.value;
+      else
+        bag.exclusiveMinimum = def.value;
+    }
+  });
+  inst._zod.check = (payload) => {
+    if (def.inclusive ? payload.value >= def.value : payload.value > def.value) {
+      return;
+    }
+    payload.issues.push({
+      origin,
+      code: "too_small",
+      minimum: typeof def.value === "object" ? def.value.getTime() : def.value,
+      input: payload.value,
+      inclusive: def.inclusive,
+      inst,
+      continue: !def.abort
+    });
+  };
+});
+const $ZodCheckMultipleOf = /* @__PURE__ */ $constructor("$ZodCheckMultipleOf", (inst, def) => {
+  $ZodCheck.init(inst, def);
+  inst._zod.onattach.push((inst2) => {
+    var _a2;
+    (_a2 = inst2._zod.bag).multipleOf ?? (_a2.multipleOf = def.value);
+  });
+  inst._zod.check = (payload) => {
+    if (typeof payload.value !== typeof def.value)
+      throw new Error("Cannot mix number and bigint in multiple_of check.");
+    const isMultiple = typeof payload.value === "bigint" ? payload.value % def.value === BigInt(0) : floatSafeRemainder(payload.value, def.value) === 0;
+    if (isMultiple)
+      return;
+    payload.issues.push({
+      origin: typeof payload.value,
+      code: "not_multiple_of",
+      divisor: def.value,
+      input: payload.value,
+      inst,
+      continue: !def.abort
+    });
+  };
+});
+const $ZodCheckNumberFormat = /* @__PURE__ */ $constructor("$ZodCheckNumberFormat", (inst, def) => {
+  $ZodCheck.init(inst, def);
+  def.format = def.format || "float64";
+  const isInt = def.format?.includes("int");
+  const origin = isInt ? "int" : "number";
+  const [minimum, maximum] = NUMBER_FORMAT_RANGES[def.format];
+  inst._zod.onattach.push((inst2) => {
+    const bag = inst2._zod.bag;
+    bag.format = def.format;
+    bag.minimum = minimum;
+    bag.maximum = maximum;
+    if (isInt)
+      bag.pattern = integer;
+  });
+  inst._zod.check = (payload) => {
+    const input = payload.value;
+    if (isInt) {
+      if (!Number.isInteger(input)) {
+        payload.issues.push({
+          expected: origin,
+          format: def.format,
+          code: "invalid_type",
+          continue: false,
+          input,
+          inst
+        });
+        return;
+      }
+      if (!Number.isSafeInteger(input)) {
+        if (input > 0) {
+          payload.issues.push({
+            input,
+            code: "too_big",
+            maximum: Number.MAX_SAFE_INTEGER,
+            note: "Integers must be within the safe integer range.",
+            inst,
+            origin,
+            inclusive: true,
+            continue: !def.abort
+          });
+        } else {
+          payload.issues.push({
+            input,
+            code: "too_small",
+            minimum: Number.MIN_SAFE_INTEGER,
+            note: "Integers must be within the safe integer range.",
+            inst,
+            origin,
+            inclusive: true,
+            continue: !def.abort
+          });
+        }
+        return;
+      }
+    }
+    if (input < minimum) {
+      payload.issues.push({
+        origin: "number",
+        input,
+        code: "too_small",
+        minimum,
+        inclusive: true,
+        inst,
+        continue: !def.abort
+      });
+    }
+    if (input > maximum) {
+      payload.issues.push({
+        origin: "number",
+        input,
+        code: "too_big",
+        maximum,
+        inclusive: true,
+        inst,
+        continue: !def.abort
+      });
+    }
+  };
+});
+const $ZodCheckMaxLength = /* @__PURE__ */ $constructor("$ZodCheckMaxLength", (inst, def) => {
+  var _a2;
+  $ZodCheck.init(inst, def);
+  (_a2 = inst._zod.def).when ?? (_a2.when = (payload) => {
+    const val = payload.value;
+    return !nullish(val) && val.length !== void 0;
+  });
+  inst._zod.onattach.push((inst2) => {
+    const curr = inst2._zod.bag.maximum ?? Number.POSITIVE_INFINITY;
+    if (def.maximum < curr)
+      inst2._zod.bag.maximum = def.maximum;
+  });
+  inst._zod.check = (payload) => {
+    const input = payload.value;
+    const length = input.length;
+    if (length <= def.maximum)
+      return;
+    const origin = getLengthableOrigin(input);
+    payload.issues.push({
+      origin,
+      code: "too_big",
+      maximum: def.maximum,
+      inclusive: true,
+      input,
+      inst,
+      continue: !def.abort
+    });
+  };
+});
+const $ZodCheckMinLength = /* @__PURE__ */ $constructor("$ZodCheckMinLength", (inst, def) => {
+  var _a2;
+  $ZodCheck.init(inst, def);
+  (_a2 = inst._zod.def).when ?? (_a2.when = (payload) => {
+    const val = payload.value;
+    return !nullish(val) && val.length !== void 0;
+  });
+  inst._zod.onattach.push((inst2) => {
+    const curr = inst2._zod.bag.minimum ?? Number.NEGATIVE_INFINITY;
+    if (def.minimum > curr)
+      inst2._zod.bag.minimum = def.minimum;
+  });
+  inst._zod.check = (payload) => {
+    const input = payload.value;
+    const length = input.length;
+    if (length >= def.minimum)
+      return;
+    const origin = getLengthableOrigin(input);
+    payload.issues.push({
+      origin,
+      code: "too_small",
+      minimum: def.minimum,
+      inclusive: true,
+      input,
+      inst,
+      continue: !def.abort
+    });
+  };
+});
+const $ZodCheckLengthEquals = /* @__PURE__ */ $constructor("$ZodCheckLengthEquals", (inst, def) => {
+  var _a2;
+  $ZodCheck.init(inst, def);
+  (_a2 = inst._zod.def).when ?? (_a2.when = (payload) => {
+    const val = payload.value;
+    return !nullish(val) && val.length !== void 0;
+  });
+  inst._zod.onattach.push((inst2) => {
+    const bag = inst2._zod.bag;
+    bag.minimum = def.length;
+    bag.maximum = def.length;
+    bag.length = def.length;
+  });
+  inst._zod.check = (payload) => {
+    const input = payload.value;
+    const length = input.length;
+    if (length === def.length)
+      return;
+    const origin = getLengthableOrigin(input);
+    const tooBig = length > def.length;
+    payload.issues.push({
+      origin,
+      ...tooBig ? { code: "too_big", maximum: def.length } : { code: "too_small", minimum: def.length },
+      inclusive: true,
+      exact: true,
+      input: payload.value,
+      inst,
+      continue: !def.abort
+    });
+  };
+});
+const $ZodCheckStringFormat = /* @__PURE__ */ $constructor("$ZodCheckStringFormat", (inst, def) => {
+  var _a2, _b;
+  $ZodCheck.init(inst, def);
+  inst._zod.onattach.push((inst2) => {
+    const bag = inst2._zod.bag;
+    bag.format = def.format;
+    if (def.pattern) {
+      bag.patterns ?? (bag.patterns = /* @__PURE__ */ new Set());
+      bag.patterns.add(def.pattern);
+    }
+  });
+  if (def.pattern)
+    (_a2 = inst._zod).check ?? (_a2.check = (payload) => {
+      def.pattern.lastIndex = 0;
+      if (def.pattern.test(payload.value))
+        return;
+      payload.issues.push({
+        origin: "string",
+        code: "invalid_format",
+        format: def.format,
+        input: payload.value,
+        ...def.pattern ? { pattern: def.pattern.toString() } : {},
+        inst,
+        continue: !def.abort
+      });
+    });
+  else
+    (_b = inst._zod).check ?? (_b.check = () => {
+    });
+});
+const $ZodCheckRegex = /* @__PURE__ */ $constructor("$ZodCheckRegex", (inst, def) => {
+  $ZodCheckStringFormat.init(inst, def);
+  inst._zod.check = (payload) => {
+    def.pattern.lastIndex = 0;
+    if (def.pattern.test(payload.value))
+      return;
+    payload.issues.push({
+      origin: "string",
+      code: "invalid_format",
+      format: "regex",
+      input: payload.value,
+      pattern: def.pattern.toString(),
+      inst,
+      continue: !def.abort
+    });
+  };
+});
+const $ZodCheckLowerCase = /* @__PURE__ */ $constructor("$ZodCheckLowerCase", (inst, def) => {
+  def.pattern ?? (def.pattern = lowercase);
+  $ZodCheckStringFormat.init(inst, def);
+});
+const $ZodCheckUpperCase = /* @__PURE__ */ $constructor("$ZodCheckUpperCase", (inst, def) => {
+  def.pattern ?? (def.pattern = uppercase);
+  $ZodCheckStringFormat.init(inst, def);
+});
+const $ZodCheckIncludes = /* @__PURE__ */ $constructor("$ZodCheckIncludes", (inst, def) => {
+  $ZodCheck.init(inst, def);
+  const escapedRegex = escapeRegex(def.includes);
+  const pattern = new RegExp(typeof def.position === "number" ? `^.{${def.position}}${escapedRegex}` : escapedRegex);
+  def.pattern = pattern;
+  inst._zod.onattach.push((inst2) => {
+    const bag = inst2._zod.bag;
+    bag.patterns ?? (bag.patterns = /* @__PURE__ */ new Set());
+    bag.patterns.add(pattern);
+  });
+  inst._zod.check = (payload) => {
+    if (payload.value.includes(def.includes, def.position))
+      return;
+    payload.issues.push({
+      origin: "string",
+      code: "invalid_format",
+      format: "includes",
+      includes: def.includes,
+      input: payload.value,
+      inst,
+      continue: !def.abort
+    });
+  };
+});
+const $ZodCheckStartsWith = /* @__PURE__ */ $constructor("$ZodCheckStartsWith", (inst, def) => {
+  $ZodCheck.init(inst, def);
+  const pattern = new RegExp(`^${escapeRegex(def.prefix)}.*`);
+  def.pattern ?? (def.pattern = pattern);
+  inst._zod.onattach.push((inst2) => {
+    const bag = inst2._zod.bag;
+    bag.patterns ?? (bag.patterns = /* @__PURE__ */ new Set());
+    bag.patterns.add(pattern);
+  });
+  inst._zod.check = (payload) => {
+    if (payload.value.startsWith(def.prefix))
+      return;
+    payload.issues.push({
+      origin: "string",
+      code: "invalid_format",
+      format: "starts_with",
+      prefix: def.prefix,
+      input: payload.value,
+      inst,
+      continue: !def.abort
+    });
+  };
+});
+const $ZodCheckEndsWith = /* @__PURE__ */ $constructor("$ZodCheckEndsWith", (inst, def) => {
+  $ZodCheck.init(inst, def);
+  const pattern = new RegExp(`.*${escapeRegex(def.suffix)}$`);
+  def.pattern ?? (def.pattern = pattern);
+  inst._zod.onattach.push((inst2) => {
+    const bag = inst2._zod.bag;
+    bag.patterns ?? (bag.patterns = /* @__PURE__ */ new Set());
+    bag.patterns.add(pattern);
+  });
+  inst._zod.check = (payload) => {
+    if (payload.value.endsWith(def.suffix))
+      return;
+    payload.issues.push({
+      origin: "string",
+      code: "invalid_format",
+      format: "ends_with",
+      suffix: def.suffix,
+      input: payload.value,
+      inst,
+      continue: !def.abort
+    });
+  };
+});
+const $ZodCheckOverwrite = /* @__PURE__ */ $constructor("$ZodCheckOverwrite", (inst, def) => {
+  $ZodCheck.init(inst, def);
+  inst._zod.check = (payload) => {
+    payload.value = def.tx(payload.value);
+  };
+});
+class Doc {
+  constructor(args = []) {
+    this.content = [];
+    this.indent = 0;
+    if (this)
+      this.args = args;
+  }
+  indented(fn) {
+    this.indent += 1;
+    fn(this);
+    this.indent -= 1;
+  }
+  write(arg) {
+    if (typeof arg === "function") {
+      arg(this, { execution: "sync" });
+      arg(this, { execution: "async" });
+      return;
+    }
+    const content2 = arg;
+    const lines = content2.split("\n").filter((x) => x);
+    const minIndent = Math.min(...lines.map((x) => x.length - x.trimStart().length));
+    const dedented = lines.map((x) => x.slice(minIndent)).map((x) => " ".repeat(this.indent * 2) + x);
+    for (const line of dedented) {
+      this.content.push(line);
+    }
+  }
+  compile() {
+    const F = Function;
+    const args = this?.args;
+    const content2 = this?.content ?? [``];
+    const lines = [...content2.map((x) => `  ${x}`)];
+    return new F(...args, lines.join("\n"));
+  }
+}
+const version = {
+  major: 4,
+  minor: 3,
+  patch: 5
+};
+const $ZodType = /* @__PURE__ */ $constructor("$ZodType", (inst, def) => {
+  var _a2;
+  inst ?? (inst = {});
+  inst._zod.def = def;
+  inst._zod.bag = inst._zod.bag || {};
+  inst._zod.version = version;
+  const checks2 = [...inst._zod.def.checks ?? []];
+  if (inst._zod.traits.has("$ZodCheck")) {
+    checks2.unshift(inst);
+  }
+  for (const ch of checks2) {
+    for (const fn of ch._zod.onattach) {
+      fn(inst);
+    }
+  }
+  if (checks2.length === 0) {
+    (_a2 = inst._zod).deferred ?? (_a2.deferred = []);
+    inst._zod.deferred?.push(() => {
+      inst._zod.run = inst._zod.parse;
+    });
+  } else {
+    const runChecks = (payload, checks3, ctx) => {
+      let isAborted = aborted(payload);
+      let asyncResult;
+      for (const ch of checks3) {
+        if (ch._zod.def.when) {
+          const shouldRun = ch._zod.def.when(payload);
+          if (!shouldRun)
+            continue;
+        } else if (isAborted) {
+          continue;
+        }
+        const currLen = payload.issues.length;
+        const _ = ch._zod.check(payload);
+        if (_ instanceof Promise && ctx?.async === false) {
+          throw new $ZodAsyncError();
+        }
+        if (asyncResult || _ instanceof Promise) {
+          asyncResult = (asyncResult ?? Promise.resolve()).then(async () => {
+            await _;
+            const nextLen = payload.issues.length;
+            if (nextLen === currLen)
+              return;
+            if (!isAborted)
+              isAborted = aborted(payload, currLen);
+          });
+        } else {
+          const nextLen = payload.issues.length;
+          if (nextLen === currLen)
+            continue;
+          if (!isAborted)
+            isAborted = aborted(payload, currLen);
+        }
+      }
+      if (asyncResult) {
+        return asyncResult.then(() => {
+          return payload;
+        });
+      }
+      return payload;
+    };
+    const handleCanaryResult = (canary, payload, ctx) => {
+      if (aborted(canary)) {
+        canary.aborted = true;
+        return canary;
+      }
+      const checkResult = runChecks(payload, checks2, ctx);
+      if (checkResult instanceof Promise) {
+        if (ctx.async === false)
+          throw new $ZodAsyncError();
+        return checkResult.then((checkResult2) => inst._zod.parse(checkResult2, ctx));
+      }
+      return inst._zod.parse(checkResult, ctx);
+    };
+    inst._zod.run = (payload, ctx) => {
+      if (ctx.skipChecks) {
+        return inst._zod.parse(payload, ctx);
+      }
+      if (ctx.direction === "backward") {
+        const canary = inst._zod.parse({ value: payload.value, issues: [] }, { ...ctx, skipChecks: true });
+        if (canary instanceof Promise) {
+          return canary.then((canary2) => {
+            return handleCanaryResult(canary2, payload, ctx);
+          });
+        }
+        return handleCanaryResult(canary, payload, ctx);
+      }
+      const result = inst._zod.parse(payload, ctx);
+      if (result instanceof Promise) {
+        if (ctx.async === false)
+          throw new $ZodAsyncError();
+        return result.then((result2) => runChecks(result2, checks2, ctx));
+      }
+      return runChecks(result, checks2, ctx);
+    };
+  }
+  defineLazy(inst, "~standard", () => ({
+    validate: (value) => {
+      try {
+        const r = safeParse$1(inst, value);
+        return r.success ? { value: r.data } : { issues: r.error?.issues };
+      } catch (_) {
+        return safeParseAsync$1(inst, value).then((r) => r.success ? { value: r.data } : { issues: r.error?.issues });
+      }
+    },
+    vendor: "zod",
+    version: 1
+  }));
+});
+const $ZodString = /* @__PURE__ */ $constructor("$ZodString", (inst, def) => {
+  $ZodType.init(inst, def);
+  inst._zod.pattern = [...inst?._zod.bag?.patterns ?? []].pop() ?? string$1(inst._zod.bag);
+  inst._zod.parse = (payload, _) => {
+    if (def.coerce)
+      try {
+        payload.value = String(payload.value);
+      } catch (_2) {
+      }
+    if (typeof payload.value === "string")
+      return payload;
+    payload.issues.push({
+      expected: "string",
+      code: "invalid_type",
+      input: payload.value,
+      inst
+    });
+    return payload;
+  };
+});
+const $ZodStringFormat = /* @__PURE__ */ $constructor("$ZodStringFormat", (inst, def) => {
+  $ZodCheckStringFormat.init(inst, def);
+  $ZodString.init(inst, def);
+});
+const $ZodGUID = /* @__PURE__ */ $constructor("$ZodGUID", (inst, def) => {
+  def.pattern ?? (def.pattern = guid);
+  $ZodStringFormat.init(inst, def);
+});
+const $ZodUUID = /* @__PURE__ */ $constructor("$ZodUUID", (inst, def) => {
+  if (def.version) {
+    const versionMap = {
+      v1: 1,
+      v2: 2,
+      v3: 3,
+      v4: 4,
+      v5: 5,
+      v6: 6,
+      v7: 7,
+      v8: 8
+    };
+    const v = versionMap[def.version];
+    if (v === void 0)
+      throw new Error(`Invalid UUID version: "${def.version}"`);
+    def.pattern ?? (def.pattern = uuid(v));
+  } else
+    def.pattern ?? (def.pattern = uuid());
+  $ZodStringFormat.init(inst, def);
+});
+const $ZodEmail = /* @__PURE__ */ $constructor("$ZodEmail", (inst, def) => {
+  def.pattern ?? (def.pattern = email);
+  $ZodStringFormat.init(inst, def);
+});
+const $ZodURL = /* @__PURE__ */ $constructor("$ZodURL", (inst, def) => {
+  $ZodStringFormat.init(inst, def);
+  inst._zod.check = (payload) => {
+    try {
+      const trimmed = payload.value.trim();
+      const url = new URL(trimmed);
+      if (def.hostname) {
+        def.hostname.lastIndex = 0;
+        if (!def.hostname.test(url.hostname)) {
+          payload.issues.push({
+            code: "invalid_format",
+            format: "url",
+            note: "Invalid hostname",
+            pattern: def.hostname.source,
+            input: payload.value,
+            inst,
+            continue: !def.abort
+          });
+        }
+      }
+      if (def.protocol) {
+        def.protocol.lastIndex = 0;
+        if (!def.protocol.test(url.protocol.endsWith(":") ? url.protocol.slice(0, -1) : url.protocol)) {
+          payload.issues.push({
+            code: "invalid_format",
+            format: "url",
+            note: "Invalid protocol",
+            pattern: def.protocol.source,
+            input: payload.value,
+            inst,
+            continue: !def.abort
+          });
+        }
+      }
+      if (def.normalize) {
+        payload.value = url.href;
+      } else {
+        payload.value = trimmed;
+      }
+      return;
+    } catch (_) {
+      payload.issues.push({
+        code: "invalid_format",
+        format: "url",
+        input: payload.value,
+        inst,
+        continue: !def.abort
+      });
+    }
+  };
+});
+const $ZodEmoji = /* @__PURE__ */ $constructor("$ZodEmoji", (inst, def) => {
+  def.pattern ?? (def.pattern = emoji());
+  $ZodStringFormat.init(inst, def);
+});
+const $ZodNanoID = /* @__PURE__ */ $constructor("$ZodNanoID", (inst, def) => {
+  def.pattern ?? (def.pattern = nanoid);
+  $ZodStringFormat.init(inst, def);
+});
+const $ZodCUID = /* @__PURE__ */ $constructor("$ZodCUID", (inst, def) => {
+  def.pattern ?? (def.pattern = cuid);
+  $ZodStringFormat.init(inst, def);
+});
+const $ZodCUID2 = /* @__PURE__ */ $constructor("$ZodCUID2", (inst, def) => {
+  def.pattern ?? (def.pattern = cuid2);
+  $ZodStringFormat.init(inst, def);
+});
+const $ZodULID = /* @__PURE__ */ $constructor("$ZodULID", (inst, def) => {
+  def.pattern ?? (def.pattern = ulid);
+  $ZodStringFormat.init(inst, def);
+});
+const $ZodXID = /* @__PURE__ */ $constructor("$ZodXID", (inst, def) => {
+  def.pattern ?? (def.pattern = xid);
+  $ZodStringFormat.init(inst, def);
+});
+const $ZodKSUID = /* @__PURE__ */ $constructor("$ZodKSUID", (inst, def) => {
+  def.pattern ?? (def.pattern = ksuid);
+  $ZodStringFormat.init(inst, def);
+});
+const $ZodISODateTime = /* @__PURE__ */ $constructor("$ZodISODateTime", (inst, def) => {
+  def.pattern ?? (def.pattern = datetime$1(def));
+  $ZodStringFormat.init(inst, def);
+});
+const $ZodISODate = /* @__PURE__ */ $constructor("$ZodISODate", (inst, def) => {
+  def.pattern ?? (def.pattern = date$2);
+  $ZodStringFormat.init(inst, def);
+});
+const $ZodISOTime = /* @__PURE__ */ $constructor("$ZodISOTime", (inst, def) => {
+  def.pattern ?? (def.pattern = time$1(def));
+  $ZodStringFormat.init(inst, def);
+});
+const $ZodISODuration = /* @__PURE__ */ $constructor("$ZodISODuration", (inst, def) => {
+  def.pattern ?? (def.pattern = duration$1);
+  $ZodStringFormat.init(inst, def);
+});
+const $ZodIPv4 = /* @__PURE__ */ $constructor("$ZodIPv4", (inst, def) => {
+  def.pattern ?? (def.pattern = ipv4);
+  $ZodStringFormat.init(inst, def);
+  inst._zod.bag.format = `ipv4`;
+});
+const $ZodIPv6 = /* @__PURE__ */ $constructor("$ZodIPv6", (inst, def) => {
+  def.pattern ?? (def.pattern = ipv6);
+  $ZodStringFormat.init(inst, def);
+  inst._zod.bag.format = `ipv6`;
+  inst._zod.check = (payload) => {
+    try {
+      new URL(`http://[${payload.value}]`);
+    } catch {
+      payload.issues.push({
+        code: "invalid_format",
+        format: "ipv6",
+        input: payload.value,
+        inst,
+        continue: !def.abort
+      });
+    }
+  };
+});
+const $ZodCIDRv4 = /* @__PURE__ */ $constructor("$ZodCIDRv4", (inst, def) => {
+  def.pattern ?? (def.pattern = cidrv4);
+  $ZodStringFormat.init(inst, def);
+});
+const $ZodCIDRv6 = /* @__PURE__ */ $constructor("$ZodCIDRv6", (inst, def) => {
+  def.pattern ?? (def.pattern = cidrv6);
+  $ZodStringFormat.init(inst, def);
+  inst._zod.check = (payload) => {
+    const parts = payload.value.split("/");
+    try {
+      if (parts.length !== 2)
+        throw new Error();
+      const [address, prefix] = parts;
+      if (!prefix)
+        throw new Error();
+      const prefixNum = Number(prefix);
+      if (`${prefixNum}` !== prefix)
+        throw new Error();
+      if (prefixNum < 0 || prefixNum > 128)
+        throw new Error();
+      new URL(`http://[${address}]`);
+    } catch {
+      payload.issues.push({
+        code: "invalid_format",
+        format: "cidrv6",
+        input: payload.value,
+        inst,
+        continue: !def.abort
+      });
+    }
+  };
+});
+function isValidBase64(data) {
+  if (data === "")
+    return true;
+  if (data.length % 4 !== 0)
+    return false;
+  try {
+    atob(data);
+    return true;
+  } catch {
+    return false;
+  }
+}
+const $ZodBase64 = /* @__PURE__ */ $constructor("$ZodBase64", (inst, def) => {
+  def.pattern ?? (def.pattern = base64);
+  $ZodStringFormat.init(inst, def);
+  inst._zod.bag.contentEncoding = "base64";
+  inst._zod.check = (payload) => {
+    if (isValidBase64(payload.value))
+      return;
+    payload.issues.push({
+      code: "invalid_format",
+      format: "base64",
+      input: payload.value,
+      inst,
+      continue: !def.abort
+    });
+  };
+});
+function isValidBase64URL(data) {
+  if (!base64url.test(data))
+    return false;
+  const base642 = data.replace(/[-_]/g, (c) => c === "-" ? "+" : "/");
+  const padded = base642.padEnd(Math.ceil(base642.length / 4) * 4, "=");
+  return isValidBase64(padded);
+}
+const $ZodBase64URL = /* @__PURE__ */ $constructor("$ZodBase64URL", (inst, def) => {
+  def.pattern ?? (def.pattern = base64url);
+  $ZodStringFormat.init(inst, def);
+  inst._zod.bag.contentEncoding = "base64url";
+  inst._zod.check = (payload) => {
+    if (isValidBase64URL(payload.value))
+      return;
+    payload.issues.push({
+      code: "invalid_format",
+      format: "base64url",
+      input: payload.value,
+      inst,
+      continue: !def.abort
+    });
+  };
+});
+const $ZodE164 = /* @__PURE__ */ $constructor("$ZodE164", (inst, def) => {
+  def.pattern ?? (def.pattern = e164);
+  $ZodStringFormat.init(inst, def);
+});
+function isValidJWT(token, algorithm = null) {
+  try {
+    const tokensParts = token.split(".");
+    if (tokensParts.length !== 3)
+      return false;
+    const [header] = tokensParts;
+    if (!header)
+      return false;
+    const parsedHeader = JSON.parse(atob(header));
+    if ("typ" in parsedHeader && parsedHeader?.typ !== "JWT")
+      return false;
+    if (!parsedHeader.alg)
+      return false;
+    if (algorithm && (!("alg" in parsedHeader) || parsedHeader.alg !== algorithm))
+      return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+const $ZodJWT = /* @__PURE__ */ $constructor("$ZodJWT", (inst, def) => {
+  $ZodStringFormat.init(inst, def);
+  inst._zod.check = (payload) => {
+    if (isValidJWT(payload.value, def.alg))
+      return;
+    payload.issues.push({
+      code: "invalid_format",
+      format: "jwt",
+      input: payload.value,
+      inst,
+      continue: !def.abort
+    });
+  };
+});
+const $ZodNumber = /* @__PURE__ */ $constructor("$ZodNumber", (inst, def) => {
+  $ZodType.init(inst, def);
+  inst._zod.pattern = inst._zod.bag.pattern ?? number$1;
+  inst._zod.parse = (payload, _ctx) => {
+    if (def.coerce)
+      try {
+        payload.value = Number(payload.value);
+      } catch (_) {
+      }
+    const input = payload.value;
+    if (typeof input === "number" && !Number.isNaN(input) && Number.isFinite(input)) {
+      return payload;
+    }
+    const received = typeof input === "number" ? Number.isNaN(input) ? "NaN" : !Number.isFinite(input) ? "Infinity" : void 0 : void 0;
+    payload.issues.push({
+      expected: "number",
+      code: "invalid_type",
+      input,
+      inst,
+      ...received ? { received } : {}
+    });
+    return payload;
+  };
+});
+const $ZodNumberFormat = /* @__PURE__ */ $constructor("$ZodNumberFormat", (inst, def) => {
+  $ZodCheckNumberFormat.init(inst, def);
+  $ZodNumber.init(inst, def);
+});
+const $ZodBoolean = /* @__PURE__ */ $constructor("$ZodBoolean", (inst, def) => {
+  $ZodType.init(inst, def);
+  inst._zod.pattern = boolean$1;
+  inst._zod.parse = (payload, _ctx) => {
+    if (def.coerce)
+      try {
+        payload.value = Boolean(payload.value);
+      } catch (_) {
+      }
+    const input = payload.value;
+    if (typeof input === "boolean")
+      return payload;
+    payload.issues.push({
+      expected: "boolean",
+      code: "invalid_type",
+      input,
+      inst
+    });
+    return payload;
+  };
+});
+const $ZodUnknown = /* @__PURE__ */ $constructor("$ZodUnknown", (inst, def) => {
+  $ZodType.init(inst, def);
+  inst._zod.parse = (payload) => payload;
+});
+const $ZodNever = /* @__PURE__ */ $constructor("$ZodNever", (inst, def) => {
+  $ZodType.init(inst, def);
+  inst._zod.parse = (payload, _ctx) => {
+    payload.issues.push({
+      expected: "never",
+      code: "invalid_type",
+      input: payload.value,
+      inst
+    });
+    return payload;
+  };
+});
+const $ZodDate = /* @__PURE__ */ $constructor("$ZodDate", (inst, def) => {
+  $ZodType.init(inst, def);
+  inst._zod.parse = (payload, _ctx) => {
+    if (def.coerce) {
+      try {
+        payload.value = new Date(payload.value);
+      } catch (_err) {
+      }
+    }
+    const input = payload.value;
+    const isDate = input instanceof Date;
+    const isValidDate = isDate && !Number.isNaN(input.getTime());
+    if (isValidDate)
+      return payload;
+    payload.issues.push({
+      expected: "date",
+      code: "invalid_type",
+      input,
+      ...isDate ? { received: "Invalid Date" } : {},
+      inst
+    });
+    return payload;
+  };
+});
+function handleArrayResult(result, final, index2) {
+  if (result.issues.length) {
+    final.issues.push(...prefixIssues(index2, result.issues));
+  }
+  final.value[index2] = result.value;
+}
+const $ZodArray = /* @__PURE__ */ $constructor("$ZodArray", (inst, def) => {
+  $ZodType.init(inst, def);
+  inst._zod.parse = (payload, ctx) => {
+    const input = payload.value;
+    if (!Array.isArray(input)) {
+      payload.issues.push({
+        expected: "array",
+        code: "invalid_type",
+        input,
+        inst
+      });
+      return payload;
+    }
+    payload.value = Array(input.length);
+    const proms = [];
+    for (let i = 0; i < input.length; i++) {
+      const item = input[i];
+      const result = def.element._zod.run({
+        value: item,
+        issues: []
+      }, ctx);
+      if (result instanceof Promise) {
+        proms.push(result.then((result2) => handleArrayResult(result2, payload, i)));
+      } else {
+        handleArrayResult(result, payload, i);
+      }
+    }
+    if (proms.length) {
+      return Promise.all(proms).then(() => payload);
+    }
+    return payload;
+  };
+});
+function handlePropertyResult(result, final, key2, input, isOptionalOut) {
+  if (result.issues.length) {
+    if (isOptionalOut && !(key2 in input)) {
+      return;
+    }
+    final.issues.push(...prefixIssues(key2, result.issues));
+  }
+  if (result.value === void 0) {
+    if (key2 in input) {
+      final.value[key2] = void 0;
+    }
+  } else {
+    final.value[key2] = result.value;
+  }
+}
+function normalizeDef(def) {
+  const keys2 = Object.keys(def.shape);
+  for (const k of keys2) {
+    if (!def.shape?.[k]?._zod?.traits?.has("$ZodType")) {
+      throw new Error(`Invalid element at key "${k}": expected a Zod schema`);
+    }
+  }
+  const okeys = optionalKeys(def.shape);
+  return {
+    ...def,
+    keys: keys2,
+    keySet: new Set(keys2),
+    numKeys: keys2.length,
+    optionalKeys: new Set(okeys)
+  };
+}
+function handleCatchall(proms, input, payload, ctx, def, inst) {
+  const unrecognized = [];
+  const keySet = def.keySet;
+  const _catchall = def.catchall._zod;
+  const t = _catchall.def.type;
+  const isOptionalOut = _catchall.optout === "optional";
+  for (const key2 in input) {
+    if (keySet.has(key2))
+      continue;
+    if (t === "never") {
+      unrecognized.push(key2);
+      continue;
+    }
+    const r = _catchall.run({ value: input[key2], issues: [] }, ctx);
+    if (r instanceof Promise) {
+      proms.push(r.then((r2) => handlePropertyResult(r2, payload, key2, input, isOptionalOut)));
+    } else {
+      handlePropertyResult(r, payload, key2, input, isOptionalOut);
+    }
+  }
+  if (unrecognized.length) {
+    payload.issues.push({
+      code: "unrecognized_keys",
+      keys: unrecognized,
+      input,
+      inst
+    });
+  }
+  if (!proms.length)
+    return payload;
+  return Promise.all(proms).then(() => {
+    return payload;
+  });
+}
+const $ZodObject = /* @__PURE__ */ $constructor("$ZodObject", (inst, def) => {
+  $ZodType.init(inst, def);
+  const desc = Object.getOwnPropertyDescriptor(def, "shape");
+  if (!desc?.get) {
+    const sh = def.shape;
+    Object.defineProperty(def, "shape", {
+      get: () => {
+        const newSh = { ...sh };
+        Object.defineProperty(def, "shape", {
+          value: newSh
+        });
+        return newSh;
+      }
+    });
+  }
+  const _normalized = cached(() => normalizeDef(def));
+  defineLazy(inst._zod, "propValues", () => {
+    const shape = def.shape;
+    const propValues = {};
+    for (const key2 in shape) {
+      const field = shape[key2]._zod;
+      if (field.values) {
+        propValues[key2] ?? (propValues[key2] = /* @__PURE__ */ new Set());
+        for (const v of field.values)
+          propValues[key2].add(v);
+      }
+    }
+    return propValues;
+  });
+  const isObject$1 = isObject;
+  const catchall = def.catchall;
+  let value;
+  inst._zod.parse = (payload, ctx) => {
+    value ?? (value = _normalized.value);
+    const input = payload.value;
+    if (!isObject$1(input)) {
+      payload.issues.push({
+        expected: "object",
+        code: "invalid_type",
+        input,
+        inst
+      });
+      return payload;
+    }
+    payload.value = {};
+    const proms = [];
+    const shape = value.shape;
+    for (const key2 of value.keys) {
+      const el = shape[key2];
+      const isOptionalOut = el._zod.optout === "optional";
+      const r = el._zod.run({ value: input[key2], issues: [] }, ctx);
+      if (r instanceof Promise) {
+        proms.push(r.then((r2) => handlePropertyResult(r2, payload, key2, input, isOptionalOut)));
+      } else {
+        handlePropertyResult(r, payload, key2, input, isOptionalOut);
+      }
+    }
+    if (!catchall) {
+      return proms.length ? Promise.all(proms).then(() => payload) : payload;
+    }
+    return handleCatchall(proms, input, payload, ctx, _normalized.value, inst);
+  };
+});
+const $ZodObjectJIT = /* @__PURE__ */ $constructor("$ZodObjectJIT", (inst, def) => {
+  $ZodObject.init(inst, def);
+  const superParse = inst._zod.parse;
+  const _normalized = cached(() => normalizeDef(def));
+  const generateFastpass = (shape) => {
+    const doc = new Doc(["shape", "payload", "ctx"]);
+    const normalized = _normalized.value;
+    const parseStr = (key2) => {
+      const k = esc(key2);
+      return `shape[${k}]._zod.run({ value: input[${k}], issues: [] }, ctx)`;
+    };
+    doc.write(`const input = payload.value;`);
+    const ids2 = /* @__PURE__ */ Object.create(null);
+    let counter = 0;
+    for (const key2 of normalized.keys) {
+      ids2[key2] = `key_${counter++}`;
+    }
+    doc.write(`const newResult = {};`);
+    for (const key2 of normalized.keys) {
+      const id = ids2[key2];
+      const k = esc(key2);
+      const schema = shape[key2];
+      const isOptionalOut = schema?._zod?.optout === "optional";
+      doc.write(`const ${id} = ${parseStr(key2)};`);
+      if (isOptionalOut) {
+        doc.write(`
+        if (${id}.issues.length) {
+          if (${k} in input) {
+            payload.issues = payload.issues.concat(${id}.issues.map(iss => ({
+              ...iss,
+              path: iss.path ? [${k}, ...iss.path] : [${k}]
+            })));
+          }
+        }
+        
+        if (${id}.value === undefined) {
+          if (${k} in input) {
+            newResult[${k}] = undefined;
+          }
+        } else {
+          newResult[${k}] = ${id}.value;
+        }
+        
+      `);
+      } else {
+        doc.write(`
+        if (${id}.issues.length) {
+          payload.issues = payload.issues.concat(${id}.issues.map(iss => ({
+            ...iss,
+            path: iss.path ? [${k}, ...iss.path] : [${k}]
+          })));
+        }
+        
+        if (${id}.value === undefined) {
+          if (${k} in input) {
+            newResult[${k}] = undefined;
+          }
+        } else {
+          newResult[${k}] = ${id}.value;
+        }
+        
+      `);
+      }
+    }
+    doc.write(`payload.value = newResult;`);
+    doc.write(`return payload;`);
+    const fn = doc.compile();
+    return (payload, ctx) => fn(shape, payload, ctx);
+  };
+  let fastpass;
+  const isObject$1 = isObject;
+  const jit = !globalConfig.jitless;
+  const allowsEval$1 = allowsEval;
+  const fastEnabled = jit && allowsEval$1.value;
+  const catchall = def.catchall;
+  let value;
+  inst._zod.parse = (payload, ctx) => {
+    value ?? (value = _normalized.value);
+    const input = payload.value;
+    if (!isObject$1(input)) {
+      payload.issues.push({
+        expected: "object",
+        code: "invalid_type",
+        input,
+        inst
+      });
+      return payload;
+    }
+    if (jit && fastEnabled && ctx?.async === false && ctx.jitless !== true) {
+      if (!fastpass)
+        fastpass = generateFastpass(def.shape);
+      payload = fastpass(payload, ctx);
+      if (!catchall)
+        return payload;
+      return handleCatchall([], input, payload, ctx, value, inst);
+    }
+    return superParse(payload, ctx);
+  };
+});
+function handleUnionResults(results, final, inst, ctx) {
+  for (const result of results) {
+    if (result.issues.length === 0) {
+      final.value = result.value;
+      return final;
+    }
+  }
+  const nonaborted = results.filter((r) => !aborted(r));
+  if (nonaborted.length === 1) {
+    final.value = nonaborted[0].value;
+    return nonaborted[0];
+  }
+  final.issues.push({
+    code: "invalid_union",
+    input: final.value,
+    inst,
+    errors: results.map((result) => result.issues.map((iss) => finalizeIssue(iss, ctx, config())))
+  });
+  return final;
+}
+const $ZodUnion = /* @__PURE__ */ $constructor("$ZodUnion", (inst, def) => {
+  $ZodType.init(inst, def);
+  defineLazy(inst._zod, "optin", () => def.options.some((o) => o._zod.optin === "optional") ? "optional" : void 0);
+  defineLazy(inst._zod, "optout", () => def.options.some((o) => o._zod.optout === "optional") ? "optional" : void 0);
+  defineLazy(inst._zod, "values", () => {
+    if (def.options.every((o) => o._zod.values)) {
+      return new Set(def.options.flatMap((option) => Array.from(option._zod.values)));
+    }
+    return void 0;
+  });
+  defineLazy(inst._zod, "pattern", () => {
+    if (def.options.every((o) => o._zod.pattern)) {
+      const patterns = def.options.map((o) => o._zod.pattern);
+      return new RegExp(`^(${patterns.map((p) => cleanRegex(p.source)).join("|")})$`);
+    }
+    return void 0;
+  });
+  const single = def.options.length === 1;
+  const first = def.options[0]._zod.run;
+  inst._zod.parse = (payload, ctx) => {
+    if (single) {
+      return first(payload, ctx);
+    }
+    let async = false;
+    const results = [];
+    for (const option of def.options) {
+      const result = option._zod.run({
+        value: payload.value,
+        issues: []
+      }, ctx);
+      if (result instanceof Promise) {
+        results.push(result);
+        async = true;
+      } else {
+        if (result.issues.length === 0)
+          return result;
+        results.push(result);
+      }
+    }
+    if (!async)
+      return handleUnionResults(results, payload, inst, ctx);
+    return Promise.all(results).then((results2) => {
+      return handleUnionResults(results2, payload, inst, ctx);
+    });
+  };
+});
+const $ZodIntersection = /* @__PURE__ */ $constructor("$ZodIntersection", (inst, def) => {
+  $ZodType.init(inst, def);
+  inst._zod.parse = (payload, ctx) => {
+    const input = payload.value;
+    const left = def.left._zod.run({ value: input, issues: [] }, ctx);
+    const right = def.right._zod.run({ value: input, issues: [] }, ctx);
+    const async = left instanceof Promise || right instanceof Promise;
+    if (async) {
+      return Promise.all([left, right]).then(([left2, right2]) => {
+        return handleIntersectionResults(payload, left2, right2);
+      });
+    }
+    return handleIntersectionResults(payload, left, right);
+  };
+});
+function mergeValues(a, b) {
+  if (a === b) {
+    return { valid: true, data: a };
+  }
+  if (a instanceof Date && b instanceof Date && +a === +b) {
+    return { valid: true, data: a };
+  }
+  if (isPlainObject(a) && isPlainObject(b)) {
+    const bKeys = Object.keys(b);
+    const sharedKeys = Object.keys(a).filter((key2) => bKeys.indexOf(key2) !== -1);
+    const newObj = { ...a, ...b };
+    for (const key2 of sharedKeys) {
+      const sharedValue = mergeValues(a[key2], b[key2]);
+      if (!sharedValue.valid) {
+        return {
+          valid: false,
+          mergeErrorPath: [key2, ...sharedValue.mergeErrorPath]
+        };
+      }
+      newObj[key2] = sharedValue.data;
+    }
+    return { valid: true, data: newObj };
+  }
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) {
+      return { valid: false, mergeErrorPath: [] };
+    }
+    const newArray = [];
+    for (let index2 = 0; index2 < a.length; index2++) {
+      const itemA = a[index2];
+      const itemB = b[index2];
+      const sharedValue = mergeValues(itemA, itemB);
+      if (!sharedValue.valid) {
+        return {
+          valid: false,
+          mergeErrorPath: [index2, ...sharedValue.mergeErrorPath]
+        };
+      }
+      newArray.push(sharedValue.data);
+    }
+    return { valid: true, data: newArray };
+  }
+  return { valid: false, mergeErrorPath: [] };
+}
+function handleIntersectionResults(result, left, right) {
+  const unrecKeys = /* @__PURE__ */ new Map();
+  let unrecIssue;
+  for (const iss of left.issues) {
+    if (iss.code === "unrecognized_keys") {
+      unrecIssue ?? (unrecIssue = iss);
+      for (const k of iss.keys) {
+        if (!unrecKeys.has(k))
+          unrecKeys.set(k, {});
+        unrecKeys.get(k).l = true;
+      }
+    } else {
+      result.issues.push(iss);
+    }
+  }
+  for (const iss of right.issues) {
+    if (iss.code === "unrecognized_keys") {
+      for (const k of iss.keys) {
+        if (!unrecKeys.has(k))
+          unrecKeys.set(k, {});
+        unrecKeys.get(k).r = true;
+      }
+    } else {
+      result.issues.push(iss);
+    }
+  }
+  const bothKeys = [...unrecKeys].filter(([, f]) => f.l && f.r).map(([k]) => k);
+  if (bothKeys.length && unrecIssue) {
+    result.issues.push({ ...unrecIssue, keys: bothKeys });
+  }
+  if (aborted(result))
+    return result;
+  const merged = mergeValues(left.value, right.value);
+  if (!merged.valid) {
+    throw new Error(`Unmergable intersection. Error path: ${JSON.stringify(merged.mergeErrorPath)}`);
+  }
+  result.value = merged.data;
+  return result;
+}
+const $ZodRecord = /* @__PURE__ */ $constructor("$ZodRecord", (inst, def) => {
+  $ZodType.init(inst, def);
+  inst._zod.parse = (payload, ctx) => {
+    const input = payload.value;
+    if (!isPlainObject(input)) {
+      payload.issues.push({
+        expected: "record",
+        code: "invalid_type",
+        input,
+        inst
+      });
+      return payload;
+    }
+    const proms = [];
+    const values = def.keyType._zod.values;
+    if (values) {
+      payload.value = {};
+      const recordKeys = /* @__PURE__ */ new Set();
+      for (const key2 of values) {
+        if (typeof key2 === "string" || typeof key2 === "number" || typeof key2 === "symbol") {
+          recordKeys.add(typeof key2 === "number" ? key2.toString() : key2);
+          const result = def.valueType._zod.run({ value: input[key2], issues: [] }, ctx);
+          if (result instanceof Promise) {
+            proms.push(result.then((result2) => {
+              if (result2.issues.length) {
+                payload.issues.push(...prefixIssues(key2, result2.issues));
+              }
+              payload.value[key2] = result2.value;
+            }));
+          } else {
+            if (result.issues.length) {
+              payload.issues.push(...prefixIssues(key2, result.issues));
+            }
+            payload.value[key2] = result.value;
+          }
+        }
+      }
+      let unrecognized;
+      for (const key2 in input) {
+        if (!recordKeys.has(key2)) {
+          unrecognized = unrecognized ?? [];
+          unrecognized.push(key2);
+        }
+      }
+      if (unrecognized && unrecognized.length > 0) {
+        payload.issues.push({
+          code: "unrecognized_keys",
+          input,
+          inst,
+          keys: unrecognized
+        });
+      }
+    } else {
+      payload.value = {};
+      for (const key2 of Reflect.ownKeys(input)) {
+        if (key2 === "__proto__")
+          continue;
+        let keyResult = def.keyType._zod.run({ value: key2, issues: [] }, ctx);
+        if (keyResult instanceof Promise) {
+          throw new Error("Async schemas not supported in object keys currently");
+        }
+        const checkNumericKey = typeof key2 === "string" && number$1.test(key2) && keyResult.issues.length && keyResult.issues.some((iss) => iss.code === "invalid_type" && iss.expected === "number");
+        if (checkNumericKey) {
+          const retryResult = def.keyType._zod.run({ value: Number(key2), issues: [] }, ctx);
+          if (retryResult instanceof Promise) {
+            throw new Error("Async schemas not supported in object keys currently");
+          }
+          if (retryResult.issues.length === 0) {
+            keyResult = retryResult;
+          }
+        }
+        if (keyResult.issues.length) {
+          if (def.mode === "loose") {
+            payload.value[key2] = input[key2];
+          } else {
+            payload.issues.push({
+              code: "invalid_key",
+              origin: "record",
+              issues: keyResult.issues.map((iss) => finalizeIssue(iss, ctx, config())),
+              input: key2,
+              path: [key2],
+              inst
+            });
+          }
+          continue;
+        }
+        const result = def.valueType._zod.run({ value: input[key2], issues: [] }, ctx);
+        if (result instanceof Promise) {
+          proms.push(result.then((result2) => {
+            if (result2.issues.length) {
+              payload.issues.push(...prefixIssues(key2, result2.issues));
+            }
+            payload.value[keyResult.value] = result2.value;
+          }));
+        } else {
+          if (result.issues.length) {
+            payload.issues.push(...prefixIssues(key2, result.issues));
+          }
+          payload.value[keyResult.value] = result.value;
+        }
+      }
+    }
+    if (proms.length) {
+      return Promise.all(proms).then(() => payload);
+    }
+    return payload;
+  };
+});
+const $ZodEnum = /* @__PURE__ */ $constructor("$ZodEnum", (inst, def) => {
+  $ZodType.init(inst, def);
+  const values = getEnumValues(def.entries);
+  const valuesSet = new Set(values);
+  inst._zod.values = valuesSet;
+  inst._zod.pattern = new RegExp(`^(${values.filter((k) => propertyKeyTypes.has(typeof k)).map((o) => typeof o === "string" ? escapeRegex(o) : o.toString()).join("|")})$`);
+  inst._zod.parse = (payload, _ctx) => {
+    const input = payload.value;
+    if (valuesSet.has(input)) {
+      return payload;
+    }
+    payload.issues.push({
+      code: "invalid_value",
+      values,
+      input,
+      inst
+    });
+    return payload;
+  };
+});
+const $ZodTransform = /* @__PURE__ */ $constructor("$ZodTransform", (inst, def) => {
+  $ZodType.init(inst, def);
+  inst._zod.parse = (payload, ctx) => {
+    if (ctx.direction === "backward") {
+      throw new $ZodEncodeError(inst.constructor.name);
+    }
+    const _out = def.transform(payload.value, payload);
+    if (ctx.async) {
+      const output = _out instanceof Promise ? _out : Promise.resolve(_out);
+      return output.then((output2) => {
+        payload.value = output2;
+        return payload;
+      });
+    }
+    if (_out instanceof Promise) {
+      throw new $ZodAsyncError();
+    }
+    payload.value = _out;
+    return payload;
+  };
+});
+function handleOptionalResult(result, input) {
+  if (result.issues.length && input === void 0) {
+    return { issues: [], value: void 0 };
+  }
+  return result;
+}
+const $ZodOptional = /* @__PURE__ */ $constructor("$ZodOptional", (inst, def) => {
+  $ZodType.init(inst, def);
+  inst._zod.optin = "optional";
+  inst._zod.optout = "optional";
+  defineLazy(inst._zod, "values", () => {
+    return def.innerType._zod.values ? /* @__PURE__ */ new Set([...def.innerType._zod.values, void 0]) : void 0;
+  });
+  defineLazy(inst._zod, "pattern", () => {
+    const pattern = def.innerType._zod.pattern;
+    return pattern ? new RegExp(`^(${cleanRegex(pattern.source)})?$`) : void 0;
+  });
+  inst._zod.parse = (payload, ctx) => {
+    if (def.innerType._zod.optin === "optional") {
+      const result = def.innerType._zod.run(payload, ctx);
+      if (result instanceof Promise)
+        return result.then((r) => handleOptionalResult(r, payload.value));
+      return handleOptionalResult(result, payload.value);
+    }
+    if (payload.value === void 0) {
+      return payload;
+    }
+    return def.innerType._zod.run(payload, ctx);
+  };
+});
+const $ZodExactOptional = /* @__PURE__ */ $constructor("$ZodExactOptional", (inst, def) => {
+  $ZodOptional.init(inst, def);
+  defineLazy(inst._zod, "values", () => def.innerType._zod.values);
+  defineLazy(inst._zod, "pattern", () => def.innerType._zod.pattern);
+  inst._zod.parse = (payload, ctx) => {
+    return def.innerType._zod.run(payload, ctx);
+  };
+});
+const $ZodNullable = /* @__PURE__ */ $constructor("$ZodNullable", (inst, def) => {
+  $ZodType.init(inst, def);
+  defineLazy(inst._zod, "optin", () => def.innerType._zod.optin);
+  defineLazy(inst._zod, "optout", () => def.innerType._zod.optout);
+  defineLazy(inst._zod, "pattern", () => {
+    const pattern = def.innerType._zod.pattern;
+    return pattern ? new RegExp(`^(${cleanRegex(pattern.source)}|null)$`) : void 0;
+  });
+  defineLazy(inst._zod, "values", () => {
+    return def.innerType._zod.values ? /* @__PURE__ */ new Set([...def.innerType._zod.values, null]) : void 0;
+  });
+  inst._zod.parse = (payload, ctx) => {
+    if (payload.value === null)
+      return payload;
+    return def.innerType._zod.run(payload, ctx);
+  };
+});
+const $ZodDefault = /* @__PURE__ */ $constructor("$ZodDefault", (inst, def) => {
+  $ZodType.init(inst, def);
+  inst._zod.optin = "optional";
+  defineLazy(inst._zod, "values", () => def.innerType._zod.values);
+  inst._zod.parse = (payload, ctx) => {
+    if (ctx.direction === "backward") {
+      return def.innerType._zod.run(payload, ctx);
+    }
+    if (payload.value === void 0) {
+      payload.value = def.defaultValue;
+      return payload;
+    }
+    const result = def.innerType._zod.run(payload, ctx);
+    if (result instanceof Promise) {
+      return result.then((result2) => handleDefaultResult(result2, def));
+    }
+    return handleDefaultResult(result, def);
+  };
+});
+function handleDefaultResult(payload, def) {
+  if (payload.value === void 0) {
+    payload.value = def.defaultValue;
+  }
+  return payload;
+}
+const $ZodPrefault = /* @__PURE__ */ $constructor("$ZodPrefault", (inst, def) => {
+  $ZodType.init(inst, def);
+  inst._zod.optin = "optional";
+  defineLazy(inst._zod, "values", () => def.innerType._zod.values);
+  inst._zod.parse = (payload, ctx) => {
+    if (ctx.direction === "backward") {
+      return def.innerType._zod.run(payload, ctx);
+    }
+    if (payload.value === void 0) {
+      payload.value = def.defaultValue;
+    }
+    return def.innerType._zod.run(payload, ctx);
+  };
+});
+const $ZodNonOptional = /* @__PURE__ */ $constructor("$ZodNonOptional", (inst, def) => {
+  $ZodType.init(inst, def);
+  defineLazy(inst._zod, "values", () => {
+    const v = def.innerType._zod.values;
+    return v ? new Set([...v].filter((x) => x !== void 0)) : void 0;
+  });
+  inst._zod.parse = (payload, ctx) => {
+    const result = def.innerType._zod.run(payload, ctx);
+    if (result instanceof Promise) {
+      return result.then((result2) => handleNonOptionalResult(result2, inst));
+    }
+    return handleNonOptionalResult(result, inst);
+  };
+});
+function handleNonOptionalResult(payload, inst) {
+  if (!payload.issues.length && payload.value === void 0) {
+    payload.issues.push({
+      code: "invalid_type",
+      expected: "nonoptional",
+      input: payload.value,
+      inst
+    });
+  }
+  return payload;
+}
+const $ZodCatch = /* @__PURE__ */ $constructor("$ZodCatch", (inst, def) => {
+  $ZodType.init(inst, def);
+  defineLazy(inst._zod, "optin", () => def.innerType._zod.optin);
+  defineLazy(inst._zod, "optout", () => def.innerType._zod.optout);
+  defineLazy(inst._zod, "values", () => def.innerType._zod.values);
+  inst._zod.parse = (payload, ctx) => {
+    if (ctx.direction === "backward") {
+      return def.innerType._zod.run(payload, ctx);
+    }
+    const result = def.innerType._zod.run(payload, ctx);
+    if (result instanceof Promise) {
+      return result.then((result2) => {
+        payload.value = result2.value;
+        if (result2.issues.length) {
+          payload.value = def.catchValue({
+            ...payload,
+            error: {
+              issues: result2.issues.map((iss) => finalizeIssue(iss, ctx, config()))
+            },
+            input: payload.value
+          });
+          payload.issues = [];
+        }
+        return payload;
+      });
+    }
+    payload.value = result.value;
+    if (result.issues.length) {
+      payload.value = def.catchValue({
+        ...payload,
+        error: {
+          issues: result.issues.map((iss) => finalizeIssue(iss, ctx, config()))
+        },
+        input: payload.value
+      });
+      payload.issues = [];
+    }
+    return payload;
+  };
+});
+const $ZodPipe = /* @__PURE__ */ $constructor("$ZodPipe", (inst, def) => {
+  $ZodType.init(inst, def);
+  defineLazy(inst._zod, "values", () => def.in._zod.values);
+  defineLazy(inst._zod, "optin", () => def.in._zod.optin);
+  defineLazy(inst._zod, "optout", () => def.out._zod.optout);
+  defineLazy(inst._zod, "propValues", () => def.in._zod.propValues);
+  inst._zod.parse = (payload, ctx) => {
+    if (ctx.direction === "backward") {
+      const right = def.out._zod.run(payload, ctx);
+      if (right instanceof Promise) {
+        return right.then((right2) => handlePipeResult(right2, def.in, ctx));
+      }
+      return handlePipeResult(right, def.in, ctx);
+    }
+    const left = def.in._zod.run(payload, ctx);
+    if (left instanceof Promise) {
+      return left.then((left2) => handlePipeResult(left2, def.out, ctx));
+    }
+    return handlePipeResult(left, def.out, ctx);
+  };
+});
+function handlePipeResult(left, next, ctx) {
+  if (left.issues.length) {
+    left.aborted = true;
+    return left;
+  }
+  return next._zod.run({ value: left.value, issues: left.issues }, ctx);
+}
+const $ZodReadonly = /* @__PURE__ */ $constructor("$ZodReadonly", (inst, def) => {
+  $ZodType.init(inst, def);
+  defineLazy(inst._zod, "propValues", () => def.innerType._zod.propValues);
+  defineLazy(inst._zod, "values", () => def.innerType._zod.values);
+  defineLazy(inst._zod, "optin", () => def.innerType?._zod?.optin);
+  defineLazy(inst._zod, "optout", () => def.innerType?._zod?.optout);
+  inst._zod.parse = (payload, ctx) => {
+    if (ctx.direction === "backward") {
+      return def.innerType._zod.run(payload, ctx);
+    }
+    const result = def.innerType._zod.run(payload, ctx);
+    if (result instanceof Promise) {
+      return result.then(handleReadonlyResult);
+    }
+    return handleReadonlyResult(result);
+  };
+});
+function handleReadonlyResult(payload) {
+  payload.value = Object.freeze(payload.value);
+  return payload;
+}
+const $ZodCustom = /* @__PURE__ */ $constructor("$ZodCustom", (inst, def) => {
+  $ZodCheck.init(inst, def);
+  $ZodType.init(inst, def);
+  inst._zod.parse = (payload, _) => {
+    return payload;
+  };
+  inst._zod.check = (payload) => {
+    const input = payload.value;
+    const r = def.fn(input);
+    if (r instanceof Promise) {
+      return r.then((r2) => handleRefineResult(r2, payload, input, inst));
+    }
+    handleRefineResult(r, payload, input, inst);
+    return;
+  };
+});
+function handleRefineResult(result, payload, input, inst) {
+  if (!result) {
+    const _iss = {
+      code: "custom",
+      input,
+      inst,
+      // incorporates params.error into issue reporting
+      path: [...inst._zod.def.path ?? []],
+      // incorporates params.error into issue reporting
+      continue: !inst._zod.def.abort
+      // params: inst._zod.def.params,
+    };
+    if (inst._zod.def.params)
+      _iss.params = inst._zod.def.params;
+    payload.issues.push(issue(_iss));
+  }
+}
+var _a;
+class $ZodRegistry {
+  constructor() {
+    this._map = /* @__PURE__ */ new WeakMap();
+    this._idmap = /* @__PURE__ */ new Map();
+  }
+  add(schema, ..._meta) {
+    const meta = _meta[0];
+    this._map.set(schema, meta);
+    if (meta && typeof meta === "object" && "id" in meta) {
+      this._idmap.set(meta.id, schema);
+    }
+    return this;
+  }
+  clear() {
+    this._map = /* @__PURE__ */ new WeakMap();
+    this._idmap = /* @__PURE__ */ new Map();
+    return this;
+  }
+  remove(schema) {
+    const meta = this._map.get(schema);
+    if (meta && typeof meta === "object" && "id" in meta) {
+      this._idmap.delete(meta.id);
+    }
+    this._map.delete(schema);
+    return this;
+  }
+  get(schema) {
+    const p = schema._zod.parent;
+    if (p) {
+      const pm = { ...this.get(p) ?? {} };
+      delete pm.id;
+      const f = { ...pm, ...this._map.get(schema) };
+      return Object.keys(f).length ? f : void 0;
+    }
+    return this._map.get(schema);
+  }
+  has(schema) {
+    return this._map.has(schema);
+  }
+}
+function registry() {
+  return new $ZodRegistry();
+}
+(_a = globalThis).__zod_globalRegistry ?? (_a.__zod_globalRegistry = registry());
+const globalRegistry = globalThis.__zod_globalRegistry;
+// @__NO_SIDE_EFFECTS__
+function _string(Class, params) {
+  return new Class({
+    type: "string",
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _email(Class, params) {
+  return new Class({
+    type: "string",
+    format: "email",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _guid(Class, params) {
+  return new Class({
+    type: "string",
+    format: "guid",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _uuid(Class, params) {
+  return new Class({
+    type: "string",
+    format: "uuid",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _uuidv4(Class, params) {
+  return new Class({
+    type: "string",
+    format: "uuid",
+    check: "string_format",
+    abort: false,
+    version: "v4",
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _uuidv6(Class, params) {
+  return new Class({
+    type: "string",
+    format: "uuid",
+    check: "string_format",
+    abort: false,
+    version: "v6",
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _uuidv7(Class, params) {
+  return new Class({
+    type: "string",
+    format: "uuid",
+    check: "string_format",
+    abort: false,
+    version: "v7",
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _url(Class, params) {
+  return new Class({
+    type: "string",
+    format: "url",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _emoji(Class, params) {
+  return new Class({
+    type: "string",
+    format: "emoji",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _nanoid(Class, params) {
+  return new Class({
+    type: "string",
+    format: "nanoid",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _cuid(Class, params) {
+  return new Class({
+    type: "string",
+    format: "cuid",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _cuid2(Class, params) {
+  return new Class({
+    type: "string",
+    format: "cuid2",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _ulid(Class, params) {
+  return new Class({
+    type: "string",
+    format: "ulid",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _xid(Class, params) {
+  return new Class({
+    type: "string",
+    format: "xid",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _ksuid(Class, params) {
+  return new Class({
+    type: "string",
+    format: "ksuid",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _ipv4(Class, params) {
+  return new Class({
+    type: "string",
+    format: "ipv4",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _ipv6(Class, params) {
+  return new Class({
+    type: "string",
+    format: "ipv6",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _cidrv4(Class, params) {
+  return new Class({
+    type: "string",
+    format: "cidrv4",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _cidrv6(Class, params) {
+  return new Class({
+    type: "string",
+    format: "cidrv6",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _base64(Class, params) {
+  return new Class({
+    type: "string",
+    format: "base64",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _base64url(Class, params) {
+  return new Class({
+    type: "string",
+    format: "base64url",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _e164(Class, params) {
+  return new Class({
+    type: "string",
+    format: "e164",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _jwt(Class, params) {
+  return new Class({
+    type: "string",
+    format: "jwt",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _isoDateTime(Class, params) {
+  return new Class({
+    type: "string",
+    format: "datetime",
+    check: "string_format",
+    offset: false,
+    local: false,
+    precision: null,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _isoDate(Class, params) {
+  return new Class({
+    type: "string",
+    format: "date",
+    check: "string_format",
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _isoTime(Class, params) {
+  return new Class({
+    type: "string",
+    format: "time",
+    check: "string_format",
+    precision: null,
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _isoDuration(Class, params) {
+  return new Class({
+    type: "string",
+    format: "duration",
+    check: "string_format",
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _number(Class, params) {
+  return new Class({
+    type: "number",
+    checks: [],
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _int(Class, params) {
+  return new Class({
+    type: "number",
+    check: "number_format",
+    abort: false,
+    format: "safeint",
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _boolean(Class, params) {
+  return new Class({
+    type: "boolean",
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _unknown(Class) {
+  return new Class({
+    type: "unknown"
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _never(Class, params) {
+  return new Class({
+    type: "never",
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _date(Class, params) {
+  return new Class({
+    type: "date",
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _lt(value, params) {
+  return new $ZodCheckLessThan({
+    check: "less_than",
+    ...normalizeParams(params),
+    value,
+    inclusive: false
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _lte(value, params) {
+  return new $ZodCheckLessThan({
+    check: "less_than",
+    ...normalizeParams(params),
+    value,
+    inclusive: true
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _gt(value, params) {
+  return new $ZodCheckGreaterThan({
+    check: "greater_than",
+    ...normalizeParams(params),
+    value,
+    inclusive: false
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _gte(value, params) {
+  return new $ZodCheckGreaterThan({
+    check: "greater_than",
+    ...normalizeParams(params),
+    value,
+    inclusive: true
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _multipleOf(value, params) {
+  return new $ZodCheckMultipleOf({
+    check: "multiple_of",
+    ...normalizeParams(params),
+    value
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _maxLength(maximum, params) {
+  const ch = new $ZodCheckMaxLength({
+    check: "max_length",
+    ...normalizeParams(params),
+    maximum
+  });
+  return ch;
+}
+// @__NO_SIDE_EFFECTS__
+function _minLength(minimum, params) {
+  return new $ZodCheckMinLength({
+    check: "min_length",
+    ...normalizeParams(params),
+    minimum
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _length(length, params) {
+  return new $ZodCheckLengthEquals({
+    check: "length_equals",
+    ...normalizeParams(params),
+    length
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _regex(pattern, params) {
+  return new $ZodCheckRegex({
+    check: "string_format",
+    format: "regex",
+    ...normalizeParams(params),
+    pattern
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _lowercase(params) {
+  return new $ZodCheckLowerCase({
+    check: "string_format",
+    format: "lowercase",
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _uppercase(params) {
+  return new $ZodCheckUpperCase({
+    check: "string_format",
+    format: "uppercase",
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _includes(includes, params) {
+  return new $ZodCheckIncludes({
+    check: "string_format",
+    format: "includes",
+    ...normalizeParams(params),
+    includes
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _startsWith(prefix, params) {
+  return new $ZodCheckStartsWith({
+    check: "string_format",
+    format: "starts_with",
+    ...normalizeParams(params),
+    prefix
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _endsWith(suffix, params) {
+  return new $ZodCheckEndsWith({
+    check: "string_format",
+    format: "ends_with",
+    ...normalizeParams(params),
+    suffix
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _overwrite(tx) {
+  return new $ZodCheckOverwrite({
+    check: "overwrite",
+    tx
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _normalize(form) {
+  return /* @__PURE__ */ _overwrite((input) => input.normalize(form));
+}
+// @__NO_SIDE_EFFECTS__
+function _trim() {
+  return /* @__PURE__ */ _overwrite((input) => input.trim());
+}
+// @__NO_SIDE_EFFECTS__
+function _toLowerCase() {
+  return /* @__PURE__ */ _overwrite((input) => input.toLowerCase());
+}
+// @__NO_SIDE_EFFECTS__
+function _toUpperCase() {
+  return /* @__PURE__ */ _overwrite((input) => input.toUpperCase());
+}
+// @__NO_SIDE_EFFECTS__
+function _slugify() {
+  return /* @__PURE__ */ _overwrite((input) => slugify(input));
+}
+// @__NO_SIDE_EFFECTS__
+function _array(Class, element2, params) {
+  return new Class({
+    type: "array",
+    element: element2,
+    // get element() {
+    //   return element;
+    // },
+    ...normalizeParams(params)
+  });
+}
+// @__NO_SIDE_EFFECTS__
+function _refine(Class, fn, _params) {
+  const schema = new Class({
+    type: "custom",
+    check: "custom",
+    fn,
+    ...normalizeParams(_params)
+  });
+  return schema;
+}
+// @__NO_SIDE_EFFECTS__
+function _superRefine(fn) {
+  const ch = /* @__PURE__ */ _check((payload) => {
+    payload.addIssue = (issue$1) => {
+      if (typeof issue$1 === "string") {
+        payload.issues.push(issue(issue$1, payload.value, ch._zod.def));
+      } else {
+        const _issue = issue$1;
+        if (_issue.fatal)
+          _issue.continue = false;
+        _issue.code ?? (_issue.code = "custom");
+        _issue.input ?? (_issue.input = payload.value);
+        _issue.inst ?? (_issue.inst = ch);
+        _issue.continue ?? (_issue.continue = !ch._zod.def.abort);
+        payload.issues.push(issue(_issue));
+      }
+    };
+    return fn(payload.value, payload);
+  });
+  return ch;
+}
+// @__NO_SIDE_EFFECTS__
+function _check(fn, params) {
+  const ch = new $ZodCheck({
+    check: "custom",
+    ...normalizeParams(params)
+  });
+  ch._zod.check = fn;
+  return ch;
+}
+function initializeContext(params) {
+  let target = params?.target ?? "draft-2020-12";
+  if (target === "draft-4")
+    target = "draft-04";
+  if (target === "draft-7")
+    target = "draft-07";
+  return {
+    processors: params.processors ?? {},
+    metadataRegistry: params?.metadata ?? globalRegistry,
+    target,
+    unrepresentable: params?.unrepresentable ?? "throw",
+    override: params?.override ?? (() => {
+    }),
+    io: params?.io ?? "output",
+    counter: 0,
+    seen: /* @__PURE__ */ new Map(),
+    cycles: params?.cycles ?? "ref",
+    reused: params?.reused ?? "inline",
+    external: params?.external ?? void 0
+  };
+}
+function process$1(schema, ctx, _params = { path: [], schemaPath: [] }) {
+  var _a2;
+  const def = schema._zod.def;
+  const seen = ctx.seen.get(schema);
+  if (seen) {
+    seen.count++;
+    const isCycle = _params.schemaPath.includes(schema);
+    if (isCycle) {
+      seen.cycle = _params.path;
+    }
+    return seen.schema;
+  }
+  const result = { schema: {}, count: 1, cycle: void 0, path: _params.path };
+  ctx.seen.set(schema, result);
+  const overrideSchema = schema._zod.toJSONSchema?.();
+  if (overrideSchema) {
+    result.schema = overrideSchema;
+  } else {
+    const params = {
+      ..._params,
+      schemaPath: [..._params.schemaPath, schema],
+      path: _params.path
+    };
+    if (schema._zod.processJSONSchema) {
+      schema._zod.processJSONSchema(ctx, result.schema, params);
+    } else {
+      const _json = result.schema;
+      const processor = ctx.processors[def.type];
+      if (!processor) {
+        throw new Error(`[toJSONSchema]: Non-representable type encountered: ${def.type}`);
+      }
+      processor(schema, ctx, _json, params);
+    }
+    const parent = schema._zod.parent;
+    if (parent) {
+      if (!result.ref)
+        result.ref = parent;
+      process$1(parent, ctx, params);
+      ctx.seen.get(parent).isParent = true;
+    }
+  }
+  const meta = ctx.metadataRegistry.get(schema);
+  if (meta)
+    Object.assign(result.schema, meta);
+  if (ctx.io === "input" && isTransforming(schema)) {
+    delete result.schema.examples;
+    delete result.schema.default;
+  }
+  if (ctx.io === "input" && result.schema._prefault)
+    (_a2 = result.schema).default ?? (_a2.default = result.schema._prefault);
+  delete result.schema._prefault;
+  const _result = ctx.seen.get(schema);
+  return _result.schema;
+}
+function extractDefs(ctx, schema) {
+  const root2 = ctx.seen.get(schema);
+  if (!root2)
+    throw new Error("Unprocessed schema. This is a bug in Zod.");
+  const idToSchema = /* @__PURE__ */ new Map();
+  for (const entry of ctx.seen.entries()) {
+    const id = ctx.metadataRegistry.get(entry[0])?.id;
+    if (id) {
+      const existing = idToSchema.get(id);
+      if (existing && existing !== entry[0]) {
+        throw new Error(`Duplicate schema id "${id}" detected during JSON Schema conversion. Two different schemas cannot share the same id when converted together.`);
+      }
+      idToSchema.set(id, entry[0]);
+    }
+  }
+  const makeURI = (entry) => {
+    const defsSegment = ctx.target === "draft-2020-12" ? "$defs" : "definitions";
+    if (ctx.external) {
+      const externalId = ctx.external.registry.get(entry[0])?.id;
+      const uriGenerator = ctx.external.uri ?? ((id2) => id2);
+      if (externalId) {
+        return { ref: uriGenerator(externalId) };
+      }
+      const id = entry[1].defId ?? entry[1].schema.id ?? `schema${ctx.counter++}`;
+      entry[1].defId = id;
+      return { defId: id, ref: `${uriGenerator("__shared")}#/${defsSegment}/${id}` };
+    }
+    if (entry[1] === root2) {
+      return { ref: "#" };
+    }
+    const uriPrefix = `#`;
+    const defUriPrefix = `${uriPrefix}/${defsSegment}/`;
+    const defId = entry[1].schema.id ?? `__schema${ctx.counter++}`;
+    return { defId, ref: defUriPrefix + defId };
+  };
+  const extractToDef = (entry) => {
+    if (entry[1].schema.$ref) {
+      return;
+    }
+    const seen = entry[1];
+    const { ref, defId } = makeURI(entry);
+    seen.def = { ...seen.schema };
+    if (defId)
+      seen.defId = defId;
+    const schema2 = seen.schema;
+    for (const key2 in schema2) {
+      delete schema2[key2];
+    }
+    schema2.$ref = ref;
+  };
+  if (ctx.cycles === "throw") {
+    for (const entry of ctx.seen.entries()) {
+      const seen = entry[1];
+      if (seen.cycle) {
+        throw new Error(`Cycle detected: #/${seen.cycle?.join("/")}/<root>
+
+Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.`);
+      }
+    }
+  }
+  for (const entry of ctx.seen.entries()) {
+    const seen = entry[1];
+    if (schema === entry[0]) {
+      extractToDef(entry);
+      continue;
+    }
+    if (ctx.external) {
+      const ext = ctx.external.registry.get(entry[0])?.id;
+      if (schema !== entry[0] && ext) {
+        extractToDef(entry);
+        continue;
+      }
+    }
+    const id = ctx.metadataRegistry.get(entry[0])?.id;
+    if (id) {
+      extractToDef(entry);
+      continue;
+    }
+    if (seen.cycle) {
+      extractToDef(entry);
+      continue;
+    }
+    if (seen.count > 1) {
+      if (ctx.reused === "ref") {
+        extractToDef(entry);
+        continue;
+      }
+    }
+  }
+}
+function finalize(ctx, schema) {
+  const root2 = ctx.seen.get(schema);
+  if (!root2)
+    throw new Error("Unprocessed schema. This is a bug in Zod.");
+  const flattenRef = (zodSchema) => {
+    const seen = ctx.seen.get(zodSchema);
+    if (seen.ref === null)
+      return;
+    const schema2 = seen.def ?? seen.schema;
+    const _cached = { ...schema2 };
+    const ref = seen.ref;
+    seen.ref = null;
+    if (ref) {
+      flattenRef(ref);
+      const refSeen = ctx.seen.get(ref);
+      const refSchema = refSeen.schema;
+      if (refSchema.$ref && (ctx.target === "draft-07" || ctx.target === "draft-04" || ctx.target === "openapi-3.0")) {
+        schema2.allOf = schema2.allOf ?? [];
+        schema2.allOf.push(refSchema);
+      } else {
+        Object.assign(schema2, refSchema);
+      }
+      Object.assign(schema2, _cached);
+      const isParentRef = zodSchema._zod.parent === ref;
+      if (isParentRef) {
+        for (const key2 in schema2) {
+          if (key2 === "$ref" || key2 === "allOf")
+            continue;
+          if (!(key2 in _cached)) {
+            delete schema2[key2];
+          }
+        }
+      }
+      if (refSchema.$ref) {
+        for (const key2 in schema2) {
+          if (key2 === "$ref" || key2 === "allOf")
+            continue;
+          if (key2 in refSeen.def && JSON.stringify(schema2[key2]) === JSON.stringify(refSeen.def[key2])) {
+            delete schema2[key2];
+          }
+        }
+      }
+    }
+    const parent = zodSchema._zod.parent;
+    if (parent && parent !== ref) {
+      flattenRef(parent);
+      const parentSeen = ctx.seen.get(parent);
+      if (parentSeen?.schema.$ref) {
+        schema2.$ref = parentSeen.schema.$ref;
+        if (parentSeen.def) {
+          for (const key2 in schema2) {
+            if (key2 === "$ref" || key2 === "allOf")
+              continue;
+            if (key2 in parentSeen.def && JSON.stringify(schema2[key2]) === JSON.stringify(parentSeen.def[key2])) {
+              delete schema2[key2];
+            }
+          }
+        }
+      }
+    }
+    ctx.override({
+      zodSchema,
+      jsonSchema: schema2,
+      path: seen.path ?? []
+    });
+  };
+  for (const entry of [...ctx.seen.entries()].reverse()) {
+    flattenRef(entry[0]);
+  }
+  const result = {};
+  if (ctx.target === "draft-2020-12") {
+    result.$schema = "https://json-schema.org/draft/2020-12/schema";
+  } else if (ctx.target === "draft-07") {
+    result.$schema = "http://json-schema.org/draft-07/schema#";
+  } else if (ctx.target === "draft-04") {
+    result.$schema = "http://json-schema.org/draft-04/schema#";
+  } else if (ctx.target === "openapi-3.0") ;
+  else ;
+  if (ctx.external?.uri) {
+    const id = ctx.external.registry.get(schema)?.id;
+    if (!id)
+      throw new Error("Schema is missing an `id` property");
+    result.$id = ctx.external.uri(id);
+  }
+  Object.assign(result, root2.def ?? root2.schema);
+  const defs = ctx.external?.defs ?? {};
+  for (const entry of ctx.seen.entries()) {
+    const seen = entry[1];
+    if (seen.def && seen.defId) {
+      defs[seen.defId] = seen.def;
+    }
+  }
+  if (ctx.external) ;
+  else {
+    if (Object.keys(defs).length > 0) {
+      if (ctx.target === "draft-2020-12") {
+        result.$defs = defs;
+      } else {
+        result.definitions = defs;
+      }
+    }
+  }
+  try {
+    const finalized = JSON.parse(JSON.stringify(result));
+    Object.defineProperty(finalized, "~standard", {
+      value: {
+        ...schema["~standard"],
+        jsonSchema: {
+          input: createStandardJSONSchemaMethod(schema, "input", ctx.processors),
+          output: createStandardJSONSchemaMethod(schema, "output", ctx.processors)
+        }
+      },
+      enumerable: false,
+      writable: false
+    });
+    return finalized;
+  } catch (_err) {
+    throw new Error("Error converting schema to JSON.");
+  }
+}
+function isTransforming(_schema, _ctx) {
+  const ctx = _ctx ?? { seen: /* @__PURE__ */ new Set() };
+  if (ctx.seen.has(_schema))
+    return false;
+  ctx.seen.add(_schema);
+  const def = _schema._zod.def;
+  if (def.type === "transform")
+    return true;
+  if (def.type === "array")
+    return isTransforming(def.element, ctx);
+  if (def.type === "set")
+    return isTransforming(def.valueType, ctx);
+  if (def.type === "lazy")
+    return isTransforming(def.getter(), ctx);
+  if (def.type === "promise" || def.type === "optional" || def.type === "nonoptional" || def.type === "nullable" || def.type === "readonly" || def.type === "default" || def.type === "prefault") {
+    return isTransforming(def.innerType, ctx);
+  }
+  if (def.type === "intersection") {
+    return isTransforming(def.left, ctx) || isTransforming(def.right, ctx);
+  }
+  if (def.type === "record" || def.type === "map") {
+    return isTransforming(def.keyType, ctx) || isTransforming(def.valueType, ctx);
+  }
+  if (def.type === "pipe") {
+    return isTransforming(def.in, ctx) || isTransforming(def.out, ctx);
+  }
+  if (def.type === "object") {
+    for (const key2 in def.shape) {
+      if (isTransforming(def.shape[key2], ctx))
+        return true;
+    }
+    return false;
+  }
+  if (def.type === "union") {
+    for (const option of def.options) {
+      if (isTransforming(option, ctx))
+        return true;
+    }
+    return false;
+  }
+  if (def.type === "tuple") {
+    for (const item of def.items) {
+      if (isTransforming(item, ctx))
+        return true;
+    }
+    if (def.rest && isTransforming(def.rest, ctx))
+      return true;
+    return false;
+  }
+  return false;
+}
+const createToJSONSchemaMethod = (schema, processors = {}) => (params) => {
+  const ctx = initializeContext({ ...params, processors });
+  process$1(schema, ctx);
+  extractDefs(ctx, schema);
+  return finalize(ctx, schema);
+};
+const createStandardJSONSchemaMethod = (schema, io, processors = {}) => (params) => {
+  const { libraryOptions, target } = params ?? {};
+  const ctx = initializeContext({ ...libraryOptions ?? {}, target, io, processors });
+  process$1(schema, ctx);
+  extractDefs(ctx, schema);
+  return finalize(ctx, schema);
+};
+const formatMap = {
+  guid: "uuid",
+  url: "uri",
+  datetime: "date-time",
+  json_string: "json-string",
+  regex: ""
+  // do not set
+};
+const stringProcessor = (schema, ctx, _json, _params) => {
+  const json = _json;
+  json.type = "string";
+  const { minimum, maximum, format, patterns, contentEncoding } = schema._zod.bag;
+  if (typeof minimum === "number")
+    json.minLength = minimum;
+  if (typeof maximum === "number")
+    json.maxLength = maximum;
+  if (format) {
+    json.format = formatMap[format] ?? format;
+    if (json.format === "")
+      delete json.format;
+    if (format === "time") {
+      delete json.format;
+    }
+  }
+  if (contentEncoding)
+    json.contentEncoding = contentEncoding;
+  if (patterns && patterns.size > 0) {
+    const regexes = [...patterns];
+    if (regexes.length === 1)
+      json.pattern = regexes[0].source;
+    else if (regexes.length > 1) {
+      json.allOf = [
+        ...regexes.map((regex) => ({
+          ...ctx.target === "draft-07" || ctx.target === "draft-04" || ctx.target === "openapi-3.0" ? { type: "string" } : {},
+          pattern: regex.source
+        }))
+      ];
+    }
+  }
+};
+const numberProcessor = (schema, ctx, _json, _params) => {
+  const json = _json;
+  const { minimum, maximum, format, multipleOf, exclusiveMaximum, exclusiveMinimum } = schema._zod.bag;
+  if (typeof format === "string" && format.includes("int"))
+    json.type = "integer";
+  else
+    json.type = "number";
+  if (typeof exclusiveMinimum === "number") {
+    if (ctx.target === "draft-04" || ctx.target === "openapi-3.0") {
+      json.minimum = exclusiveMinimum;
+      json.exclusiveMinimum = true;
+    } else {
+      json.exclusiveMinimum = exclusiveMinimum;
+    }
+  }
+  if (typeof minimum === "number") {
+    json.minimum = minimum;
+    if (typeof exclusiveMinimum === "number" && ctx.target !== "draft-04") {
+      if (exclusiveMinimum >= minimum)
+        delete json.minimum;
+      else
+        delete json.exclusiveMinimum;
+    }
+  }
+  if (typeof exclusiveMaximum === "number") {
+    if (ctx.target === "draft-04" || ctx.target === "openapi-3.0") {
+      json.maximum = exclusiveMaximum;
+      json.exclusiveMaximum = true;
+    } else {
+      json.exclusiveMaximum = exclusiveMaximum;
+    }
+  }
+  if (typeof maximum === "number") {
+    json.maximum = maximum;
+    if (typeof exclusiveMaximum === "number" && ctx.target !== "draft-04") {
+      if (exclusiveMaximum <= maximum)
+        delete json.maximum;
+      else
+        delete json.exclusiveMaximum;
+    }
+  }
+  if (typeof multipleOf === "number")
+    json.multipleOf = multipleOf;
+};
+const booleanProcessor = (_schema, _ctx, json, _params) => {
+  json.type = "boolean";
+};
+const neverProcessor = (_schema, _ctx, json, _params) => {
+  json.not = {};
+};
+const unknownProcessor = (_schema, _ctx, _json, _params) => {
+};
+const dateProcessor = (_schema, ctx, _json, _params) => {
+  if (ctx.unrepresentable === "throw") {
+    throw new Error("Date cannot be represented in JSON Schema");
+  }
+};
+const enumProcessor = (schema, _ctx, json, _params) => {
+  const def = schema._zod.def;
+  const values = getEnumValues(def.entries);
+  if (values.every((v) => typeof v === "number"))
+    json.type = "number";
+  if (values.every((v) => typeof v === "string"))
+    json.type = "string";
+  json.enum = values;
+};
+const customProcessor = (_schema, ctx, _json, _params) => {
+  if (ctx.unrepresentable === "throw") {
+    throw new Error("Custom types cannot be represented in JSON Schema");
+  }
+};
+const transformProcessor = (_schema, ctx, _json, _params) => {
+  if (ctx.unrepresentable === "throw") {
+    throw new Error("Transforms cannot be represented in JSON Schema");
+  }
+};
+const arrayProcessor = (schema, ctx, _json, params) => {
+  const json = _json;
+  const def = schema._zod.def;
+  const { minimum, maximum } = schema._zod.bag;
+  if (typeof minimum === "number")
+    json.minItems = minimum;
+  if (typeof maximum === "number")
+    json.maxItems = maximum;
+  json.type = "array";
+  json.items = process$1(def.element, ctx, { ...params, path: [...params.path, "items"] });
+};
+const objectProcessor = (schema, ctx, _json, params) => {
+  const json = _json;
+  const def = schema._zod.def;
+  json.type = "object";
+  json.properties = {};
+  const shape = def.shape;
+  for (const key2 in shape) {
+    json.properties[key2] = process$1(shape[key2], ctx, {
+      ...params,
+      path: [...params.path, "properties", key2]
+    });
+  }
+  const allKeys = new Set(Object.keys(shape));
+  const requiredKeys = new Set([...allKeys].filter((key2) => {
+    const v = def.shape[key2]._zod;
+    if (ctx.io === "input") {
+      return v.optin === void 0;
+    } else {
+      return v.optout === void 0;
+    }
+  }));
+  if (requiredKeys.size > 0) {
+    json.required = Array.from(requiredKeys);
+  }
+  if (def.catchall?._zod.def.type === "never") {
+    json.additionalProperties = false;
+  } else if (!def.catchall) {
+    if (ctx.io === "output")
+      json.additionalProperties = false;
+  } else if (def.catchall) {
+    json.additionalProperties = process$1(def.catchall, ctx, {
+      ...params,
+      path: [...params.path, "additionalProperties"]
+    });
+  }
+};
+const unionProcessor = (schema, ctx, json, params) => {
+  const def = schema._zod.def;
+  const isExclusive = def.inclusive === false;
+  const options = def.options.map((x, i) => process$1(x, ctx, {
+    ...params,
+    path: [...params.path, isExclusive ? "oneOf" : "anyOf", i]
+  }));
+  if (isExclusive) {
+    json.oneOf = options;
+  } else {
+    json.anyOf = options;
+  }
+};
+const intersectionProcessor = (schema, ctx, json, params) => {
+  const def = schema._zod.def;
+  const a = process$1(def.left, ctx, {
+    ...params,
+    path: [...params.path, "allOf", 0]
+  });
+  const b = process$1(def.right, ctx, {
+    ...params,
+    path: [...params.path, "allOf", 1]
+  });
+  const isSimpleIntersection = (val) => "allOf" in val && Object.keys(val).length === 1;
+  const allOf = [
+    ...isSimpleIntersection(a) ? a.allOf : [a],
+    ...isSimpleIntersection(b) ? b.allOf : [b]
+  ];
+  json.allOf = allOf;
+};
+const recordProcessor = (schema, ctx, _json, params) => {
+  const json = _json;
+  const def = schema._zod.def;
+  json.type = "object";
+  const keyType = def.keyType;
+  const keyBag = keyType._zod.bag;
+  const patterns = keyBag?.patterns;
+  if (def.mode === "loose" && patterns && patterns.size > 0) {
+    const valueSchema = process$1(def.valueType, ctx, {
+      ...params,
+      path: [...params.path, "patternProperties", "*"]
+    });
+    json.patternProperties = {};
+    for (const pattern of patterns) {
+      json.patternProperties[pattern.source] = valueSchema;
+    }
+  } else {
+    if (ctx.target === "draft-07" || ctx.target === "draft-2020-12") {
+      json.propertyNames = process$1(def.keyType, ctx, {
+        ...params,
+        path: [...params.path, "propertyNames"]
+      });
+    }
+    json.additionalProperties = process$1(def.valueType, ctx, {
+      ...params,
+      path: [...params.path, "additionalProperties"]
+    });
+  }
+  const keyValues = keyType._zod.values;
+  if (keyValues) {
+    const validKeyValues = [...keyValues].filter((v) => typeof v === "string" || typeof v === "number");
+    if (validKeyValues.length > 0) {
+      json.required = validKeyValues;
+    }
+  }
+};
+const nullableProcessor = (schema, ctx, json, params) => {
+  const def = schema._zod.def;
+  const inner = process$1(def.innerType, ctx, params);
+  const seen = ctx.seen.get(schema);
+  if (ctx.target === "openapi-3.0") {
+    seen.ref = def.innerType;
+    json.nullable = true;
+  } else {
+    json.anyOf = [inner, { type: "null" }];
+  }
+};
+const nonoptionalProcessor = (schema, ctx, _json, params) => {
+  const def = schema._zod.def;
+  process$1(def.innerType, ctx, params);
+  const seen = ctx.seen.get(schema);
+  seen.ref = def.innerType;
+};
+const defaultProcessor = (schema, ctx, json, params) => {
+  const def = schema._zod.def;
+  process$1(def.innerType, ctx, params);
+  const seen = ctx.seen.get(schema);
+  seen.ref = def.innerType;
+  json.default = JSON.parse(JSON.stringify(def.defaultValue));
+};
+const prefaultProcessor = (schema, ctx, json, params) => {
+  const def = schema._zod.def;
+  process$1(def.innerType, ctx, params);
+  const seen = ctx.seen.get(schema);
+  seen.ref = def.innerType;
+  if (ctx.io === "input")
+    json._prefault = JSON.parse(JSON.stringify(def.defaultValue));
+};
+const catchProcessor = (schema, ctx, json, params) => {
+  const def = schema._zod.def;
+  process$1(def.innerType, ctx, params);
+  const seen = ctx.seen.get(schema);
+  seen.ref = def.innerType;
+  let catchValue;
+  try {
+    catchValue = def.catchValue(void 0);
+  } catch {
+    throw new Error("Dynamic catch values are not supported in JSON Schema");
+  }
+  json.default = catchValue;
+};
+const pipeProcessor = (schema, ctx, _json, params) => {
+  const def = schema._zod.def;
+  const innerType = ctx.io === "input" ? def.in._zod.def.type === "transform" ? def.out : def.in : def.out;
+  process$1(innerType, ctx, params);
+  const seen = ctx.seen.get(schema);
+  seen.ref = innerType;
+};
+const readonlyProcessor = (schema, ctx, json, params) => {
+  const def = schema._zod.def;
+  process$1(def.innerType, ctx, params);
+  const seen = ctx.seen.get(schema);
+  seen.ref = def.innerType;
+  json.readOnly = true;
+};
+const optionalProcessor = (schema, ctx, _json, params) => {
+  const def = schema._zod.def;
+  process$1(def.innerType, ctx, params);
+  const seen = ctx.seen.get(schema);
+  seen.ref = def.innerType;
+};
+const ZodISODateTime = /* @__PURE__ */ $constructor("ZodISODateTime", (inst, def) => {
+  $ZodISODateTime.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+function datetime(params) {
+  return /* @__PURE__ */ _isoDateTime(ZodISODateTime, params);
+}
+const ZodISODate = /* @__PURE__ */ $constructor("ZodISODate", (inst, def) => {
+  $ZodISODate.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+function date$1(params) {
+  return /* @__PURE__ */ _isoDate(ZodISODate, params);
+}
+const ZodISOTime = /* @__PURE__ */ $constructor("ZodISOTime", (inst, def) => {
+  $ZodISOTime.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+function time(params) {
+  return /* @__PURE__ */ _isoTime(ZodISOTime, params);
+}
+const ZodISODuration = /* @__PURE__ */ $constructor("ZodISODuration", (inst, def) => {
+  $ZodISODuration.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+function duration(params) {
+  return /* @__PURE__ */ _isoDuration(ZodISODuration, params);
+}
+const initializer = (inst, issues) => {
+  $ZodError.init(inst, issues);
+  inst.name = "ZodError";
+  Object.defineProperties(inst, {
+    format: {
+      value: (mapper) => formatError(inst, mapper)
+      // enumerable: false,
+    },
+    flatten: {
+      value: (mapper) => flattenError(inst, mapper)
+      // enumerable: false,
+    },
+    addIssue: {
+      value: (issue2) => {
+        inst.issues.push(issue2);
+        inst.message = JSON.stringify(inst.issues, jsonStringifyReplacer, 2);
+      }
+      // enumerable: false,
+    },
+    addIssues: {
+      value: (issues2) => {
+        inst.issues.push(...issues2);
+        inst.message = JSON.stringify(inst.issues, jsonStringifyReplacer, 2);
+      }
+      // enumerable: false,
+    },
+    isEmpty: {
+      get() {
+        return inst.issues.length === 0;
+      }
+      // enumerable: false,
+    }
+  });
+};
+const ZodError = $constructor("ZodError", initializer);
+const ZodRealError = $constructor("ZodError", initializer, {
+  Parent: Error
+});
+const parse = /* @__PURE__ */ _parse(ZodRealError);
+const parseAsync = /* @__PURE__ */ _parseAsync(ZodRealError);
+const safeParse = /* @__PURE__ */ _safeParse(ZodRealError);
+const safeParseAsync = /* @__PURE__ */ _safeParseAsync(ZodRealError);
+const encode = /* @__PURE__ */ _encode(ZodRealError);
+const decode = /* @__PURE__ */ _decode(ZodRealError);
+const encodeAsync = /* @__PURE__ */ _encodeAsync(ZodRealError);
+const decodeAsync = /* @__PURE__ */ _decodeAsync(ZodRealError);
+const safeEncode = /* @__PURE__ */ _safeEncode(ZodRealError);
+const safeDecode = /* @__PURE__ */ _safeDecode(ZodRealError);
+const safeEncodeAsync = /* @__PURE__ */ _safeEncodeAsync(ZodRealError);
+const safeDecodeAsync = /* @__PURE__ */ _safeDecodeAsync(ZodRealError);
+const ZodType = /* @__PURE__ */ $constructor("ZodType", (inst, def) => {
+  $ZodType.init(inst, def);
+  Object.assign(inst["~standard"], {
+    jsonSchema: {
+      input: createStandardJSONSchemaMethod(inst, "input"),
+      output: createStandardJSONSchemaMethod(inst, "output")
+    }
+  });
+  inst.toJSONSchema = createToJSONSchemaMethod(inst, {});
+  inst.def = def;
+  inst.type = def.type;
+  Object.defineProperty(inst, "_def", { value: def });
+  inst.check = (...checks2) => {
+    return inst.clone(mergeDefs(def, {
+      checks: [
+        ...def.checks ?? [],
+        ...checks2.map((ch) => typeof ch === "function" ? { _zod: { check: ch, def: { check: "custom" }, onattach: [] } } : ch)
+      ]
+    }), {
+      parent: true
+    });
+  };
+  inst.with = inst.check;
+  inst.clone = (def2, params) => clone(inst, def2, params);
+  inst.brand = () => inst;
+  inst.register = ((reg, meta) => {
+    reg.add(inst, meta);
+    return inst;
+  });
+  inst.parse = (data, params) => parse(inst, data, params, { callee: inst.parse });
+  inst.safeParse = (data, params) => safeParse(inst, data, params);
+  inst.parseAsync = async (data, params) => parseAsync(inst, data, params, { callee: inst.parseAsync });
+  inst.safeParseAsync = async (data, params) => safeParseAsync(inst, data, params);
+  inst.spa = inst.safeParseAsync;
+  inst.encode = (data, params) => encode(inst, data, params);
+  inst.decode = (data, params) => decode(inst, data, params);
+  inst.encodeAsync = async (data, params) => encodeAsync(inst, data, params);
+  inst.decodeAsync = async (data, params) => decodeAsync(inst, data, params);
+  inst.safeEncode = (data, params) => safeEncode(inst, data, params);
+  inst.safeDecode = (data, params) => safeDecode(inst, data, params);
+  inst.safeEncodeAsync = async (data, params) => safeEncodeAsync(inst, data, params);
+  inst.safeDecodeAsync = async (data, params) => safeDecodeAsync(inst, data, params);
+  inst.refine = (check, params) => inst.check(refine(check, params));
+  inst.superRefine = (refinement) => inst.check(superRefine(refinement));
+  inst.overwrite = (fn) => inst.check(/* @__PURE__ */ _overwrite(fn));
+  inst.optional = () => optional(inst);
+  inst.exactOptional = () => exactOptional(inst);
+  inst.nullable = () => nullable(inst);
+  inst.nullish = () => optional(nullable(inst));
+  inst.nonoptional = (params) => nonoptional(inst, params);
+  inst.array = () => array(inst);
+  inst.or = (arg) => union([inst, arg]);
+  inst.and = (arg) => intersection(inst, arg);
+  inst.transform = (tx) => pipe(inst, transform(tx));
+  inst.default = (def2) => _default(inst, def2);
+  inst.prefault = (def2) => prefault(inst, def2);
+  inst.catch = (params) => _catch(inst, params);
+  inst.pipe = (target) => pipe(inst, target);
+  inst.readonly = () => readonly(inst);
+  inst.describe = (description) => {
+    const cl = inst.clone();
+    globalRegistry.add(cl, { description });
+    return cl;
+  };
+  Object.defineProperty(inst, "description", {
+    get() {
+      return globalRegistry.get(inst)?.description;
+    },
+    configurable: true
+  });
+  inst.meta = (...args) => {
+    if (args.length === 0) {
+      return globalRegistry.get(inst);
+    }
+    const cl = inst.clone();
+    globalRegistry.add(cl, args[0]);
+    return cl;
+  };
+  inst.isOptional = () => inst.safeParse(void 0).success;
+  inst.isNullable = () => inst.safeParse(null).success;
+  inst.apply = (fn) => fn(inst);
+  return inst;
+});
+const _ZodString = /* @__PURE__ */ $constructor("_ZodString", (inst, def) => {
+  $ZodString.init(inst, def);
+  ZodType.init(inst, def);
+  inst._zod.processJSONSchema = (ctx, json, params) => stringProcessor(inst, ctx, json);
+  const bag = inst._zod.bag;
+  inst.format = bag.format ?? null;
+  inst.minLength = bag.minimum ?? null;
+  inst.maxLength = bag.maximum ?? null;
+  inst.regex = (...args) => inst.check(/* @__PURE__ */ _regex(...args));
+  inst.includes = (...args) => inst.check(/* @__PURE__ */ _includes(...args));
+  inst.startsWith = (...args) => inst.check(/* @__PURE__ */ _startsWith(...args));
+  inst.endsWith = (...args) => inst.check(/* @__PURE__ */ _endsWith(...args));
+  inst.min = (...args) => inst.check(/* @__PURE__ */ _minLength(...args));
+  inst.max = (...args) => inst.check(/* @__PURE__ */ _maxLength(...args));
+  inst.length = (...args) => inst.check(/* @__PURE__ */ _length(...args));
+  inst.nonempty = (...args) => inst.check(/* @__PURE__ */ _minLength(1, ...args));
+  inst.lowercase = (params) => inst.check(/* @__PURE__ */ _lowercase(params));
+  inst.uppercase = (params) => inst.check(/* @__PURE__ */ _uppercase(params));
+  inst.trim = () => inst.check(/* @__PURE__ */ _trim());
+  inst.normalize = (...args) => inst.check(/* @__PURE__ */ _normalize(...args));
+  inst.toLowerCase = () => inst.check(/* @__PURE__ */ _toLowerCase());
+  inst.toUpperCase = () => inst.check(/* @__PURE__ */ _toUpperCase());
+  inst.slugify = () => inst.check(/* @__PURE__ */ _slugify());
+});
+const ZodString = /* @__PURE__ */ $constructor("ZodString", (inst, def) => {
+  $ZodString.init(inst, def);
+  _ZodString.init(inst, def);
+  inst.email = (params) => inst.check(/* @__PURE__ */ _email(ZodEmail, params));
+  inst.url = (params) => inst.check(/* @__PURE__ */ _url(ZodURL, params));
+  inst.jwt = (params) => inst.check(/* @__PURE__ */ _jwt(ZodJWT, params));
+  inst.emoji = (params) => inst.check(/* @__PURE__ */ _emoji(ZodEmoji, params));
+  inst.guid = (params) => inst.check(/* @__PURE__ */ _guid(ZodGUID, params));
+  inst.uuid = (params) => inst.check(/* @__PURE__ */ _uuid(ZodUUID, params));
+  inst.uuidv4 = (params) => inst.check(/* @__PURE__ */ _uuidv4(ZodUUID, params));
+  inst.uuidv6 = (params) => inst.check(/* @__PURE__ */ _uuidv6(ZodUUID, params));
+  inst.uuidv7 = (params) => inst.check(/* @__PURE__ */ _uuidv7(ZodUUID, params));
+  inst.nanoid = (params) => inst.check(/* @__PURE__ */ _nanoid(ZodNanoID, params));
+  inst.guid = (params) => inst.check(/* @__PURE__ */ _guid(ZodGUID, params));
+  inst.cuid = (params) => inst.check(/* @__PURE__ */ _cuid(ZodCUID, params));
+  inst.cuid2 = (params) => inst.check(/* @__PURE__ */ _cuid2(ZodCUID2, params));
+  inst.ulid = (params) => inst.check(/* @__PURE__ */ _ulid(ZodULID, params));
+  inst.base64 = (params) => inst.check(/* @__PURE__ */ _base64(ZodBase64, params));
+  inst.base64url = (params) => inst.check(/* @__PURE__ */ _base64url(ZodBase64URL, params));
+  inst.xid = (params) => inst.check(/* @__PURE__ */ _xid(ZodXID, params));
+  inst.ksuid = (params) => inst.check(/* @__PURE__ */ _ksuid(ZodKSUID, params));
+  inst.ipv4 = (params) => inst.check(/* @__PURE__ */ _ipv4(ZodIPv4, params));
+  inst.ipv6 = (params) => inst.check(/* @__PURE__ */ _ipv6(ZodIPv6, params));
+  inst.cidrv4 = (params) => inst.check(/* @__PURE__ */ _cidrv4(ZodCIDRv4, params));
+  inst.cidrv6 = (params) => inst.check(/* @__PURE__ */ _cidrv6(ZodCIDRv6, params));
+  inst.e164 = (params) => inst.check(/* @__PURE__ */ _e164(ZodE164, params));
+  inst.datetime = (params) => inst.check(datetime(params));
+  inst.date = (params) => inst.check(date$1(params));
+  inst.time = (params) => inst.check(time(params));
+  inst.duration = (params) => inst.check(duration(params));
+});
+function string(params) {
+  return /* @__PURE__ */ _string(ZodString, params);
+}
+const ZodStringFormat = /* @__PURE__ */ $constructor("ZodStringFormat", (inst, def) => {
+  $ZodStringFormat.init(inst, def);
+  _ZodString.init(inst, def);
+});
+const ZodEmail = /* @__PURE__ */ $constructor("ZodEmail", (inst, def) => {
+  $ZodEmail.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+const ZodGUID = /* @__PURE__ */ $constructor("ZodGUID", (inst, def) => {
+  $ZodGUID.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+const ZodUUID = /* @__PURE__ */ $constructor("ZodUUID", (inst, def) => {
+  $ZodUUID.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+const ZodURL = /* @__PURE__ */ $constructor("ZodURL", (inst, def) => {
+  $ZodURL.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+const ZodEmoji = /* @__PURE__ */ $constructor("ZodEmoji", (inst, def) => {
+  $ZodEmoji.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+const ZodNanoID = /* @__PURE__ */ $constructor("ZodNanoID", (inst, def) => {
+  $ZodNanoID.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+const ZodCUID = /* @__PURE__ */ $constructor("ZodCUID", (inst, def) => {
+  $ZodCUID.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+const ZodCUID2 = /* @__PURE__ */ $constructor("ZodCUID2", (inst, def) => {
+  $ZodCUID2.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+const ZodULID = /* @__PURE__ */ $constructor("ZodULID", (inst, def) => {
+  $ZodULID.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+const ZodXID = /* @__PURE__ */ $constructor("ZodXID", (inst, def) => {
+  $ZodXID.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+const ZodKSUID = /* @__PURE__ */ $constructor("ZodKSUID", (inst, def) => {
+  $ZodKSUID.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+const ZodIPv4 = /* @__PURE__ */ $constructor("ZodIPv4", (inst, def) => {
+  $ZodIPv4.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+const ZodIPv6 = /* @__PURE__ */ $constructor("ZodIPv6", (inst, def) => {
+  $ZodIPv6.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+const ZodCIDRv4 = /* @__PURE__ */ $constructor("ZodCIDRv4", (inst, def) => {
+  $ZodCIDRv4.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+const ZodCIDRv6 = /* @__PURE__ */ $constructor("ZodCIDRv6", (inst, def) => {
+  $ZodCIDRv6.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+const ZodBase64 = /* @__PURE__ */ $constructor("ZodBase64", (inst, def) => {
+  $ZodBase64.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+const ZodBase64URL = /* @__PURE__ */ $constructor("ZodBase64URL", (inst, def) => {
+  $ZodBase64URL.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+const ZodE164 = /* @__PURE__ */ $constructor("ZodE164", (inst, def) => {
+  $ZodE164.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+const ZodJWT = /* @__PURE__ */ $constructor("ZodJWT", (inst, def) => {
+  $ZodJWT.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+const ZodNumber = /* @__PURE__ */ $constructor("ZodNumber", (inst, def) => {
+  $ZodNumber.init(inst, def);
+  ZodType.init(inst, def);
+  inst._zod.processJSONSchema = (ctx, json, params) => numberProcessor(inst, ctx, json);
+  inst.gt = (value, params) => inst.check(/* @__PURE__ */ _gt(value, params));
+  inst.gte = (value, params) => inst.check(/* @__PURE__ */ _gte(value, params));
+  inst.min = (value, params) => inst.check(/* @__PURE__ */ _gte(value, params));
+  inst.lt = (value, params) => inst.check(/* @__PURE__ */ _lt(value, params));
+  inst.lte = (value, params) => inst.check(/* @__PURE__ */ _lte(value, params));
+  inst.max = (value, params) => inst.check(/* @__PURE__ */ _lte(value, params));
+  inst.int = (params) => inst.check(int(params));
+  inst.safe = (params) => inst.check(int(params));
+  inst.positive = (params) => inst.check(/* @__PURE__ */ _gt(0, params));
+  inst.nonnegative = (params) => inst.check(/* @__PURE__ */ _gte(0, params));
+  inst.negative = (params) => inst.check(/* @__PURE__ */ _lt(0, params));
+  inst.nonpositive = (params) => inst.check(/* @__PURE__ */ _lte(0, params));
+  inst.multipleOf = (value, params) => inst.check(/* @__PURE__ */ _multipleOf(value, params));
+  inst.step = (value, params) => inst.check(/* @__PURE__ */ _multipleOf(value, params));
+  inst.finite = () => inst;
+  const bag = inst._zod.bag;
+  inst.minValue = Math.max(bag.minimum ?? Number.NEGATIVE_INFINITY, bag.exclusiveMinimum ?? Number.NEGATIVE_INFINITY) ?? null;
+  inst.maxValue = Math.min(bag.maximum ?? Number.POSITIVE_INFINITY, bag.exclusiveMaximum ?? Number.POSITIVE_INFINITY) ?? null;
+  inst.isInt = (bag.format ?? "").includes("int") || Number.isSafeInteger(bag.multipleOf ?? 0.5);
+  inst.isFinite = true;
+  inst.format = bag.format ?? null;
+});
+function number(params) {
+  return /* @__PURE__ */ _number(ZodNumber, params);
+}
+const ZodNumberFormat = /* @__PURE__ */ $constructor("ZodNumberFormat", (inst, def) => {
+  $ZodNumberFormat.init(inst, def);
+  ZodNumber.init(inst, def);
+});
+function int(params) {
+  return /* @__PURE__ */ _int(ZodNumberFormat, params);
+}
+const ZodBoolean = /* @__PURE__ */ $constructor("ZodBoolean", (inst, def) => {
+  $ZodBoolean.init(inst, def);
+  ZodType.init(inst, def);
+  inst._zod.processJSONSchema = (ctx, json, params) => booleanProcessor(inst, ctx, json);
+});
+function boolean(params) {
+  return /* @__PURE__ */ _boolean(ZodBoolean, params);
+}
+const ZodUnknown = /* @__PURE__ */ $constructor("ZodUnknown", (inst, def) => {
+  $ZodUnknown.init(inst, def);
+  ZodType.init(inst, def);
+  inst._zod.processJSONSchema = (ctx, json, params) => unknownProcessor();
+});
+function unknown() {
+  return /* @__PURE__ */ _unknown(ZodUnknown);
+}
+const ZodNever = /* @__PURE__ */ $constructor("ZodNever", (inst, def) => {
+  $ZodNever.init(inst, def);
+  ZodType.init(inst, def);
+  inst._zod.processJSONSchema = (ctx, json, params) => neverProcessor(inst, ctx, json);
+});
+function never(params) {
+  return /* @__PURE__ */ _never(ZodNever, params);
+}
+const ZodDate = /* @__PURE__ */ $constructor("ZodDate", (inst, def) => {
+  $ZodDate.init(inst, def);
+  ZodType.init(inst, def);
+  inst._zod.processJSONSchema = (ctx, json, params) => dateProcessor(inst, ctx);
+  inst.min = (value, params) => inst.check(/* @__PURE__ */ _gte(value, params));
+  inst.max = (value, params) => inst.check(/* @__PURE__ */ _lte(value, params));
+  const c = inst._zod.bag;
+  inst.minDate = c.minimum ? new Date(c.minimum) : null;
+  inst.maxDate = c.maximum ? new Date(c.maximum) : null;
+});
+function date(params) {
+  return /* @__PURE__ */ _date(ZodDate, params);
+}
+const ZodArray = /* @__PURE__ */ $constructor("ZodArray", (inst, def) => {
+  $ZodArray.init(inst, def);
+  ZodType.init(inst, def);
+  inst._zod.processJSONSchema = (ctx, json, params) => arrayProcessor(inst, ctx, json, params);
+  inst.element = def.element;
+  inst.min = (minLength, params) => inst.check(/* @__PURE__ */ _minLength(minLength, params));
+  inst.nonempty = (params) => inst.check(/* @__PURE__ */ _minLength(1, params));
+  inst.max = (maxLength, params) => inst.check(/* @__PURE__ */ _maxLength(maxLength, params));
+  inst.length = (len, params) => inst.check(/* @__PURE__ */ _length(len, params));
+  inst.unwrap = () => inst.element;
+});
+function array(element2, params) {
+  return /* @__PURE__ */ _array(ZodArray, element2, params);
+}
+const ZodObject = /* @__PURE__ */ $constructor("ZodObject", (inst, def) => {
+  $ZodObjectJIT.init(inst, def);
+  ZodType.init(inst, def);
+  inst._zod.processJSONSchema = (ctx, json, params) => objectProcessor(inst, ctx, json, params);
+  defineLazy(inst, "shape", () => {
+    return def.shape;
+  });
+  inst.keyof = () => _enum(Object.keys(inst._zod.def.shape));
+  inst.catchall = (catchall) => inst.clone({ ...inst._zod.def, catchall });
+  inst.passthrough = () => inst.clone({ ...inst._zod.def, catchall: unknown() });
+  inst.loose = () => inst.clone({ ...inst._zod.def, catchall: unknown() });
+  inst.strict = () => inst.clone({ ...inst._zod.def, catchall: never() });
+  inst.strip = () => inst.clone({ ...inst._zod.def, catchall: void 0 });
+  inst.extend = (incoming) => {
+    return extend(inst, incoming);
+  };
+  inst.safeExtend = (incoming) => {
+    return safeExtend(inst, incoming);
+  };
+  inst.merge = (other) => merge(inst, other);
+  inst.pick = (mask) => pick(inst, mask);
+  inst.omit = (mask) => omit(inst, mask);
+  inst.partial = (...args) => partial(ZodOptional, inst, args[0]);
+  inst.required = (...args) => required(ZodNonOptional, inst, args[0]);
+});
+function object(shape, params) {
+  const def = {
+    type: "object",
+    shape: shape ?? {},
+    ...normalizeParams(params)
+  };
+  return new ZodObject(def);
+}
+const ZodUnion = /* @__PURE__ */ $constructor("ZodUnion", (inst, def) => {
+  $ZodUnion.init(inst, def);
+  ZodType.init(inst, def);
+  inst._zod.processJSONSchema = (ctx, json, params) => unionProcessor(inst, ctx, json, params);
+  inst.options = def.options;
+});
+function union(options, params) {
+  return new ZodUnion({
+    type: "union",
+    options,
+    ...normalizeParams(params)
+  });
+}
+const ZodIntersection = /* @__PURE__ */ $constructor("ZodIntersection", (inst, def) => {
+  $ZodIntersection.init(inst, def);
+  ZodType.init(inst, def);
+  inst._zod.processJSONSchema = (ctx, json, params) => intersectionProcessor(inst, ctx, json, params);
+});
+function intersection(left, right) {
+  return new ZodIntersection({
+    type: "intersection",
+    left,
+    right
+  });
+}
+const ZodRecord = /* @__PURE__ */ $constructor("ZodRecord", (inst, def) => {
+  $ZodRecord.init(inst, def);
+  ZodType.init(inst, def);
+  inst._zod.processJSONSchema = (ctx, json, params) => recordProcessor(inst, ctx, json, params);
+  inst.keyType = def.keyType;
+  inst.valueType = def.valueType;
+});
+function record(keyType, valueType, params) {
+  return new ZodRecord({
+    type: "record",
+    keyType,
+    valueType,
+    ...normalizeParams(params)
+  });
+}
+const ZodEnum = /* @__PURE__ */ $constructor("ZodEnum", (inst, def) => {
+  $ZodEnum.init(inst, def);
+  ZodType.init(inst, def);
+  inst._zod.processJSONSchema = (ctx, json, params) => enumProcessor(inst, ctx, json);
+  inst.enum = def.entries;
+  inst.options = Object.values(def.entries);
+  const keys2 = new Set(Object.keys(def.entries));
+  inst.extract = (values, params) => {
+    const newEntries = {};
+    for (const value of values) {
+      if (keys2.has(value)) {
+        newEntries[value] = def.entries[value];
+      } else
+        throw new Error(`Key ${value} not found in enum`);
+    }
+    return new ZodEnum({
+      ...def,
+      checks: [],
+      ...normalizeParams(params),
+      entries: newEntries
+    });
+  };
+  inst.exclude = (values, params) => {
+    const newEntries = { ...def.entries };
+    for (const value of values) {
+      if (keys2.has(value)) {
+        delete newEntries[value];
+      } else
+        throw new Error(`Key ${value} not found in enum`);
+    }
+    return new ZodEnum({
+      ...def,
+      checks: [],
+      ...normalizeParams(params),
+      entries: newEntries
+    });
+  };
+});
+function _enum(values, params) {
+  const entries = Array.isArray(values) ? Object.fromEntries(values.map((v) => [v, v])) : values;
+  return new ZodEnum({
+    type: "enum",
+    entries,
+    ...normalizeParams(params)
+  });
+}
+const ZodTransform = /* @__PURE__ */ $constructor("ZodTransform", (inst, def) => {
+  $ZodTransform.init(inst, def);
+  ZodType.init(inst, def);
+  inst._zod.processJSONSchema = (ctx, json, params) => transformProcessor(inst, ctx);
+  inst._zod.parse = (payload, _ctx) => {
+    if (_ctx.direction === "backward") {
+      throw new $ZodEncodeError(inst.constructor.name);
+    }
+    payload.addIssue = (issue$1) => {
+      if (typeof issue$1 === "string") {
+        payload.issues.push(issue(issue$1, payload.value, def));
+      } else {
+        const _issue = issue$1;
+        if (_issue.fatal)
+          _issue.continue = false;
+        _issue.code ?? (_issue.code = "custom");
+        _issue.input ?? (_issue.input = payload.value);
+        _issue.inst ?? (_issue.inst = inst);
+        payload.issues.push(issue(_issue));
+      }
+    };
+    const output = def.transform(payload.value, payload);
+    if (output instanceof Promise) {
+      return output.then((output2) => {
+        payload.value = output2;
+        return payload;
+      });
+    }
+    payload.value = output;
+    return payload;
+  };
+});
+function transform(fn) {
+  return new ZodTransform({
+    type: "transform",
+    transform: fn
+  });
+}
+const ZodOptional = /* @__PURE__ */ $constructor("ZodOptional", (inst, def) => {
+  $ZodOptional.init(inst, def);
+  ZodType.init(inst, def);
+  inst._zod.processJSONSchema = (ctx, json, params) => optionalProcessor(inst, ctx, json, params);
+  inst.unwrap = () => inst._zod.def.innerType;
+});
+function optional(innerType) {
+  return new ZodOptional({
+    type: "optional",
+    innerType
+  });
+}
+const ZodExactOptional = /* @__PURE__ */ $constructor("ZodExactOptional", (inst, def) => {
+  $ZodExactOptional.init(inst, def);
+  ZodType.init(inst, def);
+  inst._zod.processJSONSchema = (ctx, json, params) => optionalProcessor(inst, ctx, json, params);
+  inst.unwrap = () => inst._zod.def.innerType;
+});
+function exactOptional(innerType) {
+  return new ZodExactOptional({
+    type: "optional",
+    innerType
+  });
+}
+const ZodNullable = /* @__PURE__ */ $constructor("ZodNullable", (inst, def) => {
+  $ZodNullable.init(inst, def);
+  ZodType.init(inst, def);
+  inst._zod.processJSONSchema = (ctx, json, params) => nullableProcessor(inst, ctx, json, params);
+  inst.unwrap = () => inst._zod.def.innerType;
+});
+function nullable(innerType) {
+  return new ZodNullable({
+    type: "nullable",
+    innerType
+  });
+}
+const ZodDefault = /* @__PURE__ */ $constructor("ZodDefault", (inst, def) => {
+  $ZodDefault.init(inst, def);
+  ZodType.init(inst, def);
+  inst._zod.processJSONSchema = (ctx, json, params) => defaultProcessor(inst, ctx, json, params);
+  inst.unwrap = () => inst._zod.def.innerType;
+  inst.removeDefault = inst.unwrap;
+});
+function _default(innerType, defaultValue2) {
+  return new ZodDefault({
+    type: "default",
+    innerType,
+    get defaultValue() {
+      return typeof defaultValue2 === "function" ? defaultValue2() : shallowClone(defaultValue2);
+    }
+  });
+}
+const ZodPrefault = /* @__PURE__ */ $constructor("ZodPrefault", (inst, def) => {
+  $ZodPrefault.init(inst, def);
+  ZodType.init(inst, def);
+  inst._zod.processJSONSchema = (ctx, json, params) => prefaultProcessor(inst, ctx, json, params);
+  inst.unwrap = () => inst._zod.def.innerType;
+});
+function prefault(innerType, defaultValue2) {
+  return new ZodPrefault({
+    type: "prefault",
+    innerType,
+    get defaultValue() {
+      return typeof defaultValue2 === "function" ? defaultValue2() : shallowClone(defaultValue2);
+    }
+  });
+}
+const ZodNonOptional = /* @__PURE__ */ $constructor("ZodNonOptional", (inst, def) => {
+  $ZodNonOptional.init(inst, def);
+  ZodType.init(inst, def);
+  inst._zod.processJSONSchema = (ctx, json, params) => nonoptionalProcessor(inst, ctx, json, params);
+  inst.unwrap = () => inst._zod.def.innerType;
+});
+function nonoptional(innerType, params) {
+  return new ZodNonOptional({
+    type: "nonoptional",
+    innerType,
+    ...normalizeParams(params)
+  });
+}
+const ZodCatch = /* @__PURE__ */ $constructor("ZodCatch", (inst, def) => {
+  $ZodCatch.init(inst, def);
+  ZodType.init(inst, def);
+  inst._zod.processJSONSchema = (ctx, json, params) => catchProcessor(inst, ctx, json, params);
+  inst.unwrap = () => inst._zod.def.innerType;
+  inst.removeCatch = inst.unwrap;
+});
+function _catch(innerType, catchValue) {
+  return new ZodCatch({
+    type: "catch",
+    innerType,
+    catchValue: typeof catchValue === "function" ? catchValue : () => catchValue
+  });
+}
+const ZodPipe = /* @__PURE__ */ $constructor("ZodPipe", (inst, def) => {
+  $ZodPipe.init(inst, def);
+  ZodType.init(inst, def);
+  inst._zod.processJSONSchema = (ctx, json, params) => pipeProcessor(inst, ctx, json, params);
+  inst.in = def.in;
+  inst.out = def.out;
+});
+function pipe(in_, out) {
+  return new ZodPipe({
+    type: "pipe",
+    in: in_,
+    out
+    // ...util.normalizeParams(params),
+  });
+}
+const ZodReadonly = /* @__PURE__ */ $constructor("ZodReadonly", (inst, def) => {
+  $ZodReadonly.init(inst, def);
+  ZodType.init(inst, def);
+  inst._zod.processJSONSchema = (ctx, json, params) => readonlyProcessor(inst, ctx, json, params);
+  inst.unwrap = () => inst._zod.def.innerType;
+});
+function readonly(innerType) {
+  return new ZodReadonly({
+    type: "readonly",
+    innerType
+  });
+}
+const ZodCustom = /* @__PURE__ */ $constructor("ZodCustom", (inst, def) => {
+  $ZodCustom.init(inst, def);
+  ZodType.init(inst, def);
+  inst._zod.processJSONSchema = (ctx, json, params) => customProcessor(inst, ctx);
+});
+function refine(fn, _params = {}) {
+  return /* @__PURE__ */ _refine(ZodCustom, fn, _params);
+}
+function superRefine(fn) {
+  return /* @__PURE__ */ _superRefine(fn);
+}
+const SubtaskSchema = object({
+  id: string(),
+  title: string(),
+  completed: boolean()
+});
+const AttachmentSchema = object({
+  id: string(),
+  name: string(),
+  url: string(),
+  type: _enum(["file", "link"])
+});
+const TaskLinkSchema = object({
+  targetTaskId: string(),
+  type: _enum(["blocks", "blocked-by", "relates-to", "duplicates"])
+});
+const RecurringConfigSchema = object({
+  enabled: boolean(),
+  frequency: _enum(["daily", "weekly", "monthly", "custom"]),
+  interval: number(),
+  daysOfWeek: array(number()).optional(),
+  dayOfMonth: number().optional(),
+  endDate: date().optional(),
+  nextOccurrence: date().optional()
+}).optional();
+const TaskSchema = object({
+  id: string(),
+  jobId: string(),
+  projectId: string(),
+  title: string().min(1, "Title is required"),
+  subtitle: string(),
+  summary: string(),
+  assignee: string(),
+  priority: string(),
+  status: string(),
+  createdAt: date(),
+  dueDate: date().optional(),
+  subtasks: array(SubtaskSchema).default([]),
+  attachments: array(AttachmentSchema).default([]),
+  customFieldValues: record(union([string(), number()])).default({}),
+  links: array(TaskLinkSchema).default([]),
+  tags: array(string()).default([]),
+  timeEstimate: number().default(0),
+  timeSpent: number().default(0),
+  recurring: RecurringConfigSchema,
+  completedAt: date().optional()
+});
+const ProjectSchema = object({
+  id: string(),
+  name: string().min(1, "Project name is required"),
+  type: string(),
+  parentId: string().optional(),
+  pinned: boolean().optional(),
+  order: number().optional()
+});
+const BoardColumnSchema = object({
+  id: string(),
+  title: string().min(1, "Column title is required"),
+  color: string().regex(/^#[0-9A-Fa-f]{6}$/, "Color must be a valid hex code"),
+  isCompleted: boolean().optional(),
+  wipLimit: number().min(0).optional()
+});
+const ProjectTypeSchema = object({
+  id: string(),
+  label: string().min(1, "Label is required"),
+  icon: string()
+});
+const PriorityDefinitionSchema = object({
+  id: string(),
+  label: string().min(1, "Label is required"),
+  color: string().regex(/^#[0-9A-Fa-f]{6}$/, "Color must be a valid hex code"),
+  level: number().int().positive(),
+  icon: string().optional()
+});
+const CustomFieldDefinitionSchema = object({
+  id: string(),
+  label: string().min(1, "Label is required"),
+  type: _enum(["text", "number", "dropdown", "url"]),
+  options: array(string()).optional()
+});
+const AppDataSchema = object({
+  columns: array(BoardColumnSchema),
+  projectTypes: array(ProjectTypeSchema),
+  priorities: array(PriorityDefinitionSchema),
+  customFields: array(CustomFieldDefinitionSchema),
+  projects: array(ProjectSchema),
+  tasks: array(TaskSchema),
+  activeProjectId: string().optional(),
+  sidebarCollapsed: boolean().optional(),
+  grouping: _enum(["none", "priority"]).optional(),
+  version: string().optional()
+  // For migration tracking
+});
+function parseDate(value) {
+  if (!value) return void 0;
+  if (value instanceof Date) return value;
+  if (typeof value === "string") {
+    const parsed = new Date(value);
+    return isNaN(parsed.getTime()) ? void 0 : parsed;
+  }
+  return void 0;
+}
+function validateAndTransformImportedData(data) {
+  try {
+    const transformed = {
+      ...data,
+      tasks: Array.isArray(data?.tasks) ? data.tasks.map((t) => ({
+        ...t,
+        createdAt: parseDate(t.createdAt) || /* @__PURE__ */ new Date(),
+        dueDate: parseDate(t.dueDate),
+        completedAt: parseDate(t.completedAt),
+        recurring: t.recurring ? {
+          ...t.recurring,
+          endDate: parseDate(t.recurring.endDate),
+          nextOccurrence: parseDate(t.recurring.nextOccurrence)
+        } : void 0
+      })) : []
+    };
+    const validated = AppDataSchema.parse(transformed);
+    return validated;
+  } catch (error) {
+    if (error instanceof ZodError) {
+      console.error("Validation errors:", error.errors);
+      throw new Error(`Validation failed: ${error.errors.map((e) => `${e.path.join(".")}: ${e.message}`).join(", ")}`);
+    }
+    throw error;
+  }
+}
+const STORAGE_QUOTA_KEY = "liquitask-storage-quota-warning";
+function getStorageQuotaInfo() {
+  try {
+    let totalSize = 0;
+    for (let i = 0; i < localStorage.length; i++) {
+      const key2 = localStorage.key(i);
+      if (key2) {
+        const value = localStorage.getItem(key2) || "";
+        totalSize += key2.length + value.length;
+      }
+    }
+    const estimatedQuota = 5 * 1024 * 1024;
+    const used = totalSize * 2;
+    const available = Math.max(0, estimatedQuota - used);
+    const percentage = used / estimatedQuota * 100;
+    return {
+      used,
+      available,
+      total: estimatedQuota,
+      percentage: Math.min(100, percentage)
+    };
+  } catch (error) {
+    console.error("Failed to get storage quota info:", error);
+    return null;
+  }
+}
+function isStorageNearQuota(threshold = 80) {
+  const info = getStorageQuotaInfo();
+  if (!info) return false;
+  return info.percentage >= threshold;
+}
+function trySaveToStorage(key2, value) {
+  try {
+    if (isStorageNearQuota(90)) {
+      const lastWarning = localStorage.getItem(STORAGE_QUOTA_KEY);
+      const now = Date.now();
+      if (!lastWarning || now - parseInt(lastWarning) > 36e5) {
+        localStorage.setItem(STORAGE_QUOTA_KEY, now.toString());
+        return {
+          success: false,
+          error: "Storage is nearly full (90%+). Please export and clear old data."
+        };
+      }
+    }
+    localStorage.setItem(key2, value);
+    return { success: true };
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "QuotaExceededError") {
+      return {
+        success: false,
+        error: "Storage quota exceeded. Please export your data and clear storage."
+      };
+    }
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown storage error"
+    };
+  }
+}
+const isElectron = typeof window !== "undefined" && !!window.electronAPI;
+const CURRENT_DATA_VERSION = "1.0.0";
+function parseTasks(data) {
+  return data.map((t) => ({
+    ...t,
+    createdAt: new Date(t.createdAt),
+    dueDate: t.dueDate ? new Date(t.dueDate) : void 0,
+    attachments: t.attachments || [],
+    customFieldValues: t.customFieldValues || {},
+    links: t.links || [],
+    tags: t.tags || [],
+    timeEstimate: t.timeEstimate || 0,
+    timeSpent: t.timeSpent || 0
+  }));
+}
+class StorageService {
+  constructor() {
+    this.cache = /* @__PURE__ */ new Map();
+  }
+  get(key2, defaultValue2) {
+    if (this.cache.has(key2)) {
+      return this.cache.get(key2);
+    }
+    try {
+      const stored = localStorage.getItem(key2);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (key2 === STORAGE_KEYS.TASKS) {
+          const tasks = parseTasks(parsed);
+          this.cache.set(key2, tasks);
+          return tasks;
+        }
+        this.cache.set(key2, parsed);
+        return parsed;
+      }
+    } catch (e) {
+      console.warn(`Failed to parse stored value for ${key2}:`, e);
+    }
+    return defaultValue2;
+  }
+  async initialize() {
+    if (!isElectron) return;
+    try {
+      const keys2 = Object.values(STORAGE_KEYS);
+      for (const key2 of keys2) {
+        const value = await window.electronAPI.storage.get(key2);
+        if (value) {
+          if (key2 === STORAGE_KEYS.TASKS) {
+            this.cache.set(key2, parseTasks(value));
+          } else {
+            this.cache.set(key2, value);
+          }
+        } else {
+          const local = localStorage.getItem(key2);
+          if (local) {
+            try {
+              const parsed = JSON.parse(local);
+              if (key2 === STORAGE_KEYS.TASKS) {
+                this.cache.set(key2, parseTasks(parsed));
+              } else {
+                this.cache.set(key2, parsed);
+              }
+              await window.electronAPI.storage.set(key2, parsed);
+              console.log(`Migrated ${key2} to native storage`);
+            } catch (e) {
+              console.error(`Failed to migrate ${key2}`, e);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Failed to initialize storage service:", error);
+    }
+  }
+  set(key2, value) {
+    this.cache.set(key2, value);
+    if (isElectron) {
+      window.electronAPI.storage.set(key2, value).catch(console.error);
+    }
+    if (!isElectron) {
+      try {
+        const serialized = JSON.stringify(value);
+        const result = trySaveToStorage(key2, serialized);
+        if (!result.success) throw new Error(result.error);
+      } catch (e) {
+        console.error(`Failed to save ${key2}:`, e);
+      }
+    }
+  }
+  remove(key2) {
+    this.cache.delete(key2);
+    if (isElectron) {
+      window.electronAPI.storage.delete(key2).catch(console.error);
+    }
+    localStorage.removeItem(key2);
+  }
+  clear() {
+    this.cache.clear();
+    if (isElectron) {
+      window.electronAPI.storage.clear().catch(console.error);
+    }
+    Object.values(STORAGE_KEYS).forEach((key2) => {
+      localStorage.removeItem(key2);
+    });
+  }
+  // Get all app data
+  getAllData() {
+    return {
+      columns: this.get(STORAGE_KEYS.COLUMNS, [...DEFAULT_COLUMNS]),
+      projectTypes: this.get(STORAGE_KEYS.PROJECT_TYPES, [...DEFAULT_PROJECT_TYPES]),
+      priorities: this.get(STORAGE_KEYS.PRIORITIES, [...DEFAULT_PRIORITIES]),
+      customFields: this.get(STORAGE_KEYS.CUSTOM_FIELDS, []),
+      projects: this.get(STORAGE_KEYS.PROJECTS, [...DEFAULT_PROJECTS]),
+      tasks: this.get(STORAGE_KEYS.TASKS, []),
+      activeProjectId: this.get(STORAGE_KEYS.ACTIVE_PROJECT, "p1"),
+      sidebarCollapsed: this.get(STORAGE_KEYS.SIDEBAR_COLLAPSED, false),
+      grouping: this.get(STORAGE_KEYS.GROUPING, "none")
+    };
+  }
+  // Export all data for backup
+  exportData() {
+    const data = this.getAllData();
+    const dataWithVersion = {
+      ...data,
+      version: CURRENT_DATA_VERSION
+    };
+    return JSON.stringify(dataWithVersion, null, 2);
+  }
+  // Import data with validation and migration
+  importData(jsonString) {
+    try {
+      const parsed = JSON.parse(jsonString);
+      const importedVersion = parsed.version || "0.0.0";
+      if (importedVersion !== CURRENT_DATA_VERSION) {
+        console.log(`Migrating data from version ${importedVersion} to ${CURRENT_DATA_VERSION}`);
+      }
+      const validated = validateAndTransformImportedData(parsed);
+      if (!validated) {
+        return { data: null, error: "Validation failed" };
+      }
+      const appData = {
+        columns: validated.columns,
+        projectTypes: validated.projectTypes,
+        priorities: validated.priorities,
+        customFields: validated.customFields,
+        projects: validated.projects,
+        tasks: validated.tasks,
+        activeProjectId: validated.activeProjectId || "p1",
+        sidebarCollapsed: validated.sidebarCollapsed ?? false,
+        grouping: validated.grouping || "none",
+        version: CURRENT_DATA_VERSION
+      };
+      return { data: appData };
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : "Unknown error";
+      console.error("Failed to import data:", e);
+      return { data: null, error: errorMessage };
+    }
+  }
+}
+const storageService = new StorageService();
+var reactDomExports = requireReactDom();
+function useCombinedRefs() {
+  for (var _len = arguments.length, refs = new Array(_len), _key = 0; _key < _len; _key++) {
+    refs[_key] = arguments[_key];
+  }
+  return reactExports.useMemo(
+    () => (node2) => {
+      refs.forEach((ref) => ref(node2));
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    refs
+  );
+}
+const canUseDOM = typeof window !== "undefined" && typeof window.document !== "undefined" && typeof window.document.createElement !== "undefined";
+function isWindow(element2) {
+  const elementString = Object.prototype.toString.call(element2);
+  return elementString === "[object Window]" || // In Electron context the Window object serializes to [object global]
+  elementString === "[object global]";
+}
+function isNode(node2) {
+  return "nodeType" in node2;
+}
+function getWindow(target) {
+  var _target$ownerDocument, _target$ownerDocument2;
+  if (!target) {
+    return window;
+  }
+  if (isWindow(target)) {
+    return target;
+  }
+  if (!isNode(target)) {
+    return window;
+  }
+  return (_target$ownerDocument = (_target$ownerDocument2 = target.ownerDocument) == null ? void 0 : _target$ownerDocument2.defaultView) != null ? _target$ownerDocument : window;
+}
+function isDocument(node2) {
+  const {
+    Document
+  } = getWindow(node2);
+  return node2 instanceof Document;
+}
+function isHTMLElement(node2) {
+  if (isWindow(node2)) {
+    return false;
+  }
+  return node2 instanceof getWindow(node2).HTMLElement;
+}
+function isSVGElement(node2) {
+  return node2 instanceof getWindow(node2).SVGElement;
+}
+function getOwnerDocument(target) {
+  if (!target) {
+    return document;
+  }
+  if (isWindow(target)) {
+    return target.document;
+  }
+  if (!isNode(target)) {
+    return document;
+  }
+  if (isDocument(target)) {
+    return target;
+  }
+  if (isHTMLElement(target) || isSVGElement(target)) {
+    return target.ownerDocument;
+  }
+  return document;
+}
+const useIsomorphicLayoutEffect = canUseDOM ? reactExports.useLayoutEffect : reactExports.useEffect;
+function useEvent(handler) {
+  const handlerRef = reactExports.useRef(handler);
+  useIsomorphicLayoutEffect(() => {
+    handlerRef.current = handler;
+  });
+  return reactExports.useCallback(function() {
+    for (var _len = arguments.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
+      args[_key] = arguments[_key];
+    }
+    return handlerRef.current == null ? void 0 : handlerRef.current(...args);
+  }, []);
+}
+function useInterval() {
+  const intervalRef = reactExports.useRef(null);
+  const set = reactExports.useCallback((listener, duration2) => {
+    intervalRef.current = setInterval(listener, duration2);
+  }, []);
+  const clear = reactExports.useCallback(() => {
+    if (intervalRef.current !== null) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  }, []);
+  return [set, clear];
+}
+function useLatestValue(value, dependencies) {
+  if (dependencies === void 0) {
+    dependencies = [value];
+  }
+  const valueRef = reactExports.useRef(value);
+  useIsomorphicLayoutEffect(() => {
+    if (valueRef.current !== value) {
+      valueRef.current = value;
+    }
+  }, dependencies);
+  return valueRef;
+}
+function useLazyMemo(callback, dependencies) {
+  const valueRef = reactExports.useRef();
+  return reactExports.useMemo(
+    () => {
+      const newValue = callback(valueRef.current);
+      valueRef.current = newValue;
+      return newValue;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [...dependencies]
+  );
+}
+function useNodeRef(onChange) {
+  const onChangeHandler = useEvent(onChange);
+  const node2 = reactExports.useRef(null);
+  const setNodeRef = reactExports.useCallback(
+    (element2) => {
+      if (element2 !== node2.current) {
+        onChangeHandler == null ? void 0 : onChangeHandler(element2, node2.current);
+      }
+      node2.current = element2;
+    },
+    //eslint-disable-next-line
+    []
+  );
+  return [node2, setNodeRef];
+}
+function usePrevious(value) {
+  const ref = reactExports.useRef();
+  reactExports.useEffect(() => {
+    ref.current = value;
+  }, [value]);
+  return ref.current;
+}
+let ids = {};
+function useUniqueId(prefix, value) {
+  return reactExports.useMemo(() => {
+    if (value) {
+      return value;
+    }
+    const id = ids[prefix] == null ? 0 : ids[prefix] + 1;
+    ids[prefix] = id;
+    return prefix + "-" + id;
+  }, [prefix, value]);
+}
+function createAdjustmentFn(modifier) {
+  return function(object2) {
+    for (var _len = arguments.length, adjustments = new Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
+      adjustments[_key - 1] = arguments[_key];
+    }
+    return adjustments.reduce((accumulator, adjustment) => {
+      const entries = Object.entries(adjustment);
+      for (const [key2, valueAdjustment] of entries) {
+        const value = accumulator[key2];
+        if (value != null) {
+          accumulator[key2] = value + modifier * valueAdjustment;
+        }
+      }
+      return accumulator;
+    }, {
+      ...object2
+    });
+  };
+}
+const add = /* @__PURE__ */ createAdjustmentFn(1);
+const subtract = /* @__PURE__ */ createAdjustmentFn(-1);
+function hasViewportRelativeCoordinates(event) {
+  return "clientX" in event && "clientY" in event;
+}
+function isKeyboardEvent(event) {
+  if (!event) {
+    return false;
+  }
+  const {
+    KeyboardEvent
+  } = getWindow(event.target);
+  return KeyboardEvent && event instanceof KeyboardEvent;
+}
+function isTouchEvent(event) {
+  if (!event) {
+    return false;
+  }
+  const {
+    TouchEvent
+  } = getWindow(event.target);
+  return TouchEvent && event instanceof TouchEvent;
+}
+function getEventCoordinates(event) {
+  if (isTouchEvent(event)) {
+    if (event.touches && event.touches.length) {
+      const {
+        clientX: x,
+        clientY: y
+      } = event.touches[0];
+      return {
+        x,
+        y
+      };
+    } else if (event.changedTouches && event.changedTouches.length) {
+      const {
+        clientX: x,
+        clientY: y
+      } = event.changedTouches[0];
+      return {
+        x,
+        y
+      };
+    }
+  }
+  if (hasViewportRelativeCoordinates(event)) {
+    return {
+      x: event.clientX,
+      y: event.clientY
+    };
+  }
+  return null;
+}
+const CSS = /* @__PURE__ */ Object.freeze({
+  Translate: {
+    toString(transform2) {
+      if (!transform2) {
+        return;
+      }
+      const {
+        x,
+        y
+      } = transform2;
+      return "translate3d(" + (x ? Math.round(x) : 0) + "px, " + (y ? Math.round(y) : 0) + "px, 0)";
+    }
+  },
+  Scale: {
+    toString(transform2) {
+      if (!transform2) {
+        return;
+      }
+      const {
+        scaleX,
+        scaleY
+      } = transform2;
+      return "scaleX(" + scaleX + ") scaleY(" + scaleY + ")";
+    }
+  },
+  Transform: {
+    toString(transform2) {
+      if (!transform2) {
+        return;
+      }
+      return [CSS.Translate.toString(transform2), CSS.Scale.toString(transform2)].join(" ");
+    }
+  },
+  Transition: {
+    toString(_ref) {
+      let {
+        property,
+        duration: duration2,
+        easing
+      } = _ref;
+      return property + " " + duration2 + "ms " + easing;
+    }
+  }
+});
+const SELECTOR = "a,frame,iframe,input:not([type=hidden]):not(:disabled),select:not(:disabled),textarea:not(:disabled),button:not(:disabled),*[tabindex]";
+function findFirstFocusableNode(element2) {
+  if (element2.matches(SELECTOR)) {
+    return element2;
+  }
+  return element2.querySelector(SELECTOR);
+}
+const hiddenStyles = {
+  display: "none"
+};
+function HiddenText(_ref) {
+  let {
+    id,
+    value
+  } = _ref;
+  return React.createElement("div", {
+    id,
+    style: hiddenStyles
+  }, value);
+}
+function LiveRegion(_ref) {
+  let {
+    id,
+    announcement,
+    ariaLiveType = "assertive"
+  } = _ref;
+  const visuallyHidden = {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    width: 1,
+    height: 1,
+    margin: -1,
+    border: 0,
+    padding: 0,
+    overflow: "hidden",
+    clip: "rect(0 0 0 0)",
+    clipPath: "inset(100%)",
+    whiteSpace: "nowrap"
+  };
+  return React.createElement("div", {
+    id,
+    style: visuallyHidden,
+    role: "status",
+    "aria-live": ariaLiveType,
+    "aria-atomic": true
+  }, announcement);
+}
+function useAnnouncement() {
+  const [announcement, setAnnouncement] = reactExports.useState("");
+  const announce = reactExports.useCallback((value) => {
+    if (value != null) {
+      setAnnouncement(value);
+    }
+  }, []);
+  return {
+    announce,
+    announcement
+  };
+}
+const DndMonitorContext = /* @__PURE__ */ reactExports.createContext(null);
+function useDndMonitor(listener) {
+  const registerListener = reactExports.useContext(DndMonitorContext);
+  reactExports.useEffect(() => {
+    if (!registerListener) {
+      throw new Error("useDndMonitor must be used within a children of <DndContext>");
+    }
+    const unsubscribe = registerListener(listener);
+    return unsubscribe;
+  }, [listener, registerListener]);
+}
+function useDndMonitorProvider() {
+  const [listeners] = reactExports.useState(() => /* @__PURE__ */ new Set());
+  const registerListener = reactExports.useCallback((listener) => {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+  }, [listeners]);
+  const dispatch = reactExports.useCallback((_ref) => {
+    let {
+      type,
+      event
+    } = _ref;
+    listeners.forEach((listener) => {
+      var _listener$type;
+      return (_listener$type = listener[type]) == null ? void 0 : _listener$type.call(listener, event);
+    });
+  }, [listeners]);
+  return [dispatch, registerListener];
+}
+const defaultScreenReaderInstructions = {
+  draggable: "\n    To pick up a draggable item, press the space bar.\n    While dragging, use the arrow keys to move the item.\n    Press space again to drop the item in its new position, or press escape to cancel.\n  "
+};
+const defaultAnnouncements = {
+  onDragStart(_ref) {
+    let {
+      active
+    } = _ref;
+    return "Picked up draggable item " + active.id + ".";
+  },
+  onDragOver(_ref2) {
+    let {
+      active,
+      over
+    } = _ref2;
+    if (over) {
+      return "Draggable item " + active.id + " was moved over droppable area " + over.id + ".";
+    }
+    return "Draggable item " + active.id + " is no longer over a droppable area.";
+  },
+  onDragEnd(_ref3) {
+    let {
+      active,
+      over
+    } = _ref3;
+    if (over) {
+      return "Draggable item " + active.id + " was dropped over droppable area " + over.id;
+    }
+    return "Draggable item " + active.id + " was dropped.";
+  },
+  onDragCancel(_ref4) {
+    let {
+      active
+    } = _ref4;
+    return "Dragging was cancelled. Draggable item " + active.id + " was dropped.";
+  }
+};
+function Accessibility(_ref) {
+  let {
+    announcements = defaultAnnouncements,
+    container,
+    hiddenTextDescribedById,
+    screenReaderInstructions = defaultScreenReaderInstructions
+  } = _ref;
+  const {
+    announce,
+    announcement
+  } = useAnnouncement();
+  const liveRegionId = useUniqueId("DndLiveRegion");
+  const [mounted, setMounted] = reactExports.useState(false);
+  reactExports.useEffect(() => {
+    setMounted(true);
+  }, []);
+  useDndMonitor(reactExports.useMemo(() => ({
+    onDragStart(_ref2) {
+      let {
+        active
+      } = _ref2;
+      announce(announcements.onDragStart({
+        active
+      }));
+    },
+    onDragMove(_ref3) {
+      let {
+        active,
+        over
+      } = _ref3;
+      if (announcements.onDragMove) {
+        announce(announcements.onDragMove({
+          active,
+          over
+        }));
+      }
+    },
+    onDragOver(_ref4) {
+      let {
+        active,
+        over
+      } = _ref4;
+      announce(announcements.onDragOver({
+        active,
+        over
+      }));
+    },
+    onDragEnd(_ref5) {
+      let {
+        active,
+        over
+      } = _ref5;
+      announce(announcements.onDragEnd({
+        active,
+        over
+      }));
+    },
+    onDragCancel(_ref6) {
+      let {
+        active,
+        over
+      } = _ref6;
+      announce(announcements.onDragCancel({
+        active,
+        over
+      }));
+    }
+  }), [announce, announcements]));
+  if (!mounted) {
+    return null;
+  }
+  const markup = React.createElement(React.Fragment, null, React.createElement(HiddenText, {
+    id: hiddenTextDescribedById,
+    value: screenReaderInstructions.draggable
+  }), React.createElement(LiveRegion, {
+    id: liveRegionId,
+    announcement
+  }));
+  return container ? reactDomExports.createPortal(markup, container) : markup;
+}
+var Action;
+(function(Action2) {
+  Action2["DragStart"] = "dragStart";
+  Action2["DragMove"] = "dragMove";
+  Action2["DragEnd"] = "dragEnd";
+  Action2["DragCancel"] = "dragCancel";
+  Action2["DragOver"] = "dragOver";
+  Action2["RegisterDroppable"] = "registerDroppable";
+  Action2["SetDroppableDisabled"] = "setDroppableDisabled";
+  Action2["UnregisterDroppable"] = "unregisterDroppable";
+})(Action || (Action = {}));
+function noop() {
+}
+function useSensor(sensor, options) {
+  return reactExports.useMemo(
+    () => ({
+      sensor,
+      options: options != null ? options : {}
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sensor, options]
+  );
+}
+function useSensors() {
+  for (var _len = arguments.length, sensors = new Array(_len), _key = 0; _key < _len; _key++) {
+    sensors[_key] = arguments[_key];
+  }
+  return reactExports.useMemo(
+    () => [...sensors].filter((sensor) => sensor != null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [...sensors]
+  );
+}
+const defaultCoordinates = /* @__PURE__ */ Object.freeze({
+  x: 0,
+  y: 0
+});
+function distanceBetween(p1, p2) {
+  return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+}
+function getRelativeTransformOrigin(event, rect) {
+  const eventCoordinates = getEventCoordinates(event);
+  if (!eventCoordinates) {
+    return "0 0";
+  }
+  const transformOrigin = {
+    x: (eventCoordinates.x - rect.left) / rect.width * 100,
+    y: (eventCoordinates.y - rect.top) / rect.height * 100
+  };
+  return transformOrigin.x + "% " + transformOrigin.y + "%";
+}
+function sortCollisionsAsc(_ref, _ref2) {
+  let {
+    data: {
+      value: a
+    }
+  } = _ref;
+  let {
+    data: {
+      value: b
+    }
+  } = _ref2;
+  return a - b;
+}
+function sortCollisionsDesc(_ref3, _ref4) {
+  let {
+    data: {
+      value: a
+    }
+  } = _ref3;
+  let {
+    data: {
+      value: b
+    }
+  } = _ref4;
+  return b - a;
+}
+function cornersOfRectangle(_ref5) {
+  let {
+    left,
+    top,
+    height,
+    width
+  } = _ref5;
+  return [{
+    x: left,
+    y: top
+  }, {
+    x: left + width,
+    y: top
+  }, {
+    x: left,
+    y: top + height
+  }, {
+    x: left + width,
+    y: top + height
+  }];
+}
+function getFirstCollision(collisions, property) {
+  if (!collisions || collisions.length === 0) {
+    return null;
+  }
+  const [firstCollision] = collisions;
+  return firstCollision[property];
+}
+function centerOfRectangle(rect, left, top) {
+  if (left === void 0) {
+    left = rect.left;
+  }
+  if (top === void 0) {
+    top = rect.top;
+  }
+  return {
+    x: left + rect.width * 0.5,
+    y: top + rect.height * 0.5
+  };
+}
+const closestCenter = (_ref) => {
+  let {
+    collisionRect,
+    droppableRects,
+    droppableContainers
+  } = _ref;
+  const centerRect = centerOfRectangle(collisionRect, collisionRect.left, collisionRect.top);
+  const collisions = [];
+  for (const droppableContainer of droppableContainers) {
+    const {
+      id
+    } = droppableContainer;
+    const rect = droppableRects.get(id);
+    if (rect) {
+      const distBetween = distanceBetween(centerOfRectangle(rect), centerRect);
+      collisions.push({
+        id,
+        data: {
+          droppableContainer,
+          value: distBetween
+        }
+      });
+    }
+  }
+  return collisions.sort(sortCollisionsAsc);
+};
+const closestCorners = (_ref) => {
+  let {
+    collisionRect,
+    droppableRects,
+    droppableContainers
+  } = _ref;
+  const corners = cornersOfRectangle(collisionRect);
+  const collisions = [];
+  for (const droppableContainer of droppableContainers) {
+    const {
+      id
+    } = droppableContainer;
+    const rect = droppableRects.get(id);
+    if (rect) {
+      const rectCorners = cornersOfRectangle(rect);
+      const distances = corners.reduce((accumulator, corner, index2) => {
+        return accumulator + distanceBetween(rectCorners[index2], corner);
+      }, 0);
+      const effectiveDistance = Number((distances / 4).toFixed(4));
+      collisions.push({
+        id,
+        data: {
+          droppableContainer,
+          value: effectiveDistance
+        }
+      });
+    }
+  }
+  return collisions.sort(sortCollisionsAsc);
+};
+function getIntersectionRatio(entry, target) {
+  const top = Math.max(target.top, entry.top);
+  const left = Math.max(target.left, entry.left);
+  const right = Math.min(target.left + target.width, entry.left + entry.width);
+  const bottom = Math.min(target.top + target.height, entry.top + entry.height);
+  const width = right - left;
+  const height = bottom - top;
+  if (left < right && top < bottom) {
+    const targetArea = target.width * target.height;
+    const entryArea = entry.width * entry.height;
+    const intersectionArea = width * height;
+    const intersectionRatio = intersectionArea / (targetArea + entryArea - intersectionArea);
+    return Number(intersectionRatio.toFixed(4));
+  }
+  return 0;
+}
+const rectIntersection = (_ref) => {
+  let {
+    collisionRect,
+    droppableRects,
+    droppableContainers
+  } = _ref;
+  const collisions = [];
+  for (const droppableContainer of droppableContainers) {
+    const {
+      id
+    } = droppableContainer;
+    const rect = droppableRects.get(id);
+    if (rect) {
+      const intersectionRatio = getIntersectionRatio(rect, collisionRect);
+      if (intersectionRatio > 0) {
+        collisions.push({
+          id,
+          data: {
+            droppableContainer,
+            value: intersectionRatio
+          }
+        });
+      }
+    }
+  }
+  return collisions.sort(sortCollisionsDesc);
+};
+function adjustScale(transform2, rect1, rect2) {
+  return {
+    ...transform2,
+    scaleX: rect1 && rect2 ? rect1.width / rect2.width : 1,
+    scaleY: rect1 && rect2 ? rect1.height / rect2.height : 1
+  };
+}
+function getRectDelta(rect1, rect2) {
+  return rect1 && rect2 ? {
+    x: rect1.left - rect2.left,
+    y: rect1.top - rect2.top
+  } : defaultCoordinates;
+}
+function createRectAdjustmentFn(modifier) {
+  return function adjustClientRect(rect) {
+    for (var _len = arguments.length, adjustments = new Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
+      adjustments[_key - 1] = arguments[_key];
+    }
+    return adjustments.reduce((acc, adjustment) => ({
+      ...acc,
+      top: acc.top + modifier * adjustment.y,
+      bottom: acc.bottom + modifier * adjustment.y,
+      left: acc.left + modifier * adjustment.x,
+      right: acc.right + modifier * adjustment.x
+    }), {
+      ...rect
+    });
+  };
+}
+const getAdjustedRect = /* @__PURE__ */ createRectAdjustmentFn(1);
+function parseTransform(transform2) {
+  if (transform2.startsWith("matrix3d(")) {
+    const transformArray = transform2.slice(9, -1).split(/, /);
+    return {
+      x: +transformArray[12],
+      y: +transformArray[13],
+      scaleX: +transformArray[0],
+      scaleY: +transformArray[5]
+    };
+  } else if (transform2.startsWith("matrix(")) {
+    const transformArray = transform2.slice(7, -1).split(/, /);
+    return {
+      x: +transformArray[4],
+      y: +transformArray[5],
+      scaleX: +transformArray[0],
+      scaleY: +transformArray[3]
+    };
+  }
+  return null;
+}
+function inverseTransform(rect, transform2, transformOrigin) {
+  const parsedTransform = parseTransform(transform2);
+  if (!parsedTransform) {
+    return rect;
+  }
+  const {
+    scaleX,
+    scaleY,
+    x: translateX,
+    y: translateY
+  } = parsedTransform;
+  const x = rect.left - translateX - (1 - scaleX) * parseFloat(transformOrigin);
+  const y = rect.top - translateY - (1 - scaleY) * parseFloat(transformOrigin.slice(transformOrigin.indexOf(" ") + 1));
+  const w = scaleX ? rect.width / scaleX : rect.width;
+  const h = scaleY ? rect.height / scaleY : rect.height;
+  return {
+    width: w,
+    height: h,
+    top: y,
+    right: x + w,
+    bottom: y + h,
+    left: x
+  };
+}
+const defaultOptions = {
+  ignoreTransform: false
+};
+function getClientRect(element2, options) {
+  if (options === void 0) {
+    options = defaultOptions;
+  }
+  let rect = element2.getBoundingClientRect();
+  if (options.ignoreTransform) {
+    const {
+      transform: transform2,
+      transformOrigin
+    } = getWindow(element2).getComputedStyle(element2);
+    if (transform2) {
+      rect = inverseTransform(rect, transform2, transformOrigin);
+    }
+  }
+  const {
+    top,
+    left,
+    width,
+    height,
+    bottom,
+    right
+  } = rect;
+  return {
+    top,
+    left,
+    width,
+    height,
+    bottom,
+    right
+  };
+}
+function getTransformAgnosticClientRect(element2) {
+  return getClientRect(element2, {
+    ignoreTransform: true
+  });
+}
+function getWindowClientRect(element2) {
+  const width = element2.innerWidth;
+  const height = element2.innerHeight;
+  return {
+    top: 0,
+    left: 0,
+    right: width,
+    bottom: height,
+    width,
+    height
+  };
+}
+function isFixed(node2, computedStyle) {
+  if (computedStyle === void 0) {
+    computedStyle = getWindow(node2).getComputedStyle(node2);
+  }
+  return computedStyle.position === "fixed";
+}
+function isScrollable(element2, computedStyle) {
+  if (computedStyle === void 0) {
+    computedStyle = getWindow(element2).getComputedStyle(element2);
+  }
+  const overflowRegex = /(auto|scroll|overlay)/;
+  const properties2 = ["overflow", "overflowX", "overflowY"];
+  return properties2.some((property) => {
+    const value = computedStyle[property];
+    return typeof value === "string" ? overflowRegex.test(value) : false;
+  });
+}
+function getScrollableAncestors(element2, limit) {
+  const scrollParents = [];
+  function findScrollableAncestors(node2) {
+    if (limit != null && scrollParents.length >= limit) {
+      return scrollParents;
+    }
+    if (!node2) {
+      return scrollParents;
+    }
+    if (isDocument(node2) && node2.scrollingElement != null && !scrollParents.includes(node2.scrollingElement)) {
+      scrollParents.push(node2.scrollingElement);
+      return scrollParents;
+    }
+    if (!isHTMLElement(node2) || isSVGElement(node2)) {
+      return scrollParents;
+    }
+    if (scrollParents.includes(node2)) {
+      return scrollParents;
+    }
+    const computedStyle = getWindow(element2).getComputedStyle(node2);
+    if (node2 !== element2) {
+      if (isScrollable(node2, computedStyle)) {
+        scrollParents.push(node2);
+      }
+    }
+    if (isFixed(node2, computedStyle)) {
+      return scrollParents;
+    }
+    return findScrollableAncestors(node2.parentNode);
+  }
+  if (!element2) {
+    return scrollParents;
+  }
+  return findScrollableAncestors(element2);
+}
+function getFirstScrollableAncestor(node2) {
+  const [firstScrollableAncestor] = getScrollableAncestors(node2, 1);
+  return firstScrollableAncestor != null ? firstScrollableAncestor : null;
+}
+function getScrollableElement(element2) {
+  if (!canUseDOM || !element2) {
+    return null;
+  }
+  if (isWindow(element2)) {
+    return element2;
+  }
+  if (!isNode(element2)) {
+    return null;
+  }
+  if (isDocument(element2) || element2 === getOwnerDocument(element2).scrollingElement) {
+    return window;
+  }
+  if (isHTMLElement(element2)) {
+    return element2;
+  }
+  return null;
+}
+function getScrollXCoordinate(element2) {
+  if (isWindow(element2)) {
+    return element2.scrollX;
+  }
+  return element2.scrollLeft;
+}
+function getScrollYCoordinate(element2) {
+  if (isWindow(element2)) {
+    return element2.scrollY;
+  }
+  return element2.scrollTop;
+}
+function getScrollCoordinates(element2) {
+  return {
+    x: getScrollXCoordinate(element2),
+    y: getScrollYCoordinate(element2)
+  };
+}
+var Direction;
+(function(Direction2) {
+  Direction2[Direction2["Forward"] = 1] = "Forward";
+  Direction2[Direction2["Backward"] = -1] = "Backward";
+})(Direction || (Direction = {}));
+function isDocumentScrollingElement(element2) {
+  if (!canUseDOM || !element2) {
+    return false;
+  }
+  return element2 === document.scrollingElement;
+}
+function getScrollPosition(scrollingContainer) {
+  const minScroll = {
+    x: 0,
+    y: 0
+  };
+  const dimensions = isDocumentScrollingElement(scrollingContainer) ? {
+    height: window.innerHeight,
+    width: window.innerWidth
+  } : {
+    height: scrollingContainer.clientHeight,
+    width: scrollingContainer.clientWidth
+  };
+  const maxScroll = {
+    x: scrollingContainer.scrollWidth - dimensions.width,
+    y: scrollingContainer.scrollHeight - dimensions.height
+  };
+  const isTop = scrollingContainer.scrollTop <= minScroll.y;
+  const isLeft = scrollingContainer.scrollLeft <= minScroll.x;
+  const isBottom = scrollingContainer.scrollTop >= maxScroll.y;
+  const isRight = scrollingContainer.scrollLeft >= maxScroll.x;
+  return {
+    isTop,
+    isLeft,
+    isBottom,
+    isRight,
+    maxScroll,
+    minScroll
+  };
+}
+const defaultThreshold = {
+  x: 0.2,
+  y: 0.2
+};
+function getScrollDirectionAndSpeed(scrollContainer, scrollContainerRect, _ref, acceleration, thresholdPercentage) {
+  let {
+    top,
+    left,
+    right,
+    bottom
+  } = _ref;
+  if (acceleration === void 0) {
+    acceleration = 10;
+  }
+  if (thresholdPercentage === void 0) {
+    thresholdPercentage = defaultThreshold;
+  }
+  const {
+    isTop,
+    isBottom,
+    isLeft,
+    isRight
+  } = getScrollPosition(scrollContainer);
+  const direction = {
+    x: 0,
+    y: 0
+  };
+  const speed = {
+    x: 0,
+    y: 0
+  };
+  const threshold = {
+    height: scrollContainerRect.height * thresholdPercentage.y,
+    width: scrollContainerRect.width * thresholdPercentage.x
+  };
+  if (!isTop && top <= scrollContainerRect.top + threshold.height) {
+    direction.y = Direction.Backward;
+    speed.y = acceleration * Math.abs((scrollContainerRect.top + threshold.height - top) / threshold.height);
+  } else if (!isBottom && bottom >= scrollContainerRect.bottom - threshold.height) {
+    direction.y = Direction.Forward;
+    speed.y = acceleration * Math.abs((scrollContainerRect.bottom - threshold.height - bottom) / threshold.height);
+  }
+  if (!isRight && right >= scrollContainerRect.right - threshold.width) {
+    direction.x = Direction.Forward;
+    speed.x = acceleration * Math.abs((scrollContainerRect.right - threshold.width - right) / threshold.width);
+  } else if (!isLeft && left <= scrollContainerRect.left + threshold.width) {
+    direction.x = Direction.Backward;
+    speed.x = acceleration * Math.abs((scrollContainerRect.left + threshold.width - left) / threshold.width);
+  }
+  return {
+    direction,
+    speed
+  };
+}
+function getScrollElementRect(element2) {
+  if (element2 === document.scrollingElement) {
+    const {
+      innerWidth,
+      innerHeight
+    } = window;
+    return {
+      top: 0,
+      left: 0,
+      right: innerWidth,
+      bottom: innerHeight,
+      width: innerWidth,
+      height: innerHeight
+    };
+  }
+  const {
+    top,
+    left,
+    right,
+    bottom
+  } = element2.getBoundingClientRect();
+  return {
+    top,
+    left,
+    right,
+    bottom,
+    width: element2.clientWidth,
+    height: element2.clientHeight
+  };
+}
+function getScrollOffsets(scrollableAncestors) {
+  return scrollableAncestors.reduce((acc, node2) => {
+    return add(acc, getScrollCoordinates(node2));
+  }, defaultCoordinates);
+}
+function getScrollXOffset(scrollableAncestors) {
+  return scrollableAncestors.reduce((acc, node2) => {
+    return acc + getScrollXCoordinate(node2);
+  }, 0);
+}
+function getScrollYOffset(scrollableAncestors) {
+  return scrollableAncestors.reduce((acc, node2) => {
+    return acc + getScrollYCoordinate(node2);
+  }, 0);
+}
+function scrollIntoViewIfNeeded(element2, measure) {
+  if (measure === void 0) {
+    measure = getClientRect;
+  }
+  if (!element2) {
+    return;
+  }
+  const {
+    top,
+    left,
+    bottom,
+    right
+  } = measure(element2);
+  const firstScrollableAncestor = getFirstScrollableAncestor(element2);
+  if (!firstScrollableAncestor) {
+    return;
+  }
+  if (bottom <= 0 || right <= 0 || top >= window.innerHeight || left >= window.innerWidth) {
+    element2.scrollIntoView({
+      block: "center",
+      inline: "center"
+    });
+  }
+}
+const properties = [["x", ["left", "right"], getScrollXOffset], ["y", ["top", "bottom"], getScrollYOffset]];
+class Rect {
+  constructor(rect, element2) {
+    this.rect = void 0;
+    this.width = void 0;
+    this.height = void 0;
+    this.top = void 0;
+    this.bottom = void 0;
+    this.right = void 0;
+    this.left = void 0;
+    const scrollableAncestors = getScrollableAncestors(element2);
+    const scrollOffsets = getScrollOffsets(scrollableAncestors);
+    this.rect = {
+      ...rect
+    };
+    this.width = rect.width;
+    this.height = rect.height;
+    for (const [axis, keys2, getScrollOffset] of properties) {
+      for (const key2 of keys2) {
+        Object.defineProperty(this, key2, {
+          get: () => {
+            const currentOffsets = getScrollOffset(scrollableAncestors);
+            const scrollOffsetsDeltla = scrollOffsets[axis] - currentOffsets;
+            return this.rect[key2] + scrollOffsetsDeltla;
+          },
+          enumerable: true
+        });
+      }
+    }
+    Object.defineProperty(this, "rect", {
+      enumerable: false
+    });
+  }
+}
+class Listeners {
+  constructor(target) {
+    this.target = void 0;
+    this.listeners = [];
+    this.removeAll = () => {
+      this.listeners.forEach((listener) => {
+        var _this$target;
+        return (_this$target = this.target) == null ? void 0 : _this$target.removeEventListener(...listener);
+      });
+    };
+    this.target = target;
+  }
+  add(eventName, handler, options) {
+    var _this$target2;
+    (_this$target2 = this.target) == null ? void 0 : _this$target2.addEventListener(eventName, handler, options);
+    this.listeners.push([eventName, handler, options]);
+  }
+}
+function getEventListenerTarget(target) {
+  const {
+    EventTarget
+  } = getWindow(target);
+  return target instanceof EventTarget ? target : getOwnerDocument(target);
+}
+function hasExceededDistance(delta, measurement) {
+  const dx = Math.abs(delta.x);
+  const dy = Math.abs(delta.y);
+  if (typeof measurement === "number") {
+    return Math.sqrt(dx ** 2 + dy ** 2) > measurement;
+  }
+  if ("x" in measurement && "y" in measurement) {
+    return dx > measurement.x && dy > measurement.y;
+  }
+  if ("x" in measurement) {
+    return dx > measurement.x;
+  }
+  if ("y" in measurement) {
+    return dy > measurement.y;
+  }
+  return false;
+}
+var EventName;
+(function(EventName2) {
+  EventName2["Click"] = "click";
+  EventName2["DragStart"] = "dragstart";
+  EventName2["Keydown"] = "keydown";
+  EventName2["ContextMenu"] = "contextmenu";
+  EventName2["Resize"] = "resize";
+  EventName2["SelectionChange"] = "selectionchange";
+  EventName2["VisibilityChange"] = "visibilitychange";
+})(EventName || (EventName = {}));
+function preventDefault(event) {
+  event.preventDefault();
+}
+function stopPropagation(event) {
+  event.stopPropagation();
+}
+var KeyboardCode;
+(function(KeyboardCode2) {
+  KeyboardCode2["Space"] = "Space";
+  KeyboardCode2["Down"] = "ArrowDown";
+  KeyboardCode2["Right"] = "ArrowRight";
+  KeyboardCode2["Left"] = "ArrowLeft";
+  KeyboardCode2["Up"] = "ArrowUp";
+  KeyboardCode2["Esc"] = "Escape";
+  KeyboardCode2["Enter"] = "Enter";
+  KeyboardCode2["Tab"] = "Tab";
+})(KeyboardCode || (KeyboardCode = {}));
+const defaultKeyboardCodes = {
+  start: [KeyboardCode.Space, KeyboardCode.Enter],
+  cancel: [KeyboardCode.Esc],
+  end: [KeyboardCode.Space, KeyboardCode.Enter, KeyboardCode.Tab]
+};
+const defaultKeyboardCoordinateGetter = (event, _ref) => {
+  let {
+    currentCoordinates
+  } = _ref;
+  switch (event.code) {
+    case KeyboardCode.Right:
+      return {
+        ...currentCoordinates,
+        x: currentCoordinates.x + 25
+      };
+    case KeyboardCode.Left:
+      return {
+        ...currentCoordinates,
+        x: currentCoordinates.x - 25
+      };
+    case KeyboardCode.Down:
+      return {
+        ...currentCoordinates,
+        y: currentCoordinates.y + 25
+      };
+    case KeyboardCode.Up:
+      return {
+        ...currentCoordinates,
+        y: currentCoordinates.y - 25
+      };
+  }
+  return void 0;
+};
+class KeyboardSensor {
+  constructor(props) {
+    this.props = void 0;
+    this.autoScrollEnabled = false;
+    this.referenceCoordinates = void 0;
+    this.listeners = void 0;
+    this.windowListeners = void 0;
+    this.props = props;
+    const {
+      event: {
+        target
+      }
+    } = props;
+    this.props = props;
+    this.listeners = new Listeners(getOwnerDocument(target));
+    this.windowListeners = new Listeners(getWindow(target));
+    this.handleKeyDown = this.handleKeyDown.bind(this);
+    this.handleCancel = this.handleCancel.bind(this);
+    this.attach();
+  }
+  attach() {
+    this.handleStart();
+    this.windowListeners.add(EventName.Resize, this.handleCancel);
+    this.windowListeners.add(EventName.VisibilityChange, this.handleCancel);
+    setTimeout(() => this.listeners.add(EventName.Keydown, this.handleKeyDown));
+  }
+  handleStart() {
+    const {
+      activeNode,
+      onStart
+    } = this.props;
+    const node2 = activeNode.node.current;
+    if (node2) {
+      scrollIntoViewIfNeeded(node2);
+    }
+    onStart(defaultCoordinates);
+  }
+  handleKeyDown(event) {
+    if (isKeyboardEvent(event)) {
+      const {
+        active,
+        context,
+        options
+      } = this.props;
+      const {
+        keyboardCodes = defaultKeyboardCodes,
+        coordinateGetter = defaultKeyboardCoordinateGetter,
+        scrollBehavior = "smooth"
+      } = options;
+      const {
+        code: code2
+      } = event;
+      if (keyboardCodes.end.includes(code2)) {
+        this.handleEnd(event);
+        return;
+      }
+      if (keyboardCodes.cancel.includes(code2)) {
+        this.handleCancel(event);
+        return;
+      }
+      const {
+        collisionRect
+      } = context.current;
+      const currentCoordinates = collisionRect ? {
+        x: collisionRect.left,
+        y: collisionRect.top
+      } : defaultCoordinates;
+      if (!this.referenceCoordinates) {
+        this.referenceCoordinates = currentCoordinates;
+      }
+      const newCoordinates = coordinateGetter(event, {
+        active,
+        context: context.current,
+        currentCoordinates
+      });
+      if (newCoordinates) {
+        const coordinatesDelta = subtract(newCoordinates, currentCoordinates);
+        const scrollDelta = {
+          x: 0,
+          y: 0
+        };
+        const {
+          scrollableAncestors
+        } = context.current;
+        for (const scrollContainer of scrollableAncestors) {
+          const direction = event.code;
+          const {
+            isTop,
+            isRight,
+            isLeft,
+            isBottom,
+            maxScroll,
+            minScroll
+          } = getScrollPosition(scrollContainer);
+          const scrollElementRect = getScrollElementRect(scrollContainer);
+          const clampedCoordinates = {
+            x: Math.min(direction === KeyboardCode.Right ? scrollElementRect.right - scrollElementRect.width / 2 : scrollElementRect.right, Math.max(direction === KeyboardCode.Right ? scrollElementRect.left : scrollElementRect.left + scrollElementRect.width / 2, newCoordinates.x)),
+            y: Math.min(direction === KeyboardCode.Down ? scrollElementRect.bottom - scrollElementRect.height / 2 : scrollElementRect.bottom, Math.max(direction === KeyboardCode.Down ? scrollElementRect.top : scrollElementRect.top + scrollElementRect.height / 2, newCoordinates.y))
+          };
+          const canScrollX = direction === KeyboardCode.Right && !isRight || direction === KeyboardCode.Left && !isLeft;
+          const canScrollY = direction === KeyboardCode.Down && !isBottom || direction === KeyboardCode.Up && !isTop;
+          if (canScrollX && clampedCoordinates.x !== newCoordinates.x) {
+            const newScrollCoordinates = scrollContainer.scrollLeft + coordinatesDelta.x;
+            const canScrollToNewCoordinates = direction === KeyboardCode.Right && newScrollCoordinates <= maxScroll.x || direction === KeyboardCode.Left && newScrollCoordinates >= minScroll.x;
+            if (canScrollToNewCoordinates && !coordinatesDelta.y) {
+              scrollContainer.scrollTo({
+                left: newScrollCoordinates,
+                behavior: scrollBehavior
+              });
+              return;
+            }
+            if (canScrollToNewCoordinates) {
+              scrollDelta.x = scrollContainer.scrollLeft - newScrollCoordinates;
+            } else {
+              scrollDelta.x = direction === KeyboardCode.Right ? scrollContainer.scrollLeft - maxScroll.x : scrollContainer.scrollLeft - minScroll.x;
+            }
+            if (scrollDelta.x) {
+              scrollContainer.scrollBy({
+                left: -scrollDelta.x,
+                behavior: scrollBehavior
+              });
+            }
+            break;
+          } else if (canScrollY && clampedCoordinates.y !== newCoordinates.y) {
+            const newScrollCoordinates = scrollContainer.scrollTop + coordinatesDelta.y;
+            const canScrollToNewCoordinates = direction === KeyboardCode.Down && newScrollCoordinates <= maxScroll.y || direction === KeyboardCode.Up && newScrollCoordinates >= minScroll.y;
+            if (canScrollToNewCoordinates && !coordinatesDelta.x) {
+              scrollContainer.scrollTo({
+                top: newScrollCoordinates,
+                behavior: scrollBehavior
+              });
+              return;
+            }
+            if (canScrollToNewCoordinates) {
+              scrollDelta.y = scrollContainer.scrollTop - newScrollCoordinates;
+            } else {
+              scrollDelta.y = direction === KeyboardCode.Down ? scrollContainer.scrollTop - maxScroll.y : scrollContainer.scrollTop - minScroll.y;
+            }
+            if (scrollDelta.y) {
+              scrollContainer.scrollBy({
+                top: -scrollDelta.y,
+                behavior: scrollBehavior
+              });
+            }
+            break;
+          }
+        }
+        this.handleMove(event, add(subtract(newCoordinates, this.referenceCoordinates), scrollDelta));
+      }
+    }
+  }
+  handleMove(event, coordinates) {
+    const {
+      onMove
+    } = this.props;
+    event.preventDefault();
+    onMove(coordinates);
+  }
+  handleEnd(event) {
+    const {
+      onEnd
+    } = this.props;
+    event.preventDefault();
+    this.detach();
+    onEnd();
+  }
+  handleCancel(event) {
+    const {
+      onCancel
+    } = this.props;
+    event.preventDefault();
+    this.detach();
+    onCancel();
+  }
+  detach() {
+    this.listeners.removeAll();
+    this.windowListeners.removeAll();
+  }
+}
+KeyboardSensor.activators = [{
+  eventName: "onKeyDown",
+  handler: (event, _ref, _ref2) => {
+    let {
+      keyboardCodes = defaultKeyboardCodes,
+      onActivation
+    } = _ref;
+    let {
+      active
+    } = _ref2;
+    const {
+      code: code2
+    } = event.nativeEvent;
+    if (keyboardCodes.start.includes(code2)) {
+      const activator = active.activatorNode.current;
+      if (activator && event.target !== activator) {
+        return false;
+      }
+      event.preventDefault();
+      onActivation == null ? void 0 : onActivation({
+        event: event.nativeEvent
+      });
+      return true;
+    }
+    return false;
+  }
+}];
+function isDistanceConstraint(constraint) {
+  return Boolean(constraint && "distance" in constraint);
+}
+function isDelayConstraint(constraint) {
+  return Boolean(constraint && "delay" in constraint);
+}
+class AbstractPointerSensor {
+  constructor(props, events2, listenerTarget) {
+    var _getEventCoordinates;
+    if (listenerTarget === void 0) {
+      listenerTarget = getEventListenerTarget(props.event.target);
+    }
+    this.props = void 0;
+    this.events = void 0;
+    this.autoScrollEnabled = true;
+    this.document = void 0;
+    this.activated = false;
+    this.initialCoordinates = void 0;
+    this.timeoutId = null;
+    this.listeners = void 0;
+    this.documentListeners = void 0;
+    this.windowListeners = void 0;
+    this.props = props;
+    this.events = events2;
+    const {
+      event
+    } = props;
+    const {
+      target
+    } = event;
+    this.props = props;
+    this.events = events2;
+    this.document = getOwnerDocument(target);
+    this.documentListeners = new Listeners(this.document);
+    this.listeners = new Listeners(listenerTarget);
+    this.windowListeners = new Listeners(getWindow(target));
+    this.initialCoordinates = (_getEventCoordinates = getEventCoordinates(event)) != null ? _getEventCoordinates : defaultCoordinates;
+    this.handleStart = this.handleStart.bind(this);
+    this.handleMove = this.handleMove.bind(this);
+    this.handleEnd = this.handleEnd.bind(this);
+    this.handleCancel = this.handleCancel.bind(this);
+    this.handleKeydown = this.handleKeydown.bind(this);
+    this.removeTextSelection = this.removeTextSelection.bind(this);
+    this.attach();
+  }
+  attach() {
+    const {
+      events: events2,
+      props: {
+        options: {
+          activationConstraint,
+          bypassActivationConstraint
+        }
+      }
+    } = this;
+    this.listeners.add(events2.move.name, this.handleMove, {
+      passive: false
+    });
+    this.listeners.add(events2.end.name, this.handleEnd);
+    if (events2.cancel) {
+      this.listeners.add(events2.cancel.name, this.handleCancel);
+    }
+    this.windowListeners.add(EventName.Resize, this.handleCancel);
+    this.windowListeners.add(EventName.DragStart, preventDefault);
+    this.windowListeners.add(EventName.VisibilityChange, this.handleCancel);
+    this.windowListeners.add(EventName.ContextMenu, preventDefault);
+    this.documentListeners.add(EventName.Keydown, this.handleKeydown);
+    if (activationConstraint) {
+      if (bypassActivationConstraint != null && bypassActivationConstraint({
+        event: this.props.event,
+        activeNode: this.props.activeNode,
+        options: this.props.options
+      })) {
+        return this.handleStart();
+      }
+      if (isDelayConstraint(activationConstraint)) {
+        this.timeoutId = setTimeout(this.handleStart, activationConstraint.delay);
+        this.handlePending(activationConstraint);
+        return;
+      }
+      if (isDistanceConstraint(activationConstraint)) {
+        this.handlePending(activationConstraint);
+        return;
+      }
+    }
+    this.handleStart();
+  }
+  detach() {
+    this.listeners.removeAll();
+    this.windowListeners.removeAll();
+    setTimeout(this.documentListeners.removeAll, 50);
+    if (this.timeoutId !== null) {
+      clearTimeout(this.timeoutId);
+      this.timeoutId = null;
+    }
+  }
+  handlePending(constraint, offset) {
+    const {
+      active,
+      onPending
+    } = this.props;
+    onPending(active, constraint, this.initialCoordinates, offset);
+  }
+  handleStart() {
+    const {
+      initialCoordinates
+    } = this;
+    const {
+      onStart
+    } = this.props;
+    if (initialCoordinates) {
+      this.activated = true;
+      this.documentListeners.add(EventName.Click, stopPropagation, {
+        capture: true
+      });
+      this.removeTextSelection();
+      this.documentListeners.add(EventName.SelectionChange, this.removeTextSelection);
+      onStart(initialCoordinates);
+    }
+  }
+  handleMove(event) {
+    var _getEventCoordinates2;
+    const {
+      activated,
+      initialCoordinates,
+      props
+    } = this;
+    const {
+      onMove,
+      options: {
+        activationConstraint
+      }
+    } = props;
+    if (!initialCoordinates) {
+      return;
+    }
+    const coordinates = (_getEventCoordinates2 = getEventCoordinates(event)) != null ? _getEventCoordinates2 : defaultCoordinates;
+    const delta = subtract(initialCoordinates, coordinates);
+    if (!activated && activationConstraint) {
+      if (isDistanceConstraint(activationConstraint)) {
+        if (activationConstraint.tolerance != null && hasExceededDistance(delta, activationConstraint.tolerance)) {
+          return this.handleCancel();
+        }
+        if (hasExceededDistance(delta, activationConstraint.distance)) {
+          return this.handleStart();
+        }
+      }
+      if (isDelayConstraint(activationConstraint)) {
+        if (hasExceededDistance(delta, activationConstraint.tolerance)) {
+          return this.handleCancel();
+        }
+      }
+      this.handlePending(activationConstraint, delta);
+      return;
+    }
+    if (event.cancelable) {
+      event.preventDefault();
+    }
+    onMove(coordinates);
+  }
+  handleEnd() {
+    const {
+      onAbort,
+      onEnd
+    } = this.props;
+    this.detach();
+    if (!this.activated) {
+      onAbort(this.props.active);
+    }
+    onEnd();
+  }
+  handleCancel() {
+    const {
+      onAbort,
+      onCancel
+    } = this.props;
+    this.detach();
+    if (!this.activated) {
+      onAbort(this.props.active);
+    }
+    onCancel();
+  }
+  handleKeydown(event) {
+    if (event.code === KeyboardCode.Esc) {
+      this.handleCancel();
+    }
+  }
+  removeTextSelection() {
+    var _this$document$getSel;
+    (_this$document$getSel = this.document.getSelection()) == null ? void 0 : _this$document$getSel.removeAllRanges();
+  }
+}
+const events = {
+  cancel: {
+    name: "pointercancel"
+  },
+  move: {
+    name: "pointermove"
+  },
+  end: {
+    name: "pointerup"
+  }
+};
+class PointerSensor extends AbstractPointerSensor {
+  constructor(props) {
+    const {
+      event
+    } = props;
+    const listenerTarget = getOwnerDocument(event.target);
+    super(props, events, listenerTarget);
+  }
+}
+PointerSensor.activators = [{
+  eventName: "onPointerDown",
+  handler: (_ref, _ref2) => {
+    let {
+      nativeEvent: event
+    } = _ref;
+    let {
+      onActivation
+    } = _ref2;
+    if (!event.isPrimary || event.button !== 0) {
+      return false;
+    }
+    onActivation == null ? void 0 : onActivation({
+      event
+    });
+    return true;
+  }
+}];
+const events$1 = {
+  move: {
+    name: "mousemove"
+  },
+  end: {
+    name: "mouseup"
+  }
+};
+var MouseButton;
+(function(MouseButton2) {
+  MouseButton2[MouseButton2["RightClick"] = 2] = "RightClick";
+})(MouseButton || (MouseButton = {}));
+class MouseSensor extends AbstractPointerSensor {
+  constructor(props) {
+    super(props, events$1, getOwnerDocument(props.event.target));
+  }
+}
+MouseSensor.activators = [{
+  eventName: "onMouseDown",
+  handler: (_ref, _ref2) => {
+    let {
+      nativeEvent: event
+    } = _ref;
+    let {
+      onActivation
+    } = _ref2;
+    if (event.button === MouseButton.RightClick) {
+      return false;
+    }
+    onActivation == null ? void 0 : onActivation({
+      event
+    });
+    return true;
+  }
+}];
+const events$2 = {
+  cancel: {
+    name: "touchcancel"
+  },
+  move: {
+    name: "touchmove"
+  },
+  end: {
+    name: "touchend"
+  }
+};
+class TouchSensor extends AbstractPointerSensor {
+  constructor(props) {
+    super(props, events$2);
+  }
+  static setup() {
+    window.addEventListener(events$2.move.name, noop2, {
+      capture: false,
+      passive: false
+    });
+    return function teardown() {
+      window.removeEventListener(events$2.move.name, noop2);
+    };
+    function noop2() {
+    }
+  }
+}
+TouchSensor.activators = [{
+  eventName: "onTouchStart",
+  handler: (_ref, _ref2) => {
+    let {
+      nativeEvent: event
+    } = _ref;
+    let {
+      onActivation
+    } = _ref2;
+    const {
+      touches
+    } = event;
+    if (touches.length > 1) {
+      return false;
+    }
+    onActivation == null ? void 0 : onActivation({
+      event
+    });
+    return true;
+  }
+}];
+var AutoScrollActivator;
+(function(AutoScrollActivator2) {
+  AutoScrollActivator2[AutoScrollActivator2["Pointer"] = 0] = "Pointer";
+  AutoScrollActivator2[AutoScrollActivator2["DraggableRect"] = 1] = "DraggableRect";
+})(AutoScrollActivator || (AutoScrollActivator = {}));
+var TraversalOrder;
+(function(TraversalOrder2) {
+  TraversalOrder2[TraversalOrder2["TreeOrder"] = 0] = "TreeOrder";
+  TraversalOrder2[TraversalOrder2["ReversedTreeOrder"] = 1] = "ReversedTreeOrder";
+})(TraversalOrder || (TraversalOrder = {}));
+function useAutoScroller(_ref) {
+  let {
+    acceleration,
+    activator = AutoScrollActivator.Pointer,
+    canScroll,
+    draggingRect,
+    enabled,
+    interval = 5,
+    order: order2 = TraversalOrder.TreeOrder,
+    pointerCoordinates,
+    scrollableAncestors,
+    scrollableAncestorRects,
+    delta,
+    threshold
+  } = _ref;
+  const scrollIntent = useScrollIntent({
+    delta,
+    disabled: !enabled
+  });
+  const [setAutoScrollInterval, clearAutoScrollInterval] = useInterval();
+  const scrollSpeed = reactExports.useRef({
+    x: 0,
+    y: 0
+  });
+  const scrollDirection = reactExports.useRef({
+    x: 0,
+    y: 0
+  });
+  const rect = reactExports.useMemo(() => {
+    switch (activator) {
+      case AutoScrollActivator.Pointer:
+        return pointerCoordinates ? {
+          top: pointerCoordinates.y,
+          bottom: pointerCoordinates.y,
+          left: pointerCoordinates.x,
+          right: pointerCoordinates.x
+        } : null;
+      case AutoScrollActivator.DraggableRect:
+        return draggingRect;
+    }
+  }, [activator, draggingRect, pointerCoordinates]);
+  const scrollContainerRef = reactExports.useRef(null);
+  const autoScroll = reactExports.useCallback(() => {
+    const scrollContainer = scrollContainerRef.current;
+    if (!scrollContainer) {
+      return;
+    }
+    const scrollLeft = scrollSpeed.current.x * scrollDirection.current.x;
+    const scrollTop = scrollSpeed.current.y * scrollDirection.current.y;
+    scrollContainer.scrollBy(scrollLeft, scrollTop);
+  }, []);
+  const sortedScrollableAncestors = reactExports.useMemo(() => order2 === TraversalOrder.TreeOrder ? [...scrollableAncestors].reverse() : scrollableAncestors, [order2, scrollableAncestors]);
+  reactExports.useEffect(
+    () => {
+      if (!enabled || !scrollableAncestors.length || !rect) {
+        clearAutoScrollInterval();
+        return;
+      }
+      for (const scrollContainer of sortedScrollableAncestors) {
+        if ((canScroll == null ? void 0 : canScroll(scrollContainer)) === false) {
+          continue;
+        }
+        const index2 = scrollableAncestors.indexOf(scrollContainer);
+        const scrollContainerRect = scrollableAncestorRects[index2];
+        if (!scrollContainerRect) {
+          continue;
+        }
+        const {
+          direction,
+          speed
+        } = getScrollDirectionAndSpeed(scrollContainer, scrollContainerRect, rect, acceleration, threshold);
+        for (const axis of ["x", "y"]) {
+          if (!scrollIntent[axis][direction[axis]]) {
+            speed[axis] = 0;
+            direction[axis] = 0;
+          }
+        }
+        if (speed.x > 0 || speed.y > 0) {
+          clearAutoScrollInterval();
+          scrollContainerRef.current = scrollContainer;
+          setAutoScrollInterval(autoScroll, interval);
+          scrollSpeed.current = speed;
+          scrollDirection.current = direction;
+          return;
+        }
+      }
+      scrollSpeed.current = {
+        x: 0,
+        y: 0
+      };
+      scrollDirection.current = {
+        x: 0,
+        y: 0
+      };
+      clearAutoScrollInterval();
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      acceleration,
+      autoScroll,
+      canScroll,
+      clearAutoScrollInterval,
+      enabled,
+      interval,
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      JSON.stringify(rect),
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      JSON.stringify(scrollIntent),
+      setAutoScrollInterval,
+      scrollableAncestors,
+      sortedScrollableAncestors,
+      scrollableAncestorRects,
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      JSON.stringify(threshold)
+    ]
+  );
+}
+const defaultScrollIntent = {
+  x: {
+    [Direction.Backward]: false,
+    [Direction.Forward]: false
+  },
+  y: {
+    [Direction.Backward]: false,
+    [Direction.Forward]: false
+  }
+};
+function useScrollIntent(_ref2) {
+  let {
+    delta,
+    disabled
+  } = _ref2;
+  const previousDelta = usePrevious(delta);
+  return useLazyMemo((previousIntent) => {
+    if (disabled || !previousDelta || !previousIntent) {
+      return defaultScrollIntent;
+    }
+    const direction = {
+      x: Math.sign(delta.x - previousDelta.x),
+      y: Math.sign(delta.y - previousDelta.y)
+    };
+    return {
+      x: {
+        [Direction.Backward]: previousIntent.x[Direction.Backward] || direction.x === -1,
+        [Direction.Forward]: previousIntent.x[Direction.Forward] || direction.x === 1
+      },
+      y: {
+        [Direction.Backward]: previousIntent.y[Direction.Backward] || direction.y === -1,
+        [Direction.Forward]: previousIntent.y[Direction.Forward] || direction.y === 1
+      }
+    };
+  }, [disabled, delta, previousDelta]);
+}
+function useCachedNode(draggableNodes, id) {
+  const draggableNode = id != null ? draggableNodes.get(id) : void 0;
+  const node2 = draggableNode ? draggableNode.node.current : null;
+  return useLazyMemo((cachedNode) => {
+    var _ref;
+    if (id == null) {
+      return null;
+    }
+    return (_ref = node2 != null ? node2 : cachedNode) != null ? _ref : null;
+  }, [node2, id]);
+}
+function useCombineActivators(sensors, getSyntheticHandler) {
+  return reactExports.useMemo(() => sensors.reduce((accumulator, sensor) => {
+    const {
+      sensor: Sensor
+    } = sensor;
+    const sensorActivators = Sensor.activators.map((activator) => ({
+      eventName: activator.eventName,
+      handler: getSyntheticHandler(activator.handler, sensor)
+    }));
+    return [...accumulator, ...sensorActivators];
+  }, []), [sensors, getSyntheticHandler]);
+}
+var MeasuringStrategy;
+(function(MeasuringStrategy2) {
+  MeasuringStrategy2[MeasuringStrategy2["Always"] = 0] = "Always";
+  MeasuringStrategy2[MeasuringStrategy2["BeforeDragging"] = 1] = "BeforeDragging";
+  MeasuringStrategy2[MeasuringStrategy2["WhileDragging"] = 2] = "WhileDragging";
+})(MeasuringStrategy || (MeasuringStrategy = {}));
+var MeasuringFrequency;
+(function(MeasuringFrequency2) {
+  MeasuringFrequency2["Optimized"] = "optimized";
+})(MeasuringFrequency || (MeasuringFrequency = {}));
+const defaultValue = /* @__PURE__ */ new Map();
+function useDroppableMeasuring(containers, _ref) {
+  let {
+    dragging,
+    dependencies,
+    config: config2
+  } = _ref;
+  const [queue, setQueue] = reactExports.useState(null);
+  const {
+    frequency,
+    measure,
+    strategy
+  } = config2;
+  const containersRef = reactExports.useRef(containers);
+  const disabled = isDisabled();
+  const disabledRef = useLatestValue(disabled);
+  const measureDroppableContainers = reactExports.useCallback(function(ids2) {
+    if (ids2 === void 0) {
+      ids2 = [];
+    }
+    if (disabledRef.current) {
+      return;
+    }
+    setQueue((value) => {
+      if (value === null) {
+        return ids2;
+      }
+      return value.concat(ids2.filter((id) => !value.includes(id)));
+    });
+  }, [disabledRef]);
+  const timeoutId = reactExports.useRef(null);
+  const droppableRects = useLazyMemo((previousValue) => {
+    if (disabled && !dragging) {
+      return defaultValue;
+    }
+    if (!previousValue || previousValue === defaultValue || containersRef.current !== containers || queue != null) {
+      const map2 = /* @__PURE__ */ new Map();
+      for (let container of containers) {
+        if (!container) {
+          continue;
+        }
+        if (queue && queue.length > 0 && !queue.includes(container.id) && container.rect.current) {
+          map2.set(container.id, container.rect.current);
+          continue;
+        }
+        const node2 = container.node.current;
+        const rect = node2 ? new Rect(measure(node2), node2) : null;
+        container.rect.current = rect;
+        if (rect) {
+          map2.set(container.id, rect);
+        }
+      }
+      return map2;
+    }
+    return previousValue;
+  }, [containers, queue, dragging, disabled, measure]);
+  reactExports.useEffect(() => {
+    containersRef.current = containers;
+  }, [containers]);
+  reactExports.useEffect(
+    () => {
+      if (disabled) {
+        return;
+      }
+      measureDroppableContainers();
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dragging, disabled]
+  );
+  reactExports.useEffect(
+    () => {
+      if (queue && queue.length > 0) {
+        setQueue(null);
+      }
+    },
+    //eslint-disable-next-line react-hooks/exhaustive-deps
+    [JSON.stringify(queue)]
+  );
+  reactExports.useEffect(
+    () => {
+      if (disabled || typeof frequency !== "number" || timeoutId.current !== null) {
+        return;
+      }
+      timeoutId.current = setTimeout(() => {
+        measureDroppableContainers();
+        timeoutId.current = null;
+      }, frequency);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [frequency, disabled, measureDroppableContainers, ...dependencies]
+  );
+  return {
+    droppableRects,
+    measureDroppableContainers,
+    measuringScheduled: queue != null
+  };
+  function isDisabled() {
+    switch (strategy) {
+      case MeasuringStrategy.Always:
+        return false;
+      case MeasuringStrategy.BeforeDragging:
+        return dragging;
+      default:
+        return !dragging;
+    }
+  }
+}
+function useInitialValue(value, computeFn) {
+  return useLazyMemo((previousValue) => {
+    if (!value) {
+      return null;
+    }
+    if (previousValue) {
+      return previousValue;
+    }
+    return typeof computeFn === "function" ? computeFn(value) : value;
+  }, [computeFn, value]);
+}
+function useInitialRect(node2, measure) {
+  return useInitialValue(node2, measure);
+}
+function useMutationObserver(_ref) {
+  let {
+    callback,
+    disabled
+  } = _ref;
+  const handleMutations = useEvent(callback);
+  const mutationObserver = reactExports.useMemo(() => {
+    if (disabled || typeof window === "undefined" || typeof window.MutationObserver === "undefined") {
+      return void 0;
+    }
+    const {
+      MutationObserver
+    } = window;
+    return new MutationObserver(handleMutations);
+  }, [handleMutations, disabled]);
+  reactExports.useEffect(() => {
+    return () => mutationObserver == null ? void 0 : mutationObserver.disconnect();
+  }, [mutationObserver]);
+  return mutationObserver;
+}
+function useResizeObserver(_ref) {
+  let {
+    callback,
+    disabled
+  } = _ref;
+  const handleResize = useEvent(callback);
+  const resizeObserver = reactExports.useMemo(
+    () => {
+      if (disabled || typeof window === "undefined" || typeof window.ResizeObserver === "undefined") {
+        return void 0;
+      }
+      const {
+        ResizeObserver
+      } = window;
+      return new ResizeObserver(handleResize);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [disabled]
+  );
+  reactExports.useEffect(() => {
+    return () => resizeObserver == null ? void 0 : resizeObserver.disconnect();
+  }, [resizeObserver]);
+  return resizeObserver;
+}
+function defaultMeasure(element2) {
+  return new Rect(getClientRect(element2), element2);
+}
+function useRect(element2, measure, fallbackRect) {
+  if (measure === void 0) {
+    measure = defaultMeasure;
+  }
+  const [rect, setRect] = reactExports.useState(null);
+  function measureRect() {
+    setRect((currentRect) => {
+      if (!element2) {
+        return null;
+      }
+      if (element2.isConnected === false) {
+        var _ref;
+        return (_ref = currentRect != null ? currentRect : fallbackRect) != null ? _ref : null;
+      }
+      const newRect = measure(element2);
+      if (JSON.stringify(currentRect) === JSON.stringify(newRect)) {
+        return currentRect;
+      }
+      return newRect;
+    });
+  }
+  const mutationObserver = useMutationObserver({
+    callback(records) {
+      if (!element2) {
+        return;
+      }
+      for (const record2 of records) {
+        const {
+          type,
+          target
+        } = record2;
+        if (type === "childList" && target instanceof HTMLElement && target.contains(element2)) {
+          measureRect();
+          break;
+        }
+      }
+    }
+  });
+  const resizeObserver = useResizeObserver({
+    callback: measureRect
+  });
+  useIsomorphicLayoutEffect(() => {
+    measureRect();
+    if (element2) {
+      resizeObserver == null ? void 0 : resizeObserver.observe(element2);
+      mutationObserver == null ? void 0 : mutationObserver.observe(document.body, {
+        childList: true,
+        subtree: true
+      });
+    } else {
+      resizeObserver == null ? void 0 : resizeObserver.disconnect();
+      mutationObserver == null ? void 0 : mutationObserver.disconnect();
+    }
+  }, [element2]);
+  return rect;
+}
+function useRectDelta(rect) {
+  const initialRect = useInitialValue(rect);
+  return getRectDelta(rect, initialRect);
+}
+const defaultValue$1 = [];
+function useScrollableAncestors(node2) {
+  const previousNode = reactExports.useRef(node2);
+  const ancestors = useLazyMemo((previousValue) => {
+    if (!node2) {
+      return defaultValue$1;
+    }
+    if (previousValue && previousValue !== defaultValue$1 && node2 && previousNode.current && node2.parentNode === previousNode.current.parentNode) {
+      return previousValue;
+    }
+    return getScrollableAncestors(node2);
+  }, [node2]);
+  reactExports.useEffect(() => {
+    previousNode.current = node2;
+  }, [node2]);
+  return ancestors;
+}
+function useScrollOffsets(elements) {
+  const [scrollCoordinates, setScrollCoordinates] = reactExports.useState(null);
+  const prevElements = reactExports.useRef(elements);
+  const handleScroll = reactExports.useCallback((event) => {
+    const scrollingElement = getScrollableElement(event.target);
+    if (!scrollingElement) {
+      return;
+    }
+    setScrollCoordinates((scrollCoordinates2) => {
+      if (!scrollCoordinates2) {
+        return null;
+      }
+      scrollCoordinates2.set(scrollingElement, getScrollCoordinates(scrollingElement));
+      return new Map(scrollCoordinates2);
+    });
+  }, []);
+  reactExports.useEffect(() => {
+    const previousElements = prevElements.current;
+    if (elements !== previousElements) {
+      cleanup(previousElements);
+      const entries = elements.map((element2) => {
+        const scrollableElement = getScrollableElement(element2);
+        if (scrollableElement) {
+          scrollableElement.addEventListener("scroll", handleScroll, {
+            passive: true
+          });
+          return [scrollableElement, getScrollCoordinates(scrollableElement)];
+        }
+        return null;
+      }).filter((entry) => entry != null);
+      setScrollCoordinates(entries.length ? new Map(entries) : null);
+      prevElements.current = elements;
+    }
+    return () => {
+      cleanup(elements);
+      cleanup(previousElements);
+    };
+    function cleanup(elements2) {
+      elements2.forEach((element2) => {
+        const scrollableElement = getScrollableElement(element2);
+        scrollableElement == null ? void 0 : scrollableElement.removeEventListener("scroll", handleScroll);
+      });
+    }
+  }, [handleScroll, elements]);
+  return reactExports.useMemo(() => {
+    if (elements.length) {
+      return scrollCoordinates ? Array.from(scrollCoordinates.values()).reduce((acc, coordinates) => add(acc, coordinates), defaultCoordinates) : getScrollOffsets(elements);
+    }
+    return defaultCoordinates;
+  }, [elements, scrollCoordinates]);
+}
+function useScrollOffsetsDelta(scrollOffsets, dependencies) {
+  if (dependencies === void 0) {
+    dependencies = [];
+  }
+  const initialScrollOffsets = reactExports.useRef(null);
+  reactExports.useEffect(
+    () => {
+      initialScrollOffsets.current = null;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    dependencies
+  );
+  reactExports.useEffect(() => {
+    const hasScrollOffsets = scrollOffsets !== defaultCoordinates;
+    if (hasScrollOffsets && !initialScrollOffsets.current) {
+      initialScrollOffsets.current = scrollOffsets;
+    }
+    if (!hasScrollOffsets && initialScrollOffsets.current) {
+      initialScrollOffsets.current = null;
+    }
+  }, [scrollOffsets]);
+  return initialScrollOffsets.current ? subtract(scrollOffsets, initialScrollOffsets.current) : defaultCoordinates;
+}
+function useSensorSetup(sensors) {
+  reactExports.useEffect(
+    () => {
+      if (!canUseDOM) {
+        return;
+      }
+      const teardownFns = sensors.map((_ref) => {
+        let {
+          sensor
+        } = _ref;
+        return sensor.setup == null ? void 0 : sensor.setup();
+      });
+      return () => {
+        for (const teardown of teardownFns) {
+          teardown == null ? void 0 : teardown();
+        }
+      };
+    },
+    // TO-DO: Sensors length could theoretically change which would not be a valid dependency
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    sensors.map((_ref2) => {
+      let {
+        sensor
+      } = _ref2;
+      return sensor;
+    })
+  );
+}
+function useSyntheticListeners(listeners, id) {
+  return reactExports.useMemo(() => {
+    return listeners.reduce((acc, _ref) => {
+      let {
+        eventName,
+        handler
+      } = _ref;
+      acc[eventName] = (event) => {
+        handler(event, id);
+      };
+      return acc;
+    }, {});
+  }, [listeners, id]);
+}
+function useWindowRect(element2) {
+  return reactExports.useMemo(() => element2 ? getWindowClientRect(element2) : null, [element2]);
+}
+const defaultValue$2 = [];
+function useRects(elements, measure) {
+  if (measure === void 0) {
+    measure = getClientRect;
+  }
+  const [firstElement] = elements;
+  const windowRect = useWindowRect(firstElement ? getWindow(firstElement) : null);
+  const [rects, setRects] = reactExports.useState(defaultValue$2);
+  function measureRects() {
+    setRects(() => {
+      if (!elements.length) {
+        return defaultValue$2;
+      }
+      return elements.map((element2) => isDocumentScrollingElement(element2) ? windowRect : new Rect(measure(element2), element2));
+    });
+  }
+  const resizeObserver = useResizeObserver({
+    callback: measureRects
+  });
+  useIsomorphicLayoutEffect(() => {
+    resizeObserver == null ? void 0 : resizeObserver.disconnect();
+    measureRects();
+    elements.forEach((element2) => resizeObserver == null ? void 0 : resizeObserver.observe(element2));
+  }, [elements]);
+  return rects;
+}
+function getMeasurableNode(node2) {
+  if (!node2) {
+    return null;
+  }
+  if (node2.children.length > 1) {
+    return node2;
+  }
+  const firstChild = node2.children[0];
+  return isHTMLElement(firstChild) ? firstChild : node2;
+}
+function useDragOverlayMeasuring(_ref) {
+  let {
+    measure
+  } = _ref;
+  const [rect, setRect] = reactExports.useState(null);
+  const handleResize = reactExports.useCallback((entries) => {
+    for (const {
+      target
+    } of entries) {
+      if (isHTMLElement(target)) {
+        setRect((rect2) => {
+          const newRect = measure(target);
+          return rect2 ? {
+            ...rect2,
+            width: newRect.width,
+            height: newRect.height
+          } : newRect;
+        });
+        break;
+      }
+    }
+  }, [measure]);
+  const resizeObserver = useResizeObserver({
+    callback: handleResize
+  });
+  const handleNodeChange = reactExports.useCallback((element2) => {
+    const node2 = getMeasurableNode(element2);
+    resizeObserver == null ? void 0 : resizeObserver.disconnect();
+    if (node2) {
+      resizeObserver == null ? void 0 : resizeObserver.observe(node2);
+    }
+    setRect(node2 ? measure(node2) : null);
+  }, [measure, resizeObserver]);
+  const [nodeRef, setRef] = useNodeRef(handleNodeChange);
+  return reactExports.useMemo(() => ({
+    nodeRef,
+    rect,
+    setRef
+  }), [rect, nodeRef, setRef]);
+}
+const defaultSensors = [{
+  sensor: PointerSensor,
+  options: {}
+}, {
+  sensor: KeyboardSensor,
+  options: {}
+}];
+const defaultData = {
+  current: {}
+};
+const defaultMeasuringConfiguration = {
+  draggable: {
+    measure: getTransformAgnosticClientRect
+  },
+  droppable: {
+    measure: getTransformAgnosticClientRect,
+    strategy: MeasuringStrategy.WhileDragging,
+    frequency: MeasuringFrequency.Optimized
+  },
+  dragOverlay: {
+    measure: getClientRect
+  }
+};
+class DroppableContainersMap extends Map {
+  get(id) {
+    var _super$get;
+    return id != null ? (_super$get = super.get(id)) != null ? _super$get : void 0 : void 0;
+  }
+  toArray() {
+    return Array.from(this.values());
+  }
+  getEnabled() {
+    return this.toArray().filter((_ref) => {
+      let {
+        disabled
+      } = _ref;
+      return !disabled;
+    });
+  }
+  getNodeFor(id) {
+    var _this$get$node$curren, _this$get;
+    return (_this$get$node$curren = (_this$get = this.get(id)) == null ? void 0 : _this$get.node.current) != null ? _this$get$node$curren : void 0;
+  }
+}
+const defaultPublicContext = {
+  activatorEvent: null,
+  active: null,
+  activeNode: null,
+  activeNodeRect: null,
+  collisions: null,
+  containerNodeRect: null,
+  draggableNodes: /* @__PURE__ */ new Map(),
+  droppableRects: /* @__PURE__ */ new Map(),
+  droppableContainers: /* @__PURE__ */ new DroppableContainersMap(),
+  over: null,
+  dragOverlay: {
+    nodeRef: {
+      current: null
+    },
+    rect: null,
+    setRef: noop
+  },
+  scrollableAncestors: [],
+  scrollableAncestorRects: [],
+  measuringConfiguration: defaultMeasuringConfiguration,
+  measureDroppableContainers: noop,
+  windowRect: null,
+  measuringScheduled: false
+};
+const defaultInternalContext = {
+  activatorEvent: null,
+  activators: [],
+  active: null,
+  activeNodeRect: null,
+  ariaDescribedById: {
+    draggable: ""
+  },
+  dispatch: noop,
+  draggableNodes: /* @__PURE__ */ new Map(),
+  over: null,
+  measureDroppableContainers: noop
+};
+const InternalContext = /* @__PURE__ */ reactExports.createContext(defaultInternalContext);
+const PublicContext = /* @__PURE__ */ reactExports.createContext(defaultPublicContext);
+function getInitialState() {
+  return {
+    draggable: {
+      active: null,
+      initialCoordinates: {
+        x: 0,
+        y: 0
+      },
+      nodes: /* @__PURE__ */ new Map(),
+      translate: {
+        x: 0,
+        y: 0
+      }
+    },
+    droppable: {
+      containers: new DroppableContainersMap()
+    }
+  };
+}
+function reducer(state, action) {
+  switch (action.type) {
+    case Action.DragStart:
+      return {
+        ...state,
+        draggable: {
+          ...state.draggable,
+          initialCoordinates: action.initialCoordinates,
+          active: action.active
+        }
+      };
+    case Action.DragMove:
+      if (state.draggable.active == null) {
+        return state;
+      }
+      return {
+        ...state,
+        draggable: {
+          ...state.draggable,
+          translate: {
+            x: action.coordinates.x - state.draggable.initialCoordinates.x,
+            y: action.coordinates.y - state.draggable.initialCoordinates.y
+          }
+        }
+      };
+    case Action.DragEnd:
+    case Action.DragCancel:
+      return {
+        ...state,
+        draggable: {
+          ...state.draggable,
+          active: null,
+          initialCoordinates: {
+            x: 0,
+            y: 0
+          },
+          translate: {
+            x: 0,
+            y: 0
+          }
+        }
+      };
+    case Action.RegisterDroppable: {
+      const {
+        element: element2
+      } = action;
+      const {
+        id
+      } = element2;
+      const containers = new DroppableContainersMap(state.droppable.containers);
+      containers.set(id, element2);
+      return {
+        ...state,
+        droppable: {
+          ...state.droppable,
+          containers
+        }
+      };
+    }
+    case Action.SetDroppableDisabled: {
+      const {
+        id,
+        key: key2,
+        disabled
+      } = action;
+      const element2 = state.droppable.containers.get(id);
+      if (!element2 || key2 !== element2.key) {
+        return state;
+      }
+      const containers = new DroppableContainersMap(state.droppable.containers);
+      containers.set(id, {
+        ...element2,
+        disabled
+      });
+      return {
+        ...state,
+        droppable: {
+          ...state.droppable,
+          containers
+        }
+      };
+    }
+    case Action.UnregisterDroppable: {
+      const {
+        id,
+        key: key2
+      } = action;
+      const element2 = state.droppable.containers.get(id);
+      if (!element2 || key2 !== element2.key) {
+        return state;
+      }
+      const containers = new DroppableContainersMap(state.droppable.containers);
+      containers.delete(id);
+      return {
+        ...state,
+        droppable: {
+          ...state.droppable,
+          containers
+        }
+      };
+    }
+    default: {
+      return state;
+    }
+  }
+}
+function RestoreFocus(_ref) {
+  let {
+    disabled
+  } = _ref;
+  const {
+    active,
+    activatorEvent,
+    draggableNodes
+  } = reactExports.useContext(InternalContext);
+  const previousActivatorEvent = usePrevious(activatorEvent);
+  const previousActiveId = usePrevious(active == null ? void 0 : active.id);
+  reactExports.useEffect(() => {
+    if (disabled) {
+      return;
+    }
+    if (!activatorEvent && previousActivatorEvent && previousActiveId != null) {
+      if (!isKeyboardEvent(previousActivatorEvent)) {
+        return;
+      }
+      if (document.activeElement === previousActivatorEvent.target) {
+        return;
+      }
+      const draggableNode = draggableNodes.get(previousActiveId);
+      if (!draggableNode) {
+        return;
+      }
+      const {
+        activatorNode,
+        node: node2
+      } = draggableNode;
+      if (!activatorNode.current && !node2.current) {
+        return;
+      }
+      requestAnimationFrame(() => {
+        for (const element2 of [activatorNode.current, node2.current]) {
+          if (!element2) {
+            continue;
+          }
+          const focusableNode = findFirstFocusableNode(element2);
+          if (focusableNode) {
+            focusableNode.focus();
+            break;
+          }
+        }
+      });
+    }
+  }, [activatorEvent, disabled, draggableNodes, previousActiveId, previousActivatorEvent]);
+  return null;
+}
+function applyModifiers(modifiers, _ref) {
+  let {
+    transform: transform2,
+    ...args
+  } = _ref;
+  return modifiers != null && modifiers.length ? modifiers.reduce((accumulator, modifier) => {
+    return modifier({
+      transform: accumulator,
+      ...args
+    });
+  }, transform2) : transform2;
+}
+function useMeasuringConfiguration(config2) {
+  return reactExports.useMemo(
+    () => ({
+      draggable: {
+        ...defaultMeasuringConfiguration.draggable,
+        ...config2 == null ? void 0 : config2.draggable
+      },
+      droppable: {
+        ...defaultMeasuringConfiguration.droppable,
+        ...config2 == null ? void 0 : config2.droppable
+      },
+      dragOverlay: {
+        ...defaultMeasuringConfiguration.dragOverlay,
+        ...config2 == null ? void 0 : config2.dragOverlay
+      }
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [config2 == null ? void 0 : config2.draggable, config2 == null ? void 0 : config2.droppable, config2 == null ? void 0 : config2.dragOverlay]
+  );
+}
+function useLayoutShiftScrollCompensation(_ref) {
+  let {
+    activeNode,
+    measure,
+    initialRect,
+    config: config2 = true
+  } = _ref;
+  const initialized = reactExports.useRef(false);
+  const {
+    x,
+    y
+  } = typeof config2 === "boolean" ? {
+    x: config2,
+    y: config2
+  } : config2;
+  useIsomorphicLayoutEffect(() => {
+    const disabled = !x && !y;
+    if (disabled || !activeNode) {
+      initialized.current = false;
+      return;
+    }
+    if (initialized.current || !initialRect) {
+      return;
+    }
+    const node2 = activeNode == null ? void 0 : activeNode.node.current;
+    if (!node2 || node2.isConnected === false) {
+      return;
+    }
+    const rect = measure(node2);
+    const rectDelta = getRectDelta(rect, initialRect);
+    if (!x) {
+      rectDelta.x = 0;
+    }
+    if (!y) {
+      rectDelta.y = 0;
+    }
+    initialized.current = true;
+    if (Math.abs(rectDelta.x) > 0 || Math.abs(rectDelta.y) > 0) {
+      const firstScrollableAncestor = getFirstScrollableAncestor(node2);
+      if (firstScrollableAncestor) {
+        firstScrollableAncestor.scrollBy({
+          top: rectDelta.y,
+          left: rectDelta.x
+        });
+      }
+    }
+  }, [activeNode, x, y, initialRect, measure]);
+}
+const ActiveDraggableContext = /* @__PURE__ */ reactExports.createContext({
+  ...defaultCoordinates,
+  scaleX: 1,
+  scaleY: 1
+});
+var Status;
+(function(Status2) {
+  Status2[Status2["Uninitialized"] = 0] = "Uninitialized";
+  Status2[Status2["Initializing"] = 1] = "Initializing";
+  Status2[Status2["Initialized"] = 2] = "Initialized";
+})(Status || (Status = {}));
+const DndContext = /* @__PURE__ */ reactExports.memo(function DndContext2(_ref) {
+  var _sensorContext$curren, _dragOverlay$nodeRef$, _dragOverlay$rect, _over$rect;
+  let {
+    id,
+    accessibility,
+    autoScroll = true,
+    children,
+    sensors = defaultSensors,
+    collisionDetection = rectIntersection,
+    measuring,
+    modifiers,
+    ...props
+  } = _ref;
+  const store = reactExports.useReducer(reducer, void 0, getInitialState);
+  const [state, dispatch] = store;
+  const [dispatchMonitorEvent, registerMonitorListener] = useDndMonitorProvider();
+  const [status, setStatus] = reactExports.useState(Status.Uninitialized);
+  const isInitialized = status === Status.Initialized;
+  const {
+    draggable: {
+      active: activeId,
+      nodes: draggableNodes,
+      translate
+    },
+    droppable: {
+      containers: droppableContainers
+    }
+  } = state;
+  const node2 = activeId != null ? draggableNodes.get(activeId) : null;
+  const activeRects = reactExports.useRef({
+    initial: null,
+    translated: null
+  });
+  const active = reactExports.useMemo(() => {
+    var _node$data;
+    return activeId != null ? {
+      id: activeId,
+      // It's possible for the active node to unmount while dragging
+      data: (_node$data = node2 == null ? void 0 : node2.data) != null ? _node$data : defaultData,
+      rect: activeRects
+    } : null;
+  }, [activeId, node2]);
+  const activeRef = reactExports.useRef(null);
+  const [activeSensor, setActiveSensor] = reactExports.useState(null);
+  const [activatorEvent, setActivatorEvent] = reactExports.useState(null);
+  const latestProps = useLatestValue(props, Object.values(props));
+  const draggableDescribedById = useUniqueId("DndDescribedBy", id);
+  const enabledDroppableContainers = reactExports.useMemo(() => droppableContainers.getEnabled(), [droppableContainers]);
+  const measuringConfiguration = useMeasuringConfiguration(measuring);
+  const {
+    droppableRects,
+    measureDroppableContainers,
+    measuringScheduled
+  } = useDroppableMeasuring(enabledDroppableContainers, {
+    dragging: isInitialized,
+    dependencies: [translate.x, translate.y],
+    config: measuringConfiguration.droppable
+  });
+  const activeNode = useCachedNode(draggableNodes, activeId);
+  const activationCoordinates = reactExports.useMemo(() => activatorEvent ? getEventCoordinates(activatorEvent) : null, [activatorEvent]);
+  const autoScrollOptions = getAutoScrollerOptions();
+  const initialActiveNodeRect = useInitialRect(activeNode, measuringConfiguration.draggable.measure);
+  useLayoutShiftScrollCompensation({
+    activeNode: activeId != null ? draggableNodes.get(activeId) : null,
+    config: autoScrollOptions.layoutShiftCompensation,
+    initialRect: initialActiveNodeRect,
+    measure: measuringConfiguration.draggable.measure
+  });
+  const activeNodeRect = useRect(activeNode, measuringConfiguration.draggable.measure, initialActiveNodeRect);
+  const containerNodeRect = useRect(activeNode ? activeNode.parentElement : null);
+  const sensorContext = reactExports.useRef({
+    activatorEvent: null,
+    active: null,
+    activeNode,
+    collisionRect: null,
+    collisions: null,
+    droppableRects,
+    draggableNodes,
+    draggingNode: null,
+    draggingNodeRect: null,
+    droppableContainers,
+    over: null,
+    scrollableAncestors: [],
+    scrollAdjustedTranslate: null
+  });
+  const overNode = droppableContainers.getNodeFor((_sensorContext$curren = sensorContext.current.over) == null ? void 0 : _sensorContext$curren.id);
+  const dragOverlay = useDragOverlayMeasuring({
+    measure: measuringConfiguration.dragOverlay.measure
+  });
+  const draggingNode = (_dragOverlay$nodeRef$ = dragOverlay.nodeRef.current) != null ? _dragOverlay$nodeRef$ : activeNode;
+  const draggingNodeRect = isInitialized ? (_dragOverlay$rect = dragOverlay.rect) != null ? _dragOverlay$rect : activeNodeRect : null;
+  const usesDragOverlay = Boolean(dragOverlay.nodeRef.current && dragOverlay.rect);
+  const nodeRectDelta = useRectDelta(usesDragOverlay ? null : activeNodeRect);
+  const windowRect = useWindowRect(draggingNode ? getWindow(draggingNode) : null);
+  const scrollableAncestors = useScrollableAncestors(isInitialized ? overNode != null ? overNode : activeNode : null);
+  const scrollableAncestorRects = useRects(scrollableAncestors);
+  const modifiedTranslate = applyModifiers(modifiers, {
+    transform: {
+      x: translate.x - nodeRectDelta.x,
+      y: translate.y - nodeRectDelta.y,
+      scaleX: 1,
+      scaleY: 1
+    },
+    activatorEvent,
+    active,
+    activeNodeRect,
+    containerNodeRect,
+    draggingNodeRect,
+    over: sensorContext.current.over,
+    overlayNodeRect: dragOverlay.rect,
+    scrollableAncestors,
+    scrollableAncestorRects,
+    windowRect
+  });
+  const pointerCoordinates = activationCoordinates ? add(activationCoordinates, translate) : null;
+  const scrollOffsets = useScrollOffsets(scrollableAncestors);
+  const scrollAdjustment = useScrollOffsetsDelta(scrollOffsets);
+  const activeNodeScrollDelta = useScrollOffsetsDelta(scrollOffsets, [activeNodeRect]);
+  const scrollAdjustedTranslate = add(modifiedTranslate, scrollAdjustment);
+  const collisionRect = draggingNodeRect ? getAdjustedRect(draggingNodeRect, modifiedTranslate) : null;
+  const collisions = active && collisionRect ? collisionDetection({
+    active,
+    collisionRect,
+    droppableRects,
+    droppableContainers: enabledDroppableContainers,
+    pointerCoordinates
+  }) : null;
+  const overId = getFirstCollision(collisions, "id");
+  const [over, setOver] = reactExports.useState(null);
+  const appliedTranslate = usesDragOverlay ? modifiedTranslate : add(modifiedTranslate, activeNodeScrollDelta);
+  const transform2 = adjustScale(appliedTranslate, (_over$rect = over == null ? void 0 : over.rect) != null ? _over$rect : null, activeNodeRect);
+  const activeSensorRef = reactExports.useRef(null);
+  const instantiateSensor = reactExports.useCallback(
+    (event, _ref2) => {
+      let {
+        sensor: Sensor,
+        options
+      } = _ref2;
+      if (activeRef.current == null) {
+        return;
+      }
+      const activeNode2 = draggableNodes.get(activeRef.current);
+      if (!activeNode2) {
+        return;
+      }
+      const activatorEvent2 = event.nativeEvent;
+      const sensorInstance = new Sensor({
+        active: activeRef.current,
+        activeNode: activeNode2,
+        event: activatorEvent2,
+        options,
+        // Sensors need to be instantiated with refs for arguments that change over time
+        // otherwise they are frozen in time with the stale arguments
+        context: sensorContext,
+        onAbort(id2) {
+          const draggableNode = draggableNodes.get(id2);
+          if (!draggableNode) {
+            return;
+          }
+          const {
+            onDragAbort
+          } = latestProps.current;
+          const event2 = {
+            id: id2
+          };
+          onDragAbort == null ? void 0 : onDragAbort(event2);
+          dispatchMonitorEvent({
+            type: "onDragAbort",
+            event: event2
+          });
+        },
+        onPending(id2, constraint, initialCoordinates, offset) {
+          const draggableNode = draggableNodes.get(id2);
+          if (!draggableNode) {
+            return;
+          }
+          const {
+            onDragPending
+          } = latestProps.current;
+          const event2 = {
+            id: id2,
+            constraint,
+            initialCoordinates,
+            offset
+          };
+          onDragPending == null ? void 0 : onDragPending(event2);
+          dispatchMonitorEvent({
+            type: "onDragPending",
+            event: event2
+          });
+        },
+        onStart(initialCoordinates) {
+          const id2 = activeRef.current;
+          if (id2 == null) {
+            return;
+          }
+          const draggableNode = draggableNodes.get(id2);
+          if (!draggableNode) {
+            return;
+          }
+          const {
+            onDragStart
+          } = latestProps.current;
+          const event2 = {
+            activatorEvent: activatorEvent2,
+            active: {
+              id: id2,
+              data: draggableNode.data,
+              rect: activeRects
+            }
+          };
+          reactDomExports.unstable_batchedUpdates(() => {
+            onDragStart == null ? void 0 : onDragStart(event2);
+            setStatus(Status.Initializing);
+            dispatch({
+              type: Action.DragStart,
+              initialCoordinates,
+              active: id2
+            });
+            dispatchMonitorEvent({
+              type: "onDragStart",
+              event: event2
+            });
+            setActiveSensor(activeSensorRef.current);
+            setActivatorEvent(activatorEvent2);
+          });
+        },
+        onMove(coordinates) {
+          dispatch({
+            type: Action.DragMove,
+            coordinates
+          });
+        },
+        onEnd: createHandler(Action.DragEnd),
+        onCancel: createHandler(Action.DragCancel)
+      });
+      activeSensorRef.current = sensorInstance;
+      function createHandler(type) {
+        return async function handler() {
+          const {
+            active: active2,
+            collisions: collisions2,
+            over: over2,
+            scrollAdjustedTranslate: scrollAdjustedTranslate2
+          } = sensorContext.current;
+          let event2 = null;
+          if (active2 && scrollAdjustedTranslate2) {
+            const {
+              cancelDrop
+            } = latestProps.current;
+            event2 = {
+              activatorEvent: activatorEvent2,
+              active: active2,
+              collisions: collisions2,
+              delta: scrollAdjustedTranslate2,
+              over: over2
+            };
+            if (type === Action.DragEnd && typeof cancelDrop === "function") {
+              const shouldCancel = await Promise.resolve(cancelDrop(event2));
+              if (shouldCancel) {
+                type = Action.DragCancel;
+              }
+            }
+          }
+          activeRef.current = null;
+          reactDomExports.unstable_batchedUpdates(() => {
+            dispatch({
+              type
+            });
+            setStatus(Status.Uninitialized);
+            setOver(null);
+            setActiveSensor(null);
+            setActivatorEvent(null);
+            activeSensorRef.current = null;
+            const eventName = type === Action.DragEnd ? "onDragEnd" : "onDragCancel";
+            if (event2) {
+              const handler2 = latestProps.current[eventName];
+              handler2 == null ? void 0 : handler2(event2);
+              dispatchMonitorEvent({
+                type: eventName,
+                event: event2
+              });
+            }
+          });
+        };
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [draggableNodes]
+  );
+  const bindActivatorToSensorInstantiator = reactExports.useCallback((handler, sensor) => {
+    return (event, active2) => {
+      const nativeEvent = event.nativeEvent;
+      const activeDraggableNode = draggableNodes.get(active2);
+      if (
+        // Another sensor is already instantiating
+        activeRef.current !== null || // No active draggable
+        !activeDraggableNode || // Event has already been captured
+        nativeEvent.dndKit || nativeEvent.defaultPrevented
+      ) {
+        return;
+      }
+      const activationContext = {
+        active: activeDraggableNode
+      };
+      const shouldActivate = handler(event, sensor.options, activationContext);
+      if (shouldActivate === true) {
+        nativeEvent.dndKit = {
+          capturedBy: sensor.sensor
+        };
+        activeRef.current = active2;
+        instantiateSensor(event, sensor);
+      }
+    };
+  }, [draggableNodes, instantiateSensor]);
+  const activators = useCombineActivators(sensors, bindActivatorToSensorInstantiator);
+  useSensorSetup(sensors);
+  useIsomorphicLayoutEffect(() => {
+    if (activeNodeRect && status === Status.Initializing) {
+      setStatus(Status.Initialized);
+    }
+  }, [activeNodeRect, status]);
+  reactExports.useEffect(
+    () => {
+      const {
+        onDragMove
+      } = latestProps.current;
+      const {
+        active: active2,
+        activatorEvent: activatorEvent2,
+        collisions: collisions2,
+        over: over2
+      } = sensorContext.current;
+      if (!active2 || !activatorEvent2) {
+        return;
+      }
+      const event = {
+        active: active2,
+        activatorEvent: activatorEvent2,
+        collisions: collisions2,
+        delta: {
+          x: scrollAdjustedTranslate.x,
+          y: scrollAdjustedTranslate.y
+        },
+        over: over2
+      };
+      reactDomExports.unstable_batchedUpdates(() => {
+        onDragMove == null ? void 0 : onDragMove(event);
+        dispatchMonitorEvent({
+          type: "onDragMove",
+          event
+        });
+      });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [scrollAdjustedTranslate.x, scrollAdjustedTranslate.y]
+  );
+  reactExports.useEffect(
+    () => {
+      const {
+        active: active2,
+        activatorEvent: activatorEvent2,
+        collisions: collisions2,
+        droppableContainers: droppableContainers2,
+        scrollAdjustedTranslate: scrollAdjustedTranslate2
+      } = sensorContext.current;
+      if (!active2 || activeRef.current == null || !activatorEvent2 || !scrollAdjustedTranslate2) {
+        return;
+      }
+      const {
+        onDragOver
+      } = latestProps.current;
+      const overContainer = droppableContainers2.get(overId);
+      const over2 = overContainer && overContainer.rect.current ? {
+        id: overContainer.id,
+        rect: overContainer.rect.current,
+        data: overContainer.data,
+        disabled: overContainer.disabled
+      } : null;
+      const event = {
+        active: active2,
+        activatorEvent: activatorEvent2,
+        collisions: collisions2,
+        delta: {
+          x: scrollAdjustedTranslate2.x,
+          y: scrollAdjustedTranslate2.y
+        },
+        over: over2
+      };
+      reactDomExports.unstable_batchedUpdates(() => {
+        setOver(over2);
+        onDragOver == null ? void 0 : onDragOver(event);
+        dispatchMonitorEvent({
+          type: "onDragOver",
+          event
+        });
+      });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [overId]
+  );
+  useIsomorphicLayoutEffect(() => {
+    sensorContext.current = {
+      activatorEvent,
+      active,
+      activeNode,
+      collisionRect,
+      collisions,
+      droppableRects,
+      draggableNodes,
+      draggingNode,
+      draggingNodeRect,
+      droppableContainers,
+      over,
+      scrollableAncestors,
+      scrollAdjustedTranslate
+    };
+    activeRects.current = {
+      initial: draggingNodeRect,
+      translated: collisionRect
+    };
+  }, [active, activeNode, collisions, collisionRect, draggableNodes, draggingNode, draggingNodeRect, droppableRects, droppableContainers, over, scrollableAncestors, scrollAdjustedTranslate]);
+  useAutoScroller({
+    ...autoScrollOptions,
+    delta: translate,
+    draggingRect: collisionRect,
+    pointerCoordinates,
+    scrollableAncestors,
+    scrollableAncestorRects
+  });
+  const publicContext = reactExports.useMemo(() => {
+    const context = {
+      active,
+      activeNode,
+      activeNodeRect,
+      activatorEvent,
+      collisions,
+      containerNodeRect,
+      dragOverlay,
+      draggableNodes,
+      droppableContainers,
+      droppableRects,
+      over,
+      measureDroppableContainers,
+      scrollableAncestors,
+      scrollableAncestorRects,
+      measuringConfiguration,
+      measuringScheduled,
+      windowRect
+    };
+    return context;
+  }, [active, activeNode, activeNodeRect, activatorEvent, collisions, containerNodeRect, dragOverlay, draggableNodes, droppableContainers, droppableRects, over, measureDroppableContainers, scrollableAncestors, scrollableAncestorRects, measuringConfiguration, measuringScheduled, windowRect]);
+  const internalContext = reactExports.useMemo(() => {
+    const context = {
+      activatorEvent,
+      activators,
+      active,
+      activeNodeRect,
+      ariaDescribedById: {
+        draggable: draggableDescribedById
+      },
+      dispatch,
+      draggableNodes,
+      over,
+      measureDroppableContainers
+    };
+    return context;
+  }, [activatorEvent, activators, active, activeNodeRect, dispatch, draggableDescribedById, draggableNodes, over, measureDroppableContainers]);
+  return React.createElement(DndMonitorContext.Provider, {
+    value: registerMonitorListener
+  }, React.createElement(InternalContext.Provider, {
+    value: internalContext
+  }, React.createElement(PublicContext.Provider, {
+    value: publicContext
+  }, React.createElement(ActiveDraggableContext.Provider, {
+    value: transform2
+  }, children)), React.createElement(RestoreFocus, {
+    disabled: (accessibility == null ? void 0 : accessibility.restoreFocus) === false
+  })), React.createElement(Accessibility, {
+    ...accessibility,
+    hiddenTextDescribedById: draggableDescribedById
+  }));
+  function getAutoScrollerOptions() {
+    const activeSensorDisablesAutoscroll = (activeSensor == null ? void 0 : activeSensor.autoScrollEnabled) === false;
+    const autoScrollGloballyDisabled = typeof autoScroll === "object" ? autoScroll.enabled === false : autoScroll === false;
+    const enabled = isInitialized && !activeSensorDisablesAutoscroll && !autoScrollGloballyDisabled;
+    if (typeof autoScroll === "object") {
+      return {
+        ...autoScroll,
+        enabled
+      };
+    }
+    return {
+      enabled
+    };
+  }
+});
+const NullContext = /* @__PURE__ */ reactExports.createContext(null);
+const defaultRole = "button";
+const ID_PREFIX$1 = "Draggable";
+function useDraggable(_ref) {
+  let {
+    id,
+    data,
+    disabled = false,
+    attributes
+  } = _ref;
+  const key2 = useUniqueId(ID_PREFIX$1);
+  const {
+    activators,
+    activatorEvent,
+    active,
+    activeNodeRect,
+    ariaDescribedById,
+    draggableNodes,
+    over
+  } = reactExports.useContext(InternalContext);
+  const {
+    role = defaultRole,
+    roleDescription = "draggable",
+    tabIndex = 0
+  } = attributes != null ? attributes : {};
+  const isDragging = (active == null ? void 0 : active.id) === id;
+  const transform2 = reactExports.useContext(isDragging ? ActiveDraggableContext : NullContext);
+  const [node2, setNodeRef] = useNodeRef();
+  const [activatorNode, setActivatorNodeRef] = useNodeRef();
+  const listeners = useSyntheticListeners(activators, id);
+  const dataRef = useLatestValue(data);
+  useIsomorphicLayoutEffect(
+    () => {
+      draggableNodes.set(id, {
+        id,
+        key: key2,
+        node: node2,
+        activatorNode,
+        data: dataRef
+      });
+      return () => {
+        const node3 = draggableNodes.get(id);
+        if (node3 && node3.key === key2) {
+          draggableNodes.delete(id);
+        }
+      };
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [draggableNodes, id]
+  );
+  const memoizedAttributes = reactExports.useMemo(() => ({
+    role,
+    tabIndex,
+    "aria-disabled": disabled,
+    "aria-pressed": isDragging && role === defaultRole ? true : void 0,
+    "aria-roledescription": roleDescription,
+    "aria-describedby": ariaDescribedById.draggable
+  }), [disabled, role, tabIndex, isDragging, roleDescription, ariaDescribedById.draggable]);
+  return {
+    active,
+    activatorEvent,
+    activeNodeRect,
+    attributes: memoizedAttributes,
+    isDragging,
+    listeners: disabled ? void 0 : listeners,
+    node: node2,
+    over,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform: transform2
+  };
+}
+function useDndContext() {
+  return reactExports.useContext(PublicContext);
+}
+const ID_PREFIX$1$1 = "Droppable";
+const defaultResizeObserverConfig = {
+  timeout: 25
+};
+function useDroppable(_ref) {
+  let {
+    data,
+    disabled = false,
+    id,
+    resizeObserverConfig
+  } = _ref;
+  const key2 = useUniqueId(ID_PREFIX$1$1);
+  const {
+    active,
+    dispatch,
+    over,
+    measureDroppableContainers
+  } = reactExports.useContext(InternalContext);
+  const previous2 = reactExports.useRef({
+    disabled
+  });
+  const resizeObserverConnected = reactExports.useRef(false);
+  const rect = reactExports.useRef(null);
+  const callbackId = reactExports.useRef(null);
+  const {
+    disabled: resizeObserverDisabled,
+    updateMeasurementsFor,
+    timeout: resizeObserverTimeout
+  } = {
+    ...defaultResizeObserverConfig,
+    ...resizeObserverConfig
+  };
+  const ids2 = useLatestValue(updateMeasurementsFor != null ? updateMeasurementsFor : id);
+  const handleResize = reactExports.useCallback(
+    () => {
+      if (!resizeObserverConnected.current) {
+        resizeObserverConnected.current = true;
+        return;
+      }
+      if (callbackId.current != null) {
+        clearTimeout(callbackId.current);
+      }
+      callbackId.current = setTimeout(() => {
+        measureDroppableContainers(Array.isArray(ids2.current) ? ids2.current : [ids2.current]);
+        callbackId.current = null;
+      }, resizeObserverTimeout);
+    },
+    //eslint-disable-next-line react-hooks/exhaustive-deps
+    [resizeObserverTimeout]
+  );
+  const resizeObserver = useResizeObserver({
+    callback: handleResize,
+    disabled: resizeObserverDisabled || !active
+  });
+  const handleNodeChange = reactExports.useCallback((newElement, previousElement) => {
+    if (!resizeObserver) {
+      return;
+    }
+    if (previousElement) {
+      resizeObserver.unobserve(previousElement);
+      resizeObserverConnected.current = false;
+    }
+    if (newElement) {
+      resizeObserver.observe(newElement);
+    }
+  }, [resizeObserver]);
+  const [nodeRef, setNodeRef] = useNodeRef(handleNodeChange);
+  const dataRef = useLatestValue(data);
+  reactExports.useEffect(() => {
+    if (!resizeObserver || !nodeRef.current) {
+      return;
+    }
+    resizeObserver.disconnect();
+    resizeObserverConnected.current = false;
+    resizeObserver.observe(nodeRef.current);
+  }, [nodeRef, resizeObserver]);
+  reactExports.useEffect(
+    () => {
+      dispatch({
+        type: Action.RegisterDroppable,
+        element: {
+          id,
+          key: key2,
+          disabled,
+          node: nodeRef,
+          rect,
+          data: dataRef
+        }
+      });
+      return () => dispatch({
+        type: Action.UnregisterDroppable,
+        key: key2,
+        id
+      });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [id]
+  );
+  reactExports.useEffect(() => {
+    if (disabled !== previous2.current.disabled) {
+      dispatch({
+        type: Action.SetDroppableDisabled,
+        id,
+        key: key2,
+        disabled
+      });
+      previous2.current.disabled = disabled;
+    }
+  }, [id, key2, disabled, dispatch]);
+  return {
+    active,
+    rect,
+    isOver: (over == null ? void 0 : over.id) === id,
+    node: nodeRef,
+    over,
+    setNodeRef
+  };
+}
+function AnimationManager(_ref) {
+  let {
+    animation,
+    children
+  } = _ref;
+  const [clonedChildren, setClonedChildren] = reactExports.useState(null);
+  const [element2, setElement] = reactExports.useState(null);
+  const previousChildren = usePrevious(children);
+  if (!children && !clonedChildren && previousChildren) {
+    setClonedChildren(previousChildren);
+  }
+  useIsomorphicLayoutEffect(() => {
+    if (!element2) {
+      return;
+    }
+    const key2 = clonedChildren == null ? void 0 : clonedChildren.key;
+    const id = clonedChildren == null ? void 0 : clonedChildren.props.id;
+    if (key2 == null || id == null) {
+      setClonedChildren(null);
+      return;
+    }
+    Promise.resolve(animation(id, element2)).then(() => {
+      setClonedChildren(null);
+    });
+  }, [animation, clonedChildren, element2]);
+  return React.createElement(React.Fragment, null, children, clonedChildren ? reactExports.cloneElement(clonedChildren, {
+    ref: setElement
+  }) : null);
+}
+const defaultTransform = {
+  x: 0,
+  y: 0,
+  scaleX: 1,
+  scaleY: 1
+};
+function NullifiedContextProvider(_ref) {
+  let {
+    children
+  } = _ref;
+  return React.createElement(InternalContext.Provider, {
+    value: defaultInternalContext
+  }, React.createElement(ActiveDraggableContext.Provider, {
+    value: defaultTransform
+  }, children));
+}
+const baseStyles = {
+  position: "fixed",
+  touchAction: "none"
+};
+const defaultTransition$1 = (activatorEvent) => {
+  const isKeyboardActivator = isKeyboardEvent(activatorEvent);
+  return isKeyboardActivator ? "transform 250ms ease" : void 0;
+};
+const PositionedOverlay = /* @__PURE__ */ reactExports.forwardRef((_ref, ref) => {
+  let {
+    as,
+    activatorEvent,
+    adjustScale: adjustScale2,
+    children,
+    className,
+    rect,
+    style,
+    transform: transform2,
+    transition = defaultTransition$1
+  } = _ref;
+  if (!rect) {
+    return null;
+  }
+  const scaleAdjustedTransform = adjustScale2 ? transform2 : {
+    ...transform2,
+    scaleX: 1,
+    scaleY: 1
+  };
+  const styles = {
+    ...baseStyles,
+    width: rect.width,
+    height: rect.height,
+    top: rect.top,
+    left: rect.left,
+    transform: CSS.Transform.toString(scaleAdjustedTransform),
+    transformOrigin: adjustScale2 && activatorEvent ? getRelativeTransformOrigin(activatorEvent, rect) : void 0,
+    transition: typeof transition === "function" ? transition(activatorEvent) : transition,
+    ...style
+  };
+  return React.createElement(as, {
+    className,
+    style: styles,
+    ref
+  }, children);
+});
+const defaultDropAnimationSideEffects = (options) => (_ref) => {
+  let {
+    active,
+    dragOverlay
+  } = _ref;
+  const originalStyles = {};
+  const {
+    styles,
+    className
+  } = options;
+  if (styles != null && styles.active) {
+    for (const [key2, value] of Object.entries(styles.active)) {
+      if (value === void 0) {
+        continue;
+      }
+      originalStyles[key2] = active.node.style.getPropertyValue(key2);
+      active.node.style.setProperty(key2, value);
+    }
+  }
+  if (styles != null && styles.dragOverlay) {
+    for (const [key2, value] of Object.entries(styles.dragOverlay)) {
+      if (value === void 0) {
+        continue;
+      }
+      dragOverlay.node.style.setProperty(key2, value);
+    }
+  }
+  if (className != null && className.active) {
+    active.node.classList.add(className.active);
+  }
+  if (className != null && className.dragOverlay) {
+    dragOverlay.node.classList.add(className.dragOverlay);
+  }
+  return function cleanup() {
+    for (const [key2, value] of Object.entries(originalStyles)) {
+      active.node.style.setProperty(key2, value);
+    }
+    if (className != null && className.active) {
+      active.node.classList.remove(className.active);
+    }
+  };
+};
+const defaultKeyframeResolver = (_ref2) => {
+  let {
+    transform: {
+      initial,
+      final
+    }
+  } = _ref2;
+  return [{
+    transform: CSS.Transform.toString(initial)
+  }, {
+    transform: CSS.Transform.toString(final)
+  }];
+};
+const defaultDropAnimationConfiguration = {
+  duration: 250,
+  easing: "ease",
+  keyframes: defaultKeyframeResolver,
+  sideEffects: /* @__PURE__ */ defaultDropAnimationSideEffects({
+    styles: {
+      active: {
+        opacity: "0"
+      }
+    }
+  })
+};
+function useDropAnimation(_ref3) {
+  let {
+    config: config2,
+    draggableNodes,
+    droppableContainers,
+    measuringConfiguration
+  } = _ref3;
+  return useEvent((id, node2) => {
+    if (config2 === null) {
+      return;
+    }
+    const activeDraggable = draggableNodes.get(id);
+    if (!activeDraggable) {
+      return;
+    }
+    const activeNode = activeDraggable.node.current;
+    if (!activeNode) {
+      return;
+    }
+    const measurableNode = getMeasurableNode(node2);
+    if (!measurableNode) {
+      return;
+    }
+    const {
+      transform: transform2
+    } = getWindow(node2).getComputedStyle(node2);
+    const parsedTransform = parseTransform(transform2);
+    if (!parsedTransform) {
+      return;
+    }
+    const animation = typeof config2 === "function" ? config2 : createDefaultDropAnimation(config2);
+    scrollIntoViewIfNeeded(activeNode, measuringConfiguration.draggable.measure);
+    return animation({
+      active: {
+        id,
+        data: activeDraggable.data,
+        node: activeNode,
+        rect: measuringConfiguration.draggable.measure(activeNode)
+      },
+      draggableNodes,
+      dragOverlay: {
+        node: node2,
+        rect: measuringConfiguration.dragOverlay.measure(measurableNode)
+      },
+      droppableContainers,
+      measuringConfiguration,
+      transform: parsedTransform
+    });
+  });
+}
+function createDefaultDropAnimation(options) {
+  const {
+    duration: duration2,
+    easing,
+    sideEffects,
+    keyframes
+  } = {
+    ...defaultDropAnimationConfiguration,
+    ...options
+  };
+  return (_ref4) => {
+    let {
+      active,
+      dragOverlay,
+      transform: transform2,
+      ...rest
+    } = _ref4;
+    if (!duration2) {
+      return;
+    }
+    const delta = {
+      x: dragOverlay.rect.left - active.rect.left,
+      y: dragOverlay.rect.top - active.rect.top
+    };
+    const scale = {
+      scaleX: transform2.scaleX !== 1 ? active.rect.width * transform2.scaleX / dragOverlay.rect.width : 1,
+      scaleY: transform2.scaleY !== 1 ? active.rect.height * transform2.scaleY / dragOverlay.rect.height : 1
+    };
+    const finalTransform = {
+      x: transform2.x - delta.x,
+      y: transform2.y - delta.y,
+      ...scale
+    };
+    const animationKeyframes = keyframes({
+      ...rest,
+      active,
+      dragOverlay,
+      transform: {
+        initial: transform2,
+        final: finalTransform
+      }
+    });
+    const [firstKeyframe] = animationKeyframes;
+    const lastKeyframe = animationKeyframes[animationKeyframes.length - 1];
+    if (JSON.stringify(firstKeyframe) === JSON.stringify(lastKeyframe)) {
+      return;
+    }
+    const cleanup = sideEffects == null ? void 0 : sideEffects({
+      active,
+      dragOverlay,
+      ...rest
+    });
+    const animation = dragOverlay.node.animate(animationKeyframes, {
+      duration: duration2,
+      easing,
+      fill: "forwards"
+    });
+    return new Promise((resolve) => {
+      animation.onfinish = () => {
+        cleanup == null ? void 0 : cleanup();
+        resolve();
+      };
+    });
+  };
+}
+let key = 0;
+function useKey(id) {
+  return reactExports.useMemo(() => {
+    if (id == null) {
+      return;
+    }
+    key++;
+    return key;
+  }, [id]);
+}
+const DragOverlay = /* @__PURE__ */ React.memo((_ref) => {
+  let {
+    adjustScale: adjustScale2 = false,
+    children,
+    dropAnimation: dropAnimationConfig,
+    style,
+    transition,
+    modifiers,
+    wrapperElement = "div",
+    className,
+    zIndex = 999
+  } = _ref;
+  const {
+    activatorEvent,
+    active,
+    activeNodeRect,
+    containerNodeRect,
+    draggableNodes,
+    droppableContainers,
+    dragOverlay,
+    over,
+    measuringConfiguration,
+    scrollableAncestors,
+    scrollableAncestorRects,
+    windowRect
+  } = useDndContext();
+  const transform2 = reactExports.useContext(ActiveDraggableContext);
+  const key2 = useKey(active == null ? void 0 : active.id);
+  const modifiedTransform = applyModifiers(modifiers, {
+    activatorEvent,
+    active,
+    activeNodeRect,
+    containerNodeRect,
+    draggingNodeRect: dragOverlay.rect,
+    over,
+    overlayNodeRect: dragOverlay.rect,
+    scrollableAncestors,
+    scrollableAncestorRects,
+    transform: transform2,
+    windowRect
+  });
+  const initialRect = useInitialValue(activeNodeRect);
+  const dropAnimation = useDropAnimation({
+    config: dropAnimationConfig,
+    draggableNodes,
+    droppableContainers,
+    measuringConfiguration
+  });
+  const ref = initialRect ? dragOverlay.setRef : void 0;
+  return React.createElement(NullifiedContextProvider, null, React.createElement(AnimationManager, {
+    animation: dropAnimation
+  }, active && key2 ? React.createElement(PositionedOverlay, {
+    key: key2,
+    id: active.id,
+    ref,
+    as: wrapperElement,
+    activatorEvent,
+    adjustScale: adjustScale2,
+    className,
+    transition,
+    rect: initialRect,
+    style: {
+      zIndex,
+      ...style
+    },
+    transform: modifiedTransform
+  }, children) : null));
+});
+function arrayMove(array2, from, to) {
+  const newArray = array2.slice();
+  newArray.splice(to < 0 ? newArray.length + to : to, 0, newArray.splice(from, 1)[0]);
+  return newArray;
+}
+function getSortedRects(items, rects) {
+  return items.reduce((accumulator, id, index2) => {
+    const rect = rects.get(id);
+    if (rect) {
+      accumulator[index2] = rect;
+    }
+    return accumulator;
+  }, Array(items.length));
+}
+function isValidIndex(index2) {
+  return index2 !== null && index2 >= 0;
+}
+function itemsEqual(a, b) {
+  if (a === b) {
+    return true;
+  }
+  if (a.length !== b.length) {
+    return false;
+  }
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+function normalizeDisabled(disabled) {
+  if (typeof disabled === "boolean") {
+    return {
+      draggable: disabled,
+      droppable: disabled
+    };
+  }
+  return disabled;
+}
+const defaultScale = {
+  scaleX: 1,
+  scaleY: 1
+};
+const horizontalListSortingStrategy = (_ref) => {
+  var _rects$activeIndex;
+  let {
+    rects,
+    activeNodeRect: fallbackActiveRect,
+    activeIndex,
+    overIndex,
+    index: index2
+  } = _ref;
+  const activeNodeRect = (_rects$activeIndex = rects[activeIndex]) != null ? _rects$activeIndex : fallbackActiveRect;
+  if (!activeNodeRect) {
+    return null;
+  }
+  const itemGap = getItemGap(rects, index2, activeIndex);
+  if (index2 === activeIndex) {
+    const newIndexRect = rects[overIndex];
+    if (!newIndexRect) {
+      return null;
+    }
+    return {
+      x: activeIndex < overIndex ? newIndexRect.left + newIndexRect.width - (activeNodeRect.left + activeNodeRect.width) : newIndexRect.left - activeNodeRect.left,
+      y: 0,
+      ...defaultScale
+    };
+  }
+  if (index2 > activeIndex && index2 <= overIndex) {
+    return {
+      x: -activeNodeRect.width - itemGap,
+      y: 0,
+      ...defaultScale
+    };
+  }
+  if (index2 < activeIndex && index2 >= overIndex) {
+    return {
+      x: activeNodeRect.width + itemGap,
+      y: 0,
+      ...defaultScale
+    };
+  }
+  return {
+    x: 0,
+    y: 0,
+    ...defaultScale
+  };
+};
+function getItemGap(rects, index2, activeIndex) {
+  const currentRect = rects[index2];
+  const previousRect = rects[index2 - 1];
+  const nextRect = rects[index2 + 1];
+  if (!currentRect || !previousRect && !nextRect) {
+    return 0;
+  }
+  if (activeIndex < index2) {
+    return previousRect ? currentRect.left - (previousRect.left + previousRect.width) : nextRect.left - (currentRect.left + currentRect.width);
+  }
+  return nextRect ? nextRect.left - (currentRect.left + currentRect.width) : currentRect.left - (previousRect.left + previousRect.width);
+}
+const rectSortingStrategy = (_ref) => {
+  let {
+    rects,
+    activeIndex,
+    overIndex,
+    index: index2
+  } = _ref;
+  const newRects = arrayMove(rects, overIndex, activeIndex);
+  const oldRect = rects[index2];
+  const newRect = newRects[index2];
+  if (!newRect || !oldRect) {
+    return null;
+  }
+  return {
+    x: newRect.left - oldRect.left,
+    y: newRect.top - oldRect.top,
+    scaleX: newRect.width / oldRect.width,
+    scaleY: newRect.height / oldRect.height
+  };
+};
+const defaultScale$1 = {
+  scaleX: 1,
+  scaleY: 1
+};
+const verticalListSortingStrategy = (_ref) => {
+  var _rects$activeIndex;
+  let {
+    activeIndex,
+    activeNodeRect: fallbackActiveRect,
+    index: index2,
+    rects,
+    overIndex
+  } = _ref;
+  const activeNodeRect = (_rects$activeIndex = rects[activeIndex]) != null ? _rects$activeIndex : fallbackActiveRect;
+  if (!activeNodeRect) {
+    return null;
+  }
+  if (index2 === activeIndex) {
+    const overIndexRect = rects[overIndex];
+    if (!overIndexRect) {
+      return null;
+    }
+    return {
+      x: 0,
+      y: activeIndex < overIndex ? overIndexRect.top + overIndexRect.height - (activeNodeRect.top + activeNodeRect.height) : overIndexRect.top - activeNodeRect.top,
+      ...defaultScale$1
+    };
+  }
+  const itemGap = getItemGap$1(rects, index2, activeIndex);
+  if (index2 > activeIndex && index2 <= overIndex) {
+    return {
+      x: 0,
+      y: -activeNodeRect.height - itemGap,
+      ...defaultScale$1
+    };
+  }
+  if (index2 < activeIndex && index2 >= overIndex) {
+    return {
+      x: 0,
+      y: activeNodeRect.height + itemGap,
+      ...defaultScale$1
+    };
+  }
+  return {
+    x: 0,
+    y: 0,
+    ...defaultScale$1
+  };
+};
+function getItemGap$1(clientRects, index2, activeIndex) {
+  const currentRect = clientRects[index2];
+  const previousRect = clientRects[index2 - 1];
+  const nextRect = clientRects[index2 + 1];
+  if (!currentRect) {
+    return 0;
+  }
+  if (activeIndex < index2) {
+    return previousRect ? currentRect.top - (previousRect.top + previousRect.height) : nextRect ? nextRect.top - (currentRect.top + currentRect.height) : 0;
+  }
+  return nextRect ? nextRect.top - (currentRect.top + currentRect.height) : previousRect ? currentRect.top - (previousRect.top + previousRect.height) : 0;
+}
+const ID_PREFIX = "Sortable";
+const Context = /* @__PURE__ */ React.createContext({
+  activeIndex: -1,
+  containerId: ID_PREFIX,
+  disableTransforms: false,
+  items: [],
+  overIndex: -1,
+  useDragOverlay: false,
+  sortedRects: [],
+  strategy: rectSortingStrategy,
+  disabled: {
+    draggable: false,
+    droppable: false
+  }
+});
+function SortableContext(_ref) {
+  let {
+    children,
+    id,
+    items: userDefinedItems,
+    strategy = rectSortingStrategy,
+    disabled: disabledProp = false
+  } = _ref;
+  const {
+    active,
+    dragOverlay,
+    droppableRects,
+    over,
+    measureDroppableContainers
+  } = useDndContext();
+  const containerId = useUniqueId(ID_PREFIX, id);
+  const useDragOverlay = Boolean(dragOverlay.rect !== null);
+  const items = reactExports.useMemo(() => userDefinedItems.map((item) => typeof item === "object" && "id" in item ? item.id : item), [userDefinedItems]);
+  const isDragging = active != null;
+  const activeIndex = active ? items.indexOf(active.id) : -1;
+  const overIndex = over ? items.indexOf(over.id) : -1;
+  const previousItemsRef = reactExports.useRef(items);
+  const itemsHaveChanged = !itemsEqual(items, previousItemsRef.current);
+  const disableTransforms = overIndex !== -1 && activeIndex === -1 || itemsHaveChanged;
+  const disabled = normalizeDisabled(disabledProp);
+  useIsomorphicLayoutEffect(() => {
+    if (itemsHaveChanged && isDragging) {
+      measureDroppableContainers(items);
+    }
+  }, [itemsHaveChanged, items, isDragging, measureDroppableContainers]);
+  reactExports.useEffect(() => {
+    previousItemsRef.current = items;
+  }, [items]);
+  const contextValue = reactExports.useMemo(
+    () => ({
+      activeIndex,
+      containerId,
+      disabled,
+      disableTransforms,
+      items,
+      overIndex,
+      useDragOverlay,
+      sortedRects: getSortedRects(items, droppableRects),
+      strategy
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activeIndex, containerId, disabled.draggable, disabled.droppable, disableTransforms, items, overIndex, droppableRects, useDragOverlay, strategy]
+  );
+  return React.createElement(Context.Provider, {
+    value: contextValue
+  }, children);
+}
+const defaultNewIndexGetter = (_ref) => {
+  let {
+    id,
+    items,
+    activeIndex,
+    overIndex
+  } = _ref;
+  return arrayMove(items, activeIndex, overIndex).indexOf(id);
+};
+const defaultAnimateLayoutChanges = (_ref2) => {
+  let {
+    containerId,
+    isSorting,
+    wasDragging,
+    index: index2,
+    items,
+    newIndex,
+    previousItems,
+    previousContainerId,
+    transition
+  } = _ref2;
+  if (!transition || !wasDragging) {
+    return false;
+  }
+  if (previousItems !== items && index2 === newIndex) {
+    return false;
+  }
+  if (isSorting) {
+    return true;
+  }
+  return newIndex !== index2 && containerId === previousContainerId;
+};
+const defaultTransition = {
+  duration: 200,
+  easing: "ease"
+};
+const transitionProperty = "transform";
+const disabledTransition = /* @__PURE__ */ CSS.Transition.toString({
+  property: transitionProperty,
+  duration: 0,
+  easing: "linear"
+});
+const defaultAttributes = {
+  roleDescription: "sortable"
+};
+function useDerivedTransform(_ref) {
+  let {
+    disabled,
+    index: index2,
+    node: node2,
+    rect
+  } = _ref;
+  const [derivedTransform, setDerivedtransform] = reactExports.useState(null);
+  const previousIndex = reactExports.useRef(index2);
+  useIsomorphicLayoutEffect(() => {
+    if (!disabled && index2 !== previousIndex.current && node2.current) {
+      const initial = rect.current;
+      if (initial) {
+        const current = getClientRect(node2.current, {
+          ignoreTransform: true
+        });
+        const delta = {
+          x: initial.left - current.left,
+          y: initial.top - current.top,
+          scaleX: initial.width / current.width,
+          scaleY: initial.height / current.height
+        };
+        if (delta.x || delta.y) {
+          setDerivedtransform(delta);
+        }
+      }
+    }
+    if (index2 !== previousIndex.current) {
+      previousIndex.current = index2;
+    }
+  }, [disabled, index2, node2, rect]);
+  reactExports.useEffect(() => {
+    if (derivedTransform) {
+      setDerivedtransform(null);
+    }
+  }, [derivedTransform]);
+  return derivedTransform;
+}
+function useSortable(_ref) {
+  let {
+    animateLayoutChanges = defaultAnimateLayoutChanges,
+    attributes: userDefinedAttributes,
+    disabled: localDisabled,
+    data: customData,
+    getNewIndex = defaultNewIndexGetter,
+    id,
+    strategy: localStrategy,
+    resizeObserverConfig,
+    transition = defaultTransition
+  } = _ref;
+  const {
+    items,
+    containerId,
+    activeIndex,
+    disabled: globalDisabled,
+    disableTransforms,
+    sortedRects,
+    overIndex,
+    useDragOverlay,
+    strategy: globalStrategy
+  } = reactExports.useContext(Context);
+  const disabled = normalizeLocalDisabled(localDisabled, globalDisabled);
+  const index2 = items.indexOf(id);
+  const data = reactExports.useMemo(() => ({
+    sortable: {
+      containerId,
+      index: index2,
+      items
+    },
+    ...customData
+  }), [containerId, customData, index2, items]);
+  const itemsAfterCurrentSortable = reactExports.useMemo(() => items.slice(items.indexOf(id)), [items, id]);
+  const {
+    rect,
+    node: node2,
+    isOver,
+    setNodeRef: setDroppableNodeRef
+  } = useDroppable({
+    id,
+    data,
+    disabled: disabled.droppable,
+    resizeObserverConfig: {
+      updateMeasurementsFor: itemsAfterCurrentSortable,
+      ...resizeObserverConfig
+    }
+  });
+  const {
+    active,
+    activatorEvent,
+    activeNodeRect,
+    attributes,
+    setNodeRef: setDraggableNodeRef,
+    listeners,
+    isDragging,
+    over,
+    setActivatorNodeRef,
+    transform: transform2
+  } = useDraggable({
+    id,
+    data,
+    attributes: {
+      ...defaultAttributes,
+      ...userDefinedAttributes
+    },
+    disabled: disabled.draggable
+  });
+  const setNodeRef = useCombinedRefs(setDroppableNodeRef, setDraggableNodeRef);
+  const isSorting = Boolean(active);
+  const displaceItem = isSorting && !disableTransforms && isValidIndex(activeIndex) && isValidIndex(overIndex);
+  const shouldDisplaceDragSource = !useDragOverlay && isDragging;
+  const dragSourceDisplacement = shouldDisplaceDragSource && displaceItem ? transform2 : null;
+  const strategy = localStrategy != null ? localStrategy : globalStrategy;
+  const finalTransform = displaceItem ? dragSourceDisplacement != null ? dragSourceDisplacement : strategy({
+    rects: sortedRects,
+    activeNodeRect,
+    activeIndex,
+    overIndex,
+    index: index2
+  }) : null;
+  const newIndex = isValidIndex(activeIndex) && isValidIndex(overIndex) ? getNewIndex({
+    id,
+    items,
+    activeIndex,
+    overIndex
+  }) : index2;
+  const activeId = active == null ? void 0 : active.id;
+  const previous2 = reactExports.useRef({
+    activeId,
+    items,
+    newIndex,
+    containerId
+  });
+  const itemsHaveChanged = items !== previous2.current.items;
+  const shouldAnimateLayoutChanges = animateLayoutChanges({
+    active,
+    containerId,
+    isDragging,
+    isSorting,
+    id,
+    index: index2,
+    items,
+    newIndex: previous2.current.newIndex,
+    previousItems: previous2.current.items,
+    previousContainerId: previous2.current.containerId,
+    transition,
+    wasDragging: previous2.current.activeId != null
+  });
+  const derivedTransform = useDerivedTransform({
+    disabled: !shouldAnimateLayoutChanges,
+    index: index2,
+    node: node2,
+    rect
+  });
+  reactExports.useEffect(() => {
+    if (isSorting && previous2.current.newIndex !== newIndex) {
+      previous2.current.newIndex = newIndex;
+    }
+    if (containerId !== previous2.current.containerId) {
+      previous2.current.containerId = containerId;
+    }
+    if (items !== previous2.current.items) {
+      previous2.current.items = items;
+    }
+  }, [isSorting, newIndex, containerId, items]);
+  reactExports.useEffect(() => {
+    if (activeId === previous2.current.activeId) {
+      return;
+    }
+    if (activeId != null && previous2.current.activeId == null) {
+      previous2.current.activeId = activeId;
+      return;
+    }
+    const timeoutId = setTimeout(() => {
+      previous2.current.activeId = activeId;
+    }, 50);
+    return () => clearTimeout(timeoutId);
+  }, [activeId]);
+  return {
+    active,
+    activeIndex,
+    attributes,
+    data,
+    rect,
+    index: index2,
+    newIndex,
+    items,
+    isOver,
+    isSorting,
+    isDragging,
+    listeners,
+    node: node2,
+    overIndex,
+    over,
+    setNodeRef,
+    setActivatorNodeRef,
+    setDroppableNodeRef,
+    setDraggableNodeRef,
+    transform: derivedTransform != null ? derivedTransform : finalTransform,
+    transition: getTransition()
+  };
+  function getTransition() {
+    if (
+      // Temporarily disable transitions for a single frame to set up derived transforms
+      derivedTransform || // Or to prevent items jumping to back to their "new" position when items change
+      itemsHaveChanged && previous2.current.newIndex === index2
+    ) {
+      return disabledTransition;
+    }
+    if (shouldDisplaceDragSource && !isKeyboardEvent(activatorEvent) || !transition) {
+      return void 0;
+    }
+    if (isSorting || shouldAnimateLayoutChanges) {
+      return CSS.Transition.toString({
+        ...transition,
+        property: transitionProperty
+      });
+    }
+    return void 0;
+  }
+}
+function normalizeLocalDisabled(localDisabled, globalDisabled) {
+  var _localDisabled$dragga, _localDisabled$droppa;
+  if (typeof localDisabled === "boolean") {
+    return {
+      draggable: localDisabled,
+      // Backwards compatibility
+      droppable: false
+    };
+  }
+  return {
+    draggable: (_localDisabled$dragga = localDisabled == null ? void 0 : localDisabled.draggable) != null ? _localDisabled$dragga : globalDisabled.draggable,
+    droppable: (_localDisabled$droppa = localDisabled == null ? void 0 : localDisabled.droppable) != null ? _localDisabled$droppa : globalDisabled.droppable
+  };
+}
+function hasSortableData(entry) {
+  if (!entry) {
+    return false;
+  }
+  const data = entry.data.current;
+  if (data && "sortable" in data && typeof data.sortable === "object" && "containerId" in data.sortable && "items" in data.sortable && "index" in data.sortable) {
+    return true;
+  }
+  return false;
+}
+const directions = [KeyboardCode.Down, KeyboardCode.Right, KeyboardCode.Up, KeyboardCode.Left];
+const sortableKeyboardCoordinates = (event, _ref) => {
+  let {
+    context: {
+      active,
+      collisionRect,
+      droppableRects,
+      droppableContainers,
+      over,
+      scrollableAncestors
+    }
+  } = _ref;
+  if (directions.includes(event.code)) {
+    event.preventDefault();
+    if (!active || !collisionRect) {
+      return;
+    }
+    const filteredContainers = [];
+    droppableContainers.getEnabled().forEach((entry) => {
+      if (!entry || entry != null && entry.disabled) {
+        return;
+      }
+      const rect = droppableRects.get(entry.id);
+      if (!rect) {
+        return;
+      }
+      switch (event.code) {
+        case KeyboardCode.Down:
+          if (collisionRect.top < rect.top) {
+            filteredContainers.push(entry);
+          }
+          break;
+        case KeyboardCode.Up:
+          if (collisionRect.top > rect.top) {
+            filteredContainers.push(entry);
+          }
+          break;
+        case KeyboardCode.Left:
+          if (collisionRect.left > rect.left) {
+            filteredContainers.push(entry);
+          }
+          break;
+        case KeyboardCode.Right:
+          if (collisionRect.left < rect.left) {
+            filteredContainers.push(entry);
+          }
+          break;
+      }
+    });
+    const collisions = closestCorners({
+      collisionRect,
+      droppableRects,
+      droppableContainers: filteredContainers
+    });
+    let closestId = getFirstCollision(collisions, "id");
+    if (closestId === (over == null ? void 0 : over.id) && collisions.length > 1) {
+      closestId = collisions[1].id;
+    }
+    if (closestId != null) {
+      const activeDroppable = droppableContainers.get(active.id);
+      const newDroppable = droppableContainers.get(closestId);
+      const newRect = newDroppable ? droppableRects.get(newDroppable.id) : null;
+      const newNode = newDroppable == null ? void 0 : newDroppable.node.current;
+      if (newNode && newRect && activeDroppable && newDroppable) {
+        const newScrollAncestors = getScrollableAncestors(newNode);
+        const hasDifferentScrollAncestors = newScrollAncestors.some((element2, index2) => scrollableAncestors[index2] !== element2);
+        const hasSameContainer = isSameContainer(activeDroppable, newDroppable);
+        const isAfterActive = isAfter(activeDroppable, newDroppable);
+        const offset = hasDifferentScrollAncestors || !hasSameContainer ? {
+          x: 0,
+          y: 0
+        } : {
+          x: isAfterActive ? collisionRect.width - newRect.width : 0,
+          y: isAfterActive ? collisionRect.height - newRect.height : 0
+        };
+        const rectCoordinates = {
+          x: newRect.left,
+          y: newRect.top
+        };
+        const newCoordinates = offset.x && offset.y ? rectCoordinates : subtract(rectCoordinates, offset);
+        return newCoordinates;
+      }
+    }
+  }
+  return void 0;
+};
+function isSameContainer(a, b) {
+  if (!hasSortableData(a) || !hasSortableData(b)) {
+    return false;
+  }
+  return a.data.current.sortable.containerId === b.data.current.sortable.containerId;
+}
+function isAfter(a, b) {
+  if (!hasSortableData(a) || !hasSortableData(b)) {
+    return false;
+  }
+  if (!isSameContainer(a, b)) {
+    return false;
+  }
+  return a.data.current.sortable.index < b.data.current.sortable.index;
+}
+const SortableTask = ({ task, ...props }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform: transform2,
+    transition,
+    isDragging
+  } = useSortable({
+    id: task.id,
+    data: {
+      type: "Task",
+      task
+    }
+  });
+  const style = {
+    transform: CSS.Transform.toString(transform2),
+    transition,
+    opacity: isDragging ? 0.3 : 1
+  };
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { ref: setNodeRef, style, ...attributes, ...listeners, children: /* @__PURE__ */ jsxRuntimeExports.jsx(TaskCard, { task, ...props }) });
+};
+const SortableColumn = ({
+  column,
+  tasks,
+  priorities,
+  allTasks,
+  onMoveTask,
+  onEditTask,
+  onUpdateTask,
+  onDeleteTask
+}) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform: transform2,
+    transition,
+    isDragging
+  } = useSortable({
+    id: column.id,
+    data: {
+      type: "Column",
+      column
+    }
+  });
+  const style = {
+    transform: CSS.Transform.toString(transform2),
+    transition,
+    opacity: isDragging ? 0.5 : 1
+  };
+  const wipLimit = column.wipLimit || 0;
+  const isOverLimit = wipLimit > 0 && tasks.length > wipLimit;
+  const accentColor = column.color.startsWith("#") ? column.color : "#64748b";
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "div",
+    {
+      ref: setNodeRef,
+      style,
+      className: "flex-1 flex flex-col min-w-[300px]",
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          "div",
+          {
+            ...attributes,
+            ...listeners,
+            className: "flex items-center justify-between mb-4 px-4 cursor-grab active:cursor-grabbing group/colheader",
+            children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: `font-bold text-sm tracking-wide uppercase text-shadow-sm transition-colors ${isOverLimit ? "text-red-400" : "text-slate-200"}`, children: column.title }),
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: `text-xs px-2 py-0.5 rounded border ${isOverLimit ? "bg-red-500/20 text-red-400 border-red-500/50 animate-pulse" : "bg-white/5 text-slate-400 border-white/5"}`, children: [
+                  tasks.length,
+                  " ",
+                  wipLimit > 0 && `/ ${wipLimit}`
+                ] }),
+                isOverLimit && /* @__PURE__ */ jsxRuntimeExports.jsx(OctagonAlert, { size: 16, className: "text-red-500 animate-pulse" })
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-2 h-2 rounded-full shadow-[0_0_8px_currentColor]", style: { backgroundColor: isOverLimit ? "#ef4444" : accentColor, color: isOverLimit ? "#ef4444" : accentColor } })
+            ]
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "div",
+          {
+            className: `flex-1 rounded-3xl p-3 flex flex-col gap-4 transition-all duration-500 
+          ${isOverLimit ? "bg-red-900/10 border-red-500/20" : "bg-transparent border border-transparent"}
+        `,
+            children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-full rounded-2xl bg-[#0a0a0a]/50 backdrop-blur-md border border-white/10 p-4 flex flex-col gap-4 shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)] min-h-[300px]", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SortableContext, { items: tasks.map((t) => t.id), strategy: verticalListSortingStrategy, children: tasks.map((task) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+              SortableTask,
+              {
+                task,
+                priorities,
+                isCompletedColumn: column.isCompleted,
+                onMoveTask,
+                onEditTask,
+                onUpdateTask,
+                onDeleteTask,
+                allTasks
+              },
+              task.id
+            )) }) })
+          }
+        )
+      ]
+    }
+  );
+};
+const ProjectBoard = ({
+  columns,
+  priorities,
+  tasks,
+  allTasks,
+  boardGrouping,
+  onUpdateColumns,
+  onMoveTask,
+  onEditTask,
+  onUpdateTask,
+  onDeleteTask,
+  getTasksByContext
+}) => {
+  const [activeId, setActiveId] = reactExports.useState(null);
+  const [activeTask, setActiveTask] = reactExports.useState(null);
+  const [activeColumn, setActiveColumn] = reactExports.useState(null);
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5
+        // 5px draggable distance
+      }
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates
+    })
+  );
+  const columnIds = reactExports.useMemo(() => columns.map((col) => col.id), [columns]);
+  function onDragStart(event) {
+    const { active } = event;
+    const activeIdString = String(active.id);
+    if (!activeIdString) return;
+    setActiveId(activeIdString);
+    const task = tasks.find((t) => t.id === activeIdString);
+    if (task) {
+      setActiveTask(task);
+      return;
+    }
+    const column = columns.find((c) => c.id === activeIdString);
+    if (column) {
+      setActiveColumn(column);
+      return;
+    }
+  }
+  function onDragOver(event) {
+  }
+  function onDragEnd(event) {
+    const { active, over } = event;
+    const activeIdString = String(active.id);
+    const overIdString = over ? String(over.id) : null;
+    if (!overIdString) {
+      setActiveId(null);
+      setActiveTask(null);
+      setActiveColumn(null);
+      return;
+    }
+    if (activeColumn) {
+      if (activeIdString !== overIdString) {
+        const oldIndex = columns.findIndex((c) => c.id === activeIdString);
+        const newIndex = columns.findIndex((c) => c.id === overIdString);
+        if (oldIndex !== -1 && newIndex !== -1) {
+          onUpdateColumns(arrayMove(columns, oldIndex, newIndex));
+        }
+      }
+    }
+    if (activeTask) {
+      let newStatus = "";
+      const overColumn = columns.find((c) => c.id === overIdString);
+      if (overColumn) {
+        newStatus = overColumn.id;
+      } else {
+        const overTask = tasks.find((t) => t.id === overIdString);
+        if (overTask) {
+          newStatus = overTask.status;
+        }
+      }
+      if (newStatus && newStatus !== activeTask.status) {
+        onMoveTask(activeTask.id, newStatus);
+      }
+    }
+    setActiveId(null);
+    setActiveTask(null);
+    setActiveColumn(null);
+  }
+  const dropAnimation = {
+    sideEffects: defaultDropAnimationSideEffects({
+      styles: {
+        active: {
+          opacity: "0.5"
+        }
+      }
+    })
+  };
+  if (boardGrouping === "priority") {
+    return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { children: "Priority View - (Drag Disabled for Optimization)" });
+  }
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    DndContext,
+    {
+      sensors,
+      collisionDetection: closestCenter,
+      onDragStart,
+      onDragOver,
+      onDragEnd,
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex gap-6 h-full overflow-x-auto pb-4", children: /* @__PURE__ */ jsxRuntimeExports.jsx(SortableContext, { items: columnIds, strategy: horizontalListSortingStrategy, children: columns.map((col) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+          SortableColumn,
+          {
+            column: col,
+            tasks: getTasksByContext(col.id),
+            priorities,
+            allTasks,
+            onMoveTask,
+            onEditTask,
+            onUpdateTask,
+            onDeleteTask
+          },
+          col.id
+        )) }) }),
+        reactDomExports.createPortal(
+          /* @__PURE__ */ jsxRuntimeExports.jsxs(DragOverlay, { dropAnimation, children: [
+            activeColumn && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-[300px] opacity-80 rotate-2", children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "bg-[#1e1e1e] p-4 rounded-xl border border-white/10 shadow-xl", children: /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "font-bold text-slate-200", children: activeColumn.title }) }) }),
+            activeTask && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "opacity-80 rotate-2 cursor-grabbing", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+              TaskCard,
+              {
+                task: activeTask,
+                priorities,
+                isCompletedColumn: false,
+                onMoveTask: () => {
+                },
+                onEditTask: () => {
+                },
+                onUpdateTask: () => {
+                },
+                onDeleteTask: () => {
+                },
+                allTasks
+              }
+            ) })
+          ] }),
+          document.body
+        )
+      ]
+    }
+  );
+};
 const defaultProjects = [
   { id: "p1", name: "Daily Operations", type: "folder", order: 0 },
   { id: "p2", name: "Web Development", type: "dev", order: 1 },
@@ -28052,110 +37332,18 @@ const defaultPriorities = [
   { id: "low", label: "Low", color: "#10b981", level: 3, icon: "arrow-down" }
 ];
 const App = () => {
-  const migrateStorageKey = (oldKey, newKey) => {
-    const oldValue = localStorage.getItem(oldKey);
-    if (oldValue) {
-      localStorage.setItem(newKey, oldValue);
-      localStorage.removeItem(oldKey);
-      return JSON.parse(oldValue);
-    }
-    return null;
-  };
-  const [columns, setColumns] = reactExports.useState(() => {
-    const migrated = migrateStorageKey("aether-columns", "liquitask-columns");
-    if (migrated) return migrated;
-    const saved = localStorage.getItem("liquitask-columns");
-    return saved ? JSON.parse(saved) : defaultColumns;
-  });
-  const [projectTypes, setProjectTypes] = reactExports.useState(() => {
-    const migrated = migrateStorageKey("aether-project-types", "liquitask-project-types");
-    if (migrated) return migrated;
-    const saved = localStorage.getItem("liquitask-project-types");
-    return saved ? JSON.parse(saved) : defaultProjectTypes;
-  });
-  const [priorities, setPriorities] = reactExports.useState(() => {
-    const migrated = migrateStorageKey("aether-priorities", "liquitask-priorities");
-    if (migrated) return migrated;
-    const saved = localStorage.getItem("liquitask-priorities");
-    return saved ? JSON.parse(saved) : defaultPriorities;
-  });
-  const [customFields, setCustomFields] = reactExports.useState(() => {
-    const migrated = migrateStorageKey("aether-custom-fields", "liquitask-custom-fields");
-    if (migrated) return migrated;
-    const saved = localStorage.getItem("liquitask-custom-fields");
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [projects, setProjects] = reactExports.useState(() => {
-    const migrated = migrateStorageKey("aether-projects", "liquitask-projects");
-    if (migrated) return migrated;
-    const saved = localStorage.getItem("liquitask-projects");
-    return saved ? JSON.parse(saved) : defaultProjects;
-  });
-  const [tasks, setTasks] = reactExports.useState(() => {
-    const migrated = migrateStorageKey("aether-tasks", "liquitask-tasks");
-    if (migrated) {
-      return migrated.map((t) => {
-        const task = t;
-        return {
-          ...task,
-          createdAt: task.createdAt ? new Date(task.createdAt) : /* @__PURE__ */ new Date(),
-          dueDate: task.dueDate ? new Date(task.dueDate) : void 0,
-          attachments: task.attachments || [],
-          customFieldValues: task.customFieldValues || {},
-          links: task.links || [],
-          tags: task.tags || [],
-          timeEstimate: task.timeEstimate || 0,
-          timeSpent: task.timeSpent || 0
-        };
-      });
-    }
-    const saved = localStorage.getItem("liquitask-tasks");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        return parsed.map((t) => {
-          const task = t;
-          return {
-            ...task,
-            createdAt: task.createdAt ? new Date(task.createdAt) : /* @__PURE__ */ new Date(),
-            dueDate: task.dueDate ? new Date(task.dueDate) : void 0,
-            attachments: task.attachments || [],
-            customFieldValues: task.customFieldValues || {},
-            links: task.links || [],
-            tags: task.tags || [],
-            timeEstimate: task.timeEstimate || 0,
-            timeSpent: task.timeSpent || 0
-          };
-        });
-      } catch (e) {
-        console.error("Failed to parse tasks:", e);
-        return [];
-      }
-    }
-    return [];
-  });
-  const [activeProjectId, setActiveProjectId] = reactExports.useState(() => {
-    const migrated = migrateStorageKey("aether-active-project", "liquitask-active-project");
-    if (migrated) return migrated;
-    const saved = localStorage.getItem("liquitask-active-project");
-    return saved || (projects[0]?.id || "p1");
-  });
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = reactExports.useState(() => {
-    const migrated = migrateStorageKey("aether-sidebar-collapsed", "liquitask-sidebar-collapsed");
-    if (migrated !== null) return migrated === "true";
-    const saved = localStorage.getItem("liquitask-sidebar-collapsed");
-    return saved === "true";
-  });
-  const [boardGrouping, setBoardGrouping] = reactExports.useState(() => {
-    const migrated = migrateStorageKey("aether-grouping", "liquitask-grouping");
-    if (migrated) return migrated;
-    const saved = localStorage.getItem("liquitask-grouping");
-    return saved || "none";
-  });
+  const [isLoaded, setIsLoaded] = reactExports.useState(false);
+  const [columns, setColumns] = reactExports.useState(defaultColumns);
+  const [projectTypes, setProjectTypes] = reactExports.useState(defaultProjectTypes);
+  const [priorities, setPriorities] = reactExports.useState(defaultPriorities);
+  const [customFields, setCustomFields] = reactExports.useState([]);
+  const [projects, setProjects] = reactExports.useState(defaultProjects);
+  const [tasks, setTasks] = reactExports.useState([]);
+  const [activeProjectId, setActiveProjectId] = reactExports.useState("p1");
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = reactExports.useState(false);
+  const [boardGrouping, setBoardGrouping] = reactExports.useState("none");
   const [currentView, setCurrentView] = reactExports.useState("project");
   const [searchQuery, setSearchQuery] = reactExports.useState("");
-  const [dragOverInfo, setDragOverInfo] = reactExports.useState(null);
-  const [_draggedColumnId, setDraggedColumnId] = reactExports.useState(null);
   const [isFilterOpen, setIsFilterOpen] = reactExports.useState(false);
   const [filters, setFilters] = reactExports.useState({
     assignee: "",
@@ -28220,50 +37408,67 @@ const App = () => {
     }
   }, [addToast]);
   const debouncedSaveColumns = reactExports.useMemo(() => debounce((cols) => {
-    localStorage.setItem("liquitask-columns", JSON.stringify(cols));
+    storageService.set(STORAGE_KEYS.COLUMNS, cols);
   }, 300), []);
   const debouncedSaveProjectTypes = reactExports.useMemo(() => debounce((types2) => {
-    localStorage.setItem("liquitask-project-types", JSON.stringify(types2));
+    storageService.set(STORAGE_KEYS.PROJECT_TYPES, types2);
   }, 300), []);
   const debouncedSavePriorities = reactExports.useMemo(() => debounce((prios) => {
-    localStorage.setItem("liquitask-priorities", JSON.stringify(prios));
+    storageService.set(STORAGE_KEYS.PRIORITIES, prios);
   }, 300), []);
   const debouncedSaveCustomFields = reactExports.useMemo(() => debounce((fields) => {
-    localStorage.setItem("liquitask-custom-fields", JSON.stringify(fields));
+    storageService.set(STORAGE_KEYS.CUSTOM_FIELDS, fields);
   }, 300), []);
   const debouncedSaveProjects = reactExports.useMemo(() => debounce((projs) => {
-    localStorage.setItem("liquitask-projects", JSON.stringify(projs));
+    storageService.set(STORAGE_KEYS.PROJECTS, projs);
   }, 300), []);
   const debouncedSaveTasks = reactExports.useMemo(() => debounce((tsks) => {
-    localStorage.setItem("liquitask-tasks", JSON.stringify(tsks));
+    storageService.set(STORAGE_KEYS.TASKS, tsks);
   }, 300), []);
   reactExports.useEffect(() => {
-    debouncedSaveColumns(columns);
-  }, [columns, debouncedSaveColumns]);
+    if (isLoaded) debouncedSaveColumns(columns);
+  }, [columns, debouncedSaveColumns, isLoaded]);
   reactExports.useEffect(() => {
-    debouncedSaveProjectTypes(projectTypes);
-  }, [projectTypes, debouncedSaveProjectTypes]);
+    if (isLoaded) debouncedSaveProjectTypes(projectTypes);
+  }, [projectTypes, debouncedSaveProjectTypes, isLoaded]);
   reactExports.useEffect(() => {
-    debouncedSavePriorities(priorities);
-  }, [priorities, debouncedSavePriorities]);
+    if (isLoaded) debouncedSavePriorities(priorities);
+  }, [priorities, debouncedSavePriorities, isLoaded]);
   reactExports.useEffect(() => {
-    debouncedSaveCustomFields(customFields);
-  }, [customFields, debouncedSaveCustomFields]);
+    if (isLoaded) debouncedSaveCustomFields(customFields);
+  }, [customFields, debouncedSaveCustomFields, isLoaded]);
   reactExports.useEffect(() => {
-    debouncedSaveProjects(projects);
-  }, [projects, debouncedSaveProjects]);
+    if (isLoaded) debouncedSaveProjects(projects);
+  }, [projects, debouncedSaveProjects, isLoaded]);
   reactExports.useEffect(() => {
-    debouncedSaveTasks(tasks);
-  }, [tasks, debouncedSaveTasks]);
+    if (isLoaded) debouncedSaveTasks(tasks);
+  }, [tasks, debouncedSaveTasks, isLoaded]);
   reactExports.useEffect(() => {
-    localStorage.setItem("liquitask-active-project", activeProjectId);
-  }, [activeProjectId]);
+    if (isLoaded) storageService.set(STORAGE_KEYS.ACTIVE_PROJECT, activeProjectId);
+  }, [activeProjectId, isLoaded]);
   reactExports.useEffect(() => {
-    localStorage.setItem("liquitask-sidebar-collapsed", String(isSidebarCollapsed));
-  }, [isSidebarCollapsed]);
+    if (isLoaded) storageService.set(STORAGE_KEYS.SIDEBAR_COLLAPSED, isSidebarCollapsed);
+  }, [isSidebarCollapsed, isLoaded]);
   reactExports.useEffect(() => {
-    localStorage.setItem("liquitask-grouping", boardGrouping);
-  }, [boardGrouping]);
+    if (isLoaded) storageService.set(STORAGE_KEYS.GROUPING, boardGrouping);
+  }, [boardGrouping, isLoaded]);
+  reactExports.useEffect(() => {
+    const loadData = async () => {
+      await storageService.initialize();
+      const data = storageService.getAllData();
+      if (data.columns) setColumns(data.columns);
+      if (data.projectTypes) setProjectTypes(data.projectTypes);
+      if (data.priorities) setPriorities(data.priorities);
+      if (data.customFields) setCustomFields(data.customFields);
+      if (data.projects) setProjects(data.projects);
+      if (data.tasks) setTasks(data.tasks);
+      if (data.activeProjectId) setActiveProjectId(data.activeProjectId);
+      if (data.sidebarCollapsed !== void 0) setIsSidebarCollapsed(data.sidebarCollapsed);
+      if (data.grouping) setBoardGrouping(data.grouping);
+      setIsLoaded(true);
+    };
+    loadData();
+  }, []);
   reactExports.useEffect(() => {
     const handleGlobalKeyDown = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -28312,8 +37517,8 @@ const App = () => {
       result = result.filter((t) => {
         const targetDate = filters.dateRange === "created" ? t.createdAt : t.dueDate;
         if (!targetDate) return false;
-        const time = targetDate.getTime();
-        return time >= start && time <= end;
+        const time2 = targetDate.getTime();
+        return time2 >= start && time2 <= end;
       });
     }
     return result;
@@ -28500,40 +37705,14 @@ const App = () => {
       });
     });
   };
-  const handleDragOver = (e, _colId, _rowId) => {
-    e.preventDefault();
-  };
-  const handleDragEnter = (colId, rowId) => {
-    setDragOverInfo({ colId, rowId });
-  };
-  const handleDrop = (e, statusId, priorityId) => {
-    e.preventDefault();
-    const taskId = e.dataTransfer.getData("taskId");
-    if (taskId) {
-      moveTask(taskId, statusId, priorityId);
-    }
-    setDragOverInfo(null);
-  };
-  const handleColumnDragStart = (e, colId) => {
-    setDraggedColumnId(colId);
-    e.dataTransfer.setData("columnId", colId);
-    e.dataTransfer.effectAllowed = "move";
-  };
-  const handleColumnDrop = (e, targetColId) => {
-    e.preventDefault();
-    const draggedId = e.dataTransfer.getData("columnId");
-    if (draggedId && draggedId !== targetColId) {
-      const newColumns = [...columns];
-      const draggedIndex = newColumns.findIndex((c) => c.id === draggedId);
-      const targetIndex = newColumns.findIndex((c) => c.id === targetColId);
-      const [removed] = newColumns.splice(draggedIndex, 1);
-      newColumns.splice(targetIndex, 0, removed);
-      setColumns(newColumns);
-    }
-    setDraggedColumnId(null);
-  };
-  const isElectron = typeof window !== "undefined" && !!window.electronAPI;
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `min-h-screen text-slate-200 font-sans overflow-x-hidden selection:bg-red-500/30 selection:text-white ${isElectron ? "pt-10" : ""}`, children: [
+  const isElectron2 = typeof window !== "undefined" && !!window.electronAPI;
+  if (!isLoaded) {
+    return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "min-h-screen bg-black flex items-center justify-center text-white", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center gap-4", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(LoaderCircle, { className: "w-10 h-10 text-red-500 animate-spin" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-slate-400", children: "Loading LiquiTask..." })
+    ] }) });
+  }
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `min-h-screen text-slate-200 font-sans overflow-x-hidden selection:bg-red-500/30 selection:text-white ${isElectron2 ? "pt-10" : ""}`, children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx(TitleBar, {}),
     /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "fixed top-[-30%] right-[-20%] w-[1200px] h-[1200px] bg-red-950/20 rounded-full blur-[150px] pointer-events-none z-0 mix-blend-screen animate-pulse-slow" }),
     /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "fixed bottom-[-40%] left-[-20%] w-[1000px] h-[1000px] bg-[#2a0000]/30 rounded-full blur-[180px] pointer-events-none z-0 mix-blend-screen" }),
@@ -28668,106 +37847,22 @@ const App = () => {
               onMoveTask: moveTask,
               onUpdateTask: handleUpdateTask
             }
-          ) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "pb-4 min-w-[1200px] h-full", children: [
-            boardGrouping === "none" && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex gap-6 h-full", children: columns.map((column) => {
-              const columnTasks = getTasksByContext(column.id);
-              const isDragOver = dragOverInfo?.colId === column.id && !dragOverInfo?.rowId;
-              const accentColor = column.color.startsWith("#") ? column.color : "#64748b";
-              const wipLimit = column.wipLimit || 0;
-              const isOverLimit = wipLimit > 0 && columnTasks.length > wipLimit;
-              return /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                "div",
-                {
-                  className: "flex-1 flex flex-col min-w-[300px]",
-                  draggable: true,
-                  onDragStart: (e) => handleColumnDragStart(e, column.id),
-                  onDrop: (e) => handleColumnDrop(e, column.id),
-                  onDragOver: (e) => e.preventDefault(),
-                  children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between mb-4 px-4 cursor-grab active:cursor-grabbing group/colheader", children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3", children: [
-                        /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: `font-bold text-sm tracking-wide uppercase text-shadow-sm transition-colors ${isOverLimit ? "text-red-400" : "text-slate-200"}`, children: column.title }),
-                        /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: `text-xs px-2 py-0.5 rounded border ${isOverLimit ? "bg-red-500/20 text-red-400 border-red-500/50 animate-pulse" : "bg-white/5 text-slate-400 border-white/5"}`, children: [
-                          columnTasks.length,
-                          " ",
-                          wipLimit > 0 && `/ ${wipLimit}`
-                        ] }),
-                        isOverLimit && /* @__PURE__ */ jsxRuntimeExports.jsx(OctagonAlert, { size: 16, className: "text-red-500 animate-pulse" })
-                      ] }),
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-2 h-2 rounded-full shadow-[0_0_8px_currentColor]", style: { backgroundColor: isOverLimit ? "#ef4444" : accentColor, color: isOverLimit ? "#ef4444" : accentColor } })
-                    ] }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx(
-                      "div",
-                      {
-                        className: `flex-1 rounded-3xl p-3 flex flex-col gap-4 transition-all duration-500 
-                                            ${isDragOver ? "bg-white/5 border-white/10 shadow-[inset_0_0_30px_rgba(255,255,255,0.05)]" : "bg-transparent border border-transparent"}
-                                            ${isOverLimit ? "bg-red-900/10 border-red-500/20" : ""}
-                                        `,
-                        onDragOver: (e) => handleDragOver(e, column.id),
-                        onDrop: (e) => handleDrop(e, column.id),
-                        onDragEnter: () => handleDragEnter(column.id),
-                        children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-full rounded-2xl bg-[#0a0a0a]/50 backdrop-blur-md border border-white/10 p-4 flex flex-col gap-4 shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)] min-h-[300px]", children: columnTasks.map((task) => /* @__PURE__ */ jsxRuntimeExports.jsx(
-                          TaskCard,
-                          {
-                            task,
-                            priorities,
-                            isCompletedColumn: column.isCompleted,
-                            onMoveTask: moveTask,
-                            onEditTask: handleEditTaskClick,
-                            onUpdateTask: handleUpdateTask,
-                            onDeleteTask: handleDeleteTask,
-                            allTasks: tasks
-                          },
-                          task.id
-                        )) })
-                      }
-                    )
-                  ]
-                },
-                column.id
-              );
-            }) }),
-            boardGrouping === "priority" && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col gap-8", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex gap-6 sticky top-0 z-20 pb-2 bg-[#020000]/80 backdrop-blur-md -mx-6 px-6 pt-2", children: columns.map((col) => /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex-1 min-w-[300px] flex items-center justify-between px-2", children: /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "font-bold text-slate-300 text-xs tracking-wide uppercase", children: col.title }) }, col.id)) }),
-              priorities.map((prio) => {
-                return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "rounded-3xl border border-white/5 bg-white/[0.02] p-4", children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3 mb-4 px-2", children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-px w-8 bg-current opacity-50", style: { color: prio.color } }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-sm font-bold uppercase tracking-widest", style: { color: prio.color }, children: prio.label }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-px flex-1 bg-current opacity-20", style: { color: prio.color } })
-                  ] }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex gap-6", children: columns.map((column) => {
-                    const columnTasks = getTasksByContext(column.id, prio.id);
-                    const isDragOver = dragOverInfo?.colId === column.id && dragOverInfo?.rowId === prio.id;
-                    return /* @__PURE__ */ jsxRuntimeExports.jsx(
-                      "div",
-                      {
-                        className: `flex-1 min-w-[300px] rounded-2xl transition-all duration-300 ${isDragOver ? "bg-white/5 ring-1 ring-white/20" : ""}`,
-                        onDragOver: (e) => handleDragOver(e, column.id, prio.id),
-                        onDrop: (e) => handleDrop(e, column.id, prio.id),
-                        onDragEnter: () => handleDragEnter(column.id, prio.id),
-                        children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-col gap-4 min-h-[120px] p-2", children: columnTasks.map((task) => /* @__PURE__ */ jsxRuntimeExports.jsx(
-                          TaskCard,
-                          {
-                            task,
-                            priorities,
-                            isCompletedColumn: column.isCompleted,
-                            onMoveTask: moveTask,
-                            onEditTask: handleEditTaskClick,
-                            onUpdateTask: handleUpdateTask,
-                            onDeleteTask: handleDeleteTask,
-                            allTasks: tasks
-                          },
-                          task.id
-                        )) })
-                      },
-                      `${prio.id}-${column.id}`
-                    );
-                  }) })
-                ] }, prio.id);
-              })
-            ] })
-          ] }) })
+          ) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "pb-4 min-w-[1200px] h-full", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+            ProjectBoard,
+            {
+              columns,
+              priorities,
+              tasks: currentProjectTasks,
+              allTasks: tasks,
+              boardGrouping,
+              onUpdateColumns: handleUpdateColumns,
+              onMoveTask: moveTask,
+              onEditTask: handleEditTaskClick,
+              onUpdateTask: handleUpdateTask,
+              onDeleteTask: handleDeleteTask,
+              getTasksByContext
+            }
+          ) }) })
         ]
       }
     ),

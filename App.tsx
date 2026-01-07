@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Sidebar } from './components/Sidebar';
-import { TaskCard } from './components/TaskCard';
+
 import { LiquidButton } from './components/LiquidButton';
 import { TaskFormModal } from './components/TaskFormModal';
 import { ProjectModal } from './components/ProjectModal';
@@ -9,8 +9,11 @@ import { Dashboard } from './components/Dashboard';
 import { Toast } from './components/Toast';
 import { TitleBar } from './components/TitleBar';
 import { Task, Project, BoardColumn, ProjectType, PriorityDefinition, GroupingOption, ToastMessage, ToastType, CustomFieldDefinition, FilterState } from './types';
-import { Search, Bell, Filter, Calendar, Tag, User, AlertOctagon, Undo2 } from 'lucide-react';
+import { Search, Bell, Filter, Calendar, Tag, User, Undo2, Loader2 } from 'lucide-react';
 import { debounce } from './src/utils/debounce';
+import storageService from './src/services/storageService';
+import { STORAGE_KEYS } from './src/constants';
+import ProjectBoard from './src/components/ProjectBoard';
 
 // Initial Projects (Fallback)
 const defaultProjects: Project[] = [
@@ -46,121 +49,26 @@ const defaultPriorities: PriorityDefinition[] = [
 
 const App: React.FC = () => {
   // --- State Initialization ---
-  // Migration helper: Migrate from old 'aether-' keys to 'liquitask-' keys
-  const migrateStorageKey = <T,>(oldKey: string, newKey: string): T | null => {
-    const oldValue = localStorage.getItem(oldKey);
-    if (oldValue) {
-      localStorage.setItem(newKey, oldValue);
-      localStorage.removeItem(oldKey);
-      return JSON.parse(oldValue) as T;
-    }
-    return null;
-  };
+  // State Initialization
+  const [isLoaded, setIsLoaded] = useState(false);
 
-  const [columns, setColumns] = useState<BoardColumn[]>(() => {
-    const migrated = migrateStorageKey('aether-columns', 'liquitask-columns');
-    if (migrated) return migrated;
-    const saved = localStorage.getItem('liquitask-columns');
-    return saved ? JSON.parse(saved) : defaultColumns;
-  });
+  const [columns, setColumns] = useState<BoardColumn[]>(defaultColumns);
+  const [projectTypes, setProjectTypes] = useState<ProjectType[]>(defaultProjectTypes);
+  const [priorities, setPriorities] = useState<PriorityDefinition[]>(defaultPriorities);
+  const [customFields, setCustomFields] = useState<CustomFieldDefinition[]>([]);
+  const [projects, setProjects] = useState<Project[]>(defaultProjects);
+  const [tasks, setTasks] = useState<Task[]>([]);
 
-  const [projectTypes, setProjectTypes] = useState<ProjectType[]>(() => {
-    const migrated = migrateStorageKey('aether-project-types', 'liquitask-project-types');
-    if (migrated) return migrated;
-    const saved = localStorage.getItem('liquitask-project-types');
-    return saved ? JSON.parse(saved) : defaultProjectTypes;
-  });
+  const [activeProjectId, setActiveProjectId] = useState<string>('p1');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+  const [boardGrouping, setBoardGrouping] = useState<GroupingOption>('none');
 
-  const [priorities, setPriorities] = useState<PriorityDefinition[]>(() => {
-    const migrated = migrateStorageKey('aether-priorities', 'liquitask-priorities');
-    if (migrated) return migrated;
-    const saved = localStorage.getItem('liquitask-priorities');
-    return saved ? JSON.parse(saved) : defaultPriorities;
-  });
 
-  const [customFields, setCustomFields] = useState<CustomFieldDefinition[]>(() => {
-    const migrated = migrateStorageKey('aether-custom-fields', 'liquitask-custom-fields');
-    if (migrated) return migrated;
-    const saved = localStorage.getItem('liquitask-custom-fields');
-    return saved ? JSON.parse(saved) : [];
-  });
 
-  const [projects, setProjects] = useState<Project[]>(() => {
-    const migrated = migrateStorageKey('aether-projects', 'liquitask-projects');
-    if (migrated) return migrated;
-    const saved = localStorage.getItem('liquitask-projects');
-    return saved ? JSON.parse(saved) : defaultProjects;
-  });
 
-  const [tasks, setTasks] = useState<Task[]>(() => {
-    const migrated = migrateStorageKey<unknown[]>('aether-tasks', 'liquitask-tasks');
-    if (migrated) {
-      return migrated.map((t: unknown): Task => {
-        const task = t as Record<string, unknown>;
-        return {
-          ...task,
-          createdAt: task.createdAt ? new Date(task.createdAt as string) : new Date(),
-          dueDate: task.dueDate ? new Date(task.dueDate as string) : undefined,
-          attachments: (task.attachments as Task['attachments']) || [],
-          customFieldValues: (task.customFieldValues as Task['customFieldValues']) || {},
-          links: (task.links as Task['links']) || [],
-          tags: (task.tags as Task['tags']) || [],
-          timeEstimate: (task.timeEstimate as number) || 0,
-          timeSpent: (task.timeSpent as number) || 0,
-        } as Task;
-      });
-    }
-    const saved = localStorage.getItem('liquitask-tasks');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved) as unknown[];
-        return parsed.map((t: unknown) => {
-          const task = t as Record<string, unknown>;
-          return {
-            ...task,
-            createdAt: task.createdAt ? new Date(task.createdAt as string) : new Date(),
-            dueDate: task.dueDate ? new Date(task.dueDate as string) : undefined,
-            attachments: (task.attachments as Task['attachments']) || [],
-            customFieldValues: (task.customFieldValues as Task['customFieldValues']) || {},
-            links: (task.links as Task['links']) || [],
-            tags: (task.tags as Task['tags']) || [],
-            timeEstimate: (task.timeEstimate as number) || 0,
-            timeSpent: (task.timeSpent as number) || 0,
-          } as Task;
-        });
-      } catch (e) {
-        console.error('Failed to parse tasks:', e);
-        return [];
-      }
-    }
-    return [];
-  });
-
-  const [activeProjectId, setActiveProjectId] = useState<string>(() => {
-    const migrated = migrateStorageKey('aether-active-project', 'liquitask-active-project');
-    if (migrated) return migrated;
-    const saved = localStorage.getItem('liquitask-active-project');
-    return saved || (projects[0]?.id || 'p1');
-  });
-
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
-    const migrated = migrateStorageKey('aether-sidebar-collapsed', 'liquitask-sidebar-collapsed');
-    if (migrated !== null) return migrated === 'true';
-    const saved = localStorage.getItem('liquitask-sidebar-collapsed');
-    return saved === 'true';
-  });
-
-  const [boardGrouping, setBoardGrouping] = useState<GroupingOption>(() => {
-    const migrated = migrateStorageKey('aether-grouping', 'liquitask-grouping');
-    if (migrated) return migrated as GroupingOption;
-    const saved = localStorage.getItem('liquitask-grouping');
-    return (saved as GroupingOption) || 'none';
-  });
 
   const [currentView, setCurrentView] = useState<'project' | 'dashboard'>('project');
   const [searchQuery, setSearchQuery] = useState('');
-  const [dragOverInfo, setDragOverInfo] = useState<{ colId: string, rowId?: string } | null>(null);
-  const [_draggedColumnId, setDraggedColumnId] = useState<string | null>(null);
 
   // Filter Panel State
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -247,41 +155,75 @@ const App: React.FC = () => {
     }
   }, [addToast]);
 
-  // Debounced localStorage writes
+  // Debounced storage writes
   const debouncedSaveColumns = useMemo(() => debounce((cols: BoardColumn[]) => {
-    localStorage.setItem('liquitask-columns', JSON.stringify(cols));
+    storageService.set(STORAGE_KEYS.COLUMNS, cols);
   }, 300), []);
 
   const debouncedSaveProjectTypes = useMemo(() => debounce((types: ProjectType[]) => {
-    localStorage.setItem('liquitask-project-types', JSON.stringify(types));
+    storageService.set(STORAGE_KEYS.PROJECT_TYPES, types);
   }, 300), []);
 
   const debouncedSavePriorities = useMemo(() => debounce((prios: PriorityDefinition[]) => {
-    localStorage.setItem('liquitask-priorities', JSON.stringify(prios));
+    storageService.set(STORAGE_KEYS.PRIORITIES, prios);
   }, 300), []);
 
   const debouncedSaveCustomFields = useMemo(() => debounce((fields: CustomFieldDefinition[]) => {
-    localStorage.setItem('liquitask-custom-fields', JSON.stringify(fields));
+    storageService.set(STORAGE_KEYS.CUSTOM_FIELDS, fields);
   }, 300), []);
 
   const debouncedSaveProjects = useMemo(() => debounce((projs: Project[]) => {
-    localStorage.setItem('liquitask-projects', JSON.stringify(projs));
+    storageService.set(STORAGE_KEYS.PROJECTS, projs);
   }, 300), []);
 
   const debouncedSaveTasks = useMemo(() => debounce((tsks: Task[]) => {
-    localStorage.setItem('liquitask-tasks', JSON.stringify(tsks));
+    storageService.set(STORAGE_KEYS.TASKS, tsks);
   }, 300), []);
 
   // --- Effects ---
-  useEffect(() => { debouncedSaveColumns(columns); }, [columns, debouncedSaveColumns]);
-  useEffect(() => { debouncedSaveProjectTypes(projectTypes); }, [projectTypes, debouncedSaveProjectTypes]);
-  useEffect(() => { debouncedSavePriorities(priorities); }, [priorities, debouncedSavePriorities]);
-  useEffect(() => { debouncedSaveCustomFields(customFields); }, [customFields, debouncedSaveCustomFields]);
-  useEffect(() => { debouncedSaveProjects(projects); }, [projects, debouncedSaveProjects]);
-  useEffect(() => { debouncedSaveTasks(tasks); }, [tasks, debouncedSaveTasks]);
-  useEffect(() => { localStorage.setItem('liquitask-active-project', activeProjectId); }, [activeProjectId]);
-  useEffect(() => { localStorage.setItem('liquitask-sidebar-collapsed', String(isSidebarCollapsed)); }, [isSidebarCollapsed]);
-  useEffect(() => { localStorage.setItem('liquitask-grouping', boardGrouping); }, [boardGrouping]);
+  useEffect(() => {
+    if (isLoaded) debouncedSaveColumns(columns);
+  }, [columns, debouncedSaveColumns, isLoaded]);
+  useEffect(() => { if (isLoaded) debouncedSaveProjectTypes(projectTypes); }, [projectTypes, debouncedSaveProjectTypes, isLoaded]);
+  useEffect(() => { if (isLoaded) debouncedSavePriorities(priorities); }, [priorities, debouncedSavePriorities, isLoaded]);
+  useEffect(() => { if (isLoaded) debouncedSaveCustomFields(customFields); }, [customFields, debouncedSaveCustomFields, isLoaded]);
+  useEffect(() => { if (isLoaded) debouncedSaveProjects(projects); }, [projects, debouncedSaveProjects, isLoaded]);
+  useEffect(() => { if (isLoaded) debouncedSaveTasks(tasks); }, [tasks, debouncedSaveTasks, isLoaded]);
+
+  useEffect(() => {
+    if (isLoaded) storageService.set(STORAGE_KEYS.ACTIVE_PROJECT, activeProjectId);
+  }, [activeProjectId, isLoaded]);
+  useEffect(() => {
+    if (isLoaded) storageService.set(STORAGE_KEYS.SIDEBAR_COLLAPSED, isSidebarCollapsed);
+  }, [isSidebarCollapsed, isLoaded]);
+  useEffect(() => {
+    if (isLoaded) storageService.set(STORAGE_KEYS.GROUPING, boardGrouping);
+  }, [boardGrouping, isLoaded]);
+
+  // Initial Data Load
+  useEffect(() => {
+    const loadData = async () => {
+      await storageService.initialize();
+      const data = storageService.getAllData();
+
+      if (data.columns) setColumns(data.columns);
+      if (data.projectTypes) setProjectTypes(data.projectTypes);
+      if (data.priorities) setPriorities(data.priorities);
+      if (data.customFields) setCustomFields(data.customFields);
+      if (data.projects) setProjects(data.projects);
+      if (data.tasks) setTasks(data.tasks);
+      if (data.activeProjectId) setActiveProjectId(data.activeProjectId);
+      if (data.sidebarCollapsed !== undefined) setIsSidebarCollapsed(data.sidebarCollapsed);
+      if (data.grouping) setBoardGrouping(data.grouping);
+
+      setIsLoaded(true);
+    };
+    loadData();
+  }, []);
+
+
+
+
 
   // Global Keyboard Shortcuts
   useEffect(() => {
@@ -584,40 +526,20 @@ const App: React.FC = () => {
   };
 
 
-  // Drag and Drop Logic for Tasks and Columns
-  const handleDragOver = (e: React.DragEvent, _colId: string, _rowId?: string) => { e.preventDefault(); };
-  const handleDragEnter = (colId: string, rowId?: string) => { setDragOverInfo({ colId, rowId }); };
-  const handleDrop = (e: React.DragEvent, statusId: string, priorityId?: string) => {
-    e.preventDefault();
-    const taskId = e.dataTransfer.getData('taskId');
-    if (taskId) {
-      moveTask(taskId, statusId, priorityId);
-    }
-    setDragOverInfo(null);
-  };
 
-  const handleColumnDragStart = (e: React.DragEvent, colId: string) => {
-    setDraggedColumnId(colId);
-    e.dataTransfer.setData('columnId', colId);
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const handleColumnDrop = (e: React.DragEvent, targetColId: string) => {
-    e.preventDefault();
-    const draggedId = e.dataTransfer.getData('columnId');
-    if (draggedId && draggedId !== targetColId) {
-      const newColumns = [...columns];
-      const draggedIndex = newColumns.findIndex(c => c.id === draggedId);
-      const targetIndex = newColumns.findIndex(c => c.id === targetColId);
-
-      const [removed] = newColumns.splice(draggedIndex, 1);
-      newColumns.splice(targetIndex, 0, removed);
-      setColumns(newColumns);
-    }
-    setDraggedColumnId(null);
-  }
 
   const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
+
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center text-white">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-10 h-10 text-red-500 animate-spin" />
+          <p className="text-slate-400">Loading LiquiTask...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen text-slate-200 font-sans overflow-x-hidden selection:bg-red-500/30 selection:text-white ${isElectron ? 'pt-10' : ''}`}>
@@ -760,125 +682,19 @@ const App: React.FC = () => {
             />
           ) : (
             <div className="pb-4 min-w-[1200px] h-full">
-
-              {boardGrouping === 'none' && (
-                <div className="flex gap-6 h-full">
-                  {columns.map((column) => {
-                    const columnTasks = getTasksByContext(column.id);
-                    const isDragOver = dragOverInfo?.colId === column.id && !dragOverInfo?.rowId;
-                    const accentColor = column.color.startsWith('#') ? column.color : '#64748b';
-
-                    // WIP Limit Logic
-                    const wipLimit = column.wipLimit || 0;
-                    const isOverLimit = wipLimit > 0 && columnTasks.length > wipLimit;
-
-                    return (
-                      <div
-                        key={column.id}
-                        className="flex-1 flex flex-col min-w-[300px]"
-                        draggable
-                        onDragStart={(e) => handleColumnDragStart(e, column.id)}
-                        onDrop={(e) => handleColumnDrop(e, column.id)}
-                        onDragOver={(e) => e.preventDefault()}
-                      >
-                        <div className="flex items-center justify-between mb-4 px-4 cursor-grab active:cursor-grabbing group/colheader">
-                          <div className="flex items-center gap-3">
-                            <h3 className={`font-bold text-sm tracking-wide uppercase text-shadow-sm transition-colors ${isOverLimit ? 'text-red-400' : 'text-slate-200'}`}>
-                              {column.title}
-                            </h3>
-                            <span className={`text-xs px-2 py-0.5 rounded border ${isOverLimit ? 'bg-red-500/20 text-red-400 border-red-500/50 animate-pulse' : 'bg-white/5 text-slate-400 border-white/5'}`}>
-                              {columnTasks.length} {wipLimit > 0 && `/ ${wipLimit}`}
-                            </span>
-                            {isOverLimit && <AlertOctagon size={16} className="text-red-500 animate-pulse" />}
-                          </div>
-                          <div className="w-2 h-2 rounded-full shadow-[0_0_8px_currentColor]" style={{ backgroundColor: isOverLimit ? '#ef4444' : accentColor, color: isOverLimit ? '#ef4444' : accentColor }}></div>
-                        </div>
-
-                        <div
-                          className={`flex-1 rounded-3xl p-3 flex flex-col gap-4 transition-all duration-500 
-                                            ${isDragOver ? 'bg-white/5 border-white/10 shadow-[inset_0_0_30px_rgba(255,255,255,0.05)]' : 'bg-transparent border border-transparent'}
-                                            ${isOverLimit ? 'bg-red-900/10 border-red-500/20' : ''}
-                                        `}
-                          onDragOver={(e) => handleDragOver(e, column.id)}
-                          onDrop={(e) => handleDrop(e, column.id)}
-                          onDragEnter={() => handleDragEnter(column.id)}
-                        >
-                          <div className="h-full rounded-2xl bg-[#0a0a0a]/50 backdrop-blur-md border border-white/10 p-4 flex flex-col gap-4 shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)] min-h-[300px]">
-                            {columnTasks.map(task => (
-                              <TaskCard
-                                key={task.id}
-                                task={task}
-                                priorities={priorities}
-                                isCompletedColumn={column.isCompleted}
-                                onMoveTask={moveTask}
-                                onEditTask={handleEditTaskClick}
-                                onUpdateTask={handleUpdateTask}
-                                onDeleteTask={handleDeleteTask}
-                                allTasks={tasks}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {boardGrouping === 'priority' && (
-                <div className="flex flex-col gap-8">
-                  <div className="flex gap-6 sticky top-0 z-20 pb-2 bg-[#020000]/80 backdrop-blur-md -mx-6 px-6 pt-2">
-                    {columns.map((col) => (
-                      <div key={col.id} className="flex-1 min-w-[300px] flex items-center justify-between px-2">
-                        <h3 className="font-bold text-slate-300 text-xs tracking-wide uppercase">{col.title}</h3>
-                      </div>
-                    ))}
-                  </div>
-
-                  {priorities.map((prio) => {
-                    return (
-                      <div key={prio.id} className="rounded-3xl border border-white/5 bg-white/[0.02] p-4">
-                        <div className="flex items-center gap-3 mb-4 px-2">
-                          <div className="h-px w-8 bg-current opacity-50" style={{ color: prio.color }}></div>
-                          <span className="text-sm font-bold uppercase tracking-widest" style={{ color: prio.color }}>{prio.label}</span>
-                          <div className="h-px flex-1 bg-current opacity-20" style={{ color: prio.color }}></div>
-                        </div>
-                        <div className="flex gap-6">
-                          {columns.map((column) => {
-                            const columnTasks = getTasksByContext(column.id, prio.id);
-                            const isDragOver = dragOverInfo?.colId === column.id && dragOverInfo?.rowId === prio.id;
-                            return (
-                              <div
-                                key={`${prio.id}-${column.id}`}
-                                className={`flex-1 min-w-[300px] rounded-2xl transition-all duration-300 ${isDragOver ? 'bg-white/5 ring-1 ring-white/20' : ''}`}
-                                onDragOver={(e) => handleDragOver(e, column.id, prio.id)}
-                                onDrop={(e) => handleDrop(e, column.id, prio.id)}
-                                onDragEnter={() => handleDragEnter(column.id, prio.id)}
-                              >
-                                <div className="flex flex-col gap-4 min-h-[120px] p-2">
-                                  {columnTasks.map(task => (
-                                    <TaskCard
-                                      key={task.id}
-                                      task={task}
-                                      priorities={priorities}
-                                      isCompletedColumn={column.isCompleted}
-                                      onMoveTask={moveTask}
-                                      onEditTask={handleEditTaskClick}
-                                      onUpdateTask={handleUpdateTask}
-                                      onDeleteTask={handleDeleteTask}
-                                      allTasks={tasks}
-                                    />
-                                  ))}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
+              <ProjectBoard
+                columns={columns}
+                priorities={priorities}
+                tasks={currentProjectTasks}
+                allTasks={tasks}
+                boardGrouping={boardGrouping}
+                onUpdateColumns={handleUpdateColumns}
+                onMoveTask={moveTask}
+                onEditTask={handleEditTaskClick}
+                onUpdateTask={handleUpdateTask}
+                onDeleteTask={handleDeleteTask}
+                getTasksByContext={getTasksByContext}
+              />
             </div>
           )}
         </div>

@@ -1,8 +1,18 @@
-import { app, BrowserWindow, ipcMain, shell, Menu } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, Menu, Notification } from 'electron';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
+import Store from 'electron-store';
+
+const store = new Store();
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
+
+// IPC Handlers for Storage
+ipcMain.handle('storage:get', (_event, key) => store.get(key));
+ipcMain.handle('storage:set', (_event, key, value) => store.set(key, value));
+ipcMain.handle('storage:delete', (_event, key) => store.delete(key));
+ipcMain.handle('storage:clear', () => store.clear());
+ipcMain.handle('storage:has', (_event, key) => store.has(key));
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -70,7 +80,6 @@ ipcMain.handle('window:isMaximized', () => mainWindow?.isMaximized());
 
 // Notification handler
 ipcMain.handle('notification:show', (_event, options: { title: string; body: string }) => {
-    const { Notification } = require('electron');
     if (Notification.isSupported()) {
         const notification = new Notification({
             title: options.title,

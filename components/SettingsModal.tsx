@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ModalWrapper } from './ModalWrapper';
 import { Settings, Shield, Palette, LogOut, Database, Download, Upload, RefreshCw, Kanban, Plus, Trash2, CheckSquare, Flag, Layout, SlidersHorizontal, Type, Hash, List, Link, AlertOctagon, Loader2 } from 'lucide-react';
 import { Project, Task, BoardColumn, ProjectType, PriorityDefinition, GroupingOption, ToastType, CustomFieldDefinition } from '../types';
+import storageService from '../src/services/storageService';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -74,7 +75,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
     try {
       // Use storageService for validated import
-      const { storageService } = require('../src/services/storageService');
       const result = storageService.importData(importText);
 
       if (result.error || !result.data) {

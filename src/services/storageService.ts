@@ -68,33 +68,81 @@ class StorageService {
         return defaultValue;
     }
 
+    async initialize(): Promise<void> {
+        if (!isElectron) return;
+
+        try {
+            // Load all keys from native storage
+            const keys = Object.values(STORAGE_KEYS);
+            for (const key of keys) {
+                const value = await window.electronAPI!.storage.get(key);
+
+                if (value) {
+                    // Use native data
+                    if (key === STORAGE_KEYS.TASKS) {
+                        this.cache.set(key, parseTasks(value));
+                    } else {
+                        this.cache.set(key, value);
+                    }
+                } else {
+                    // Fallback to localStorage (Migration)
+                    const local = localStorage.getItem(key);
+                    if (local) {
+                        try {
+                            const parsed = JSON.parse(local);
+                            if (key === STORAGE_KEYS.TASKS) {
+                                this.cache.set(key, parseTasks(parsed));
+                            } else {
+                                this.cache.set(key, parsed);
+                            }
+                            // Save to native storage for next time
+                            await window.electronAPI!.storage.set(key, parsed);
+                            console.log(`Migrated ${key} to native storage`);
+                        } catch (e) {
+                            console.error(`Failed to migrate ${key}`, e);
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Failed to initialize storage service:', error);
+        }
+    }
+
     set<T>(key: string, value: T): void {
         this.cache.set(key, value);
-        try {
-            const serialized = JSON.stringify(value);
-            const result = trySaveToStorage(key, serialized);
-            
-            if (!result.success) {
-                console.error(`Failed to save ${key}:`, result.error);
-                // Show warning if storage is getting full
-                if (isStorageNearQuota(80)) {
-                    console.warn('Storage is getting full. Consider exporting and clearing old data.');
-                }
-                throw new Error(result.error || 'Failed to save to storage');
+
+        if (isElectron) {
+            // Native Save
+            window.electronAPI!.storage.set(key, value).catch(console.error);
+        }
+
+        // Always save to localStorage as backup/fallback for now (or strictly separate)
+        // For now, let's keep localStorage sync as well to be safe, or conditionally:
+        if (!isElectron) {
+            try {
+                const serialized = JSON.stringify(value);
+                const result = trySaveToStorage(key, serialized);
+                if (!result.success) throw new Error(result.error);
+            } catch (e) {
+                console.error(`Failed to save ${key}:`, e);
             }
-        } catch (e) {
-            console.error(`Failed to save ${key}:`, e);
-            throw e;
         }
     }
 
     remove(key: string): void {
         this.cache.delete(key);
+        if (isElectron) {
+            window.electronAPI!.storage.delete(key).catch(console.error);
+        }
         localStorage.removeItem(key);
     }
 
     clear(): void {
         this.cache.clear();
+        if (isElectron) {
+            window.electronAPI!.storage.clear().catch(console.error);
+        }
         Object.values(STORAGE_KEYS).forEach(key => {
             localStorage.removeItem(key);
         });
@@ -129,7 +177,7 @@ class StorageService {
     importData(jsonString: string): { data: AppData | null; error?: string } {
         try {
             const parsed = JSON.parse(jsonString);
-            
+
             // Check version and migrate if needed
             const importedVersion = parsed.version || '0.0.0';
             if (importedVersion !== CURRENT_DATA_VERSION) {
@@ -139,7 +187,7 @@ class StorageService {
 
             // Validate with Zod schema
             const validated = validateAndTransformImportedData(parsed);
-            
+
             if (!validated) {
                 return { data: null, error: 'Validation failed' };
             }

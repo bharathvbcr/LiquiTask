@@ -97,7 +97,7 @@ export function useProjectManagement({ addToast }: UseProjectManagementProps) {
         const isPinned = !!targetProject.pinned;
         const parentId = targetProject.parentId;
 
-        let siblings = projects.filter(p => p.parentId === parentId && !!p.pinned === isPinned);
+        const siblings = projects.filter(p => p.parentId === parentId && !!p.pinned === isPinned);
         siblings.sort((a, b) => (a.order || 0) - (b.order || 0));
 
         const currentIndex = siblings.findIndex(p => p.id === projectId);
