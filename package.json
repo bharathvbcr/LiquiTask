@@ -4,7 +4,10 @@
   "private": true,
   "version": "1.0.0",
   "description": "A premium Kanban task management desktop app with a stunning liquid glass aesthetic",
-  "author": "LiquidTask",
+  "author": {
+    "name": "LiquidTask",
+    "email": "support@liquitask.com"
+  },
   "main": "dist-electron/main/main.js",
   "type": "module",
   "scripts": {
