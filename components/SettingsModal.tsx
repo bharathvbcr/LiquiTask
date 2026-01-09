@@ -495,6 +495,38 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   Download Template File
                 </button>
 
+                {/* File Input for Import */}
+                <input
+                  type="file"
+                  accept=".json,application/json"
+                  className="hidden"
+                  id="bulk-task-file-input"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                      const content = event.target?.result as string;
+                      if (content) {
+                        setBulkTasksJson(content);
+                        addToast(`Loaded ${file.name}`, 'info');
+                      }
+                    };
+                    reader.onerror = () => {
+                      addToast('Failed to read file', 'error');
+                    };
+                    reader.readAsText(file);
+                    e.target.value = ''; // Reset for re-selecting same file
+                  }}
+                />
+                <label
+                  htmlFor="bulk-task-file-input"
+                  className="flex items-center justify-center gap-2 w-full p-2 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 rounded-lg text-emerald-400 text-xs transition-all cursor-pointer"
+                >
+                  <Upload size={14} />
+                  Import from File (.json)
+                </label>
+
                 <textarea
                   value={bulkTasksJson}
                   onChange={(e) => setBulkTasksJson(e.target.value)}

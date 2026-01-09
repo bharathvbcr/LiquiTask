@@ -1,4 +1,4 @@
-import electron, { ipcMain as ipcMain$1, app as app$1, BrowserWindow, shell as shell$1 } from "electron";
+import electron, { ipcMain as ipcMain$1, Notification, app as app$1, BrowserWindow, shell as shell$1 } from "electron";
 import { join } from "path";
 import { fileURLToPath } from "url";
 import process$1 from "node:process";
@@ -15900,6 +15900,16 @@ function createWindow() {
     shell$1.openExternal(url);
     return { action: "deny" };
   });
+  mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        "Content-Security-Policy": [
+          process.env.VITE_DEV_SERVER_URL ? "default-src 'self' 'unsafe-inline' 'unsafe-eval'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:;" : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:;"
+        ]
+      }
+    });
+  });
   if (process.env.VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
     mainWindow.webContents.openDevTools();
@@ -15921,7 +15931,6 @@ ipcMain$1.handle("window:maximize", () => {
 ipcMain$1.handle("window:close", () => mainWindow?.close());
 ipcMain$1.handle("window:isMaximized", () => mainWindow?.isMaximized());
 ipcMain$1.handle("notification:show", (_event, options) => {
-  const { Notification } = require2("electron");
   if (Notification.isSupported()) {
     const notification = new Notification({
       title: options.title,

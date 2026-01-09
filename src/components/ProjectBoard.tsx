@@ -19,10 +19,12 @@ import {
     SortableContext,
     sortableKeyboardCoordinates,
     horizontalListSortingStrategy,
+    verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 
 import { Task, BoardColumn, PriorityDefinition } from '../../types';
 import { SortableColumn } from './board/SortableColumn';
+import { SortableTask } from './board/SortableTask';
 import { TaskCard } from '../../components/TaskCard';
 
 interface ProjectBoardProps {
@@ -165,56 +167,165 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = ({
     };
 
     if (boardGrouping === 'priority') {
-        // Fallback or simplified view for priority grouping (can be improved later)
-        // For now, let's just render the old way but non-sortable to avoid complexity spikes
-        // Or we can just render standard divs.
-        // Reuse the code 'SortableColumn' but disable drag?
-        return <div>Priority View - (Drag Disabled for Optimization)</div>;
-        // Actually, let's keep it functional but use simple rendering or implementation from before?
-        // Re-implementing Priority Grouping with DndKit is heavy.
-        // I'll return a basic "Not Implemented for DnD" or just render standard divs.
-        // Let's copy the Priority Grouping render logic from before but strip HTML5 DnD.
+        // Priority grouping view - renders tasks grouped by priority with columns
+        // Uses composite drop zone IDs to enable DnD across both status and priority dimensions
+
+        // Helper to create composite drop zone ID
+        const getDropZoneId = (priorityId: string, statusId: string) =>
+            `${priorityId}::${statusId}`;
+
+        // Helper to parse composite drop zone ID
+        const parseDropZoneId = (id: string): { priorityId: string; statusId: string } | null => {
+            const parts = id.split('::');
+            if (parts.length === 2) {
+                return { priorityId: parts[0], statusId: parts[1] };
+            }
+            return null;
+        };
+
+        // Find task's current priority and status for drop target resolution
+        const findTaskLocation = (taskId: string): { priorityId: string; statusId: string } | null => {
+            const task = tasks.find(t => t.id === taskId);
+            if (task) {
+                return { priorityId: task.priority, statusId: task.status };
+            }
+            return null;
+        };
+
+        const handlePriorityDragStart = (event: DragStartEvent) => {
+            const { active } = event;
+            const activeIdString = String(active.id);
+            if (!activeIdString) return;
+
+            setActiveId(activeIdString);
+            const task = tasks.find((t) => t.id === activeIdString);
+            if (task) {
+                setActiveTask(task);
+            }
+        };
+
+        const handlePriorityDragEnd = (event: DragEndEvent) => {
+            const { over } = event;
+            const overIdString = over ? String(over.id) : null;
+
+            if (!overIdString || !activeTask) {
+                setActiveId(null);
+                setActiveTask(null);
+                return;
+            }
+
+            let newStatus = '';
+            let newPriority = '';
+
+            // Check if dropped on a drop zone (composite ID)
+            const dropZone = parseDropZoneId(overIdString);
+            if (dropZone) {
+                newStatus = dropZone.statusId;
+                newPriority = dropZone.priorityId;
+            } else {
+                // Dropped on a task - get that task's location
+                const taskLocation = findTaskLocation(overIdString);
+                if (taskLocation) {
+                    newStatus = taskLocation.statusId;
+                    newPriority = taskLocation.priorityId;
+                }
+            }
+
+            // Only update if something changed
+            if (newStatus && (newStatus !== activeTask.status || newPriority !== activeTask.priority)) {
+                onMoveTask(activeTask.id, newStatus, newPriority !== activeTask.priority ? newPriority : undefined);
+            }
+
+            setActiveId(null);
+            setActiveTask(null);
+        };
 
         return (
-            <div className="flex flex-col gap-8">
-                <div className="flex gap-6 sticky top-0 z-20 pb-2 bg-[#020000]/80 backdrop-blur-md -mx-6 px-6 pt-2">
-                    {columns.map((col) => (
-                        <div key={col.id} className="flex-1 min-w-[300px] flex items-center justify-between px-2">
-                            <h3 className="font-bold text-slate-300 text-xs tracking-wide uppercase">{col.title}</h3>
+            <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragStart={handlePriorityDragStart}
+                onDragEnd={handlePriorityDragEnd}
+            >
+                <div className="flex flex-col gap-8">
+                    <div className="flex gap-6 sticky top-0 z-20 pb-2 bg-[#020000]/80 backdrop-blur-md -mx-6 px-6 pt-2">
+                        {columns.map((col) => (
+                            <div key={col.id} className="flex-1 min-w-[300px] flex items-center justify-between px-2">
+                                <h3 className="font-bold text-slate-300 text-xs tracking-wide uppercase">{col.title}</h3>
+                            </div>
+                        ))}
+                    </div>
+                    {priorities.map((prio) => (
+                        <div key={prio.id} className="rounded-3xl border border-white/5 bg-white/[0.02] p-4">
+                            <div className="flex items-center gap-3 mb-4 px-2">
+                                <span className="text-sm font-bold uppercase tracking-widest" style={{ color: prio.color }}>{prio.label}</span>
+                            </div>
+                            <div className="flex gap-6">
+                                {columns.map((column) => {
+                                    const cellTasks = getTasksByContext(column.id, prio.id);
+                                    const dropZoneId = getDropZoneId(prio.id, column.id);
+                                    return (
+                                        <div
+                                            key={`${prio.id}-${column.id}`}
+                                            className="flex-1 min-w-[300px] flex flex-col gap-4 min-h-[120px] p-2 rounded-xl border border-transparent hover:border-white/10 transition-colors"
+                                            data-droppable-id={dropZoneId}
+                                        >
+                                            <SortableContext
+                                                items={cellTasks.map(t => t.id)}
+                                                strategy={verticalListSortingStrategy}
+                                                id={dropZoneId}
+                                            >
+                                                {cellTasks.map(task => (
+                                                    <SortableTask
+                                                        key={task.id}
+                                                        task={task}
+                                                        priorities={priorities}
+                                                        isCompletedColumn={column.isCompleted}
+                                                        onMoveTask={onMoveTask}
+                                                        onEditTask={onEditTask}
+                                                        onUpdateTask={onUpdateTask}
+                                                        onDeleteTask={onDeleteTask}
+                                                        allTasks={allTasks}
+                                                    />
+                                                ))}
+                                            </SortableContext>
+                                            {cellTasks.length === 0 && (
+                                                <div
+                                                    className="flex-1 min-h-[80px] rounded-lg border-2 border-dashed border-white/5 flex items-center justify-center text-slate-600 text-xs"
+                                                    data-droppable-id={dropZoneId}
+                                                >
+                                                    Drop here
+                                                </div>
+                                            )}
+                                        </div>
+                                    )
+                                })}
+                            </div>
                         </div>
                     ))}
                 </div>
-                {priorities.map((prio) => (
-                    <div key={prio.id} className="rounded-3xl border border-white/5 bg-white/[0.02] p-4">
-                        <div className="flex items-center gap-3 mb-4 px-2">
-                            <span className="text-sm font-bold uppercase tracking-widest" style={{ color: prio.color }}>{prio.label}</span>
-                        </div>
-                        <div className="flex gap-6">
-                            {columns.map((column) => {
-                                const columnTasks = getTasksByContext(column.id, prio.id);
-                                return (
-                                    <div key={`${prio.id}-${column.id}`} className="flex-1 min-w-[300px] flex flex-col gap-4 min-h-[120px] p-2">
-                                        {columnTasks.map(task => (
-                                            <TaskCard
-                                                key={task.id}
-                                                task={task}
-                                                priorities={priorities}
-                                                isCompletedColumn={column.isCompleted}
-                                                onMoveTask={onMoveTask}
-                                                onEditTask={onEditTask}
-                                                onUpdateTask={onUpdateTask}
-                                                onDeleteTask={onDeleteTask}
-                                                allTasks={allTasks}
-                                            />
-                                        ))}
-                                    </div>
-                                )
-                            })}
-                        </div>
-                    </div>
-                ))}
-            </div>
-        )
+
+                {createPortal(
+                    <DragOverlay dropAnimation={dropAnimation}>
+                        {activeTask && (
+                            <div className="opacity-80 rotate-2 cursor-grabbing">
+                                <TaskCard
+                                    task={activeTask}
+                                    priorities={priorities}
+                                    isCompletedColumn={false}
+                                    onMoveTask={() => { }}
+                                    onEditTask={() => { }}
+                                    onUpdateTask={() => { }}
+                                    onDeleteTask={() => { }}
+                                    allTasks={allTasks}
+                                />
+                            </div>
+                        )}
+                    </DragOverlay>,
+                    document.body
+                )}
+            </DndContext>
+        );
     }
 
     return (
