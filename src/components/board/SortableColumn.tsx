@@ -15,6 +15,7 @@ interface SortableColumnProps {
     onEditTask: (task: Task) => void;
     onUpdateTask: (task: Task) => void;
     onDeleteTask: (taskId: string) => void;
+    isCompact?: boolean;
 }
 
 export const SortableColumn: React.FC<SortableColumnProps> = ({
@@ -25,7 +26,8 @@ export const SortableColumn: React.FC<SortableColumnProps> = ({
     onMoveTask,
     onEditTask,
     onUpdateTask,
-    onDeleteTask
+    onDeleteTask,
+    isCompact
 }) => {
 
     const {
@@ -96,6 +98,7 @@ export const SortableColumn: React.FC<SortableColumnProps> = ({
                                 onUpdateTask={onUpdateTask}
                                 onDeleteTask={onDeleteTask}
                                 allTasks={allTasks}
+                                isCompact={isCompact}
                             />
                         ))}
                     </SortableContext>

@@ -3,7 +3,7 @@ import {
   Briefcase, Code, Megaphone, Smartphone, Box, Settings, Plus, Trash2, Folder, Globe, Cpu, Shield,
   ChevronLeft, ChevronRight, LayoutDashboard, CornerDownRight, Wrench, Zap, Truck, Database, Server,
   Layout, PenTool, Music, Video, Camera, Anchor, Coffee, Pin, PinOff, ArrowUp, ArrowDown, Search,
-  FolderPlus, ChevronDown, MoreHorizontal
+  FolderPlus, ChevronDown, MoreHorizontal, Edit2
 } from 'lucide-react';
 import { Project, ProjectType } from '../types';
 import logo from '../src/assets/logo.png';
@@ -21,7 +21,7 @@ interface SidebarProps {
   currentView: 'project' | 'dashboard';
   onChangeView: (view: 'project' | 'dashboard') => void;
   onTogglePin: (id: string) => void;
-  onMoveProject: (id: string, direction: 'up' | 'down') => void;
+  onRenameProject: (id: string, newName: string) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -37,11 +37,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
   currentView,
   onChangeView,
   onTogglePin,
-  onMoveProject
+  onMoveProject,
+  onRenameProject
 }) => {
   const [projectSearch, setProjectSearch] = useState('');
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set((projects || []).map(p => p.id)));
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -106,13 +109,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const isActive = project.id === activeProjectId && currentView === 'project';
     const indent = isCollapsed ? 0 : depth * 12;
     const isMenuOpen = activeMenuId === project.id;
+    const isEditing = editingProjectId === project.id;
+
+    const handleSaveRename = (e?: React.FormEvent) => {
+      e?.preventDefault();
+      if (editName.trim()) {
+        onRenameProject(project.id, editName.trim());
+      }
+      setEditingProjectId(null);
+    };
 
     return (
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-0.5">
         <div
           onClick={() => {
-            onSelectProject(project.id);
-            onChangeView('project');
+            if (!isEditing) {
+              onSelectProject(project.id);
+              onChangeView('project');
+            }
           }}
           className={`
                 group relative px-2.5 py-3 rounded-xl cursor-pointer transition-all duration-200
@@ -147,19 +161,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </span>
 
             {!isCollapsed && (
-              <span className="font-medium text-sm truncate transition-all duration-300 flex-1">
-                {project.name}
-              </span>
+              isEditing ? (
+                <form onSubmit={handleSaveRename} className="flex-1 min-w-0" onClick={e => e.stopPropagation()}>
+                  <input
+                    autoFocus
+                    type="text"
+                    value={editName}
+                    onChange={e => setEditName(e.target.value)}
+                    onBlur={() => handleSaveRename()}
+                    onKeyDown={e => {
+                      if (e.key === 'Escape') setEditingProjectId(null);
+                    }}
+                    className="w-full bg-black/50 border border-red-500/50 rounded px-1.5 py-0.5 text-sm text-white focus:outline-none"
+                  />
+                </form>
+              ) : (
+                <span className="font-medium text-sm truncate transition-all duration-300 flex-1">
+                  {project.name}
+                </span>
+              )
             )}
 
             {/* Pinned Icon */}
-            {project.pinned && !isCollapsed && (
+            {project.pinned && !isCollapsed && !isEditing && (
               <Pin size={10} className="text-red-500 fill-red-500 rotate-45 shrink-0" />
             )}
           </div>
 
           {/* Action Button (Visible on Hover) */}
-          {!isCollapsed && (
+          {!isCollapsed && !isEditing && (
             <div className={`absolute right-2 z-20 ${isMenuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
               <button
                 onClick={(e) => {
@@ -168,7 +198,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }}
                 className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors"
               >
-                <MoreHorizontal size={16} />
+                <MoreHorizontal size={14} />
               </button>
 
               {/* Popover Menu */}
@@ -180,6 +210,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
                     >
                       <FolderPlus size={14} className="text-emerald-400" /> Add Sub-project
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditName(project.name);
+                        setEditingProjectId(project.id);
+                        setActiveMenuId(null);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                    >
+                      <Edit2 size={14} className="text-blue-400" /> Rename
                     </button>
                     <div className="h-px bg-white/5 my-0.5" />
                     <button
@@ -216,7 +257,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Nested Children */}
         {hasVisibleChildren && isExpanded && (
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-0.5">
             {children.map(child => <ProjectItem key={child.id} project={child} depth={depth + 1} />)}
           </div>
         )}

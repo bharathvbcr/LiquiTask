@@ -21,6 +21,7 @@ import {
     horizontalListSortingStrategy,
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
+import { Maximize2, Minimize2 } from 'lucide-react';
 
 import { Task, BoardColumn, PriorityDefinition } from '../../types';
 import { SortableColumn } from './board/SortableColumn';
@@ -57,6 +58,7 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = ({
     const [, setActiveId] = useState<string | null>(null);
     const [activeTask, setActiveTask] = useState<Task | null>(null);
     const [activeColumn, setActiveColumn] = useState<BoardColumn | null>(null);
+    const [isCompact, setIsCompact] = useState(false);
 
     const safeColumns = useMemo(() => columns || [], [columns]);
     const safePriorities = useMemo(() => priorities || [], [priorities]);
@@ -341,22 +343,34 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = ({
             onDragOver={onDragOver}
             onDragEnd={onDragEnd}
         >
-            <div className="flex gap-6 h-full overflow-x-auto pb-4">
-                <SortableContext items={columnIds} strategy={horizontalListSortingStrategy}>
-                    {safeColumns.map((col) => (
-                        <SortableColumn
-                            key={col.id}
-                            column={col}
-                            tasks={getTasksByContext(col.id)}
-                            priorities={safePriorities}
-                            allTasks={allTasks} // pass allTasks
-                            onMoveTask={onMoveTask}
-                            onEditTask={onEditTask}
-                            onUpdateTask={onUpdateTask}
-                            onDeleteTask={onDeleteTask}
-                        />
-                    ))}
-                </SortableContext>
+            <div className="flex flex-col h-full">
+                <div className="flex justify-end mb-4 px-4 sticky left-0 right-0">
+                    <button
+                        onClick={() => setIsCompact(!isCompact)}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-400 hover:text-white transition-all border border-white/5 hover:border-white/20"
+                    >
+                        {isCompact ? <Maximize2 size={14} /> : <Minimize2 size={14} />}
+                        {isCompact ? 'Expand Cards' : 'Compact View'}
+                    </button>
+                </div>
+                <div className="flex gap-6 h-full overflow-x-auto pb-4">
+                    <SortableContext items={columnIds} strategy={horizontalListSortingStrategy}>
+                        {safeColumns.map((col) => (
+                            <SortableColumn
+                                key={col.id}
+                                column={col}
+                                tasks={getTasksByContext(col.id)}
+                                priorities={safePriorities}
+                                allTasks={allTasks}
+                                onMoveTask={onMoveTask}
+                                onEditTask={onEditTask}
+                                onUpdateTask={onUpdateTask}
+                                onDeleteTask={onDeleteTask}
+                                isCompact={isCompact}
+                            />
+                        ))}
+                    </SortableContext>
+                </div>
             </div>
 
             {createPortal(
@@ -380,6 +394,7 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = ({
                                 onUpdateTask={() => { }}
                                 onDeleteTask={() => { }}
                                 allTasks={allTasks}
+                                isCompact={isCompact}
                             />
                         </div>
                     )}

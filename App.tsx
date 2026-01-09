@@ -652,8 +652,17 @@ const App: React.FC = () => {
           return { ...p, order: orderMap.get(p.id) };
         }
         return p;
+        return p;
       });
     });
+  };
+
+  const handleRenameProject = (projectId: string, newName: string) => {
+    setProjects(prev => prev.map(p => {
+      if (p.id === projectId) return { ...p, name: newName };
+      return p;
+    }));
+    addToast('Workspace renamed', 'success');
   };
 
 
@@ -694,6 +703,7 @@ const App: React.FC = () => {
         onChangeView={setCurrentView}
         onTogglePin={handleTogglePin}
         onMoveProject={handleMoveProject}
+        onRenameProject={handleRenameProject}
       />
 
       <main

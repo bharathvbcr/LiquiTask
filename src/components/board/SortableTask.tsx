@@ -13,6 +13,7 @@ interface SortableTaskProps {
     onUpdateTask: (task: Task) => void;
     onDeleteTask: (taskId: string) => void;
     allTasks: Task[];
+    isCompact?: boolean;
 }
 
 export const SortableTask: React.FC<SortableTaskProps> = ({ task, ...props }) => {
