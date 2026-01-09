@@ -7,14 +7,16 @@ interface ModalWrapperProps {
   title: string;
   children: React.ReactNode;
   icon?: React.ReactNode;
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
 }
 
-export const ModalWrapper: React.FC<ModalWrapperProps> = ({ 
-  isOpen, 
-  onClose, 
-  title, 
+export const ModalWrapper: React.FC<ModalWrapperProps> = ({
+  isOpen,
+  onClose,
+  title,
   children,
-  icon
+  icon,
+  size = 'lg'
 }) => {
   // Close on Escape key
   useEffect(() => {
@@ -27,17 +29,25 @@ export const ModalWrapper: React.FC<ModalWrapperProps> = ({
 
   if (!isOpen) return null;
 
+  const sizeClasses = {
+    sm: 'max-w-sm',
+    md: 'max-w-md',
+    lg: 'max-w-lg',
+    xl: 'max-w-xl',
+    '2xl': 'max-w-2xl',
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div 
+      <div
         className="absolute inset-0 bg-[#020000]/80 backdrop-blur-md transition-opacity animate-in fade-in duration-300"
         onClick={onClose}
       ></div>
 
       {/* Modal Content */}
-      <div className="relative w-full max-w-lg liquid-glass flex flex-col transform transition-all animate-in zoom-in-95 duration-300 border border-red-500/20 shadow-[0_0_50px_rgba(0,0,0,0.9)] max-h-[85vh]">
-        
+      <div className={`relative w-full ${sizeClasses[size]} liquid-glass flex flex-col transform transition-all animate-in zoom-in-95 duration-300 border border-red-500/20 shadow-[0_0_50px_rgba(0,0,0,0.9)] max-h-[85vh]`}>
+
         {/* Decorative Header Glow */}
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-600 via-red-500 to-red-900 shadow-[0_0_20px_rgba(220,38,38,0.8)] z-20"></div>
         <div className="absolute top-1 right-0 w-32 h-32 bg-red-600/10 rounded-full blur-[40px] pointer-events-none z-0"></div>
@@ -54,8 +64,8 @@ export const ModalWrapper: React.FC<ModalWrapperProps> = ({
                 <h3 className="text-2xl font-bold text-white tracking-tight text-glow">{title}</h3>
               </div>
             </div>
-            <button 
-              onClick={onClose} 
+            <button
+              onClick={onClose}
               className="text-slate-400 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-full"
             >
               <X size={20} />

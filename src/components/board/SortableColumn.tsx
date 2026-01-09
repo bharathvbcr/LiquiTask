@@ -27,6 +27,7 @@ export const SortableColumn: React.FC<SortableColumnProps> = ({
     onUpdateTask,
     onDeleteTask
 }) => {
+
     const {
         attributes,
         listeners,

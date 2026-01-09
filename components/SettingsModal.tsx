@@ -89,15 +89,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       const result = storageService.importData(importText);
 
       if (result.error || !result.data) {
+        // Fallback: Check if user pasted bulk task JSON (missing IDs) into the wrong field
+        const bulkCheck = validateBulkTasks(importText);
+        if (bulkCheck.valid && bulkCheck.tasks && onBulkCreateTasks) {
+          if (window.confirm("It looks like you are trying to add tasks to your project, but you used the 'Restore Backup' field.\n\nClick OK to import these tasks to your current project instead.")) {
+            onBulkCreateTasks(bulkCheck.tasks);
+            setImportText('');
+            setIsImporting(false);
+            addToast(`Successfully imported ${bulkCheck.tasks.length} tasks!`, 'success');
+            return;
+          }
+        }
+
         throw new Error(result.error || 'Import validation failed');
       }
 
       const validatedData = result.data;
 
       onImportData?.({
-        projects: validatedData.projects,
-        tasks: validatedData.tasks,
-        columns: validatedData.columns,
+        projects: validatedData.projects || [],
+        tasks: validatedData.tasks || [],
+        columns: validatedData.columns || [],
         projectTypes: validatedData.projectTypes,
         priorities: validatedData.priorities,
         customFields: validatedData.customFields
@@ -224,6 +236,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       onClose={onClose}
       title="Settings"
       icon={<Settings size={20} />}
+      size="2xl"
     >
       <div className="flex flex-col gap-6">
 

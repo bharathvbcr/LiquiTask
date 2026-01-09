@@ -13,6 +13,7 @@ interface TaskCardProps {
   onDeleteTask: (taskId: string) => void;
   priorities?: PriorityDefinition[];
   allTasks?: Task[]; // To resolve link names
+  isCompact?: boolean;
 }
 
 const getDueDateStatus = (dueDate?: Date) => {
@@ -53,7 +54,7 @@ const getPriorityIcon = (iconName?: string, size = 12) => {
   }
 }
 
-export const TaskCard: React.FC<TaskCardProps> = ({ task, isCompletedColumn, onMoveTask, onEditTask, onUpdateTask, onDeleteTask, priorities = [], allTasks = [] }) => {
+export const TaskCard: React.FC<TaskCardProps> = ({ task, isCompletedColumn, onMoveTask, onEditTask, onUpdateTask, onDeleteTask, priorities = [], allTasks = [], isCompact = false }) => {
   const [isSubtasksExpanded, setIsSubtasksExpanded] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -76,6 +77,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, isCompletedColumn, onM
 
   const handleSubtaskToggle = (e: React.MouseEvent, subtaskId: string) => {
     e.stopPropagation();
+    if (!task.subtasks) return;
     const newSubtasks = task.subtasks.map(s =>
       s.id === subtaskId ? { ...s, completed: !s.completed } : s
     );
@@ -83,6 +85,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, isCompletedColumn, onM
   };
 
   const handleSubtaskTitleChange = (subtaskId: string, newTitle: string) => {
+    if (!task.subtasks) return;
     const newSubtasks = task.subtasks.map(s =>
       s.id === subtaskId ? { ...s, title: newTitle } : s
     );
@@ -117,7 +120,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, isCompletedColumn, onM
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       className={`
-        liquid-card group relative w-full rounded-2xl p-5 cursor-grab active:cursor-grabbing
+        liquid-card group relative w-full rounded-2xl ${isCompact ? 'p-3' : 'p-5'} cursor-grab active:cursor-grabbing
         transition-all duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]
         ${isDragging ? 'opacity-40 scale-95 border-2 border-dashed border-slate-500/50 grayscale rotate-1 shadow-none' : ''}
         ${!isDragging && isBlocked ? 'border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.3)]' : ''}
@@ -126,7 +129,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, isCompletedColumn, onM
     >
 
       {/* Top Row: Priority & ID */}
-      <div className="flex justify-between items-center mb-3">
+      <div className={`flex justify-between items-center ${isCompact ? 'mb-2' : 'mb-3'}`}>
         <div className="flex items-center gap-2">
           <div
             className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-transparent shadow-sm transition-all"
@@ -161,120 +164,150 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, isCompletedColumn, onM
       </div>
 
       {/* Main Content */}
-      <div onDoubleClick={() => onEditTask(task)} className="cursor-pointer mb-3">
-        <h3 className="text-lg font-bold text-slate-100 leading-tight mb-1 drop-shadow-sm">{task.title}</h3>
-        <p className="text-xs text-slate-400 font-semibold tracking-wide uppercase">{task.subtitle}</p>
+      <div onDoubleClick={() => onEditTask(task)} className={`cursor-pointer ${isCompact ? 'mb-1' : 'mb-3'}`}>
+        <h3 className={`${isCompact ? 'text-sm' : 'text-lg'} font-bold text-slate-100 leading-tight mb-1 drop-shadow-sm line-clamp-2`}>{task.title}</h3>
+        {!isCompact && <p className="text-xs text-slate-400 font-semibold tracking-wide uppercase">{task.subtitle}</p>}
       </div>
 
-      {/* Summary Box (Markdown) */}
-      {task.summary && (
-        <div className="bg-[#050000]/40 rounded-xl p-3 border border-white/5 shadow-inner mb-3 max-h-32 overflow-y-auto custom-scrollbar group/markdown">
-          <div className="flex items-start gap-2 h-full">
-            <AlignLeft size={14} className="text-slate-600 mt-1 shrink-0 group-hover/markdown:text-slate-500 transition-colors" />
-            <div className="text-sm text-slate-300 leading-relaxed font-medium w-full markdown-content">
-              <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({ _node, ...props }) => (<a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline" />) }}>{task.summary}</ReactMarkdown>
+      {/* Compact Content Indicators */}
+      {isCompact && (
+        <div className="flex items-center gap-3 mt-2 text-slate-500">
+          {task.assignee && (
+            <div className="flex items-center gap-1.5 text-[10px] text-slate-400" title={`Assigned to ${task.assignee}`}>
+              <div className="w-4 h-4 rounded-full bg-gradient-to-tr from-indigo-900 to-slate-800 flex items-center justify-center border border-white/10">
+                <span className="text-[9px] font-bold text-indigo-300">{task.assignee.charAt(0).toUpperCase()}</span>
+              </div>
             </div>
+          )}
+
+          {dueInfo && (
+            <div className={`flex items-center gap-1 text-[10px] font-medium ${dueInfo.color}`} title={dueInfo.label}>
+              <Clock size={10} />
+              <span>{dueInfo.status === 'today' || dueInfo.status === 'overdue' ? dueInfo.label : ''}</span>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 ml-auto">
+            {attachments.length > 0 && <span className="flex items-center gap-0.5 text-[10px]"><Paperclip size={10} />{attachments.length}</span>}
+            {subtasks.length > 0 && <span className="flex items-center gap-0.5 text-[10px]"><CheckSquare size={10} />{completedSubtasks}/{subtasks.length}</span>}
           </div>
         </div>
       )}
 
-      {/* Custom Fields Display */}
-      {task.customFieldValues && Object.keys(task.customFieldValues).length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-3">
-          {Object.entries(task.customFieldValues).map(([key, value]) => {
-            if (!value) return null;
-            const isUrl = String(value).startsWith('http');
-            return (
-              <div key={key} className="flex items-center gap-1 px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/5 max-w-full truncate">
-                <Info size={10} className="text-slate-500" />
-                {isUrl ? (
-                  <a href={String(value)} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                    Link <ExternalLink size={8} />
-                  </a>
-                ) : (
-                  <span>{value}</span>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Attachments Row */}
-      {attachments.length > 0 && (
-        <div className="mb-4 flex flex-wrap gap-2 pt-2 border-t border-white/5">
-          {attachments.map(att => (
-            <a key={att.id} href={att.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="group/att flex items-center gap-2 px-2.5 py-1.5 bg-black/40 hover:bg-white/5 border border-white/10 hover:border-white/20 rounded-lg text-[10px] font-medium text-slate-400 hover:text-slate-200 transition-all duration-200 hover:scale-105 hover:shadow-sm" title={att.name}>
-              {att.type === 'file' ? <Paperclip size={11} className="text-slate-500 group-hover/att:text-red-400 transition-colors" /> : <LinkIcon size={11} className="text-slate-500 group-hover/att:text-blue-400 transition-colors" />}
-              <span className="truncate max-w-[120px] decoration-slate-600/50 group-hover/att:underline">{att.name}</span>
-            </a>
-          ))}
-        </div>
-      )}
-
-      {/* Links Footer */}
-      {task.links && task.links.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mb-3">
-          {task.links.map((link, i) => {
-            const target = allTasks.find(t => t.id === link.targetTaskId);
-            if (!target) return null;
-            return (
-              <div key={i} className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border ${link.type === 'blocked-by' ? 'bg-red-900/20 border-red-500/20 text-red-300' : 'bg-blue-900/20 border-blue-500/20 text-blue-300'}`}>
-                {link.type === 'blocked-by' ? <Lock size={8} /> : link.type === 'blocks' ? <Shield size={8} /> : <ArrowRightLeft size={8} />}
-                <span className="font-bold">{link.type === 'blocked-by' ? 'Blocked by' : link.type === 'blocks' ? 'Blocks' : 'Links'}</span>
-                <span className="opacity-70">{target.jobId}</span>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Subtasks Progress & Expansion */}
-      {subtasks.length > 0 && (
-        <div className="mt-3 mb-4 group/progress" onClick={(e) => e.stopPropagation()}>
-          <div className="flex justify-between items-center text-[10px] text-slate-500 mb-1.5 font-medium uppercase tracking-wide cursor-pointer hover:text-slate-300 transition-colors" onClick={() => setIsSubtasksExpanded(!isSubtasksExpanded)}>
-            <div className="flex items-center gap-1.5"><CheckSquare size={12} /><span>Progress</span>{isSubtasksExpanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}</div>
-            <div className="flex items-center gap-2"><span className="text-slate-600">{completedSubtasks}/{subtasks.length}</span><span className={`font-bold transition-colors ${progress === 100 ? 'text-emerald-400' : 'text-slate-400'}`}>{Math.round(progress)}%</span></div>
-          </div>
-          <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden border border-white/5 p-[1px] cursor-pointer" onClick={() => setIsSubtasksExpanded(!isSubtasksExpanded)}>
-            <div className={`h-full rounded-full transition-all duration-700 ease-out ${getProgressStyles(progress)}`} style={{ width: `${progress}%` }}></div>
-          </div>
-          {isSubtasksExpanded && (
-            <div className="mt-3 space-y-1 animate-in slide-in-from-top-2 duration-200 pl-1">
-              {subtasks.map(subtask => (
-                <div key={subtask.id} className="flex items-center gap-2 group/subtask">
-                  <button onClick={(e) => handleSubtaskToggle(e, subtask.id)} className={`w-4 h-4 rounded border flex items-center justify-center transition-all shrink-0 ${subtask.completed ? 'bg-emerald-500/20 border-emerald-500 text-emerald-500' : 'border-slate-700 hover:border-slate-500 bg-black/20 text-transparent'}`}><Check size={10} strokeWidth={3} /></button>
-                  <input type="text" value={subtask.title} onClick={(e) => e.stopPropagation()} onChange={(e) => handleSubtaskTitleChange(subtask.id, e.target.value)} className={`bg-transparent border-none outline-none text-xs w-full transition-colors p-0.5 rounded hover:bg-white/5 focus:bg-white/5 ${subtask.completed ? 'text-slate-600 line-through decoration-slate-700' : 'text-slate-300 focus:text-white'}`} />
+      {/* Expanded Content (Hidden in Compact Mode) */}
+      {!isCompact && (
+        <>
+          {/* Summary Box (Markdown) */}
+          {task.summary && (
+            <div className="bg-[#050000]/40 rounded-xl p-3 border border-white/5 shadow-inner mb-3 max-h-32 overflow-y-auto custom-scrollbar group/markdown">
+              <div className="flex items-start gap-2 h-full">
+                <AlignLeft size={14} className="text-slate-600 mt-1 shrink-0 group-hover/markdown:text-slate-500 transition-colors" />
+                <div className="text-sm text-slate-300 leading-relaxed font-medium w-full markdown-content">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({ _node, ...props }) => (<a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline" />) }}>{task.summary}</ReactMarkdown>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Custom Fields Display */}
+          {task.customFieldValues && Object.keys(task.customFieldValues).length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-3">
+              {Object.entries(task.customFieldValues).map(([key, value]) => {
+                if (!value) return null;
+                const isUrl = String(value).startsWith('http');
+                return (
+                  <div key={key} className="flex items-center gap-1 px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/5 max-w-full truncate">
+                    <Info size={10} className="text-slate-500" />
+                    {isUrl ? (
+                      <a href={String(value)} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        Link <ExternalLink size={8} />
+                      </a>
+                    ) : (
+                      <span>{value}</span>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Attachments Row */}
+          {attachments.length > 0 && (
+            <div className="mb-4 flex flex-wrap gap-2 pt-2 border-t border-white/5">
+              {attachments.map(att => (
+                <a key={att.id} href={att.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="group/att flex items-center gap-2 px-2.5 py-1.5 bg-black/40 hover:bg-white/5 border border-white/10 hover:border-white/20 rounded-lg text-[10px] font-medium text-slate-400 hover:text-slate-200 transition-all duration-200 hover:scale-105 hover:shadow-sm" title={att.name}>
+                  {att.type === 'file' ? <Paperclip size={11} className="text-slate-500 group-hover/att:text-red-400 transition-colors" /> : <LinkIcon size={11} className="text-slate-500 group-hover/att:text-blue-400 transition-colors" />}
+                  <span className="truncate max-w-[120px] decoration-slate-600/50 group-hover/att:underline">{att.name}</span>
+                </a>
               ))}
             </div>
           )}
-        </div>
-      )}
 
-      {/* Footer: Assignee & Timeline */}
-      <div className="flex items-center justify-between mt-auto pt-3 border-t border-white/5">
-        <div className="flex items-center gap-2 text-xs text-slate-400">
-          <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-900 to-slate-800 flex items-center justify-center border border-white/10 shadow-sm">
-            <span className="text-[10px] font-bold text-indigo-300">{task.assignee ? task.assignee.charAt(0).toUpperCase() : 'U'}</span>
+          {/* Links Footer */}
+          {task.links && task.links.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {task.links.map((link, i) => {
+                const target = allTasks.find(t => t.id === link.targetTaskId);
+                if (!target) return null;
+                return (
+                  <div key={i} className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border ${link.type === 'blocked-by' ? 'bg-red-900/20 border-red-500/20 text-red-300' : 'bg-blue-900/20 border-blue-500/20 text-blue-300'}`}>
+                    {link.type === 'blocked-by' ? <Lock size={8} /> : link.type === 'blocks' ? <Shield size={8} /> : <ArrowRightLeft size={8} />}
+                    <span className="font-bold">{link.type === 'blocked-by' ? 'Blocked by' : link.type === 'blocks' ? 'Blocks' : 'Links'}</span>
+                    <span className="opacity-70">{target.jobId}</span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Subtasks Progress & Expansion */}
+          {subtasks.length > 0 && (
+            <div className="mt-3 mb-4 group/progress" onClick={(e) => e.stopPropagation()}>
+              <div className="flex justify-between items-center text-[10px] text-slate-500 mb-1.5 font-medium uppercase tracking-wide cursor-pointer hover:text-slate-300 transition-colors" onClick={() => setIsSubtasksExpanded(!isSubtasksExpanded)}>
+                <div className="flex items-center gap-1.5"><CheckSquare size={12} /><span>Progress</span>{isSubtasksExpanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}</div>
+                <div className="flex items-center gap-2"><span className="text-slate-600">{completedSubtasks}/{subtasks.length}</span><span className={`font-bold transition-colors ${progress === 100 ? 'text-emerald-400' : 'text-slate-400'}`}>{Math.round(progress)}%</span></div>
+              </div>
+              <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden border border-white/5 p-[1px] cursor-pointer" onClick={() => setIsSubtasksExpanded(!isSubtasksExpanded)}>
+                <div className={`h-full rounded-full transition-all duration-700 ease-out ${getProgressStyles(progress)}`} style={{ width: `${progress}%` }}></div>
+              </div>
+              {isSubtasksExpanded && (
+                <div className="mt-3 space-y-1 animate-in slide-in-from-top-2 duration-200 pl-1">
+                  {subtasks.map(subtask => (
+                    <div key={subtask.id} className="flex items-center gap-2 group/subtask">
+                      <button onClick={(e) => handleSubtaskToggle(e, subtask.id)} className={`w-4 h-4 rounded border flex items-center justify-center transition-all shrink-0 ${subtask.completed ? 'bg-emerald-500/20 border-emerald-500 text-emerald-500' : 'border-slate-700 hover:border-slate-500 bg-black/20 text-transparent'}`}><Check size={10} strokeWidth={3} /></button>
+                      <input type="text" value={subtask.title} onClick={(e) => e.stopPropagation()} onChange={(e) => handleSubtaskTitleChange(subtask.id, e.target.value)} className={`bg-transparent border-none outline-none text-xs w-full transition-colors p-0.5 rounded hover:bg-white/5 focus:bg-white/5 ${subtask.completed ? 'text-slate-600 line-through decoration-slate-700' : 'text-slate-300 focus:text-white'}`} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Footer: Assignee & Timeline */}
+          <div className="flex items-center justify-between mt-auto pt-3 border-t border-white/5">
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-900 to-slate-800 flex items-center justify-center border border-white/10 shadow-sm">
+                <span className="text-[10px] font-bold text-indigo-300">{task.assignee ? task.assignee.charAt(0).toUpperCase() : 'U'}</span>
+              </div>
+              <span className="font-medium text-slate-300">{task.assignee || 'Unassigned'}</span>
+            </div>
+
+            {dueInfo && (
+              <div className={`flex items-center gap-1.5 text-xs font-semibold ${dueInfo.color}`}>
+                <Calendar size={14} />
+                <span>{dueInfo.label}</span>
+              </div>
+            )}
           </div>
-          <span className="font-medium text-slate-300">{task.assignee || 'Unassigned'}</span>
-        </div>
 
-        {dueInfo && (
-          <div className={`flex items-center gap-1.5 text-xs font-semibold ${dueInfo.color}`}>
-            <Calendar size={14} />
-            <span>{dueInfo.label}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Action Button for Completed Column */}
-      {isCompletedColumn && (
-        <button onClick={handleDeliver} className="mt-3 w-full flex items-center justify-center gap-2 bg-emerald-900/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 hover:border-emerald-400 p-2.5 rounded-xl transition-all duration-300 shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] group/btn">
-          <CheckCircle size={16} className="group-hover/btn:scale-110 transition-transform" />
-          <span className="text-xs font-bold uppercase tracking-wide">Mark Verified & Close</span>
-        </button>
+          {/* Action Button for Completed Column */}
+          {isCompletedColumn && (
+            <button onClick={handleDeliver} className="mt-3 w-full flex items-center justify-center gap-2 bg-emerald-900/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 hover:border-emerald-400 p-2.5 rounded-xl transition-all duration-300 shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] group/btn">
+              <CheckCircle size={16} className="group-hover/btn:scale-110 transition-transform" />
+              <span className="text-xs font-bold uppercase tracking-wide">Mark Verified & Close</span>
+            </button>
+          )}
+        </>
       )}
     </div>
   );

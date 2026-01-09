@@ -40,7 +40,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onMoveProject
 }) => {
   const [projectSearch, setProjectSearch] = useState('');
-  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set(projects.map(p => p.id)));
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set((projects || []).map(p => p.id)));
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 

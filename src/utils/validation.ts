@@ -44,7 +44,7 @@ export const TaskSchema: z.ZodType<Task> = z.object({
   dueDate: z.date().optional(),
   subtasks: z.array(SubtaskSchema).default([]),
   attachments: z.array(AttachmentSchema).default([]),
-  customFieldValues: z.record(z.union([z.string(), z.number()])).default({}),
+  customFieldValues: z.record(z.string(), z.union([z.string(), z.number()])).default({}) as z.ZodType<Record<string, string | number>>,
   links: z.array(TaskLinkSchema).default([]),
   tags: z.array(z.string()).default([]),
   timeEstimate: z.number().default(0),
@@ -92,13 +92,14 @@ export const CustomFieldDefinitionSchema: z.ZodType<CustomFieldDefinition> = z.o
 });
 
 // App data schema for import/export
+// App data schema for import/export
 export const AppDataSchema = z.object({
-  columns: z.array(BoardColumnSchema),
-  projectTypes: z.array(ProjectTypeSchema),
-  priorities: z.array(PriorityDefinitionSchema),
-  customFields: z.array(CustomFieldDefinitionSchema),
-  projects: z.array(ProjectSchema),
-  tasks: z.array(TaskSchema),
+  columns: z.array(BoardColumnSchema).optional(),
+  projectTypes: z.array(ProjectTypeSchema).optional(),
+  priorities: z.array(PriorityDefinitionSchema).optional(),
+  customFields: z.array(CustomFieldDefinitionSchema).optional(),
+  projects: z.array(ProjectSchema).optional(),
+  tasks: z.array(TaskSchema).optional(),
   activeProjectId: z.string().optional(),
   sidebarCollapsed: z.boolean().optional(),
   grouping: z.enum(['none', 'priority']).optional(),
@@ -119,24 +120,31 @@ function parseDate(value: unknown): Date | undefined {
 }
 
 // Validate and transform imported data
+// Validate and transform imported data
 export function validateAndTransformImportedData(data: unknown): ValidatedAppData | null {
   try {
     // First, transform dates from strings to Date objects
+    const dataRecord = data as Record<string, unknown> | null;
+    if (!dataRecord) return null;
+
+    const rawTasks = Array.isArray(dataRecord.tasks) ? dataRecord.tasks as Record<string, unknown>[] : [];
+
     const transformed = {
-      ...(data as Record<string, unknown>),
-      tasks: Array.isArray((data as any)?.tasks)
-        ? (data as any).tasks.map((t: any) => ({
-            ...t,
-            createdAt: parseDate(t.createdAt) || new Date(),
-            dueDate: parseDate(t.dueDate),
-            completedAt: parseDate(t.completedAt),
-            recurring: t.recurring ? {
-              ...t.recurring,
-              endDate: parseDate(t.recurring.endDate),
-              nextOccurrence: parseDate(t.recurring.nextOccurrence),
-            } : undefined,
-          }))
-        : [],
+      ...dataRecord,
+      tasks: rawTasks.map((t) => {
+        const recurring = t.recurring as Record<string, unknown> | undefined;
+        return {
+          ...t,
+          createdAt: parseDate(t.createdAt) || new Date(),
+          dueDate: parseDate(t.dueDate),
+          completedAt: parseDate(t.completedAt),
+          recurring: recurring ? {
+            ...recurring,
+            endDate: parseDate(recurring.endDate),
+            nextOccurrence: parseDate(recurring.nextOccurrence),
+          } : undefined,
+        };
+      }),
     };
 
     // Validate with Zod
@@ -144,8 +152,12 @@ export function validateAndTransformImportedData(data: unknown): ValidatedAppDat
     return validated;
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.error('Validation errors:', error.errors);
-      throw new Error(`Validation failed: ${error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`);
+      const issues = error.issues || (error as { errors?: z.ZodIssue[] }).errors || [];
+      console.error('Validation errors:', issues);
+      throw new Error(`Validation failed: ${issues.map((e) => {
+        const path = e.path ? e.path.join('.') : 'unknown';
+        return `${path}: ${e.message}`;
+      }).join(', ')}`);
     }
     throw error;
   }

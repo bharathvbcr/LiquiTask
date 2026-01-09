@@ -187,7 +187,7 @@ class StorageService {
     }
 
     // Import data with validation and migration
-    importData(jsonString: string): { data: AppData | null; error?: string } {
+    importData(jsonString: string): { data: Partial<AppData> | null; error?: string } {
         try {
             const parsed = JSON.parse(jsonString);
 
@@ -205,17 +205,17 @@ class StorageService {
                 return { data: null, error: 'Validation failed' };
             }
 
-            // Convert ValidatedAppData to AppData format
-            const appData: AppData = {
+            // Convert ValidatedAppData to Partial<AppData> format
+            const appData: Partial<AppData> = {
                 columns: validated.columns,
                 projectTypes: validated.projectTypes,
                 priorities: validated.priorities,
                 customFields: validated.customFields,
                 projects: validated.projects,
                 tasks: validated.tasks,
-                activeProjectId: validated.activeProjectId || 'p1',
-                sidebarCollapsed: validated.sidebarCollapsed ?? false,
-                grouping: validated.grouping || 'none',
+                activeProjectId: validated.activeProjectId,
+                sidebarCollapsed: validated.sidebarCollapsed,
+                grouping: validated.grouping,
                 version: CURRENT_DATA_VERSION,
             };
 

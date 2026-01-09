@@ -42,10 +42,10 @@ interface ProjectBoardProps {
 }
 
 export const ProjectBoard: React.FC<ProjectBoardProps> = ({
-    columns,
-    priorities,
-    tasks,
-    allTasks,
+    columns = [],
+    priorities = [],
+    tasks = [],
+    allTasks = [],
     boardGrouping,
     onUpdateColumns,
     onMoveTask,
@@ -58,6 +58,11 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = ({
     const [activeTask, setActiveTask] = useState<Task | null>(null);
     const [activeColumn, setActiveColumn] = useState<BoardColumn | null>(null);
 
+    const safeColumns = useMemo(() => columns || [], [columns]);
+    const safePriorities = useMemo(() => priorities || [], [priorities]);
+
+
+
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
@@ -69,7 +74,7 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = ({
         })
     );
 
-    const columnIds = useMemo(() => columns.map((col) => col.id), [columns]);
+    const columnIds = useMemo(() => safeColumns.map((col) => col.id), [safeColumns]);
 
     function onDragStart(event: DragStartEvent) {
         const { active } = event;
@@ -84,7 +89,7 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = ({
             return;
         }
 
-        const column = columns.find((c) => c.id === activeIdString);
+        const column = safeColumns.find((c) => c.id === activeIdString);
         if (column) {
             setActiveColumn(column);
             return;
@@ -249,19 +254,19 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = ({
             >
                 <div className="flex flex-col gap-8">
                     <div className="flex gap-6 sticky top-0 z-20 pb-2 bg-[#020000]/80 backdrop-blur-md -mx-6 px-6 pt-2">
-                        {columns.map((col) => (
+                        {safeColumns.map((col) => (
                             <div key={col.id} className="flex-1 min-w-[300px] flex items-center justify-between px-2">
                                 <h3 className="font-bold text-slate-300 text-xs tracking-wide uppercase">{col.title}</h3>
                             </div>
                         ))}
                     </div>
-                    {priorities.map((prio) => (
+                    {safePriorities.map((prio) => (
                         <div key={prio.id} className="rounded-3xl border border-white/5 bg-white/[0.02] p-4">
                             <div className="flex items-center gap-3 mb-4 px-2">
                                 <span className="text-sm font-bold uppercase tracking-widest" style={{ color: prio.color }}>{prio.label}</span>
                             </div>
                             <div className="flex gap-6">
-                                {columns.map((column) => {
+                                {safeColumns.map((column) => {
                                     const cellTasks = getTasksByContext(column.id, prio.id);
                                     const dropZoneId = getDropZoneId(prio.id, column.id);
                                     return (
@@ -279,7 +284,7 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = ({
                                                     <SortableTask
                                                         key={task.id}
                                                         task={task}
-                                                        priorities={priorities}
+                                                        priorities={safePriorities}
                                                         isCompletedColumn={column.isCompleted}
                                                         onMoveTask={onMoveTask}
                                                         onEditTask={onEditTask}
@@ -311,7 +316,7 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = ({
                             <div className="opacity-80 rotate-2 cursor-grabbing">
                                 <TaskCard
                                     task={activeTask}
-                                    priorities={priorities}
+                                    priorities={safePriorities}
                                     isCompletedColumn={false}
                                     onMoveTask={() => { }}
                                     onEditTask={() => { }}
@@ -338,12 +343,12 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = ({
         >
             <div className="flex gap-6 h-full overflow-x-auto pb-4">
                 <SortableContext items={columnIds} strategy={horizontalListSortingStrategy}>
-                    {columns.map((col) => (
+                    {safeColumns.map((col) => (
                         <SortableColumn
                             key={col.id}
                             column={col}
                             tasks={getTasksByContext(col.id)}
-                            priorities={priorities}
+                            priorities={safePriorities}
                             allTasks={allTasks} // pass allTasks
                             onMoveTask={onMoveTask}
                             onEditTask={onEditTask}
@@ -368,7 +373,7 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = ({
                         <div className="opacity-80 rotate-2 cursor-grabbing">
                             <TaskCard
                                 task={activeTask}
-                                priorities={priorities}
+                                priorities={safePriorities}
                                 isCompletedColumn={false}
                                 onMoveTask={() => { }}
                                 onEditTask={() => { }}

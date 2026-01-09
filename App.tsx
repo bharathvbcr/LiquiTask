@@ -366,7 +366,43 @@ const App: React.FC = () => {
   };
 
   const handleUpdateColumns = (newColumns: BoardColumn[]) => {
-    setColumns(newColumns);
+    try {
+      // Defensive check: Ensure newColumns is an array
+      if (!Array.isArray(newColumns)) {
+        console.error('CRITICAL ERROR: handleUpdateColumns received invalid data', {
+          timestamp: new Date().toISOString(),
+          userId: 'current-user', // In a real app, this would be the actual user ID
+          targetObject: newColumns,
+          type: typeof newColumns,
+          trigger: 'Settings Saved - Board Columns Update'
+        });
+        addToast('Failed to update columns: Invalid data received', 'error');
+        return;
+      }
+
+      // Check for orphaned tasks
+      const newColumnIds = new Set(newColumns.map(c => c.id));
+      setTasks(prevTasks => {
+        let hasChanges = false;
+        const updatedTasks = prevTasks.map(t => {
+          if (!newColumnIds.has(t.status)) {
+            // Determine fallback status (first column or a default)
+            const fallbackCall = newColumns.length > 0 ? newColumns[0].id : 'Pending';
+            if (t.status !== fallbackCall) {
+              hasChanges = true;
+              return { ...t, status: fallbackCall };
+            }
+          }
+          return t;
+        });
+        return hasChanges ? updatedTasks : prevTasks;
+      });
+      setColumns(newColumns);
+    } catch (error) {
+      console.error('CRITICAL ERROR in handleUpdateColumns:', error);
+      console.error('Stack Trace:', (error as Error).stack);
+      addToast('An error occurred while updating columns. Check console for details.', 'error');
+    }
   };
 
   const handleUpdateProjectTypes = (newTypes: ProjectType[]) => {
@@ -374,7 +410,42 @@ const App: React.FC = () => {
   };
 
   const handleUpdatePriorities = (newPriorities: PriorityDefinition[]) => {
-    setPriorities(newPriorities);
+    try {
+      // Defensive check: Ensure newPriorities is an array
+      if (!Array.isArray(newPriorities)) {
+        console.error('CRITICAL ERROR: handleUpdatePriorities received invalid data', {
+          timestamp: new Date().toISOString(),
+          userId: 'current-user',
+          targetObject: newPriorities,
+          type: typeof newPriorities,
+          trigger: 'Settings Saved - Priorities Update'
+        });
+        addToast('Failed to update priorities: Invalid data received', 'error');
+        return;
+      }
+
+      // Check for orphaned tasks
+      const newPriorityIds = new Set(newPriorities.map(p => p.id));
+      setTasks(prevTasks => {
+        let hasChanges = false;
+        const updatedTasks = prevTasks.map(t => {
+          if (!newPriorityIds.has(t.priority)) {
+            const fallbackPrio = newPriorities.length > 0 ? newPriorities[0].id : 'medium';
+            if (t.priority !== fallbackPrio) {
+              hasChanges = true;
+              return { ...t, priority: fallbackPrio };
+            }
+          }
+          return t;
+        });
+        return hasChanges ? updatedTasks : prevTasks;
+      });
+      setPriorities(newPriorities);
+    } catch (error) {
+      console.error('CRITICAL ERROR in handleUpdatePriorities:', error);
+      console.error('Stack Trace:', (error as Error).stack);
+      addToast('An error occurred while updating priorities. Check console for details.', 'error');
+    }
   };
 
   const handleUpdateCustomFields = (newFields: CustomFieldDefinition[]) => {
