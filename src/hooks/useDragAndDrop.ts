@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 
 interface DragOverInfo {
     colId: string;
@@ -15,7 +15,7 @@ export function useDragAndDrop({ onMoveTask, onReorderColumns }: UseDragAndDropP
     const [draggedColumnId, setDraggedColumnId] = useState<string | null>(null);
 
     // Task drag handlers
-    const handleDragOver = useCallback((e: React.DragEvent, colId: string, rowId?: string) => {
+    const handleDragOver = useCallback((e: React.DragEvent, _colId: string, _rowId?: string) => {
         e.preventDefault();
     }, []);
 

@@ -1,21 +1,24 @@
 import React, { useState } from 'react';
 import { ModalWrapper } from './ModalWrapper';
-import { Settings, Shield, Palette, LogOut, Database, Download, Upload, RefreshCw, Kanban, Plus, Trash2, CheckSquare, Flag, Layout, SlidersHorizontal, Type, Hash, List, Link, AlertOctagon, Loader2 } from 'lucide-react';
+import { Settings, Shield, Palette, LogOut, Database, Download, Upload, RefreshCw, Kanban, Plus, Trash2, CheckSquare, Flag, Layout, SlidersHorizontal, Type, Hash, List, Link, Loader2, FileJson, ChevronDown, ChevronUp } from 'lucide-react';
 import { Project, Task, BoardColumn, ProjectType, PriorityDefinition, GroupingOption, ToastType, CustomFieldDefinition } from '../types';
 import storageService from '../src/services/storageService';
+import { validateBulkTasks, BULK_TASK_TEMPLATE_JSON, generateTemplateBlob } from '../src/utils/bulkTaskSchema';
+
+interface ImportedData {
+  projects: Project[];
+  tasks: Task[];
+  columns: BoardColumn[];
+  projectTypes?: ProjectType[];
+  priorities?: PriorityDefinition[];
+  customFields?: CustomFieldDefinition[];
+}
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  appData?: {
-    projects: Project[];
-    tasks: Task[];
-    columns: BoardColumn[];
-    projectTypes?: ProjectType[];
-    priorities?: PriorityDefinition[];
-    customFields?: CustomFieldDefinition[];
-  };
-  onImportData?: (data: any) => void;
+  appData?: ImportedData;
+  onImportData?: (data: ImportedData) => void;
   onUpdateColumns?: (columns: BoardColumn[]) => void;
   onUpdateProjectTypes?: (types: ProjectType[]) => void;
   onUpdatePriorities?: (priorities: PriorityDefinition[]) => void;
@@ -23,6 +26,7 @@ interface SettingsModalProps {
   grouping?: GroupingOption;
   onUpdateGrouping?: (option: GroupingOption) => void;
   addToast: (msg: string, type: ToastType) => void;
+  onBulkCreateTasks?: (tasks: Partial<Task>[]) => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -36,12 +40,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onUpdateCustomFields,
   grouping = 'none',
   onUpdateGrouping,
-  addToast
+  addToast,
+  onBulkCreateTasks
 }) => {
   const [activeTab, setActiveTab] = useState('general');
   const [importText, setImportText] = useState('');
   const [importError, setImportError] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+
+  // Bulk task import state
+  const [bulkTasksJson, setBulkTasksJson] = useState('');
+  const [bulkImportError, setBulkImportError] = useState<string | null>(null);
+  const [isBulkImporting, setIsBulkImporting] = useState(false);
+  const [showTemplateRef, setShowTemplateRef] = useState(false);
 
   // Local state
   const [localColumns, setLocalColumns] = useState<BoardColumn[]>(appData?.columns || []);
@@ -110,6 +121,52 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       localStorage.clear();
       window.location.reload();
     }
+  };
+
+  // Bulk task import handler
+  const handleBulkImport = async () => {
+    if (!bulkTasksJson.trim()) return;
+
+    setIsBulkImporting(true);
+    setBulkImportError(null);
+
+    try {
+      const result = validateBulkTasks(bulkTasksJson);
+
+      if (!result.valid || !result.tasks) {
+        throw new Error(result.error || 'Validation failed');
+      }
+
+      if (result.warnings && result.warnings.length > 0) {
+        result.warnings.forEach(w => addToast(w, 'info'));
+      }
+
+      if (onBulkCreateTasks) {
+        onBulkCreateTasks(result.tasks);
+        setBulkTasksJson('');
+        setBulkImportError(null);
+        addToast(`Successfully imported ${result.tasks.length} tasks!`, 'success');
+      } else {
+        throw new Error('Bulk import not configured. Please contact support.');
+      }
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : 'Invalid JSON';
+      setBulkImportError(errorMessage);
+      addToast(`Import failed: ${errorMessage}`, 'error');
+    } finally {
+      setIsBulkImporting(false);
+    }
+  };
+
+  const handleDownloadTemplate = () => {
+    const blob = generateTemplateBlob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'task-template.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    addToast('Template downloaded!', 'info');
   };
 
   const saveAll = () => {
@@ -223,6 +280,49 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </button>
                 </div>
               </div>
+
+              {/* Theme Toggle */}
+              <div className="space-y-3 pt-4 border-t border-white/5">
+                <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Appearance</h4>
+                <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-purple-500/20 text-purple-400"><Palette size={18} /></div>
+                    <div>
+                      <h4 className="text-sm font-medium text-white">Theme</h4>
+                      <p className="text-xs text-slate-500">Switch between dark and light mode</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        document.documentElement.classList.remove('theme-light');
+                        localStorage.setItem('theme', 'dark');
+                        addToast('Theme: Dark Mode', 'info');
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${!document.documentElement.classList.contains('theme-light')
+                        ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                        : 'bg-white/5 text-slate-400 border border-white/10 hover:bg-white/10'
+                        }`}
+                    >
+                      Dark
+                    </button>
+                    <button
+                      onClick={() => {
+                        document.documentElement.classList.add('theme-light');
+                        localStorage.setItem('theme', 'light');
+                        addToast('Theme: Light Mode', 'info');
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${document.documentElement.classList.contains('theme-light')
+                        ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                        : 'bg-white/5 text-slate-400 border border-white/10 hover:bg-white/10'
+                        }`}
+                    >
+                      Light
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <button onClick={saveAll} className="w-full mt-4 bg-gradient-to-r from-red-600 to-red-800 text-white text-sm font-semibold py-2.5 rounded-xl shadow-glow-red hover:shadow-lg transition-all">Save General Changes</button>
             </div>
           )}
@@ -361,6 +461,61 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   {isImporting ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
                   <span className="text-sm font-medium">{isImporting ? 'Validating & Importing...' : 'Import from JSON'}</span>
                 </button>
+              </div>
+
+              {/* Bulk Task Import Section */}
+              <div className="space-y-3 pt-4 border-t border-white/5">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                    <FileJson size={14} />
+                    Bulk Import Tasks
+                  </h4>
+                  <button
+                    onClick={() => setShowTemplateRef(!showTemplateRef)}
+                    className="text-xs text-slate-500 hover:text-slate-300 flex items-center gap-1 transition-colors"
+                  >
+                    {showTemplateRef ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                    {showTemplateRef ? 'Hide' : 'Show'} Template
+                  </button>
+                </div>
+
+                {showTemplateRef && (
+                  <div className="bg-black/30 rounded-lg p-3 border border-white/5">
+                    <pre className="text-[10px] text-slate-400 font-mono overflow-x-auto whitespace-pre-wrap">
+                      {BULK_TASK_TEMPLATE_JSON}
+                    </pre>
+                  </div>
+                )}
+
+                <button
+                  onClick={handleDownloadTemplate}
+                  className="flex items-center justify-center gap-2 w-full p-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-slate-400 hover:text-white text-xs transition-all"
+                >
+                  <Download size={14} />
+                  Download Template File
+                </button>
+
+                <textarea
+                  value={bulkTasksJson}
+                  onChange={(e) => setBulkTasksJson(e.target.value)}
+                  placeholder={'{\n  "tasks": [\n    { "title": "Task 1", "priority": "high" }\n  ]\n}'}
+                  className="w-full h-32 bg-[#05080f] border border-white/10 rounded-xl p-3 text-xs text-slate-400 font-mono focus:outline-none focus:border-blue-500/50 resize-none"
+                />
+
+                {bulkImportError && <p className="text-xs text-red-400 px-1">{bulkImportError}</p>}
+
+                <button
+                  onClick={handleBulkImport}
+                  disabled={!bulkTasksJson.trim() || isBulkImporting || !onBulkCreateTasks}
+                  className="flex items-center justify-center gap-2 w-full p-3 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 hover:border-blue-500/40 rounded-xl text-blue-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  {isBulkImporting ? <Loader2 size={16} className="animate-spin" /> : <FileJson size={16} />}
+                  <span className="text-sm font-medium">{isBulkImporting ? 'Importing Tasks...' : 'Import Tasks to Current Project'}</span>
+                </button>
+
+                <p className="text-[10px] text-slate-600 text-center">
+                  Tasks will be added to the currently active project
+                </p>
               </div>
               <div className="pt-4 border-t border-white/5">
                 <button onClick={handleReset} className="flex items-center gap-2 text-xs font-medium text-slate-500 hover:text-red-400 transition-colors w-full justify-center"><RefreshCw size={14} /> Reset App to Defaults</button>

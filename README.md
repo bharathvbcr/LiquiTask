@@ -4,13 +4,16 @@ A premium Kanban task management desktop app featuring a stunning liquid glass a
 
 ## Features
 
-- 🎨 **Liquid Glass UI** - Beautiful dark mode interface with glassmorphism effects
+- 🎨 **Liquid Glass UI** - Beautiful dark/light mode interface with glassmorphism effects
 - 📋 **Kanban Board** - Drag-and-drop task management with customizable columns
 - 🏷️ **Custom Fields** - Define your own fields for tasks
 - 🔗 **Task Dependencies** - Link tasks with blocking/related relationships
 - 🧱 **Native Persistence** - Secure local file system storage with `electron-store`
 - 📊 **Executive Dashboard** - Cross-project analytics and overview
-- ⌨️ **Keyboard Shortcuts** - Quick actions with Cmd/Ctrl+K, B, C
+- ⌨️ **Command Palette** - Quick actions with Cmd+K fuzzy search
+- 📤 **Export** - CSV/JSON export with Cmd+E
+- 🔔 **Smart Notifications** - Desktop alerts for overdue tasks
+- 🎚️ **WIP Limits** - Column limits with visual warnings
 
 ## Tech Stack
 
@@ -63,7 +66,7 @@ LiquiTask/
 ├── src/
 │   ├── components/     # React UI components
 │   ├── hooks/          # Custom React hooks
-│   ├── services/       # Core services (Storage, etc.)
+│   ├── services/       # Core services (Storage, Notifications, Export)
 │   ├── utils/          # Helper functions
 │   └── types.ts        # TypeScript definitions
 ├── electron/
@@ -77,10 +80,25 @@ LiquiTask/
 
 | Shortcut | Action |
 |----------|--------|
-| `Cmd/Ctrl + K` | Focus search |
+| `Cmd/Ctrl + K` | Open Command Palette |
+| `Cmd/Ctrl + E` | Export to CSV |
 | `Cmd/Ctrl + B` | Toggle sidebar |
 | `Cmd/Ctrl + Z` | Undo last action |
 | `C` | Create new task |
+| `Escape` | Close modals |
+
+## QuickAdd Syntax
+
+Create tasks quickly with natural language:
+
+| Syntax | Example | Effect |
+|--------|---------|--------|
+| `!h/!m/!l` | `Task !high` | Set priority |
+| `@today` | `Task @today` | Due today |
+| `@tom` | `Task @tom` | Due tomorrow |
+| `#project` | `Task #backend` | Assign project |
+| `~2h` | `Task ~2h` | Time estimate |
+| `+tag` | `Task +urgent` | Add tag |
 
 ## License
 

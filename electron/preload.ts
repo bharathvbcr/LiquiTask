@@ -25,7 +25,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Storage API
     storage: {
         get: (key: string) => ipcRenderer.invoke('storage:get', key),
-        set: (key: string, value: any) => ipcRenderer.invoke('storage:set', key, value),
+        set: (key: string, value: unknown) => ipcRenderer.invoke('storage:set', key, value),
         delete: (key: string) => ipcRenderer.invoke('storage:delete', key),
         clear: () => ipcRenderer.invoke('storage:clear'),
         has: (key: string) => ipcRenderer.invoke('storage:has', key),

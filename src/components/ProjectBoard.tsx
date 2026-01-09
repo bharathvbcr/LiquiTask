@@ -13,9 +13,6 @@ import {
     DragOverEvent,
     DragEndEvent,
     DropAnimation,
-    rectIntersection,
-    pointerWithin,
-    getFirstCollision,
 } from '@dnd-kit/core';
 import {
     arrayMove,
@@ -26,7 +23,6 @@ import {
 
 import { Task, BoardColumn, PriorityDefinition } from '../../types';
 import { SortableColumn } from './board/SortableColumn';
-import { SortableTask } from './board/SortableTask';
 import { TaskCard } from '../../components/TaskCard';
 
 interface ProjectBoardProps {
@@ -56,7 +52,7 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = ({
     onDeleteTask,
     getTasksByContext,
 }) => {
-    const [activeId, setActiveId] = useState<string | null>(null);
+    const [, setActiveId] = useState<string | null>(null);
     const [activeTask, setActiveTask] = useState<Task | null>(null);
     const [activeColumn, setActiveColumn] = useState<BoardColumn | null>(null);
 
@@ -93,7 +89,7 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = ({
         }
     }
 
-    function onDragOver(event: DragOverEvent) {
+    function onDragOver(_event: DragOverEvent) {
         // Only handling visual logic here if we needed optimistic updates
         // For now, simpler implementation: do nothing on drag over unless switching containers
         // But since we don't control state locally (it's in App), we rely on onDragEnd.

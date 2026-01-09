@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Play, Pause, RotateCcw, Clock, Save } from 'lucide-react';
 import { useTimer, formatMinutes, secondsToMinutes } from '../hooks/useTimer';
 import { Task } from '../../types';
@@ -49,8 +49,8 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({
                 <button
                     onClick={isRunning ? pause : start}
                     className={`p-1.5 rounded-lg transition-colors ${isRunning
-                            ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30'
-                            : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
+                        ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30'
+                        : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
                         }`}
                     title={isRunning ? 'Pause' : 'Start'}
                 >
@@ -81,8 +81,8 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({
             {/* Timer Display */}
             <div className="text-center mb-4">
                 <div className={`font-mono text-4xl font-bold tracking-wider ${isRunning
-                        ? isOverEstimate ? 'text-red-400' : 'text-emerald-400'
-                        : 'text-slate-200'
+                    ? isOverEstimate ? 'text-red-400' : 'text-emerald-400'
+                    : 'text-slate-200'
                     }`}>
                     {formattedTime}
                 </div>
@@ -99,8 +99,8 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({
                     <div className="h-2 bg-black/40 rounded-full overflow-hidden">
                         <div
                             className={`h-full rounded-full transition-all duration-300 ${isOverEstimate
-                                    ? 'bg-gradient-to-r from-red-500 to-red-400'
-                                    : 'bg-gradient-to-r from-emerald-500 to-emerald-400'
+                                ? 'bg-gradient-to-r from-red-500 to-red-400'
+                                : 'bg-gradient-to-r from-emerald-500 to-emerald-400'
                                 }`}
                             style={{ width: `${progressPercent}%` }}
                         />
@@ -117,8 +117,8 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({
                 <button
                     onClick={isRunning ? pause : start}
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all ${isRunning
-                            ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 border border-amber-500/30'
-                            : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30'
+                        ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 border border-amber-500/30'
+                        : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30'
                         }`}
                 >
                     {isRunning ? <Pause size={16} /> : <Play size={16} />}

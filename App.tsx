@@ -9,11 +9,18 @@ import { Dashboard } from './components/Dashboard';
 import { Toast } from './components/Toast';
 import { TitleBar } from './components/TitleBar';
 import { Task, Project, BoardColumn, ProjectType, PriorityDefinition, GroupingOption, ToastMessage, ToastType, CustomFieldDefinition, FilterState } from './types';
-import { Search, Bell, Filter, Calendar, Tag, User, Undo2, Loader2 } from 'lucide-react';
+import { Search, Bell, Filter, Calendar, Tag, User, Undo2, Loader2, Command } from 'lucide-react';
 import { debounce } from './src/utils/debounce';
 import storageService from './src/services/storageService';
-import { STORAGE_KEYS } from './src/constants';
+import { STORAGE_KEYS, COLUMN_STATUS } from './src/constants';
 import ProjectBoard from './src/components/ProjectBoard';
+
+// Power User Features
+import { CommandPalette, CommandAction } from './src/components/CommandPalette';
+import { SearchHistoryDropdown } from './src/components/SearchHistoryDropdown';
+import { useSearchHistory } from './src/hooks/useSearchHistory';
+import { notificationService } from './src/services/notificationService';
+import { exportService } from './src/services/exportService';
 
 // Initial Projects (Fallback)
 const defaultProjects: Project[] = [
@@ -90,6 +97,11 @@ const App: React.FC = () => {
   // Toast System
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
+  // Power User Feature State
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const searchHistory = useSearchHistory();
+
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Undo/Redo System
@@ -158,27 +170,27 @@ const App: React.FC = () => {
   // Debounced storage writes
   const debouncedSaveColumns = useMemo(() => debounce((cols: BoardColumn[]) => {
     storageService.set(STORAGE_KEYS.COLUMNS, cols);
-  }, 300), []);
+  }, 500), []);
 
   const debouncedSaveProjectTypes = useMemo(() => debounce((types: ProjectType[]) => {
     storageService.set(STORAGE_KEYS.PROJECT_TYPES, types);
-  }, 300), []);
+  }, 500), []);
 
   const debouncedSavePriorities = useMemo(() => debounce((prios: PriorityDefinition[]) => {
     storageService.set(STORAGE_KEYS.PRIORITIES, prios);
-  }, 300), []);
+  }, 500), []);
 
   const debouncedSaveCustomFields = useMemo(() => debounce((fields: CustomFieldDefinition[]) => {
     storageService.set(STORAGE_KEYS.CUSTOM_FIELDS, fields);
-  }, 300), []);
+  }, 500), []);
 
   const debouncedSaveProjects = useMemo(() => debounce((projs: Project[]) => {
     storageService.set(STORAGE_KEYS.PROJECTS, projs);
-  }, 300), []);
+  }, 500), []);
 
   const debouncedSaveTasks = useMemo(() => debounce((tsks: Task[]) => {
     storageService.set(STORAGE_KEYS.TASKS, tsks);
-  }, 300), []);
+  }, 500), []);
 
   // --- Effects ---
   useEffect(() => {
@@ -225,13 +237,23 @@ const App: React.FC = () => {
 
 
 
+  // Initialize notification service for due/overdue task alerts
+  useEffect(() => {
+    if (isLoaded) {
+      notificationService.startPeriodicCheck(() => tasks, 60000); // Check every minute
+      return () => notificationService.stopPeriodicCheck();
+    }
+  }, [isLoaded, tasks]);
+
   // Global Keyboard Shortcuts
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      // Cmd/Ctrl + K for Search
+      const isInput = ['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName);
+
+      // Cmd/Ctrl + K for Command Palette
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
-        searchInputRef.current?.focus();
+        setIsCommandPaletteOpen(prev => !prev);
       }
       // Cmd/Ctrl + B to toggle Sidebar
       if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
@@ -239,12 +261,24 @@ const App: React.FC = () => {
         setIsSidebarCollapsed(prev => !prev);
       }
       // Cmd/Ctrl + Z for Undo
-      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey && !['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey && !isInput) {
         e.preventDefault();
         handleUndo();
       }
+      // Cmd/Ctrl + E for Export (new shortcut)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'e' && !isInput) {
+        e.preventDefault();
+        const projectMap = new Map<string, string>(projects.map(p => [p.id, p.name]));
+        exportService.downloadCSV(tasks, 'liquitask-export.csv', projectMap);
+        addToast('Exported tasks to CSV', 'success');
+      }
+      // Escape to close command palette
+      if (e.key === 'Escape' && isCommandPaletteOpen) {
+        e.preventDefault();
+        setIsCommandPaletteOpen(false);
+      }
       // 'C' for Create Task (if not in input)
-      if (e.key.toLowerCase() === 'c' && !['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) {
+      if (e.key.toLowerCase() === 'c' && !isInput) {
         e.preventDefault();
         setEditingTask(null);
         setIsTaskModalOpen(true);
@@ -252,7 +286,7 @@ const App: React.FC = () => {
     };
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [handleUndo]);
+  }, [handleUndo, isCommandPaletteOpen, tasks, projects, addToast]);
 
   // --- Derived Data ---
   const activeProject = projects.find(p => p.id === activeProjectId) || projects[0] || { name: 'No Project', id: 'temp' };
@@ -389,6 +423,32 @@ const App: React.FC = () => {
     setEditingTask(null);
   };
 
+  // Bulk create tasks (for JSON import)
+  const handleBulkCreateTasks = (newTasksData: Partial<Task>[]) => {
+    const createdTasks = newTasksData.map((taskData, idx) => ({
+      ...taskData,
+      id: `task-${Date.now()}-${idx}`,
+      jobId: `IMP-${Math.floor(Math.random() * 9000) + 1000}`,
+      projectId: activeProjectId,
+      title: taskData.title || 'Untitled',
+      subtitle: taskData.subtitle || '',
+      summary: taskData.summary || '',
+      assignee: taskData.assignee || '',
+      priority: taskData.priority || 'medium',
+      status: columns[0]?.id || 'Pending',
+      createdAt: new Date(),
+      subtasks: taskData.subtasks || [],
+      attachments: [],
+      customFieldValues: {},
+      links: [],
+      tags: taskData.tags || [],
+      timeEstimate: taskData.timeEstimate || 0,
+      timeSpent: 0,
+    } as Task));
+
+    setTasks(prev => [...prev, ...createdTasks]);
+  };
+
   const handleEditTaskClick = (task: Task) => {
     setEditingTask(task);
     setIsTaskModalOpen(true);
@@ -418,7 +478,7 @@ const App: React.FC = () => {
         if (blocker) {
           const blockerCol = columns.find(c => c.id === blocker.status);
           // Rule: You can't start if blocker is not done.
-          if (!blockerCol?.isCompleted && blocker.status !== 'Delivered') {
+          if (!blockerCol?.isCompleted && blocker.status !== COLUMN_STATUS.DELIVERED) {
             addToast(`Cannot start: Blocked by task ${blocker.jobId}`, 'error');
             return; // Prevent move
           }
@@ -589,15 +649,43 @@ const App: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-6">
-              <div className="hidden lg:flex items-center gap-3 bg-black/20 border border-white/5 px-4 py-2.5 rounded-2xl text-slate-400 w-64 focus-within:border-red-500/50 focus-within:ring-1 focus-within:ring-red-500/20 transition-all shadow-inner">
-                <Search size={18} />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  placeholder="Search tasks & fields... (Cmd+K)"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="bg-transparent border-none outline-none text-sm w-full placeholder-slate-500 text-slate-200"
+              <div className="relative">
+                <div className="hidden lg:flex items-center gap-3 bg-black/20 border border-white/5 px-4 py-2.5 rounded-2xl text-slate-400 w-64 focus-within:border-red-500/50 focus-within:ring-1 focus-within:ring-red-500/20 transition-all shadow-inner">
+                  <Search size={18} />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    placeholder="Search... (/ for focus)"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onFocus={() => setIsSearchFocused(true)}
+                    onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && searchQuery.trim()) {
+                        searchHistory.addToHistory(searchQuery.trim());
+                      }
+                    }}
+                    className="bg-transparent border-none outline-none text-sm w-full placeholder-slate-500 text-slate-200"
+                  />
+                  <button
+                    onClick={() => setIsCommandPaletteOpen(true)}
+                    className="p-1 text-slate-500 hover:text-red-400 transition-colors"
+                    title="Command Palette (Cmd+K)"
+                  >
+                    <Command size={14} />
+                  </button>
+                </div>
+                <SearchHistoryDropdown
+                  isOpen={isSearchFocused}
+                  recentSearches={searchHistory.getRecentSearches()}
+                  savedSearches={searchHistory.getSavedSearches()}
+                  onSelectSearch={(query) => {
+                    setSearchQuery(query);
+                    searchInputRef.current?.focus();
+                  }}
+                  onToggleSaved={searchHistory.toggleSaved}
+                  onRemove={searchHistory.removeFromHistory}
+                  onClearHistory={() => searchHistory.clearHistory()}
                 />
               </div>
 
@@ -607,6 +695,7 @@ const App: React.FC = () => {
                   disabled={!canUndo}
                   className={`p-2 rounded-full transition-colors relative group ${canUndo ? 'text-slate-400 hover:text-white' : 'text-slate-600 opacity-50 cursor-not-allowed'}`}
                   title="Undo (Ctrl+Z)"
+                  aria-label="Undo last action"
                 >
                   <Undo2 size={20} />
                 </button>
@@ -614,10 +703,16 @@ const App: React.FC = () => {
                   onClick={() => setIsFilterOpen(!isFilterOpen)}
                   className={`p-2 rounded-full transition-colors relative group ${isFilterOpen ? 'text-red-400 bg-red-500/10' : 'text-slate-400 hover:text-white'}`}
                   title="Filters"
+                  aria-label={isFilterOpen ? 'Close filters panel' : 'Open filters panel'}
+                  aria-expanded={isFilterOpen}
                 >
                   <Filter size={20} />
                 </button>
-                <button className="relative p-2 text-slate-400 hover:text-white transition-colors">
+                <button
+                  className="relative p-2 text-slate-400 hover:text-white transition-colors"
+                  aria-label="Notifications"
+                  title="Notifications"
+                >
                   <Bell size={20} />
                 </button>
               </div>
@@ -742,6 +837,89 @@ const App: React.FC = () => {
         grouping={boardGrouping}
         onUpdateGrouping={setBoardGrouping}
         addToast={addToast}
+        onBulkCreateTasks={handleBulkCreateTasks}
+      />
+
+      {/* Command Palette */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        actions={[
+          // Task Actions
+          {
+            id: 'create-task',
+            label: 'Create New Task',
+            description: 'Add a new task to current project',
+            category: 'task' as const,
+            shortcut: 'C',
+            action: () => { setEditingTask(null); setIsTaskModalOpen(true); },
+          },
+          // Project Actions
+          {
+            id: 'create-project',
+            label: 'Create New Project',
+            description: 'Add a new workspace',
+            category: 'project' as const,
+            action: () => setIsProjectModalOpen(true),
+          },
+          ...projects.slice(0, 5).map(p => ({
+            id: `switch-project-${p.id}`,
+            label: `Go to ${p.name}`,
+            description: 'Switch to this project',
+            category: 'project' as const,
+            action: () => { setActiveProjectId(p.id); setCurrentView('project'); },
+          })),
+          // View Actions
+          {
+            id: 'view-dashboard',
+            label: 'Open Dashboard',
+            description: 'Cross-project overview',
+            category: 'view' as const,
+            action: () => setCurrentView('dashboard'),
+          },
+          {
+            id: 'view-board',
+            label: 'Open Project Board',
+            description: 'Kanban board view',
+            category: 'view' as const,
+            action: () => setCurrentView('project'),
+          },
+          {
+            id: 'toggle-filters',
+            label: isFilterOpen ? 'Hide Filters' : 'Show Filters',
+            description: 'Toggle filter panel',
+            category: 'view' as const,
+            action: () => setIsFilterOpen(prev => !prev),
+          },
+          // Action Commands
+          {
+            id: 'export-csv',
+            label: 'Export to CSV',
+            description: 'Download all tasks as CSV',
+            category: 'action' as const,
+            shortcut: '⌘E',
+            action: () => {
+              const projectMap = new Map<string, string>(projects.map(p => [p.id, p.name]));
+              exportService.downloadCSV(tasks, 'liquitask-export.csv', projectMap);
+              addToast('Exported tasks to CSV', 'success');
+            },
+          },
+          {
+            id: 'open-settings',
+            label: 'Open Settings',
+            description: 'Configure app preferences',
+            category: 'action' as const,
+            action: () => setIsSettingsModalOpen(true),
+          },
+          {
+            id: 'undo',
+            label: 'Undo Last Action',
+            description: 'Revert previous change',
+            category: 'action' as const,
+            shortcut: '⌘Z',
+            action: handleUndo,
+          },
+        ] satisfies CommandAction[]}
       />
 
 

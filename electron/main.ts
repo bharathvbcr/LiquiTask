@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, Menu, Notification } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, Notification } from 'electron';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
 import Store from 'electron-store';
@@ -51,6 +51,20 @@ function createWindow() {
     mainWindow.webContents.setWindowOpenHandler(({ url }) => {
         shell.openExternal(url);
         return { action: 'deny' };
+    });
+
+    // Security: Set Content Security Policy headers
+    mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+        callback({
+            responseHeaders: {
+                ...details.responseHeaders,
+                'Content-Security-Policy': [
+                    process.env.VITE_DEV_SERVER_URL
+                        ? "default-src 'self' 'unsafe-inline' 'unsafe-eval'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:;"
+                        : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:;"
+                ]
+            }
+        });
     });
 
     // Load app

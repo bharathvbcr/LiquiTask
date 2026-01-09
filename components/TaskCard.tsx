@@ -1,5 +1,5 @@
 import React, { useState, memo } from 'react';
-import { Calendar, User, CheckCircle, AlertTriangle, GripVertical, Pencil, Trash2, Flag, Signal, CheckSquare, Paperclip, Link as LinkIcon, Flame, ArrowDown, ArrowUp, Minus, Star, Zap, Shield, AlertCircle, Clock, ChevronDown, ChevronUp, Check, AlignLeft, Lock, ArrowRightLeft, Copy, ExternalLink, Info } from 'lucide-react';
+import { Calendar, CheckCircle, AlertTriangle, GripVertical, Pencil, Trash2, Flag, CheckSquare, Paperclip, Link as LinkIcon, Flame, ArrowDown, ArrowUp, Minus, Star, Zap, Shield, AlertCircle, Clock, ChevronDown, ChevronUp, Check, AlignLeft, Lock, ArrowRightLeft, ExternalLink, Info } from 'lucide-react';
 import { Task, PriorityDefinition } from '../types';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -172,7 +172,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, isCompletedColumn, onM
           <div className="flex items-start gap-2 h-full">
             <AlignLeft size={14} className="text-slate-600 mt-1 shrink-0 group-hover/markdown:text-slate-500 transition-colors" />
             <div className="text-sm text-slate-300 leading-relaxed font-medium w-full markdown-content">
-              <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({ node, ...props }) => (<a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline" />) }}>{task.summary}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({ _node, ...props }) => (<a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline" />) }}>{task.summary}</ReactMarkdown>
             </div>
           </div>
         </div>
@@ -283,15 +283,25 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, isCompletedColumn, onM
 // Memoized version with custom comparator for performance
 export const MemoizedTaskCard = memo(TaskCard, (prevProps, nextProps) => {
   // Only re-render if these specific props change
+  const prevTask = prevProps.task;
+  const nextTask = nextProps.task;
+
   return (
-    prevProps.task.id === nextProps.task.id &&
-    prevProps.task.title === nextProps.task.title &&
-    prevProps.task.status === nextProps.task.status &&
-    prevProps.task.priority === nextProps.task.priority &&
-    prevProps.task.dueDate?.getTime() === nextProps.task.dueDate?.getTime() &&
-    prevProps.task.subtasks?.length === nextProps.task.subtasks?.length &&
-    prevProps.task.subtasks?.filter(s => s.completed).length ===
-    nextProps.task.subtasks?.filter(s => s.completed).length &&
-    prevProps.isCompletedColumn === nextProps.isCompletedColumn
+    prevTask.id === nextTask.id &&
+    prevTask.title === nextTask.title &&
+    prevTask.summary === nextTask.summary &&
+    prevTask.status === nextTask.status &&
+    prevTask.priority === nextTask.priority &&
+    prevTask.assignee === nextTask.assignee &&
+    prevTask.dueDate?.getTime() === nextTask.dueDate?.getTime() &&
+    prevTask.subtasks?.length === nextTask.subtasks?.length &&
+    prevTask.subtasks?.filter(s => s.completed).length ===
+    nextTask.subtasks?.filter(s => s.completed).length &&
+    prevTask.attachments?.length === nextTask.attachments?.length &&
+    prevTask.links?.length === nextTask.links?.length &&
+    prevTask.tags?.length === nextTask.tags?.length &&
+    prevTask.timeSpent === nextTask.timeSpent &&
+    prevProps.isCompletedColumn === nextProps.isCompletedColumn &&
+    prevProps.priorities === nextProps.priorities
   );
 });

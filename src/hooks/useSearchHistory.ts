@@ -45,7 +45,7 @@ export function useSearchHistory() {
             const filtered = prev.filter(item => item.query.toLowerCase() !== query.toLowerCase());
 
             const newItem: SearchHistoryItem = {
-                id: `search-${Date.now()}`,
+                id: `search-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                 query: query.trim(),
                 timestamp: new Date(),
                 isSaved: false,

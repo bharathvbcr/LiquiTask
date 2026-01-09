@@ -79,9 +79,9 @@ export function useTaskManagement({ activeProjectId, columns, addToast }: UseTas
             attachments: taskData.attachments || [],
             customFieldValues: taskData.customFieldValues || {},
             links: taskData.links || [],
-            tags: (taskData as any).tags || [],
-            timeEstimate: (taskData as any).timeEstimate || 0,
-            timeSpent: (taskData as any).timeSpent || 0,
+            tags: taskData.tags || [],
+            timeEstimate: taskData.timeEstimate || 0,
+            timeSpent: taskData.timeSpent || 0,
         } as Task;
 
         pushUndo({ type: 'create', task: newTask });

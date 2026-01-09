@@ -1,5 +1,5 @@
 // Check if Electron notifications are available
-const isElectron = typeof window !== 'undefined' && !!(window as any).electronAPI;
+const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
 
 interface NotificationOptions {
     title: string;
@@ -39,8 +39,8 @@ class NotificationService {
             return;
         }
 
-        if (isElectron && (window as any).electronAPI?.showNotification) {
-            (window as any).electronAPI.showNotification({
+        if (isElectron && window.electronAPI?.showNotification) {
+            window.electronAPI.showNotification({
                 title: options.title,
                 body: options.body,
             });
@@ -96,6 +96,93 @@ class NotificationService {
                 this.scheduleTaskReminder(task.id, task.title, task.dueDate);
             }
         });
+    }
+
+    // Check for overdue tasks and return categorized results
+    checkOverdueTasks(tasks: Array<{ id: string; title: string; dueDate?: Date; status?: string; completedAt?: Date }>): {
+        overdue: typeof tasks;
+        dueSoon: typeof tasks;
+    } {
+        const now = new Date();
+        const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
+
+        const overdue: typeof tasks = [];
+        const dueSoon: typeof tasks = [];
+
+        tasks.forEach(task => {
+            if (!task.dueDate || task.status === 'Done' || task.completedAt) return;
+
+            const dueDate = new Date(task.dueDate);
+
+            if (dueDate < now) {
+                overdue.push(task);
+            } else if (dueDate <= oneHourFromNow) {
+                dueSoon.push(task);
+            }
+        });
+
+        return { overdue, dueSoon };
+    }
+
+    // Show notification for overdue tasks
+    notifyOverdue(tasks: Array<{ title: string }>): void {
+        if (tasks.length === 0) return;
+
+        if (tasks.length === 1) {
+            this.show({
+                title: '⚠️ Overdue Task',
+                body: `"${tasks[0].title}" is past due!`,
+            });
+        } else {
+            this.show({
+                title: `⚠️ ${tasks.length} Overdue Tasks`,
+                body: `You have ${tasks.length} tasks that are past due`,
+            });
+        }
+    }
+
+    // Start periodic overdue checking
+    private checkIntervalId: ReturnType<typeof setInterval> | null = null;
+    private notifiedOverdueIds: Set<string> = new Set();
+
+    startPeriodicCheck(
+        getTasks: () => Array<{ id: string; title: string; dueDate?: Date; status?: string; completedAt?: Date }>,
+        intervalMs: number = 60000
+    ): void {
+        if (this.checkIntervalId) {
+            this.stopPeriodicCheck();
+        }
+
+        const check = () => {
+            const tasks = getTasks();
+            const { overdue } = this.checkOverdueTasks(tasks);
+
+            // Only notify for newly overdue tasks
+            const newlyOverdue = overdue.filter(t => !this.notifiedOverdueIds.has(t.id));
+
+            if (newlyOverdue.length > 0) {
+                this.notifyOverdue(newlyOverdue);
+                newlyOverdue.forEach(t => this.notifiedOverdueIds.add(t.id));
+            }
+        };
+
+        // Initial check
+        check();
+
+        // Set up interval
+        this.checkIntervalId = setInterval(check, intervalMs);
+    }
+
+    stopPeriodicCheck(): void {
+        if (this.checkIntervalId) {
+            clearInterval(this.checkIntervalId);
+            this.checkIntervalId = null;
+        }
+    }
+
+    // Clear notified overdue tracking (e.g., when task is completed)
+    clearOverdueNotification(taskId: string): void {
+        this.notifiedOverdueIds.delete(taskId);
     }
 }
 

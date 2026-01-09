@@ -124,4 +124,20 @@ export interface FilterState {
   startDate: string;
   endDate: string;
   tags: string;
+  priority?: string; // Filter by priority level
+  status?: string; // Filter by status/column
+  showCompleted?: boolean; // Include completed tasks
 }
+
+// Saved View for persisting filter configurations
+export interface SavedView {
+  id: string;
+  name: string;
+  filters: FilterState;
+  grouping: 'none' | 'priority';
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  createdAt: Date;
+  isDefault?: boolean;
+}
+

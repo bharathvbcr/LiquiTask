@@ -1,19 +1,38 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Sparkles, Calendar, Flag, X } from 'lucide-react';
+import { Plus, Calendar, Flag, X } from 'lucide-react';
 
 interface QuickAddBarProps {
-    onAddTask: (title: string, options?: { priority?: string; dueDate?: Date }) => void;
+    onAddTask: (title: string, options?: {
+        priority?: string;
+        dueDate?: Date;
+        projectId?: string;
+        timeEstimate?: number;
+        tags?: string[];
+    }) => void;
     isVisible: boolean;
     onClose: () => void;
+    projects?: Array<{ id: string; name: string }>;
 }
 
-// Simple natural language parsing for quick task entry
-function parseQuickTask(input: string): { title: string; priority?: string; dueDate?: Date } {
+interface ParsedTask {
+    title: string;
+    priority?: string;
+    dueDate?: Date;
+    projectName?: string;
+    timeEstimate?: number; // in minutes
+    tags: string[];
+}
+
+// Enhanced natural language parsing for quick task entry
+function parseQuickTask(input: string): ParsedTask {
     let title = input;
     let priority: string | undefined;
     let dueDate: Date | undefined;
+    let projectName: string | undefined;
+    let timeEstimate: number | undefined;
+    const tags: string[] = [];
 
-    // Parse priority markers
+    // Parse priority markers (!h, !m, !l, !high, !medium, !low)
     if (input.includes('!high') || input.includes('!h')) {
         priority = 'high';
         title = title.replace(/!high|!h/gi, '').trim();
@@ -25,7 +44,30 @@ function parseQuickTask(input: string): { title: string; priority?: string; dueD
         title = title.replace(/!low|!l/gi, '').trim();
     }
 
-    // Parse due date patterns
+    // Parse project (#projectname)
+    const projectMatch = input.match(/#([a-zA-Z0-9_-]+)/);
+    if (projectMatch) {
+        projectName = projectMatch[1];
+        title = title.replace(projectMatch[0], '').trim();
+    }
+
+    // Parse time estimate (~2h, ~30m, ~1.5h)
+    const timeMatch = input.match(/~(\d+(?:\.\d+)?)(h|m)/i);
+    if (timeMatch) {
+        const value = parseFloat(timeMatch[1]);
+        const unit = timeMatch[2].toLowerCase();
+        timeEstimate = unit === 'h' ? value * 60 : value; // Convert to minutes
+        title = title.replace(timeMatch[0], '').trim();
+    }
+
+    // Parse tags (+tag)
+    const tagMatches = input.matchAll(/\+([a-zA-Z0-9_-]+)/g);
+    for (const match of tagMatches) {
+        tags.push(match[1]);
+        title = title.replace(match[0], '').trim();
+    }
+
+    // Parse due date patterns (@today, @tomorrow, @nextweek, @MM/DD)
     const today = new Date();
     const todayMatch = input.match(/(@today|@tod)/i);
     const tomorrowMatch = input.match(/(@tomorrow|@tom)/i);
@@ -53,7 +95,10 @@ function parseQuickTask(input: string): { title: string; priority?: string; dueD
         title = title.replace(dateMatch[0], '').trim();
     }
 
-    return { title: title.trim(), priority, dueDate };
+    // Clean up any extra whitespace
+    title = title.replace(/\s+/g, ' ').trim();
+
+    return { title, priority, dueDate, projectName, timeEstimate, tags };
 }
 
 export const QuickAddBar: React.FC<QuickAddBarProps> = ({
@@ -139,8 +184,8 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({
                                     <span className="text-sm text-slate-300">{parsed.title || 'Task name...'}</span>
                                     {parsed.priority && (
                                         <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${parsed.priority === 'high' ? 'bg-red-500/20 text-red-400' :
-                                                parsed.priority === 'medium' ? 'bg-amber-500/20 text-amber-400' :
-                                                    'bg-emerald-500/20 text-emerald-400'
+                                            parsed.priority === 'medium' ? 'bg-amber-500/20 text-amber-400' :
+                                                'bg-emerald-500/20 text-emerald-400'
                                             }`}>
                                             <Flag size={10} className="inline mr-1" />
                                             {parsed.priority}
@@ -161,8 +206,11 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({
                                 <Hint label="!m" description="Medium" />
                                 <Hint label="!l" description="Low" />
                                 <Hint label="@today" description="Due today" />
-                                <Hint label="@tomorrow" description="Tomorrow" />
+                                <Hint label="@tom" description="Tomorrow" />
                                 <Hint label="@1/15" description="MM/DD" />
+                                <Hint label="#project" description="Project" />
+                                <Hint label="+tag" description="Add tag" />
+                                <Hint label="~2h" description="Estimate" />
                             </div>
                         </div>
                     </div>

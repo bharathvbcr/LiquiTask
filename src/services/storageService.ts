@@ -1,10 +1,15 @@
 import { Task, Project, BoardColumn, ProjectType, PriorityDefinition, CustomFieldDefinition } from '../../types';
 import { STORAGE_KEYS, DEFAULT_COLUMNS, DEFAULT_PROJECTS, DEFAULT_PROJECT_TYPES, DEFAULT_PRIORITIES } from '../constants';
-import { validateAndTransformImportedData, ValidatedAppData } from '../utils/validation';
-import { trySaveToStorage, isStorageNearQuota } from '../utils/storageQuota';
+import { validateAndTransformImportedData } from '../utils/validation';
+import { trySaveToStorage } from '../utils/storageQuota';
+
+// Type guard for Electron environment
+function hasElectronAPI(win: Window): win is Window & { electronAPI: NonNullable<typeof window.electronAPI> } {
+    return typeof win !== 'undefined' && !!win.electronAPI;
+}
 
 // Check if running in Electron
-const isElectron = typeof window !== 'undefined' && !!(window as any).electronAPI;
+const isElectron = typeof window !== 'undefined' && hasElectronAPI(window);
 
 // Type for all storable data
 export interface AppData {
@@ -24,23 +29,32 @@ export interface AppData {
 const CURRENT_DATA_VERSION = '1.0.0';
 
 // Parse tasks with proper date handling
-function parseTasks(data: any[]): Task[] {
-    return data.map((t: any) => ({
-        ...t,
-        createdAt: new Date(t.createdAt),
-        dueDate: t.dueDate ? new Date(t.dueDate) : undefined,
-        attachments: t.attachments || [],
-        customFieldValues: t.customFieldValues || {},
-        links: t.links || [],
-        tags: t.tags || [],
-        timeEstimate: t.timeEstimate || 0,
-        timeSpent: t.timeSpent || 0,
+function parseTasks(data: Record<string, unknown>[]): Task[] {
+    return data.map((t) => ({
+        id: t.id as string,
+        jobId: t.jobId as string,
+        projectId: t.projectId as string,
+        title: (t.title as string) || '',
+        subtitle: (t.subtitle as string) || '',
+        summary: (t.summary as string) || '',
+        assignee: (t.assignee as string) || '',
+        priority: (t.priority as string) || 'medium',
+        status: t.status as string,
+        createdAt: new Date(t.createdAt as string | number | Date),
+        dueDate: t.dueDate ? new Date(t.dueDate as string | number | Date) : undefined,
+        subtasks: (t.subtasks as Task['subtasks']) || [],
+        attachments: (t.attachments as Task['attachments']) || [],
+        customFieldValues: (t.customFieldValues as Task['customFieldValues']) || {},
+        links: (t.links as Task['links']) || [],
+        tags: (t.tags as string[]) || [],
+        timeEstimate: (t.timeEstimate as number) || 0,
+        timeSpent: (t.timeSpent as number) || 0,
     }));
 }
 
 // Storage service with localStorage fallback
 class StorageService {
-    private cache: Map<string, any> = new Map();
+    private cache: Map<string, unknown> = new Map();
 
     get<T>(key: string, defaultValue: T): T {
         // Check cache first
@@ -78,9 +92,8 @@ class StorageService {
                 const value = await window.electronAPI!.storage.get(key);
 
                 if (value) {
-                    // Use native data
                     if (key === STORAGE_KEYS.TASKS) {
-                        this.cache.set(key, parseTasks(value));
+                        this.cache.set(key, parseTasks(value as Record<string, unknown>[]));
                     } else {
                         this.cache.set(key, value);
                     }
@@ -97,7 +110,7 @@ class StorageService {
                             }
                             // Save to native storage for next time
                             await window.electronAPI!.storage.set(key, parsed);
-                            console.log(`Migrated ${key} to native storage`);
+                            // Migration complete for key
                         } catch (e) {
                             console.error(`Failed to migrate ${key}`, e);
                         }
@@ -181,7 +194,7 @@ class StorageService {
             // Check version and migrate if needed
             const importedVersion = parsed.version || '0.0.0';
             if (importedVersion !== CURRENT_DATA_VERSION) {
-                console.log(`Migrating data from version ${importedVersion} to ${CURRENT_DATA_VERSION}`);
+                // Future: Add migration logic here for version upgrade
                 // Future: Add migration logic here
             }
 

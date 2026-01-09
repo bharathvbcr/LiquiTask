@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, User, CheckSquare, Paperclip, Clock, Flag, X, ExternalLink } from 'lucide-react';
+import { Calendar, User, CheckSquare, Paperclip, Clock, X, ExternalLink } from 'lucide-react';
 import { Task, PriorityDefinition } from '../../types';
 import { formatMinutes } from '../hooks/useTimer';
 
