@@ -63,6 +63,7 @@ export function useTaskManagement({ activeProjectId, columns, addToast }: UseTas
 
     // Create task
     const createTask = useCallback((taskData: Partial<Task>) => {
+        const now = new Date();
         const newTask: Task = {
             id: `task-${Date.now()}`,
             jobId: `TSK-${Math.floor(Math.random() * 9000) + 1000}`,
@@ -73,7 +74,8 @@ export function useTaskManagement({ activeProjectId, columns, addToast }: UseTas
             assignee: taskData.assignee || '',
             priority: taskData.priority || 'medium',
             status: taskData.status || columns[0]?.id || COLUMN_STATUS.PENDING,
-            createdAt: new Date(),
+            createdAt: now,
+            updatedAt: now,
             dueDate: taskData.dueDate,
             subtasks: taskData.subtasks || [],
             attachments: taskData.attachments || [],
@@ -82,6 +84,7 @@ export function useTaskManagement({ activeProjectId, columns, addToast }: UseTas
             tags: taskData.tags || [],
             timeEstimate: taskData.timeEstimate || 0,
             timeSpent: taskData.timeSpent || 0,
+            errorLogs: taskData.errorLogs || [],
         } as Task;
 
         pushUndo({ type: 'create', task: newTask });
@@ -93,10 +96,14 @@ export function useTaskManagement({ activeProjectId, columns, addToast }: UseTas
     // Update task
     const updateTask = useCallback((updatedTask: Task) => {
         const previousTask = tasks.find(t => t.id === updatedTask.id);
+        const taskWithUpdatedTime = {
+            ...updatedTask,
+            updatedAt: new Date(),
+        };
         if (previousTask) {
-            pushUndo({ type: 'update', task: updatedTask, previousState: previousTask });
+            pushUndo({ type: 'update', task: taskWithUpdatedTime, previousState: previousTask });
         }
-        saveTasks(tasks.map(t => t.id === updatedTask.id ? updatedTask : t));
+        saveTasks(tasks.map(t => t.id === updatedTask.id ? taskWithUpdatedTime : t));
     }, [tasks, saveTasks, pushUndo]);
 
     // Delete task
@@ -138,6 +145,7 @@ export function useTaskManagement({ activeProjectId, columns, addToast }: UseTas
             ...task,
             status: newStatus,
             priority: newPriority || task.priority,
+            updatedAt: new Date(),
         };
 
         pushUndo({ type: 'update', task: updatedTask, previousState: previousTask });
@@ -146,6 +154,7 @@ export function useTaskManagement({ activeProjectId, columns, addToast }: UseTas
 
     // Bulk create tasks (for AI generation)
     const bulkCreateTasks = useCallback((newTasks: Partial<Task>[]) => {
+        const now = new Date();
         const createdTasks = newTasks.map(taskData => ({
             id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             jobId: `AI-${Math.floor(Math.random() * 9000) + 1000}`,
@@ -156,7 +165,8 @@ export function useTaskManagement({ activeProjectId, columns, addToast }: UseTas
             assignee: '',
             priority: taskData.priority || 'medium',
             status: COLUMN_STATUS.PENDING,
-            createdAt: new Date(),
+            createdAt: now,
+            updatedAt: now,
             subtasks: [],
             attachments: [],
             customFieldValues: {},
@@ -164,6 +174,7 @@ export function useTaskManagement({ activeProjectId, columns, addToast }: UseTas
             tags: [],
             timeEstimate: 0,
             timeSpent: 0,
+            errorLogs: [],
         } as Task));
 
         saveTasks([...tasks, ...createdTasks]);

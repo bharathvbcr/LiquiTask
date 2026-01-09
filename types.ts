@@ -40,6 +40,7 @@ export interface Project {
   id: string;
   name: string;
   type: string;
+  icon?: string; // Direct icon key, takes precedence over type
   parentId?: string;
   pinned?: boolean;
   order?: number;
@@ -72,6 +73,11 @@ export interface RecurringConfig {
   nextOccurrence?: Date;
 }
 
+export interface ErrorLog {
+  timestamp: Date;
+  message: string;
+}
+
 export interface Task {
   id: string;
   jobId: string;
@@ -83,6 +89,7 @@ export interface Task {
   priority: string;
   status: TaskStatus;
   createdAt: Date;
+  updatedAt?: Date;
   dueDate?: Date;
   subtasks: Subtask[];
   attachments: Attachment[];
@@ -94,6 +101,7 @@ export interface Task {
   timeSpent: number; // in minutes
   recurring?: RecurringConfig;
   completedAt?: Date;
+  errorLogs?: ErrorLog[]; // For tracking errors related to this task
 }
 
 export interface BoardColumn {
@@ -139,5 +147,45 @@ export interface SavedView {
   sortOrder?: 'asc' | 'desc';
   createdAt: Date;
   isDefault?: boolean;
+}
+
+// Migration system types
+export interface Migration {
+  version: string;
+  description: string;
+  migrate: (data: MigratableAppData) => MigratableAppData;
+}
+
+export interface MigrationResult {
+  success: boolean;
+  migratedFrom: string;
+  migratedTo: string;
+  data?: MigratableAppData;
+  error?: string;
+  backupId?: string;
+}
+
+export interface BackupInfo {
+  id: string;
+  version: string;
+  timestamp: Date;
+  size: number;
+}
+
+// App data structure for migration (mirrors storageService.AppData)
+export interface MigratableAppData {
+  columns?: BoardColumn[];
+  projectTypes?: ProjectType[];
+  priorities?: PriorityDefinition[];
+  customFields?: CustomFieldDefinition[];
+  projects?: Project[];
+  tasks?: Task[];
+  activeProjectId?: string;
+  sidebarCollapsed?: boolean;
+  grouping?: 'none' | 'priority';
+  version?: string;
+  savedViews?: SavedView[];
+  // Allow additional fields for forward compatibility
+  [key: string]: unknown;
 }
 

@@ -20,6 +20,11 @@ export const TaskLinkSchema = z.object({
   type: z.enum(['blocks', 'blocked-by', 'relates-to', 'duplicates']),
 });
 
+export const ErrorLogSchema = z.object({
+  timestamp: z.date(),
+  message: z.string(),
+});
+
 export const RecurringConfigSchema = z.object({
   enabled: z.boolean(),
   frequency: z.enum(['daily', 'weekly', 'monthly', 'custom']),
@@ -41,6 +46,7 @@ export const TaskSchema: z.ZodType<Task> = z.object({
   priority: z.string(),
   status: z.string(),
   createdAt: z.date(),
+  updatedAt: z.date().optional(),
   dueDate: z.date().optional(),
   subtasks: z.array(SubtaskSchema).default([]),
   attachments: z.array(AttachmentSchema).default([]),
@@ -51,6 +57,7 @@ export const TaskSchema: z.ZodType<Task> = z.object({
   timeSpent: z.number().default(0),
   recurring: RecurringConfigSchema,
   completedAt: z.date().optional(),
+  errorLogs: z.array(ErrorLogSchema).optional(),
 });
 
 export const ProjectSchema: z.ZodType<Project> = z.object({
@@ -133,11 +140,17 @@ export function validateAndTransformImportedData(data: unknown): ValidatedAppDat
       ...dataRecord,
       tasks: rawTasks.map((t) => {
         const recurring = t.recurring as Record<string, unknown> | undefined;
+        const errorLogs = Array.isArray(t.errorLogs) ? (t.errorLogs as Record<string, unknown>[]).map((log) => ({
+          timestamp: parseDate(log.timestamp) || new Date(),
+          message: (log.message as string) || '',
+        })) : undefined;
         return {
           ...t,
           createdAt: parseDate(t.createdAt) || new Date(),
+          updatedAt: parseDate(t.updatedAt),
           dueDate: parseDate(t.dueDate),
           completedAt: parseDate(t.completedAt),
+          errorLogs: errorLogs,
           recurring: recurring ? {
             ...recurring,
             endDate: parseDate(recurring.endDate),

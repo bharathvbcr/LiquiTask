@@ -5,6 +5,7 @@ import {
     closestCenter,
     KeyboardSensor,
     PointerSensor,
+    TouchSensor,
     useSensor,
     useSensors,
     DragOverlay,
@@ -13,6 +14,7 @@ import {
     DragOverEvent,
     DragEndEvent,
     DropAnimation,
+    MeasuringStrategy,
 } from '@dnd-kit/core';
 import {
     arrayMove,
@@ -21,11 +23,11 @@ import {
     horizontalListSortingStrategy,
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { Maximize2, Minimize2 } from 'lucide-react';
 
-import { Task, BoardColumn, PriorityDefinition } from '../../types';
+import { Task, BoardColumn, PriorityDefinition, Project } from '../../types';
 import { SortableColumn } from './board/SortableColumn';
 import { SortableTask } from './board/SortableTask';
+import { DroppableCell } from './board/DroppableCell';
 import { TaskCard } from '../../components/TaskCard';
 
 interface ProjectBoardProps {
@@ -40,6 +42,11 @@ interface ProjectBoardProps {
     onUpdateTask: (task: Task) => void;
     onDeleteTask: (taskId: string) => void;
     getTasksByContext: (statusId: string, priorityId?: string) => Task[];
+    isCompact?: boolean;
+    onCopyTask?: (message: string) => void;
+    projectName?: string;
+    projects?: Project[];
+    onMoveToWorkspace?: (taskId: string, projectId: string) => void;
 }
 
 export const ProjectBoard: React.FC<ProjectBoardProps> = ({
@@ -54,21 +61,35 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = ({
     onUpdateTask,
     onDeleteTask,
     getTasksByContext,
+    isCompact = false,
+    onCopyTask,
+    projectName,
+    projects = [],
+    onMoveToWorkspace,
 }) => {
     const [, setActiveId] = useState<string | null>(null);
     const [activeTask, setActiveTask] = useState<Task | null>(null);
     const [activeColumn, setActiveColumn] = useState<BoardColumn | null>(null);
-    const [isCompact, setIsCompact] = useState(false);
 
     const safeColumns = useMemo(() => columns || [], [columns]);
     const safePriorities = useMemo(() => priorities || [], [priorities]);
 
 
 
+    // Sensors for drag activation:
+    // - PointerSensor: Mouse/trackpad with 8px distance to prevent accidental drags
+    // - TouchSensor: Mobile touch with delay to distinguish from scroll
+    // - KeyboardSensor: Accessibility - use arrow keys to move items
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
-                distance: 5, // 5px draggable distance
+                distance: 8, // 8px drag distance before activation
+            },
+        }),
+        useSensor(TouchSensor, {
+            activationConstraint: {
+                delay: 200, // 200ms hold before drag starts
+                tolerance: 5, // 5px movement tolerance during delay
             },
         }),
         useSensor(KeyboardSensor, {
@@ -137,7 +158,10 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = ({
             let newStatus = '';
 
             // Check if dropped on a column directly
-            const overColumn = columns.find(c => c.id === overIdString);
+            // Handle both column.id and drop-{column.id} formats (droppable uses drop- prefix)
+            const overColumn = columns.find(c =>
+                c.id === overIdString || `drop-${c.id}` === overIdString
+            );
             if (overColumn) {
                 newStatus = overColumn.id;
             } else {
@@ -164,10 +188,12 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = ({
     }
 
     const dropAnimation: DropAnimation = {
+        duration: 250,
+        easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)',
         sideEffects: defaultDropAnimationSideEffects({
             styles: {
                 active: {
-                    opacity: '0.5',
+                    opacity: '0.4',
                 },
             },
         }),
@@ -247,12 +273,19 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = ({
             setActiveTask(null);
         };
 
+        const measuringConfig = {
+            droppable: {
+                strategy: MeasuringStrategy.Always,
+            },
+        };
+
         return (
             <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
                 onDragStart={handlePriorityDragStart}
                 onDragEnd={handlePriorityDragEnd}
+                measuring={measuringConfig}
             >
                 <div className="flex flex-col gap-8">
                     <div className="flex gap-6 sticky top-0 z-20 pb-2 bg-[#020000]/80 backdrop-blur-md -mx-6 px-6 pt-2">
@@ -272,10 +305,10 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = ({
                                     const cellTasks = getTasksByContext(column.id, prio.id);
                                     const dropZoneId = getDropZoneId(prio.id, column.id);
                                     return (
-                                        <div
+                                        <DroppableCell
                                             key={`${prio.id}-${column.id}`}
-                                            className="flex-1 min-w-[300px] flex flex-col gap-4 min-h-[120px] p-2 rounded-xl border border-transparent hover:border-white/10 transition-colors"
-                                            data-droppable-id={dropZoneId}
+                                            id={dropZoneId}
+                                            className="flex-1 min-w-[300px] flex flex-col gap-4 min-h-[120px] p-2 rounded-xl border border-transparent hover:border-white/10"
                                         >
                                             <SortableContext
                                                 items={cellTasks.map(t => t.id)}
@@ -293,18 +326,20 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = ({
                                                         onUpdateTask={onUpdateTask}
                                                         onDeleteTask={onDeleteTask}
                                                         allTasks={allTasks}
+                                                        isCompact={isCompact}
+                                                        onCopyTask={onCopyTask}
+                                                        projectName={projectName}
+                                                        projects={projects}
+                                                        onMoveToWorkspace={onMoveToWorkspace}
                                                     />
                                                 ))}
                                             </SortableContext>
                                             {cellTasks.length === 0 && (
-                                                <div
-                                                    className="flex-1 min-h-[80px] rounded-lg border-2 border-dashed border-white/5 flex items-center justify-center text-slate-600 text-xs"
-                                                    data-droppable-id={dropZoneId}
-                                                >
+                                                <div className="flex-1 min-h-[80px] rounded-lg border-2 border-dashed border-white/5 flex items-center justify-center text-slate-600 text-xs">
                                                     Drop here
                                                 </div>
                                             )}
-                                        </div>
+                                        </DroppableCell>
                                     )
                                 })}
                             </div>
@@ -315,7 +350,7 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = ({
                 {createPortal(
                     <DragOverlay dropAnimation={dropAnimation}>
                         {activeTask && (
-                            <div className="opacity-80 rotate-2 cursor-grabbing">
+                            <div className="scale-105 rotate-2 cursor-grabbing shadow-2xl shadow-black/50">
                                 <TaskCard
                                     task={activeTask}
                                     priorities={safePriorities}
@@ -325,6 +360,11 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = ({
                                     onUpdateTask={() => { }}
                                     onDeleteTask={() => { }}
                                     allTasks={allTasks}
+                                    isCompact={isCompact}
+                                    onCopyTask={onCopyTask}
+                                    projectName={projectName}
+                                    projects={projects}
+                                    onMoveToWorkspace={onMoveToWorkspace}
                                 />
                             </div>
                         )}
@@ -335,6 +375,12 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = ({
         );
     }
 
+    const measuringConfig = {
+        droppable: {
+            strategy: MeasuringStrategy.Always,
+        },
+    };
+
     return (
         <DndContext
             sensors={sensors}
@@ -342,17 +388,9 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = ({
             onDragStart={onDragStart}
             onDragOver={onDragOver}
             onDragEnd={onDragEnd}
+            measuring={measuringConfig}
         >
             <div className="flex flex-col h-full">
-                <div className="flex justify-end mb-4 px-4 sticky left-0 right-0">
-                    <button
-                        onClick={() => setIsCompact(!isCompact)}
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-400 hover:text-white transition-all border border-white/5 hover:border-white/20"
-                    >
-                        {isCompact ? <Maximize2 size={14} /> : <Minimize2 size={14} />}
-                        {isCompact ? 'Expand Cards' : 'Compact View'}
-                    </button>
-                </div>
                 <div className="flex gap-6 h-full overflow-x-auto pb-4">
                     <SortableContext items={columnIds} strategy={horizontalListSortingStrategy}>
                         {safeColumns.map((col) => (
@@ -367,6 +405,8 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = ({
                                 onUpdateTask={onUpdateTask}
                                 onDeleteTask={onDeleteTask}
                                 isCompact={isCompact}
+                                onCopyTask={onCopyTask}
+                                projectName={projectName}
                             />
                         ))}
                     </SortableContext>
@@ -384,7 +424,7 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = ({
                         </div>
                     )}
                     {activeTask && (
-                        <div className="opacity-80 rotate-2 cursor-grabbing">
+                        <div className="scale-105 rotate-2 cursor-grabbing shadow-2xl shadow-black/50">
                             <TaskCard
                                 task={activeTask}
                                 priorities={safePriorities}
@@ -395,6 +435,8 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = ({
                                 onDeleteTask={() => { }}
                                 allTasks={allTasks}
                                 isCompact={isCompact}
+                                projects={projects}
+                                onMoveToWorkspace={onMoveToWorkspace}
                             />
                         </div>
                     )}

@@ -3,7 +3,8 @@ import {
   Briefcase, Code, Megaphone, Smartphone, Box, Settings, Plus, Trash2, Folder, Globe, Cpu, Shield,
   ChevronLeft, ChevronRight, LayoutDashboard, CornerDownRight, Wrench, Zap, Truck, Database, Server,
   Layout, PenTool, Music, Video, Camera, Anchor, Coffee, Pin, PinOff, ArrowUp, ArrowDown, Search,
-  FolderPlus, ChevronDown, MoreHorizontal, Edit2
+  FolderPlus, ChevronDown, MoreHorizontal, Edit2, Rocket, Heart, Star, Target, Flag, BookOpen,
+  Lightbulb, Users, ShoppingCart, TrendingUp, MessageSquare, Home, Award, Gift, Calendar
 } from 'lucide-react';
 import { Project, ProjectType } from '../types';
 import logo from '../src/assets/logo.png';
@@ -90,12 +91,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
       case 'camera': return <Camera size={18} />;
       case 'anchor': return <Anchor size={18} />;
       case 'coffee': return <Coffee size={18} />;
+      case 'rocket': return <Rocket size={18} />;
+      case 'heart': return <Heart size={18} />;
+      case 'star': return <Star size={18} />;
+      case 'target': return <Target size={18} />;
+      case 'flag': return <Flag size={18} />;
+      case 'book-open': return <BookOpen size={18} />;
+      case 'lightbulb': return <Lightbulb size={18} />;
+      case 'users': return <Users size={18} />;
+      case 'shopping-cart': return <ShoppingCart size={18} />;
+      case 'trending-up': return <TrendingUp size={18} />;
+      case 'message-square': return <MessageSquare size={18} />;
+      case 'settings': return <Settings size={18} />;
+      case 'home': return <Home size={18} />;
+      case 'award': return <Award size={18} />;
+      case 'gift': return <Gift size={18} />;
+      case 'calendar': return <Calendar size={18} />;
       default: return <Briefcase size={18} />;
     }
   };
 
-  const getProjectIcon = (typeId: string) => {
-    const type = projectTypes.find(t => t.id === typeId);
+  const getProjectIcon = (project: Project) => {
+    // Check direct icon first, then fall back to type-based icon
+    if (project.icon) {
+      return getIcon(project.icon);
+    }
+    const type = projectTypes.find(t => t.id === project.type);
     return getIcon(type?.icon || 'folder');
   };
 
@@ -157,7 +178,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             )}
 
             <span className={`transition-colors shrink-0 duration-300 ${isActive ? 'text-red-400' : 'group-hover:text-red-400/80'}`}>
-              {getProjectIcon(project.type)}
+              {getProjectIcon(project)}
             </span>
 
             {!isCollapsed && (
@@ -266,7 +287,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const displayProjects = useMemo(() => {
-    if (!projectSearch) return projects.filter(p => !p.parentId);
+    if (!projectSearch) return projects.filter(p => !p.parentId && !p.pinned);
     return projects.filter(p =>
       p.name.toLowerCase().includes(projectSearch.toLowerCase())
     );

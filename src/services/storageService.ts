@@ -1,7 +1,8 @@
-import { Task, Project, BoardColumn, ProjectType, PriorityDefinition, CustomFieldDefinition } from '../../types';
+import { Task, Project, BoardColumn, ProjectType, PriorityDefinition, CustomFieldDefinition, MigratableAppData } from '../../types';
 import { STORAGE_KEYS, DEFAULT_COLUMNS, DEFAULT_PROJECTS, DEFAULT_PROJECT_TYPES, DEFAULT_PRIORITIES } from '../constants';
 import { validateAndTransformImportedData } from '../utils/validation';
 import { trySaveToStorage } from '../utils/storageQuota';
+import { migrationService, CURRENT_DATA_VERSION } from './migrationService';
 
 // Type guard for Electron environment
 function hasElectronAPI(win: Window): win is Window & { electronAPI: NonNullable<typeof window.electronAPI> } {
@@ -25,31 +26,42 @@ export interface AppData {
     version?: string; // Data schema version for migration
 }
 
-// Current data schema version
-const CURRENT_DATA_VERSION = '1.0.0';
+// Re-export current data version from migration service
+export { CURRENT_DATA_VERSION };
 
 // Parse tasks with proper date handling
 function parseTasks(data: Record<string, unknown>[]): Task[] {
-    return data.map((t) => ({
-        id: t.id as string,
-        jobId: t.jobId as string,
-        projectId: t.projectId as string,
-        title: (t.title as string) || '',
-        subtitle: (t.subtitle as string) || '',
-        summary: (t.summary as string) || '',
-        assignee: (t.assignee as string) || '',
-        priority: (t.priority as string) || 'medium',
-        status: t.status as string,
-        createdAt: new Date(t.createdAt as string | number | Date),
-        dueDate: t.dueDate ? new Date(t.dueDate as string | number | Date) : undefined,
-        subtasks: (t.subtasks as Task['subtasks']) || [],
-        attachments: (t.attachments as Task['attachments']) || [],
-        customFieldValues: (t.customFieldValues as Task['customFieldValues']) || {},
-        links: (t.links as Task['links']) || [],
-        tags: (t.tags as string[]) || [],
-        timeEstimate: (t.timeEstimate as number) || 0,
-        timeSpent: (t.timeSpent as number) || 0,
-    }));
+    return data.map((t) => {
+        const errorLogs = Array.isArray(t.errorLogs)
+            ? (t.errorLogs as Record<string, unknown>[]).map((log) => ({
+                timestamp: new Date(log.timestamp as string | number | Date),
+                message: (log.message as string) || '',
+            }))
+            : undefined;
+
+        return {
+            id: t.id as string,
+            jobId: t.jobId as string,
+            projectId: t.projectId as string,
+            title: (t.title as string) || '',
+            subtitle: (t.subtitle as string) || '',
+            summary: (t.summary as string) || '',
+            assignee: (t.assignee as string) || '',
+            priority: (t.priority as string) || 'medium',
+            status: t.status as string,
+            createdAt: new Date(t.createdAt as string | number | Date),
+            updatedAt: t.updatedAt ? new Date(t.updatedAt as string | number | Date) : undefined,
+            dueDate: t.dueDate ? new Date(t.dueDate as string | number | Date) : undefined,
+            subtasks: (t.subtasks as Task['subtasks']) || [],
+            attachments: (t.attachments as Task['attachments']) || [],
+            customFieldValues: (t.customFieldValues as Task['customFieldValues']) || {},
+            links: (t.links as Task['links']) || [],
+            tags: (t.tags as string[]) || [],
+            timeEstimate: (t.timeEstimate as number) || 0,
+            timeSpent: (t.timeSpent as number) || 0,
+            errorLogs: errorLogs,
+        };
+    });
 }
 
 // Storage service with localStorage fallback
@@ -117,9 +129,56 @@ class StorageService {
                     }
                 }
             }
+
+            // Run data schema migrations after loading all data
+            await this.runDataMigrations();
         } catch (error) {
             console.error('Failed to initialize storage service:', error);
         }
+    }
+
+    /**
+     * Run data schema migrations if needed
+     */
+    private async runDataMigrations(): Promise<void> {
+        const currentData = this.getAllData() as MigratableAppData;
+        const storedVersion = currentData.version || '0.0.0';
+
+        // Check if migration is needed
+        if (!migrationService.needsMigration(storedVersion)) {
+            return;
+        }
+
+        console.log(`[Storage] Data migration needed: ${storedVersion} → ${CURRENT_DATA_VERSION}`);
+
+        // Run migrations
+        const result = migrationService.runMigrations(currentData, storedVersion);
+
+        if (result.success && result.data) {
+            // Save migrated data
+            await this.saveAllData(result.data);
+            console.log(`[Storage] Migration complete: ${result.migratedFrom} → ${result.migratedTo}`);
+        } else {
+            console.error(`[Storage] Migration failed: ${result.error}`);
+            // Data is preserved from backup - user can recover if needed
+        }
+    }
+
+    /**
+     * Save all app data to storage
+     */
+    private async saveAllData(data: MigratableAppData): Promise<void> {
+        // Save each key to cache and storage
+        if (data.columns) this.set(STORAGE_KEYS.COLUMNS, data.columns);
+        if (data.projectTypes) this.set(STORAGE_KEYS.PROJECT_TYPES, data.projectTypes);
+        if (data.priorities) this.set(STORAGE_KEYS.PRIORITIES, data.priorities);
+        if (data.customFields) this.set(STORAGE_KEYS.CUSTOM_FIELDS, data.customFields);
+        if (data.projects) this.set(STORAGE_KEYS.PROJECTS, data.projects);
+        if (data.tasks) this.set(STORAGE_KEYS.TASKS, data.tasks);
+        if (data.activeProjectId !== undefined) this.set(STORAGE_KEYS.ACTIVE_PROJECT, data.activeProjectId);
+        if (data.sidebarCollapsed !== undefined) this.set(STORAGE_KEYS.SIDEBAR_COLLAPSED, data.sidebarCollapsed);
+        if (data.grouping) this.set(STORAGE_KEYS.GROUPING, data.grouping);
+        if (data.version) this.set(STORAGE_KEYS.DATA_VERSION, data.version);
     }
 
     set<T>(key: string, value: T): void {
@@ -170,7 +229,7 @@ class StorageService {
             customFields: this.get(STORAGE_KEYS.CUSTOM_FIELDS, [] as CustomFieldDefinition[]),
             projects: this.get(STORAGE_KEYS.PROJECTS, [...DEFAULT_PROJECTS] as Project[]),
             tasks: this.get(STORAGE_KEYS.TASKS, [] as Task[]),
-            activeProjectId: this.get(STORAGE_KEYS.ACTIVE_PROJECT, 'p1'),
+            activeProjectId: this.get(STORAGE_KEYS.ACTIVE_PROJECT, ''),
             sidebarCollapsed: this.get(STORAGE_KEYS.SIDEBAR_COLLAPSED, false),
             grouping: this.get(STORAGE_KEYS.GROUPING, 'none'),
         };

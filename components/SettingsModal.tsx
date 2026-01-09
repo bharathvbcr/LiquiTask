@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ModalWrapper } from './ModalWrapper';
-import { Settings, Shield, Palette, LogOut, Database, Download, Upload, RefreshCw, Kanban, Plus, Trash2, CheckSquare, Flag, Layout, SlidersHorizontal, Type, Hash, List, Link, Loader2, FileJson, ChevronDown, ChevronUp } from 'lucide-react';
+import { Settings, Shield, Palette, LogOut, Database, Download, Upload, RefreshCw, Kanban, Plus, Trash2, CheckSquare, Flag, Layout, SlidersHorizontal, Type, Hash, List, Link, Loader2, FileJson, ChevronDown, ChevronUp, FolderTree } from 'lucide-react';
 import { Project, Task, BoardColumn, ProjectType, PriorityDefinition, GroupingOption, ToastType, CustomFieldDefinition } from '../types';
 import storageService from '../src/services/storageService';
 import { validateBulkTasks, BULK_TASK_TEMPLATE_JSON, generateTemplateBlob } from '../src/utils/bulkTaskSchema';
@@ -27,6 +27,8 @@ interface SettingsModalProps {
   onUpdateGrouping?: (option: GroupingOption) => void;
   addToast: (msg: string, type: ToastType) => void;
   onBulkCreateTasks?: (tasks: Partial<Task>[]) => void;
+  showSubWorkspaceTasks?: boolean;
+  onUpdateShowSubWorkspaceTasks?: (show: boolean) => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -41,7 +43,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   grouping = 'none',
   onUpdateGrouping,
   addToast,
-  onBulkCreateTasks
+  onBulkCreateTasks,
+  showSubWorkspaceTasks = false,
+  onUpdateShowSubWorkspaceTasks
 }) => {
   const [activeTab, setActiveTab] = useState('general');
   const [importText, setImportText] = useState('');
@@ -290,6 +294,34 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   >
                     <Layout size={24} />
                     <span className="text-xs font-bold">Swimlanes (Priority)</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Workspace Settings */}
+              <div className="space-y-3 pt-4 border-t border-white/5">
+                <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Workspace</h4>
+                <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-cyan-500/20 text-cyan-400"><FolderTree size={18} /></div>
+                    <div>
+                      <h4 className="text-sm font-medium text-white">Show Sub-Workspace Tasks</h4>
+                      <p className="text-xs text-slate-500">Display tasks from sub-workspaces in main workspace</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const newValue = !showSubWorkspaceTasks;
+                      onUpdateShowSubWorkspaceTasks?.(newValue);
+                      addToast(newValue ? 'Sub-workspace tasks enabled' : 'Sub-workspace tasks disabled', 'info');
+                    }}
+                    className={`relative w-12 h-6 rounded-full transition-all ${
+                      showSubWorkspaceTasks ? 'bg-cyan-500/20 border border-cyan-500/50' : 'bg-slate-700/50 border border-slate-600/50'
+                    }`}
+                  >
+                    <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-all ${
+                      showSubWorkspaceTasks ? 'bg-cyan-400 translate-x-6 shadow-lg' : 'bg-slate-500 translate-x-0'
+                    }`} />
                   </button>
                 </div>
               </div>

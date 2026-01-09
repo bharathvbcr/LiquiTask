@@ -2,7 +2,7 @@ import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { TaskCard } from '../../../components/TaskCard';
-import { Task, PriorityDefinition } from '../../../types';
+import { Task, PriorityDefinition, Project } from '../../../types';
 
 interface SortableTaskProps {
     task: Task;
@@ -14,9 +14,13 @@ interface SortableTaskProps {
     onDeleteTask: (taskId: string) => void;
     allTasks: Task[];
     isCompact?: boolean;
+    onCopyTask?: (message: string) => void;
+    projectName?: string;
+    projects?: Project[];
+    onMoveToWorkspace?: (taskId: string, projectId: string) => void;
 }
 
-export const SortableTask: React.FC<SortableTaskProps> = ({ task, ...props }) => {
+export const SortableTask: React.FC<SortableTaskProps> = ({ task, onCopyTask, projectName, projects, onMoveToWorkspace, ...props }) => {
     const {
         attributes,
         listeners,
@@ -40,7 +44,7 @@ export const SortableTask: React.FC<SortableTaskProps> = ({ task, ...props }) =>
 
     return (
         <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-            <TaskCard task={task} {...props} />
+            <TaskCard task={task} {...props} onCopyTask={onCopyTask} projectName={projectName} projects={projects} onMoveToWorkspace={onMoveToWorkspace} />
         </div>
     );
 };

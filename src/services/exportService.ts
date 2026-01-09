@@ -29,6 +29,7 @@ const DEFAULT_CSV_COLUMNS = [
     'projectId',
     'dueDate',
     'createdAt',
+    'updatedAt',
     'completedAt',
     'timeEstimate',
     'timeSpent',
@@ -81,6 +82,8 @@ class ExportService {
                 return task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '';
             case 'createdAt':
                 return task.createdAt ? new Date(task.createdAt).toISOString() : '';
+            case 'updatedAt':
+                return task.updatedAt ? new Date(task.updatedAt).toISOString() : '';
             case 'completedAt':
                 return task.completedAt ? new Date(task.completedAt).toISOString() : '';
             case 'timeEstimate':

@@ -9,7 +9,7 @@ import { Dashboard } from './components/Dashboard';
 import { Toast } from './components/Toast';
 import { TitleBar } from './components/TitleBar';
 import { Task, Project, BoardColumn, ProjectType, PriorityDefinition, GroupingOption, ToastMessage, ToastType, CustomFieldDefinition, FilterState } from './types';
-import { Search, Bell, Filter, Calendar, Tag, User, Undo2, Loader2, Command } from 'lucide-react';
+import { Search, Bell, Filter, Calendar, Tag, User, Undo2, Loader2, Command, Maximize2, Minimize2 } from 'lucide-react';
 import { debounce } from './src/utils/debounce';
 import storageService from './src/services/storageService';
 import { STORAGE_KEYS, COLUMN_STATUS } from './src/constants';
@@ -23,12 +23,7 @@ import { notificationService } from './src/services/notificationService';
 import { exportService } from './src/services/exportService';
 
 // Initial Projects (Fallback)
-const defaultProjects: Project[] = [
-  { id: 'p1', name: 'Daily Operations', type: 'folder', order: 0 },
-  { id: 'p2', name: 'Web Development', type: 'dev', order: 1 },
-  { id: 'p3', name: 'Marketing Q4', type: 'marketing', order: 2 },
-  { id: 'p4', name: 'Backend API', type: 'code', parentId: 'p2', order: 0 },
-];
+const defaultProjects: Project[] = [];
 
 // Initial Columns (Fallback)
 const defaultColumns: BoardColumn[] = [
@@ -66,9 +61,11 @@ const App: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>(defaultProjects);
   const [tasks, setTasks] = useState<Task[]>([]);
 
-  const [activeProjectId, setActiveProjectId] = useState<string>('p1');
+  const [activeProjectId, setActiveProjectId] = useState<string>('');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const [boardGrouping, setBoardGrouping] = useState<GroupingOption>('none');
+  const [isCompactView, setIsCompactView] = useState<boolean>(false);
+  const [showSubWorkspaceTasks, setShowSubWorkspaceTasks] = useState<boolean>(false);
 
 
 
@@ -211,6 +208,12 @@ const App: React.FC = () => {
   useEffect(() => {
     if (isLoaded) storageService.set(STORAGE_KEYS.GROUPING, boardGrouping);
   }, [boardGrouping, isLoaded]);
+  useEffect(() => {
+    if (isLoaded) storageService.set(STORAGE_KEYS.COMPACT_VIEW, isCompactView);
+  }, [isCompactView, isLoaded]);
+  useEffect(() => {
+    if (isLoaded) storageService.set(STORAGE_KEYS.SHOW_SUB_WORKSPACE_TASKS, showSubWorkspaceTasks);
+  }, [showSubWorkspaceTasks, isLoaded]);
 
   // Initial Data Load
   useEffect(() => {
@@ -227,6 +230,10 @@ const App: React.FC = () => {
       if (data.activeProjectId) setActiveProjectId(data.activeProjectId);
       if (data.sidebarCollapsed !== undefined) setIsSidebarCollapsed(data.sidebarCollapsed);
       if (data.grouping) setBoardGrouping(data.grouping);
+      const compactView = storageService.get(STORAGE_KEYS.COMPACT_VIEW, false);
+      if (compactView !== undefined) setIsCompactView(compactView);
+      const showSubWorkspaceTasks = storageService.get(STORAGE_KEYS.SHOW_SUB_WORKSPACE_TASKS, false);
+      if (showSubWorkspaceTasks !== undefined) setShowSubWorkspaceTasks(showSubWorkspaceTasks);
 
       setIsLoaded(true);
     };
@@ -283,6 +290,11 @@ const App: React.FC = () => {
         setEditingTask(null);
         setIsTaskModalOpen(true);
       }
+      // '/' to focus search input (if not in input)
+      if (e.key === '/' && !isInput) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
     };
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
@@ -290,6 +302,21 @@ const App: React.FC = () => {
 
   // --- Derived Data ---
   const activeProject = projects.find(p => p.id === activeProjectId) || projects[0] || { name: 'No Project', id: 'temp' };
+
+  // Helper function to get all sub-workspace IDs recursively
+  const getAllSubWorkspaceIds = useCallback((projectId: string): string[] => {
+    const subWorkspaceIds: string[] = [];
+    const directChildren = projects.filter(p => p.parentId === projectId);
+
+    for (const child of directChildren) {
+      subWorkspaceIds.push(child.id);
+      // Recursively get grandchildren
+      const grandchildren = getAllSubWorkspaceIds(child.id);
+      subWorkspaceIds.push(...grandchildren);
+    }
+
+    return subWorkspaceIds;
+  }, [projects]);
 
   const filteredTasks = useMemo(() => {
     let result = tasks;
@@ -334,8 +361,13 @@ const App: React.FC = () => {
   }, [tasks, searchQuery, filters]);
 
   const currentProjectTasks = useMemo(() => {
+    if (showSubWorkspaceTasks) {
+      const subWorkspaceIds = getAllSubWorkspaceIds(activeProjectId);
+      const allProjectIds = [activeProjectId, ...subWorkspaceIds];
+      return filteredTasks.filter(t => allProjectIds.includes(t.projectId));
+    }
     return filteredTasks.filter(t => t.projectId === activeProjectId);
-  }, [filteredTasks, activeProjectId]);
+  }, [filteredTasks, activeProjectId, showSubWorkspaceTasks, getAllSubWorkspaceIds]);
 
   // Helper to filter tasks by status and optional priority (for swimlanes)
   const getTasksByContext = (statusId: string, priorityId?: string) => {
@@ -455,22 +487,56 @@ const App: React.FC = () => {
   // Direct task update (for inline edits)
   const handleUpdateTask = (updatedTask: Task) => {
     const previousTask = tasks.find(t => t.id === updatedTask.id);
+    const taskWithUpdatedTime = {
+      ...updatedTask,
+      updatedAt: new Date(),
+    };
     if (previousTask) {
-      pushUndo({ type: 'task-update', task: updatedTask, previousState: previousTask });
+      pushUndo({ type: 'task-update', task: taskWithUpdatedTime, previousState: previousTask });
     }
-    setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
+    setTasks(prev => prev.map(t => t.id === updatedTask.id ? taskWithUpdatedTime : t));
   };
+
+  // Move task to a different workspace
+  const handleMoveTaskToWorkspace = useCallback((taskId: string, projectId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    const targetProject = projects.find(p => p.id === projectId);
+    if (!targetProject) return;
+
+    if (task.projectId === projectId) {
+      addToast('Task is already in this workspace', 'info');
+      return;
+    }
+
+    const previousTask = { ...task };
+    const updatedTask = {
+      ...task,
+      projectId: projectId,
+      updatedAt: new Date(),
+    };
+
+    pushUndo({ type: 'task-update', task: updatedTask, previousState: previousTask });
+    setTasks(prev => prev.map(t => t.id === taskId ? updatedTask : t));
+    addToast(`Task moved to "${targetProject.name}"`, 'success');
+  }, [tasks, projects, addToast, pushUndo]);
 
   const handleCreateOrUpdateTask = (taskData: Partial<Task>) => {
     if (editingTask) {
       const previousTask = tasks.find(t => t.id === editingTask.id);
-      const updatedTask = { ...editingTask, ...taskData } as Task;
+      const updatedTask = {
+        ...editingTask,
+        ...taskData,
+        updatedAt: new Date(),
+      } as Task;
       if (previousTask) {
         pushUndo({ type: 'task-update', task: updatedTask, previousState: previousTask });
       }
       setTasks(prev => prev.map(t => (t.id === editingTask.id ? updatedTask : t)));
       addToast('Task updated successfully', 'success');
     } else {
+      const now = new Date();
       const newTask: Task = {
         ...(taskData as Task),
         id: `task-${Date.now()}`,
@@ -478,14 +544,16 @@ const App: React.FC = () => {
         projectId: activeProjectId,
         title: taskData.title || 'Untitled',
         status: taskData.status || columns[0]?.id || 'Pending',
-        createdAt: new Date(),
+        createdAt: now,
+        updatedAt: now,
         subtasks: taskData.subtasks || [],
         attachments: taskData.attachments || [],
         customFieldValues: taskData.customFieldValues || {},
         links: taskData.links || [],
         tags: taskData.tags || [],
         timeEstimate: taskData.timeEstimate || 0,
-        timeSpent: taskData.timeSpent || 0
+        timeSpent: taskData.timeSpent || 0,
+        errorLogs: taskData.errorLogs || []
       };
       pushUndo({ type: 'task-create', taskId: newTask.id });
       setTasks(prev => [...prev, newTask]);
@@ -496,6 +564,7 @@ const App: React.FC = () => {
 
   // Bulk create tasks (for JSON import)
   const handleBulkCreateTasks = (newTasksData: Partial<Task>[]) => {
+    const now = new Date();
     const createdTasks = newTasksData.map((taskData, idx) => ({
       ...taskData,
       id: `task-${Date.now()}-${idx}`,
@@ -507,7 +576,8 @@ const App: React.FC = () => {
       assignee: taskData.assignee || '',
       priority: taskData.priority || 'medium',
       status: columns[0]?.id || 'Pending',
-      createdAt: new Date(),
+      createdAt: now,
+      updatedAt: now,
       subtasks: taskData.subtasks || [],
       attachments: [],
       customFieldValues: {},
@@ -515,6 +585,7 @@ const App: React.FC = () => {
       tags: taskData.tags || [],
       timeEstimate: taskData.timeEstimate || 0,
       timeSpent: 0,
+      errorLogs: taskData.errorLogs || [],
     } as Task));
 
     setTasks(prev => [...prev, ...createdTasks]);
@@ -578,14 +649,15 @@ const App: React.FC = () => {
     setIsProjectModalOpen(true);
   }
 
-  const handleCreateProject = (name: string, type: string, parentId?: string) => {
+  const handleCreateProject = (name: string, icon: string, parentId?: string) => {
     const siblings = projects.filter(p => p.parentId === parentId);
     const maxOrder = siblings.length > 0 ? Math.max(...siblings.map(p => p.order || 0)) : -1;
 
     const newProject: Project = {
       id: `p-${Date.now()}`,
       name,
-      type,
+      type: 'custom', // Legacy field - use icon instead
+      icon, // Direct icon key
       parentId,
       order: maxOrder + 1
     };
@@ -603,15 +675,13 @@ const App: React.FC = () => {
       addToast("Cannot delete a project that has sub-projects.", 'error');
       return;
     }
-    if (projects.length <= 1) {
-      addToast("You must have at least one active project.", 'error');
-      return;
-    }
     if (window.confirm("Delete this workspace? All associated tasks will be removed.")) {
       const newProjects = projects.filter(p => p.id !== id);
       setProjects(newProjects);
       setTasks(prev => prev.filter(t => t.projectId !== id));
-      if (activeProjectId === id) setActiveProjectId(newProjects[0].id);
+      if (activeProjectId === id) {
+        setActiveProjectId(newProjects.length > 0 ? newProjects[0].id : '');
+      }
       addToast('Workspace deleted', 'info');
     }
   };
@@ -781,6 +851,14 @@ const App: React.FC = () => {
                   <Undo2 size={20} />
                 </button>
                 <button
+                  onClick={() => setIsCompactView(!isCompactView)}
+                  className={`p-2 rounded-full transition-colors relative group ${isCompactView ? 'text-red-400 bg-red-500/10' : 'text-slate-400 hover:text-white'}`}
+                  title={isCompactView ? 'Expand View' : 'Compact View'}
+                  aria-label={isCompactView ? 'Expand view' : 'Compact view'}
+                >
+                  {isCompactView ? <Maximize2 size={20} /> : <Minimize2 size={20} />}
+                </button>
+                <button
                   onClick={() => setIsFilterOpen(!isFilterOpen)}
                   className={`p-2 rounded-full transition-colors relative group ${isFilterOpen ? 'text-red-400 bg-red-500/10' : 'text-slate-400 hover:text-white'}`}
                   title="Filters"
@@ -855,6 +933,9 @@ const App: React.FC = () => {
               onDeleteTask={handleDeleteTask}
               onMoveTask={moveTask}
               onUpdateTask={handleUpdateTask}
+              isCompact={isCompactView}
+              onCopyTask={(message) => addToast(message, 'success')}
+              onMoveToWorkspace={handleMoveTaskToWorkspace}
             />
           ) : (
             <div className="pb-4 min-w-[1200px] h-full">
@@ -870,6 +951,11 @@ const App: React.FC = () => {
                 onUpdateTask={handleUpdateTask}
                 onDeleteTask={handleDeleteTask}
                 getTasksByContext={getTasksByContext}
+                isCompact={isCompactView}
+                onCopyTask={(message) => addToast(message, 'success')}
+                projectName={activeProject.name}
+                projects={projects}
+                onMoveToWorkspace={handleMoveTaskToWorkspace}
               />
             </div>
           )}
@@ -901,7 +987,6 @@ const App: React.FC = () => {
           setCreatingSubProjectFor(undefined);
         }}
         onSubmit={handleCreateProject}
-        projectTypes={projectTypes}
         projects={projects}
         initialParentId={creatingSubProjectFor}
       />
@@ -919,6 +1004,8 @@ const App: React.FC = () => {
         onUpdateGrouping={setBoardGrouping}
         addToast={addToast}
         onBulkCreateTasks={handleBulkCreateTasks}
+        showSubWorkspaceTasks={showSubWorkspaceTasks}
+        onUpdateShowSubWorkspaceTasks={setShowSubWorkspaceTasks}
       />
 
       {/* Command Palette */}

@@ -230,6 +230,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
       onClose={onClose} 
       title={initialData ? "Edit Task" : "New Task"}
       icon={<Layers size={20} />}
+      size="2xl"
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
         

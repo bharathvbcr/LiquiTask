@@ -1,5 +1,6 @@
 import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
+import { useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { BoardColumn, Task, PriorityDefinition } from '../../../types';
@@ -16,6 +17,8 @@ interface SortableColumnProps {
     onUpdateTask: (task: Task) => void;
     onDeleteTask: (taskId: string) => void;
     isCompact?: boolean;
+    onCopyTask?: (message: string) => void;
+    projectName?: string;
 }
 
 export const SortableColumn: React.FC<SortableColumnProps> = ({
@@ -27,18 +30,30 @@ export const SortableColumn: React.FC<SortableColumnProps> = ({
     onEditTask,
     onUpdateTask,
     onDeleteTask,
-    isCompact
+    isCompact,
+    onCopyTask,
+    projectName,
 }) => {
 
     const {
         attributes,
         listeners,
-        setNodeRef,
+        setNodeRef: setSortableRef,
         transform,
         transition,
         isDragging,
     } = useSortable({
         id: column.id,
+        data: {
+            type: 'Column',
+            column,
+        },
+    });
+
+    // Make column body a drop target for tasks
+    // Use different ID prefix to avoid collision with useSortable (which also uses column.id)
+    const { setNodeRef: setDroppableRef, isOver } = useDroppable({
+        id: `drop-${column.id}`,
         data: {
             type: 'Column',
             column,
@@ -57,7 +72,7 @@ export const SortableColumn: React.FC<SortableColumnProps> = ({
 
     return (
         <div
-            ref={setNodeRef}
+            ref={setSortableRef}
             style={style}
             className="flex-1 flex flex-col min-w-[300px]"
         >
@@ -85,7 +100,10 @@ export const SortableColumn: React.FC<SortableColumnProps> = ({
           ${isOverLimit ? 'bg-red-900/10 border-red-500/20' : 'bg-transparent border border-transparent'}
         `}
             >
-                <div className="h-full rounded-2xl bg-[#0a0a0a]/50 backdrop-blur-md border border-white/10 p-4 flex flex-col gap-4 shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)] min-h-[300px]">
+                <div
+                    ref={setDroppableRef}
+                    className={`h-full rounded-2xl bg-[#0a0a0a]/50 backdrop-blur-md border p-4 flex flex-col gap-4 shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)] min-h-[300px] transition-colors duration-200 ${isOver ? 'border-blue-500/50 bg-blue-500/5' : 'border-white/10'}`}
+                >
                     <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
                         {tasks.map(task => (
                             <SortableTask
@@ -99,6 +117,8 @@ export const SortableColumn: React.FC<SortableColumnProps> = ({
                                 onDeleteTask={onDeleteTask}
                                 allTasks={allTasks}
                                 isCompact={isCompact}
+                                onCopyTask={onCopyTask}
+                                projectName={projectName}
                             />
                         ))}
                     </SortableContext>

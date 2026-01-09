@@ -99,6 +99,18 @@ export const Header: React.FC<HeaderProps> = ({
                         <button
                             className="relative p-2 text-slate-400 hover:text-white transition-colors"
                             aria-label="Notifications"
+                            onClick={() => {
+                                import('../services/notificationService').then(({ notificationService }) => {
+                                    notificationService.requestPermission().then((granted) => {
+                                        if (granted) {
+                                            notificationService.show({
+                                                title: 'Notifications Enabled',
+                                                body: 'You will now receive task reminders.'
+                                            });
+                                        }
+                                    });
+                                });
+                            }}
                         >
                             <Bell size={20} aria-hidden="true" />
                         </button>

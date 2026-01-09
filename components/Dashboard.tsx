@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Task, Project, PriorityDefinition } from '../types';
 import { TaskCard } from './TaskCard';
-import { LayoutDashboard, AlertCircle, Clock, CheckCircle2, TrendingUp, Maximize2, Minimize2 } from 'lucide-react';
+import { LayoutDashboard, AlertCircle, Clock, CheckCircle2, TrendingUp } from 'lucide-react';
 
 interface DashboardProps {
     tasks: Task[];
@@ -11,27 +11,59 @@ interface DashboardProps {
     onUpdateTask: (task: Task) => void;
     onDeleteTask: (taskId: string) => void;
     onMoveTask: (taskId: string, newStatus: string) => void;
+    isCompact?: boolean;
+    onCopyTask?: (message: string) => void;
+    onMoveToWorkspace?: (taskId: string, projectId: string) => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ tasks, projects, priorities = [], onEditTask, onDeleteTask, onMoveTask, onUpdateTask }) => {
-    const [isCompact, setIsCompact] = useState(false);
+export const Dashboard: React.FC<DashboardProps> = ({ tasks, projects, priorities = [], onEditTask, onDeleteTask, onMoveTask, onUpdateTask, isCompact = false, onCopyTask, onMoveToWorkspace }) => {
     const getTaskPriorityLevel = (task: Task) => {
         const p = priorities.find(p => p.id === task.priority);
         return p ? p.level : 99;
     };
 
-    const highPriorityTasks = tasks.filter(t => {
-        const level = getTaskPriorityLevel(t);
-        return level <= 2 && t.status !== 'Delivered' && t.status !== 'Completed';
-    });
+    const highPriorityTasks = tasks
+        .filter(t => {
+            const level = getTaskPriorityLevel(t);
+            return level <= 2 && t.status !== 'Delivered' && t.status !== 'Completed';
+        })
+        .sort((a, b) => {
+            const levelA = getTaskPriorityLevel(a);
+            const levelB = getTaskPriorityLevel(b);
+            // Sort by priority level (ascending - lower level = higher priority)
+            if (levelA !== levelB) {
+                return levelA - levelB;
+            }
+            // If same priority, sort by due date (earlier dates first)
+            if (a.dueDate && b.dueDate) {
+                return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+            }
+            if (a.dueDate) return -1;
+            if (b.dueDate) return 1;
+            return 0;
+        });
 
-    const upcomingTasks = tasks.filter(t => {
-        if (!t.dueDate || t.status === 'Delivered') return false;
-        const today = new Date();
-        const due = new Date(t.dueDate);
-        const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-        return diffDays >= 0 && diffDays <= 3;
-    });
+    const upcomingTasks = tasks
+        .filter(t => {
+            if (!t.dueDate || t.status === 'Delivered') return false;
+            const today = new Date();
+            const due = new Date(t.dueDate);
+            const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+            return diffDays >= 0 && diffDays <= 3;
+        })
+        .sort((a, b) => {
+            // First sort by priority level (ascending - lower level = higher priority)
+            const levelA = getTaskPriorityLevel(a);
+            const levelB = getTaskPriorityLevel(b);
+            if (levelA !== levelB) {
+                return levelA - levelB;
+            }
+            // Then sort by due date (earlier dates first)
+            if (a.dueDate && b.dueDate) {
+                return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+            }
+            return 0;
+        });
 
     const stats = {
         total: tasks.length,
@@ -79,16 +111,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ tasks, projects, prioritie
                 </div>
             </div>
 
-            {/* View Controls */}
-            <div className="flex justify-end border-b border-white/5 pb-4">
-                <button
-                    onClick={() => setIsCompact(!isCompact)}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-400 hover:text-white transition-all border border-white/5 hover:border-white/20"
-                >
-                    {isCompact ? <Maximize2 size={14} /> : <Minimize2 size={14} />}
-                    {isCompact ? 'Expand Cards' : 'Compact View'}
-                </button>
-            </div>
 
             {/* Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
@@ -122,6 +144,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ tasks, projects, prioritie
                                         onDeleteTask={onDeleteTask}
                                         onUpdateTask={onUpdateTask}
                                         isCompact={isCompact}
+                                        onCopyTask={onCopyTask}
+                                        projectName={getProjectName(task.projectId)}
+                                        projects={projects}
+                                        onMoveToWorkspace={onMoveToWorkspace}
                                     />
                                 </div>
                             ))
@@ -157,6 +183,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ tasks, projects, prioritie
                                         onEditTask={onEditTask}
                                         onDeleteTask={onDeleteTask}
                                         onUpdateTask={onUpdateTask}
+                                        isCompact={isCompact}
+                                        onCopyTask={onCopyTask}
+                                        projectName={getProjectName(task.projectId)}
+                                        projects={projects}
+                                        onMoveToWorkspace={onMoveToWorkspace}
                                     />
                                 </div>
                             ))

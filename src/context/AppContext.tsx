@@ -71,7 +71,7 @@ const initialState: AppState = {
     customFields: [],
     projects: [],
     tasks: [],
-    activeProjectId: 'p1',
+    activeProjectId: '',
     isSidebarCollapsed: false,
     boardGrouping: 'none',
     currentView: 'project',

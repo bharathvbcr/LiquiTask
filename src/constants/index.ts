@@ -11,6 +11,12 @@ export const STORAGE_KEYS = {
     GROUPING: 'liquitask-grouping',
     TASK_TEMPLATES: 'liquitask-task-templates',
     SEARCH_HISTORY: 'liquitask-search-history',
+    COMPACT_VIEW: 'liquitask-compact-view',
+    SHOW_SUB_WORKSPACE_TASKS: 'liquitask-show-sub-workspace-tasks',
+    // Migration system keys
+    DATA_VERSION: 'liquitask-data-version',
+    BACKUPS: 'liquitask-backups',
+    MIGRATION_LOG: 'liquitask-migration-log',
 } as const;
 
 // Default column configuration
@@ -38,12 +44,7 @@ export const DEFAULT_PRIORITIES = [
 ] as const;
 
 // Default projects
-export const DEFAULT_PROJECTS = [
-    { id: 'p1', name: 'Daily Operations', type: 'folder', order: 0 },
-    { id: 'p2', name: 'Web Development', type: 'dev', order: 1 },
-    { id: 'p3', name: 'Marketing Q4', type: 'marketing', order: 2 },
-    { id: 'p4', name: 'Backend API', type: 'code', parentId: 'p2', order: 0 },
-] as const;
+export const DEFAULT_PROJECTS = [] as const;
 
 // Column status constants
 export const COLUMN_STATUS = {

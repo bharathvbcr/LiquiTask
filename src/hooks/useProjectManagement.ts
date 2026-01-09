@@ -13,7 +13,7 @@ export function useProjectManagement({ addToast }: UseProjectManagementProps) {
     );
 
     const [activeProjectId, setActiveProjectId] = useState<string>(() =>
-        storageService.get(STORAGE_KEYS.ACTIVE_PROJECT, projects[0]?.id || 'p1')
+        storageService.get(STORAGE_KEYS.ACTIVE_PROJECT, projects[0]?.id || '')
     );
 
     // Save projects to storage
@@ -62,10 +62,6 @@ export function useProjectManagement({ addToast }: UseProjectManagementProps) {
             return false;
         }
 
-        if (projects.length <= 1) {
-            addToast('You must have at least one active project.', 'error');
-            return false;
-        }
 
         if (window.confirm('Delete this workspace? All associated tasks will be removed.')) {
             const newProjects = projects.filter(p => p.id !== id);
@@ -73,7 +69,11 @@ export function useProjectManagement({ addToast }: UseProjectManagementProps) {
             onDeleteTasks(id);
 
             if (activeProjectId === id) {
-                setActiveProject(newProjects[0].id);
+                if (newProjects.length > 0) {
+                    setActiveProject(newProjects[0].id);
+                } else {
+                    setActiveProject('');
+                }
             }
 
             addToast('Workspace deleted', 'info');

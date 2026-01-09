@@ -14,7 +14,7 @@ class NotificationService {
     private hasPermission: boolean = false;
 
     constructor() {
-        this.requestPermission();
+        // Permission requested on user interaction
     }
 
     async requestPermission(): Promise<boolean> {
