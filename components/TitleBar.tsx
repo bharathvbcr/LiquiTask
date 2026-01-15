@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Minus, Square, X, Copy } from 'lucide-react';
+import logo from '../src/assets/logo.png';
 
 export const TitleBar: React.FC = () => {
     const [isMaximized, setIsMaximized] = useState(false);
@@ -26,7 +27,7 @@ export const TitleBar: React.FC = () => {
         <div className="fixed top-0 left-0 right-0 h-10 z-[100] flex items-center justify-between bg-[#0a0505]/95 backdrop-blur-md border-b border-white/5 titlebar-drag-region">
             {/* App branding */}
             <div className="flex items-center gap-3 px-4">
-                <img src="/build/icon.png" alt="LiquiTask" className="w-5 h-5 rounded" />
+                <img src={logo} alt="LiquiTask" className="w-5 h-5 object-contain" />
                 <span className="text-sm font-semibold text-slate-200 tracking-wide">LiquiTask</span>
             </div>
 

@@ -3,13 +3,12 @@ import {
     TaskSchema,
     ProjectSchema,
     BoardColumnSchema,
-    ProjectTypeSchema,
+
     PriorityDefinitionSchema,
     CustomFieldDefinitionSchema,
     AppDataSchema,
     validateAndTransformImportedData,
 } from '../validation';
-import { z } from 'zod';
 
 describe('validation schemas', () => {
     describe('TaskSchema', () => {

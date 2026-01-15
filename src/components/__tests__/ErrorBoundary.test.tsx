@@ -84,8 +84,8 @@ describe('ErrorBoundary', () => {
     });
 
     it('should reset error state when Try Again clicked', async () => {
-        const GoodComponent: React.FC = () => <div>No error content</div>;
-        
+
+
         // Create a component that can be controlled
         let shouldThrow = true;
         const ControlledError: React.FC = () => {
@@ -94,7 +94,7 @@ describe('ErrorBoundary', () => {
             }
             return <div>No error content</div>;
         };
-        
+
         const { rerender } = render(
             <ErrorBoundary>
                 <ControlledError />
@@ -104,18 +104,18 @@ describe('ErrorBoundary', () => {
         expect(screen.getByText(/something went wrong/i)).toBeInTheDocument();
 
         const tryAgainButton = screen.getByRole('button', { name: /try again/i });
-        
+
         // Change shouldThrow before clicking, so when ErrorBoundary resets and rerenders,
         // the component won't throw
         shouldThrow = false;
-        
+
         // Click Try Again to reset error state
         await act(async () => {
             fireEvent.click(tryAgainButton);
             // Wait for state update
             await new Promise(resolve => setTimeout(resolve, 100));
         });
-        
+
         // Rerender to trigger a new render cycle
         // Since hasError is now false and the component doesn't throw, it should render children
         rerender(
@@ -128,7 +128,7 @@ describe('ErrorBoundary', () => {
         await waitFor(() => {
             expect(screen.queryByText(/something went wrong/i)).not.toBeInTheDocument();
         }, { timeout: 3000 });
-        
+
         expect(screen.getByText('No error content')).toBeInTheDocument();
     });
 

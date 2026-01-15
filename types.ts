@@ -46,13 +46,14 @@ export interface Project {
   order?: number;
 }
 
-export type CustomFieldType = 'text' | 'number' | 'dropdown' | 'url';
+export type CustomFieldType = 'text' | 'number' | 'dropdown' | 'url' | 'formula';
 
 export interface CustomFieldDefinition {
   id: string;
   label: string;
   type: CustomFieldType;
   options?: string[]; // For dropdowns
+  formula?: string; // For formula fields (e.g. "{{dueDate}} - {{today}}")
 }
 
 export type LinkType = 'blocks' | 'blocked-by' | 'relates-to' | 'duplicates';
@@ -76,6 +77,19 @@ export interface RecurringConfig {
 export interface ErrorLog {
   timestamp: Date;
   message: string;
+}
+
+export type ActivityType = 'create' | 'update' | 'move' | 'comment' | 'delete';
+
+export interface ActivityItem {
+  id: string;
+  type: ActivityType;
+  timestamp: Date;
+  userId: string; // 'user' for now
+  details: string;
+  field?: string;
+  oldValue?: unknown;
+  newValue?: unknown;
 }
 
 export interface Task {
@@ -102,6 +116,8 @@ export interface Task {
   recurring?: RecurringConfig;
   completedAt?: Date;
   errorLogs?: ErrorLog[]; // For tracking errors related to this task
+  activity?: ActivityItem[]; // Audit trail
+  order?: number; // Position within column (for manual reordering)
 }
 
 export interface BoardColumn {
@@ -142,11 +158,25 @@ export interface SavedView {
   id: string;
   name: string;
   filters: FilterState;
+  // Advanced query builder state
+  advancedFilter?: unknown; // Actually FilterGroup from src/types/queryTypes
   grouping: 'none' | 'priority';
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   createdAt: Date;
   isDefault?: boolean;
+}
+
+// Task Template
+export interface TaskTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  taskData: Partial<Task>;
+  subtasks: Subtask[];
+  tags: string[];
+  customFieldValues: Record<string, string | number>;
+  variables?: string[]; // e.g., ['projectName', 'assignee']
 }
 
 // Migration system types

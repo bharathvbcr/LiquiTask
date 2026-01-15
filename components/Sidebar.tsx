@@ -2,11 +2,12 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Briefcase, Code, Megaphone, Smartphone, Box, Settings, Plus, Trash2, Folder, Globe, Cpu, Shield,
   ChevronLeft, ChevronRight, LayoutDashboard, CornerDownRight, Wrench, Zap, Truck, Database, Server,
-  Layout, PenTool, Music, Video, Camera, Anchor, Coffee, Pin, PinOff, ArrowUp, ArrowDown, Search,
+  PenTool, Music, Video, Camera, Anchor, Coffee, Pin, PinOff, ArrowUp, ArrowDown, Search, Layout,
   FolderPlus, ChevronDown, MoreHorizontal, Edit2, Rocket, Heart, Star, Target, Flag, BookOpen,
   Lightbulb, Users, ShoppingCart, TrendingUp, MessageSquare, Home, Award, Gift, Calendar
 } from 'lucide-react';
 import { Project, ProjectType } from '../types';
+import { EditProjectModal } from './EditProjectModal';
 import logo from '../src/assets/logo.png';
 
 interface SidebarProps {
@@ -19,10 +20,11 @@ interface SidebarProps {
   onAddProject: (parentId?: string) => void;
   onDeleteProject: (id: string) => void;
   onOpenSettings: () => void;
-  currentView: 'project' | 'dashboard';
-  onChangeView: (view: 'project' | 'dashboard') => void;
+  currentView: 'project' | 'dashboard' | 'gantt';
+  onChangeView: (view: 'project' | 'dashboard' | 'gantt') => void;
   onTogglePin: (id: string) => void;
-  onRenameProject: (id: string, newName: string) => void;
+  onEditProject: (id: string, newName: string, newIcon: string) => void;
+  onMoveProject?: (id: string, direction: 'up' | 'down') => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -39,14 +41,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onChangeView,
   onTogglePin,
   onMoveProject,
-  onRenameProject
+  onEditProject
 }) => {
   const [projectSearch, setProjectSearch] = useState('');
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set((projects || []).map(p => p.id)));
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
-  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
-  const [editName, setEditName] = useState('');
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [hoveredProject, setHoveredProject] = useState<{ project: Project; top: number } | null>(null);
+  const [hoveredItem, setHoveredItem] = useState<{ label: string; top: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const mouseDownRef = useRef<boolean>(false);
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -54,8 +59,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
         setActiveMenuId(null);
       }
     };
+    const handleMouseUp = () => {
+      mouseDownRef.current = false;
+    };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+    };
   }, []);
 
   const toggleProjectExpand = (e: React.MouseEvent, projectId: string) => {
@@ -130,34 +151,57 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const isActive = project.id === activeProjectId && currentView === 'project';
     const indent = isCollapsed ? 0 : depth * 12;
     const isMenuOpen = activeMenuId === project.id;
-    const isEditing = editingProjectId === project.id;
-
-    const handleSaveRename = (e?: React.FormEvent) => {
-      e?.preventDefault();
-      if (editName.trim()) {
-        onRenameProject(project.id, editName.trim());
-      }
-      setEditingProjectId(null);
-    };
 
     return (
       <div className="flex flex-col gap-0.5">
+        {/* Dynamic indentation requires inline style for nested project hierarchy */}
+        {/* eslint-disable-next-line react/forbid-dom-props */}
         <div
+          onMouseDown={() => {
+            mouseDownRef.current = true;
+          }}
+          onMouseUp={() => {
+            mouseDownRef.current = false;
+          }}
           onClick={() => {
-            if (!isEditing) {
-              onSelectProject(project.id);
-              onChangeView('project');
+            onSelectProject(project.id);
+            onChangeView('project');
+            // Clear hover state after click completes
+            if (isCollapsed) {
+              setTimeout(() => setHoveredProject(null), 100);
             }
+          }}
+          onMouseEnter={(e) => {
+            // Clear any pending timeout
+            if (hoverTimeoutRef.current) {
+              clearTimeout(hoverTimeoutRef.current);
+              hoverTimeoutRef.current = null;
+            }
+            if (isCollapsed) {
+              const rect = e.currentTarget.getBoundingClientRect();
+              setHoveredProject({ project, top: rect.top + rect.height / 2 });
+            }
+          }}
+          onMouseLeave={() => {
+            // Don't clear hover state if mouse is down (during click)
+            if (mouseDownRef.current) {
+              return;
+            }
+            // Add small delay to prevent flicker when moving between items
+            hoverTimeoutRef.current = setTimeout(() => {
+              setHoveredProject(null);
+            }, 150);
           }}
           className={`
                 group relative px-2.5 py-3 rounded-xl cursor-pointer transition-all duration-200
                 flex items-center overflow-visible
                 ${isCollapsed ? 'justify-center' : 'justify-between'}
                 ${isActive ? 'bg-white/5 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'}
+                ${isCollapsed ? 'active:scale-95 active:bg-white/10' : ''}
               `}
-          style={{ marginLeft: isCollapsed ? 0 : `${indent}px` }}
-          title={isCollapsed ? project.name : undefined}
+          style={isCollapsed ? undefined : { '--indent': `${indent}px`, marginLeft: 'var(--indent)' } as React.CSSProperties & { '--indent': string }}
         >
+
           {/* Active Indicator Line */}
           {isActive && (
             <div className="absolute left-0 top-1/2 -translate-y-1/2 h-8 w-1 bg-red-500 rounded-r-full shadow-[0_0_10px_rgba(239,68,68,0.5)]"></div>
@@ -182,35 +226,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </span>
 
             {!isCollapsed && (
-              isEditing ? (
-                <form onSubmit={handleSaveRename} className="flex-1 min-w-0" onClick={e => e.stopPropagation()}>
-                  <input
-                    autoFocus
-                    type="text"
-                    value={editName}
-                    onChange={e => setEditName(e.target.value)}
-                    onBlur={() => handleSaveRename()}
-                    onKeyDown={e => {
-                      if (e.key === 'Escape') setEditingProjectId(null);
-                    }}
-                    className="w-full bg-black/50 border border-red-500/50 rounded px-1.5 py-0.5 text-sm text-white focus:outline-none"
-                  />
-                </form>
-              ) : (
-                <span className="font-medium text-sm truncate transition-all duration-300 flex-1">
-                  {project.name}
-                </span>
-              )
+              <span className="font-medium text-sm truncate transition-all duration-300 flex-1">
+                {project.name}
+              </span>
             )}
 
             {/* Pinned Icon */}
-            {project.pinned && !isCollapsed && !isEditing && (
+            {project.pinned && !isCollapsed && (
               <Pin size={10} className="text-red-500 fill-red-500 rotate-45 shrink-0" />
             )}
           </div>
 
           {/* Action Button (Visible on Hover) */}
-          {!isCollapsed && !isEditing && (
+          {!isCollapsed && (
             <div className={`absolute right-2 z-20 ${isMenuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
               <button
                 onClick={(e) => {
@@ -218,8 +246,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   setActiveMenuId(isMenuOpen ? null : project.id);
                 }}
                 className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors"
+                aria-label={`More options for ${project.name}`}
+                title={`More options for ${project.name}`}
               >
-                <MoreHorizontal size={14} />
+                <MoreHorizontal size={14} aria-hidden="true" />
               </button>
 
               {/* Popover Menu */}
@@ -235,13 +265,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        setEditName(project.name);
-                        setEditingProjectId(project.id);
+                        setEditingProject(project);
                         setActiveMenuId(null);
                       }}
                       className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
                     >
-                      <Edit2 size={14} className="text-blue-400" /> Rename
+                      <Edit2 size={14} className="text-blue-400" /> Edit
                     </button>
                     <div className="h-px bg-white/5 my-0.5" />
                     <button
@@ -297,20 +326,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside
+      onMouseLeave={() => {
+        // Don't clear hover state if mouse is down (during click)
+        if (!mouseDownRef.current) {
+          if (hoverTimeoutRef.current) {
+            clearTimeout(hoverTimeoutRef.current);
+            hoverTimeoutRef.current = null;
+          }
+          setHoveredProject(null);
+          setHoveredItem(null);
+        }
+      }}
       className={`
-            h-[96vh] fixed left-4 top-[2vh] liquid-glass flex-col z-40 transition-all duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)]
+            h-[calc(100vh-4.5rem)] fixed left-4 top-14 liquid-glass flex-col z-50 transition-all duration-[400ms] ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform
             hidden md:flex shadow-2xl
-            ${isCollapsed ? 'w-20' : 'w-80'}
+            ${isCollapsed ? 'w-20 overflow-visible' : 'w-80 overflow-hidden'}
         `}
     >
       {/* Header Logo */}
-      <div className={`p-6 pb-2 flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} transition-all`}>
+      <div className={`p-6 pb-2 flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]`}>
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 flex items-center justify-center shrink-0 relative group">
             <img src={logo} alt="Logo" className="w-8 h-8 object-contain relative z-10 drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]" />
           </div>
           {!isCollapsed && (
-            <div>
+            <div className="animate-fade-in">
               <h1 className="text-xl font-bold text-white tracking-tight whitespace-nowrap text-glow">
                 Liqui<span className="text-red-500 font-light">Task</span>
               </h1>
@@ -324,29 +364,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="flex justify-end px-4 mb-4">
         <button
           onClick={toggleSidebar}
-          className="p-1.5 text-slate-500 hover:text-white rounded-lg hover:bg-white/5 transition-colors"
+          className="p-1.5 text-slate-500 hover:text-white rounded-lg hover:bg-white/5 transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform hover:scale-110"
         >
           {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>
       </div>
 
       {/* Scrollable Area */}
-      <div className="px-3 flex-1 overflow-y-auto custom-scrollbar space-y-6 pb-4">
+      <div className={`px-3 flex-1 custom-scrollbar space-y-6 pb-4 ${isCollapsed ? 'overflow-visible' : 'overflow-y-auto'}`}>
 
-        {/* Dashboard Nav */}
-        <div
-          onClick={() => onChangeView('dashboard')}
-          className={`
-            group px-3 py-3 rounded-xl cursor-pointer transition-all duration-300
-            flex items-center relative overflow-hidden border border-transparent
-            ${isCollapsed ? 'justify-center' : ''}
-            ${currentView === 'dashboard' ? 'bg-gradient-to-r from-red-900/40 to-transparent border-red-500/20 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}
-          `}
-          title="Dashboard"
-        >
-          <div className="relative z-10 flex items-center gap-3">
-            <LayoutDashboard size={20} className={`shrink-0 transition-colors ${currentView === 'dashboard' ? 'text-red-400 drop-shadow-md' : 'group-hover:text-red-400'}`} />
-            {!isCollapsed && <span className="font-medium text-sm">Dashboard</span>}
+        {/* Quick Navigation */}
+        <div className="space-y-1 mb-4">
+          <div
+            onClick={() => onChangeView('dashboard')}
+            onMouseEnter={(e) => {
+              if (isCollapsed) {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setHoveredItem({ label: 'Dashboard', top: rect.top + rect.height / 2 });
+              }
+            }}
+            onMouseLeave={() => setHoveredItem(null)}
+            className={`
+              group px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-300
+              flex items-center relative overflow-hidden border border-transparent
+              ${isCollapsed ? 'justify-center' : ''}
+              ${currentView === 'dashboard' ? 'bg-gradient-to-r from-red-900/40 to-transparent border-red-500/20 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}
+            `}
+          >
+            <div className="relative z-10 flex items-center gap-3">
+              <LayoutDashboard size={18} className={`shrink-0 transition-colors ${currentView === 'dashboard' ? 'text-red-400 drop-shadow-md' : 'group-hover:text-red-400'}`} />
+              {!isCollapsed && <span className="font-medium text-sm">Dashboard</span>}
+            </div>
           </div>
         </div>
 
@@ -398,10 +446,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {isCollapsed && (
             <button
               onClick={() => onAddProject()}
+              onMouseEnter={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setHoveredItem({ label: 'New Workspace', top: rect.top + rect.height / 2 });
+              }}
+              onMouseLeave={() => setHoveredItem(null)}
               className="w-full p-3 mb-2 rounded-xl bg-white/5 hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-all flex justify-center"
-              title="Add New Project"
+              aria-label="New Workspace"
+              title="New Workspace"
             >
-              <Plus size={18} />
+              <Plus size={18} aria-hidden="true" />
             </button>
           )}
 
@@ -427,13 +481,54 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="mt-auto p-4 border-t border-white/5 bg-[#050000]/30 backdrop-blur-md rounded-b-3xl">
         <button
           onClick={onOpenSettings}
+          onMouseEnter={(e) => {
+            if (isCollapsed) {
+              const rect = e.currentTarget.getBoundingClientRect();
+              setHoveredItem({ label: 'Settings', top: rect.top + rect.height / 2 });
+            }
+          }}
+          onMouseLeave={() => setHoveredItem(null)}
           className={`flex items-center gap-3 px-3 py-2.5 w-full rounded-xl hover:bg-white/5 cursor-pointer text-slate-400 hover:text-white transition-colors border border-transparent hover:border-white/5 ${isCollapsed ? 'justify-center' : ''}`}
-          title="Settings"
         >
           <Settings size={20} />
           {!isCollapsed && <span className="text-sm font-medium">Settings</span>}
         </button>
       </div>
+
+      {/* Edit Project Modal */}
+      <EditProjectModal
+        isOpen={editingProject !== null}
+        onClose={() => setEditingProject(null)}
+        onSave={onEditProject}
+        project={editingProject}
+      />
+
+      {/* Hover Tooltip for Collapsed Sidebar - rendered outside scroll container */}
+      {/* Dynamic positioning requires inline style for tooltip placement */}
+      {/* eslint-disable-next-line react/forbid-dom-props */}
+      {isCollapsed && hoveredProject && (
+        <div
+          className="fixed left-24 px-3 py-1.5 bg-[#1a1a2e] border border-white/10 rounded-lg shadow-2xl pointer-events-none whitespace-nowrap z-[9999] animate-in fade-in duration-150"
+          style={{ top: hoveredProject.top, transform: 'translateY(-50%)' }}
+        >
+          <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-[#1a1a2e] border-l border-b border-white/10 rotate-45"></div>
+          <span className="text-sm font-medium text-white">{hoveredProject.project.name}</span>
+          {hoveredProject.project.pinned && <Pin size={10} className="inline-block ml-1.5 text-red-500 fill-red-500 rotate-45" />}
+        </div>
+      )}
+
+      {/* Hover Tooltip for other icons (Dashboard, Settings, Add) */}
+      {/* Dynamic positioning requires inline style for tooltip placement */}
+      {/* eslint-disable-next-line react/forbid-dom-props */}
+      {isCollapsed && hoveredItem && (
+        <div
+          className="fixed left-24 px-3 py-1.5 bg-[#1a1a2e] border border-white/10 rounded-lg shadow-2xl pointer-events-none whitespace-nowrap z-[9999] animate-in fade-in duration-150"
+          style={{ top: hoveredItem.top, transform: 'translateY(-50%)' }}
+        >
+          <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-[#1a1a2e] border-l border-b border-white/10 rotate-45"></div>
+          <span className="text-sm font-medium text-white">{hoveredItem.label}</span>
+        </div>
+      )}
     </aside>
   );
 };

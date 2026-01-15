@@ -1,5 +1,5 @@
 // Export Service for LiquiTask
-// Provides CSV and JSON export functionality for tasks
+// Provides CSV, JSON, Markdown, and iCal export functionality for tasks
 
 import { Task, BoardColumn, Project, PriorityDefinition, CustomFieldDefinition } from '../../types';
 
@@ -154,6 +154,95 @@ class ExportService {
             ...customFields.map(cf => cf.id),
         ];
     }
+
+    // Export to Markdown
+    exportToMarkdown(tasks: Task[], template?: string): string {
+        const defaultTemplate = `# Task Export
+
+Generated: {{date}}
+
+## Tasks
+
+{{#tasks}}
+### {{title}}
+- **ID:** {{jobId}}
+- **Status:** {{status}}
+- **Priority:** {{priority}}
+- **Assignee:** {{assignee}}
+- **Due Date:** {{dueDate}}
+- **Description:** {{summary}}
+
+{{/tasks}}
+`;
+
+        const tpl = template || defaultTemplate;
+        const date = new Date().toLocaleDateString();
+        let output = tpl.replace('{{date}}', date);
+
+        const tasksMarkdown = tasks.map(task => {
+            let taskMd = tpl.includes('{{#tasks}}') 
+                ? tpl.split('{{#tasks}}')[1].split('{{/tasks}}')[0]
+                : defaultTemplate.split('{{#tasks}}')[1].split('{{/tasks}}')[0];
+
+            taskMd = taskMd
+                .replace(/\{\{title\}\}/g, task.title)
+                .replace(/\{\{jobId\}\}/g, task.jobId)
+                .replace(/\{\{status\}\}/g, task.status)
+                .replace(/\{\{priority\}\}/g, task.priority)
+                .replace(/\{\{assignee\}\}/g, task.assignee || 'Unassigned')
+                .replace(/\{\{dueDate\}\}/g, task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No date')
+                .replace(/\{\{summary\}\}/g, task.summary || '');
+
+            return taskMd;
+        }).join('\n\n');
+
+        output = output.replace(/{{#tasks}}[\s\S]*?{{\/tasks}}/, tasksMarkdown);
+        return output;
+    }
+
+    // Export to iCal (ICS format)
+    exportToICS(tasks: Task[], filename: string = 'liquitask-calendar.ics'): void {
+        const icsLines: string[] = [
+            'BEGIN:VCALENDAR',
+            'VERSION:2.0',
+            'PRODID:-//LiquiTask//Task Management//EN',
+            'CALSCALE:GREGORIAN',
+            'METHOD:PUBLISH',
+        ];
+
+        tasks.forEach(task => {
+            if (!task.dueDate) return;
+
+            const dueDate = new Date(task.dueDate);
+            const dueDateStr = dueDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+
+            icsLines.push('BEGIN:VTODO');
+            icsLines.push(`UID:${task.id}@liquitask`);
+            icsLines.push(`DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z`);
+            icsLines.push(`DUE:${dueDateStr}`);
+            icsLines.push(`SUMMARY:${this.escapeICS(task.title)}`);
+            if (task.summary) {
+                icsLines.push(`DESCRIPTION:${this.escapeICS(task.summary)}`);
+            }
+            icsLines.push(`STATUS:${task.status === 'Completed' ? 'COMPLETED' : 'NEEDS-ACTION'}`);
+            icsLines.push('END:VTODO');
+        });
+
+        icsLines.push('END:VCALENDAR');
+
+        const icsContent = icsLines.join('\r\n');
+        this.downloadFile(icsContent, filename, 'text/calendar;charset=utf-8');
+    }
+
+    // Escape text for ICS format
+    private escapeICS(text: string): string {
+        return text
+            .replace(/\\/g, '\\\\')
+            .replace(/;/g, '\\;')
+            .replace(/,/g, '\\,')
+            .replace(/\n/g, '\\n');
+    }
+
 }
 
 // Singleton instance

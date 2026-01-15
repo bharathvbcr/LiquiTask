@@ -133,7 +133,7 @@ describe('useProjectManagement', () => {
     });
 
     describe('deleteProject', () => {
-        it('should delete a project', () => {
+        it('should delete a project', async () => {
             const projects = [
                 { id: 'p1', name: 'Project 1', type: 'folder' },
                 { id: 'p2', name: 'Project 2', type: 'dev' },
@@ -146,8 +146,8 @@ describe('useProjectManagement', () => {
                 useProjectManagement({ addToast: mockAddToast })
             );
 
-            act(() => {
-                const deleted = result.current.deleteProject('p1', mockDeleteTasks);
+            await act(async () => {
+                const deleted = await result.current.deleteProject('p1', mockDeleteTasks);
                 expect(deleted).toBe(true);
             });
 
@@ -156,7 +156,7 @@ describe('useProjectManagement', () => {
             expect(mockAddToast).toHaveBeenCalledWith('Workspace deleted', 'info');
         });
 
-        it('should not delete if project has children', () => {
+        it('should not delete if project has children', async () => {
             const projects = [
                 { id: 'p1', name: 'Parent', type: 'folder' },
                 { id: 'p2', name: 'Child', type: 'folder', parentId: 'p1' },
@@ -169,8 +169,8 @@ describe('useProjectManagement', () => {
                 useProjectManagement({ addToast: mockAddToast })
             );
 
-            act(() => {
-                const deleted = result.current.deleteProject('p1', mockDeleteTasks);
+            await act(async () => {
+                const deleted = await result.current.deleteProject('p1', mockDeleteTasks);
                 expect(deleted).toBe(false);
             });
 
@@ -181,7 +181,7 @@ describe('useProjectManagement', () => {
             );
         });
 
-        it('should allow deletion of last project if confirmed', () => {
+        it('should allow deletion of last project if confirmed', async () => {
             const projects = [{ id: 'p1', name: 'Last Project', type: 'folder' }];
             (storageService.get as ReturnType<typeof vi.fn>)
                 .mockReturnValueOnce(projects)
@@ -196,8 +196,8 @@ describe('useProjectManagement', () => {
 
             // The hook implementation doesn't prevent deleting the last project
             // It will delete if confirmed (this matches App.tsx behavior which does check)
-            act(() => {
-                const deleted = result.current.deleteProject('p1', mockDeleteTasks);
+            await act(async () => {
+                const deleted = await result.current.deleteProject('p1', mockDeleteTasks);
                 // The hook itself doesn't check, so it will delete if confirmed
                 expect(deleted).toBe(true);
             });
@@ -206,7 +206,7 @@ describe('useProjectManagement', () => {
             expect(result.current.projects.find(p => p.id === 'p1')).toBeUndefined();
         });
 
-        it('should switch active project if deleted project was active', () => {
+        it('should switch active project if deleted project was active', async () => {
             const projects = [
                 { id: 'p1', name: 'Project 1', type: 'folder' },
                 { id: 'p2', name: 'Project 2', type: 'dev' },
@@ -221,14 +221,14 @@ describe('useProjectManagement', () => {
                 useProjectManagement({ addToast: mockAddToast })
             );
 
-            act(() => {
-                result.current.deleteProject('p1', mockDeleteTasks);
+            await act(async () => {
+                await result.current.deleteProject('p1', mockDeleteTasks);
             });
 
             expect(result.current.activeProjectId).toBe('p2');
         });
 
-        it('should not delete if user cancels confirmation', () => {
+        it('should not delete if user cancels confirmation', async () => {
             const projects = [
                 { id: 'p1', name: 'Project 1', type: 'folder' },
                 { id: 'p2', name: 'Project 2', type: 'dev' },
@@ -242,8 +242,8 @@ describe('useProjectManagement', () => {
                 useProjectManagement({ addToast: mockAddToast })
             );
 
-            act(() => {
-                const deleted = result.current.deleteProject('p1', mockDeleteTasks);
+            await act(async () => {
+                const deleted = await result.current.deleteProject('p1', mockDeleteTasks);
                 expect(deleted).toBe(false);
             });
 

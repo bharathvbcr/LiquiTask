@@ -4,6 +4,7 @@ interface ElectronAPI {
     maximize: () => Promise<void>;
     close: () => Promise<void>;
     isMaximized: () => Promise<boolean>;
+    on: (event: 'maximize' | 'unmaximize', callback: () => void) => (() => void) | undefined;
     platform: NodeJS.Platform;
     versions: {
         node: string;

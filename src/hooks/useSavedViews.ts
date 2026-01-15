@@ -1,16 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
-import { FilterState } from '../../types';
-
-export interface SavedView {
-    id: string;
-    name: string;
-    filters: FilterState;
-    grouping: 'none' | 'priority';
-    sortBy?: string;
-    sortOrder?: 'asc' | 'desc';
-    createdAt: Date;
-    isDefault?: boolean;
-}
+import { FilterState, SavedView } from '../../types';
+import { FilterGroup } from '../types/queryTypes';
 
 const STORAGE_KEY = 'liquitask_saved_views';
 const MAX_VIEWS = 20;
@@ -47,7 +37,8 @@ export function useSavedViews() {
     const createView = useCallback((
         name: string,
         filters: FilterState,
-        grouping: 'none' | 'priority' = 'none'
+        grouping: 'none' | 'priority' = 'none',
+        advancedFilter?: FilterGroup
     ): SavedView | null => {
         if (views.length >= MAX_VIEWS) {
             console.warn('Maximum number of saved views reached');
@@ -59,6 +50,7 @@ export function useSavedViews() {
             name: name.trim(),
             filters,
             grouping,
+            advancedFilter,
             createdAt: new Date(),
         };
 
@@ -121,7 +113,8 @@ export function useSavedViews() {
         return createView(
             `${original.name} (Copy)`,
             original.filters,
-            original.grouping
+            original.grouping,
+            original.advancedFilter as FilterGroup | undefined
         );
     }, [views, createView]);
 

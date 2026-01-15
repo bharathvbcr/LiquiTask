@@ -501,7 +501,7 @@ describe('useSavedViews', () => {
 
             expect(localStorageMock.setItem).toHaveBeenCalled();
             const saved = JSON.parse(localStorageMock.store['liquitask_saved_views'] || '[]');
-            expect(saved.some((v: any) => v.name === 'Persisted View')).toBe(true);
+            expect(saved.some((v: { name: string }) => v.name === 'Persisted View')).toBe(true);
         });
     });
 });

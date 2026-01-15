@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useKeybinding } from '../context/KeybindingContext';
 
 interface UseKeyboardNavOptions {
     items: { id: string }[];
@@ -27,6 +28,7 @@ export function useKeyboardNav({
     containerRef,
 }: UseKeyboardNavOptions): UseKeyboardNavReturn {
     const [focusedId, setFocusedId] = useState<string | null>(null);
+    const { matches } = useKeybinding();
     const itemIds = items.map(item => item.id);
 
     const focusedIndex = focusedId ? itemIds.indexOf(focusedId) : -1;
@@ -55,55 +57,38 @@ export function useKeyboardNav({
             return;
         }
 
-        switch (e.key.toLowerCase()) {
-            case 'j':
-            case 'arrowdown':
+        if (matches('nav:down', e)) {
+            e.preventDefault();
+            moveFocus('down');
+        } else if (matches('nav:up', e)) {
+            e.preventDefault();
+            moveFocus('up');
+        } else if (matches('nav:select', e)) {
+            if (focusedId) {
                 e.preventDefault();
-                moveFocus('down');
-                break;
-            case 'k':
-            case 'arrowup':
+                onOpen?.(focusedId);
+            }
+        } else if (e.key === 'x') { // Keep selection hardcoded or add 'nav:mark' to bindings
+             if (focusedId) {
                 e.preventDefault();
-                moveFocus('up');
-                break;
-            case 'enter':
-            case ' ':
-                if (focusedId) {
-                    e.preventDefault();
-                    onOpen?.(focusedId);
-                }
-                break;
-            case 'x':
-                if (focusedId) {
-                    e.preventDefault();
-                    onSelect?.(focusedId);
-                }
-                break;
-            case 'delete':
-            case 'backspace':
-                if (focusedId && e.shiftKey) {
-                    e.preventDefault();
-                    onDelete?.(focusedId);
-                }
-                break;
-            case 'escape':
+                onSelect?.(focusedId);
+            }
+        } else if (matches('task:delete', e)) {
+             if (focusedId && e.shiftKey) { // Keep Shift requirement for safety?
                 e.preventDefault();
-                setFocusedId(null);
-                break;
-            case 'home':
-                e.preventDefault();
-                if (itemIds.length > 0) {
-                    setFocusedId(itemIds[0]);
-                }
-                break;
-            case 'end':
-                e.preventDefault();
-                if (itemIds.length > 0) {
-                    setFocusedId(itemIds[itemIds.length - 1]);
-                }
-                break;
+                onDelete?.(focusedId);
+            }
+        } else if (matches('nav:back', e)) {
+            e.preventDefault();
+            setFocusedId(null);
+        } else if (e.key === 'Home') {
+             e.preventDefault();
+             if (itemIds.length > 0) setFocusedId(itemIds[0]);
+        } else if (e.key === 'End') {
+             e.preventDefault();
+             if (itemIds.length > 0) setFocusedId(itemIds[itemIds.length - 1]);
         }
-    }, [isEnabled, focusedId, moveFocus, onOpen, onSelect, onDelete, itemIds]);
+    }, [isEnabled, focusedId, moveFocus, onOpen, onSelect, onDelete, itemIds, matches]);
 
     // Reset focus when items change
     useEffect(() => {
@@ -131,7 +116,7 @@ export function useKeyboardNav({
     };
 }
 
-// Keyboard shortcut descriptions
+// Deprecated: Use KeybindingContext to get current shortcuts
 export const KEYBOARD_SHORTCUTS = [
     { key: 'J / ↓', description: 'Move down' },
     { key: 'K / ↑', description: 'Move up' },

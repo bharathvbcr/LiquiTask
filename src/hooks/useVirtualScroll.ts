@@ -126,8 +126,8 @@ export function useVirtualScroll<T>(
  * Simplified hook for task lists with variable heights.
  * Uses an estimated average height and adjusts as items render.
  */
-export function useVirtualTaskList(
-    tasks: Array<{ id: string }>,
+export function useVirtualTaskList<T extends { id: string }>(
+    tasks: T[],
     estimatedHeight: number = 180
 ) {
     const [visibleRange, setVisibleRange] = useState({ start: 0, end: 20 });
@@ -162,7 +162,7 @@ export function useVirtualTaskList(
     }, [tasks.length, estimatedHeight]);
 
     const visibleTasks = useMemo(() => {
-        return tasks.slice(visibleRange.start, visibleRange.end);
+        return tasks.slice(visibleRange.start, visibleRange.end) as T[];
     }, [tasks, visibleRange]);
 
     const paddingTop = visibleRange.start * estimatedHeight;

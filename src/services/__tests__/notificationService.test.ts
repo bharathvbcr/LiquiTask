@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { notificationService } from '../notificationService';
 
@@ -6,7 +7,7 @@ const mockNotification = {
     onclick: null as (() => void) | null,
 };
 
-const NotificationMock = vi.fn(() => mockNotification) as any;
+const NotificationMock = vi.fn(function () { return mockNotification; }) as any;
 NotificationMock.requestPermission = vi.fn(() => Promise.resolve('granted'));
 NotificationMock.permission = 'granted';
 
@@ -102,10 +103,10 @@ describe('notificationService', () => {
             // Otherwise it falls back to browser Notification
             const usedElectron = mockElectronAPI.showNotification.mock.calls.length > 0;
             const usedBrowser = NotificationMock.mock.calls.length > 0;
-            
+
             // One of them should have been called
             expect(usedElectron || usedBrowser).toBe(true);
-            
+
             if (usedElectron) {
                 expect(mockElectronAPI.showNotification).toHaveBeenCalledWith({
                     title: 'Test Title',
@@ -116,7 +117,7 @@ describe('notificationService', () => {
 
         it('should not show notification without permission', () => {
             (notificationService as any).hasPermission = false;
-            const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+            const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => { });
 
             notificationService.show({
                 title: 'Test Title',
@@ -331,7 +332,7 @@ describe('notificationService', () => {
         it('should check for overdue tasks periodically', () => {
             (notificationService as any).hasPermission = true;
             const checkOverdueSpy = vi.spyOn(notificationService, 'checkOverdueTasks');
-            const notifySpy = vi.spyOn(notificationService, 'notifyOverdue');
+
 
             const getTasks = () => [
                 {

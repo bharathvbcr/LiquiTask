@@ -19,19 +19,35 @@ export default defineConfig({
         build: {
             outDir: 'dist-electron/preload',
             rollupOptions: {
-                input: resolve(__dirname, 'electron/preload.ts')
+                input: resolve(__dirname, 'electron/preload.ts'),
+                output: {
+                    format: 'cjs',
+                    entryFileNames: 'preload.js'
+                }
             }
         }
     },
     renderer: {
         root: '.',
+        server: {
+            port: 5173,
+            host: '0.0.0.0',
+            strictPort: false,
+            hmr: {
+                protocol: 'ws',
+                host: 'localhost'
+            }
+        },
         build: {
             outDir: 'dist-electron/renderer',
             rollupOptions: {
                 input: resolve(__dirname, 'index.html')
             }
         },
-        plugins: [react()],
+        plugins: [react({
+            jsxRuntime: 'automatic',
+            jsxImportSource: 'react'
+        })],
         resolve: {
             alias: {
                 '@': resolve(__dirname, '.')

@@ -1,22 +1,62 @@
-import React from 'react';
-import { Task, Project, PriorityDefinition } from '../types';
+import React, { useState } from 'react';
+import { Task, Project, PriorityDefinition, BoardColumn, GroupingOption } from '../types';
 import { TaskCard } from './TaskCard';
-import { LayoutDashboard, AlertCircle, Clock, CheckCircle2, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, Layout, AlertCircle, Clock, CheckCircle2, TrendingUp, Calendar, BarChart3, GanttChart } from 'lucide-react';
+import { CalendarView } from '../src/components/CalendarView';
+import ProjectBoard from '../src/components/ProjectBoard';
+import GanttView from '../src/components/GanttView';
+import { ViewMode } from '../src/components/ViewSwitcher';
+import { ViewTransition } from '../src/components/ViewTransition';
+import logo from '../src/assets/logo.png';
 
 interface DashboardProps {
     tasks: Task[];
     projects: Project[];
     priorities?: PriorityDefinition[];
+    columns?: BoardColumn[];
+    boardGrouping?: GroupingOption;
+    activeProjectId?: string;
     onEditTask: (task: Task) => void;
     onUpdateTask: (task: Task) => void;
     onDeleteTask: (taskId: string) => void;
-    onMoveTask: (taskId: string, newStatus: string) => void;
+    onMoveTask: (taskId: string, newStatus: string, newPriority?: string, newOrder?: number) => void;
+    onUpdateColumns?: (cols: BoardColumn[]) => void;
+    getTasksByContext?: (statusId: string, priorityId?: string) => Task[];
     isCompact?: boolean;
     onCopyTask?: (message: string) => void;
     onMoveToWorkspace?: (taskId: string, projectId: string) => void;
+    onUpdateDueDate?: (taskId: string, newDate: Date) => void;
+    onCreateTask?: (date: Date) => void;
+    viewMode?: ViewMode;
+    onViewModeChange?: (mode: ViewMode) => void;
+    addToast?: (message: string, type: 'success' | 'error' | 'info') => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ tasks, projects, priorities = [], onEditTask, onDeleteTask, onMoveTask, onUpdateTask, isCompact = false, onCopyTask, onMoveToWorkspace }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ 
+    tasks, 
+    projects, 
+    priorities = [], 
+    columns = [],
+    boardGrouping = 'none',
+    activeProjectId = '',
+    onEditTask, 
+    onDeleteTask, 
+    onMoveTask, 
+    onUpdateTask,
+    onUpdateColumns,
+    getTasksByContext,
+    isCompact = false, 
+    onCopyTask, 
+    onMoveToWorkspace,
+    onUpdateDueDate,
+    onCreateTask,
+    viewMode: externalViewMode,
+    onViewModeChange,
+    addToast
+}) => {
+    const [internalViewMode, setInternalViewMode] = useState<ViewMode>('stats');
+    const viewMode = externalViewMode !== undefined ? externalViewMode : internalViewMode;
+    const setViewMode = onViewModeChange || setInternalViewMode;
     const getTaskPriorityLevel = (task: Task) => {
         const p = priorities.find(p => p.id === task.priority);
         return p ? p.level : 99;
@@ -74,8 +114,158 @@ export const Dashboard: React.FC<DashboardProps> = ({ tasks, projects, prioritie
 
     const getProjectName = (id: string) => projects.find(p => p.id === id)?.name || 'Unknown Project';
 
+    const handleAddTask = (date: Date) => {
+        if (onCreateTask) {
+            onCreateTask(date);
+        } else if (onEditTask) {
+            // Fallback: create a new task with the date pre-filled
+            const newTask: Task = {
+                id: `temp-${Date.now()}`,
+                jobId: '',
+                projectId: projects[0]?.id || '',
+                title: '',
+                subtitle: '',
+                summary: '',
+                assignee: '',
+                priority: priorities[0]?.id || 'medium',
+                status: 'Pending',
+                createdAt: new Date(),
+                dueDate: date,
+                subtasks: [],
+                attachments: [],
+                tags: [],
+                timeEstimate: 0,
+                timeSpent: 0,
+            };
+            onEditTask(newTask);
+        }
+    };
+
+    // Helper function for Board/Gantt views
+    const getTasksByContextDefault = (statusId: string, priorityId?: string) => {
+        return tasks
+            .filter(task => {
+                const statusMatch = task.status === statusId;
+                const priorityMatch = priorityId ? task.priority === priorityId : true;
+                return statusMatch && priorityMatch;
+            })
+            .sort((a, b) => {
+                const orderA = a.order ?? a.createdAt.getTime();
+                const orderB = b.order ?? b.createdAt.getTime();
+                return orderA - orderB;
+            });
+    };
+
+    const effectiveGetTasksByContext = getTasksByContext || getTasksByContextDefault;
+    const activeProject = projects.find(p => p.id === activeProjectId) || projects[0] || { name: 'All Projects', id: '' };
+    const currentProjectTasks = activeProjectId 
+        ? tasks.filter(t => t.projectId === activeProjectId)
+        : tasks;
+
     return (
         <div className="p-8 max-w-7xl mx-auto space-y-10">
+            {/* View Toggle - Only show if not controlled externally */}
+            {onViewModeChange === undefined && (
+                <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                        <img src={logo} alt="LiquiTask" className="w-8 h-8 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]" />
+                        <h1 className="text-3xl font-bold text-white">Dashboard</h1>
+                    </div>
+                    <div className="flex items-center gap-1 bg-black/20 rounded-lg p-1 border border-white/5">
+                        <button
+                            onClick={() => setViewMode('stats')}
+                            className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                                viewMode === 'stats'
+                                    ? 'bg-red-500/20 text-red-400'
+                                    : 'text-slate-400 hover:text-white'
+                            }`}
+                        >
+                            <BarChart3 size={16} /> Stats
+                        </button>
+                        <button
+                            onClick={() => setViewMode('calendar')}
+                            className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                                viewMode === 'calendar'
+                                    ? 'bg-red-500/20 text-red-400'
+                                    : 'text-slate-400 hover:text-white'
+                            }`}
+                        >
+                            <Calendar size={16} /> Calendar
+                        </button>
+                        <button
+                            onClick={() => setViewMode('board')}
+                            className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                                viewMode === 'board'
+                                    ? 'bg-red-500/20 text-red-400'
+                                    : 'text-slate-400 hover:text-white'
+                            }`}
+                        >
+                            <Layout size={16} /> Board
+                        </button>
+                        <button
+                            onClick={() => setViewMode('gantt')}
+                            className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                                viewMode === 'gantt'
+                                    ? 'bg-red-500/20 text-red-400'
+                                    : 'text-slate-400 hover:text-white'
+                            }`}
+                        >
+                            <GanttChart size={16} /> Gantt
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            <ViewTransition
+                transitionKey={viewMode}
+                type="slide-up"
+                duration={400}
+                className="h-full"
+            >
+                {viewMode === 'calendar' ? (
+                    <div className="h-[calc(100vh-250px)]">
+                        <CalendarView
+                            tasks={tasks}
+                            priorities={priorities}
+                            onTaskClick={onEditTask}
+                            onAddTask={handleAddTask}
+                            onUpdateDueDate={onUpdateDueDate}
+                        />
+                    </div>
+                ) : viewMode === 'board' ? (
+                    <div className="pb-4 h-full overflow-x-auto scrollbar-hide">
+                        <div className="min-w-[1200px] h-full">
+                            <ProjectBoard
+                            columns={columns}
+                            priorities={priorities || []}
+                            tasks={currentProjectTasks}
+                            allTasks={tasks}
+                            boardGrouping={boardGrouping}
+                            onUpdateColumns={onUpdateColumns || (() => {})}
+                            onMoveTask={onMoveTask}
+                            onEditTask={onEditTask}
+                            onUpdateTask={onUpdateTask}
+                            onDeleteTask={onDeleteTask}
+                            addToast={addToast}
+                            getTasksByContext={effectiveGetTasksByContext}
+                            isCompact={isCompact}
+                            onCopyTask={onCopyTask}
+                            projectName={activeProject.name}
+                            projects={projects}
+                            onMoveToWorkspace={onMoveToWorkspace}
+                        />
+                        </div>
+                    </div>
+                ) : viewMode === 'gantt' ? (
+                    <GanttView
+                        tasks={currentProjectTasks}
+                        columns={columns}
+                        priorities={priorities || []}
+                        onEditTask={onEditTask}
+                        onUpdateTask={onUpdateTask}
+                    />
+                ) : (
+                    <>
             {/* Stats Row */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="liquid-glass p-6 relative overflow-hidden group hover:border-blue-500/30 transition-all duration-500">
@@ -196,6 +386,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ tasks, projects, prioritie
                 </div>
 
             </div>
+                    </>
+                )}
+            </ViewTransition>
         </div>
     );
 };

@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo, useRef } from 'react';
 import { Task, BoardColumn, ToastType } from '../../types';
 import { storageService } from '../services/storageService';
 import { STORAGE_KEYS, COLUMN_STATUS } from '../constants';
+import { ConfirmationOptions } from '../contexts/ConfirmationContext';
 
 interface UndoAction {
     type: 'delete' | 'update' | 'create';
@@ -13,9 +14,10 @@ interface UseTaskManagementProps {
     activeProjectId: string;
     columns: BoardColumn[];
     addToast: (message: string, type: ToastType) => void;
+    confirm?: (options: ConfirmationOptions) => Promise<boolean>;
 }
 
-export function useTaskManagement({ activeProjectId, columns, addToast }: UseTaskManagementProps) {
+export function useTaskManagement({ activeProjectId, columns, addToast, confirm }: UseTaskManagementProps) {
     const [tasks, setTasks] = useState<Task[]>(() =>
         storageService.get(STORAGE_KEYS.TASKS, [] as Task[])
     );
@@ -107,18 +109,28 @@ export function useTaskManagement({ activeProjectId, columns, addToast }: UseTas
     }, [tasks, saveTasks, pushUndo]);
 
     // Delete task
-    const deleteTask = useCallback((taskId: string, skipConfirm = false) => {
+    const deleteTask = useCallback(async (taskId: string, skipConfirm = false) => {
         const task = tasks.find(t => t.id === taskId);
         if (!task) return;
 
-        if (!skipConfirm && !window.confirm('Delete this task? Press Ctrl+Z to undo.')) {
-            return;
+        if (!skipConfirm) {
+            if (confirm) {
+                const confirmed = await confirm({
+                    title: 'Delete Task',
+                    message: 'Are you sure you want to delete this task? Press Ctrl+Z to undo.',
+                    confirmText: 'Delete Task',
+                    variant: 'danger'
+                });
+                if (!confirmed) return;
+            } else if (!window.confirm('Delete this task? Press Ctrl+Z to undo.')) {
+                return;
+            }
         }
 
         pushUndo({ type: 'delete', task });
         saveTasks(tasks.filter(t => t.id !== taskId));
         addToast('Task deleted (Ctrl+Z to undo)', 'info');
-    }, [tasks, saveTasks, addToast, pushUndo]);
+    }, [tasks, saveTasks, addToast, pushUndo, confirm]);
 
     // Move task (with dependency checking)
     const moveTask = useCallback((taskId: string, newStatus: string, newPriority?: string) => {

@@ -13,6 +13,8 @@ export const STORAGE_KEYS = {
     SEARCH_HISTORY: 'liquitask-search-history',
     COMPACT_VIEW: 'liquitask-compact-view',
     SHOW_SUB_WORKSPACE_TASKS: 'liquitask-show-sub-workspace-tasks',
+    VIEW_MODE: 'liquitask-view-mode',
+    CURRENT_VIEW: 'liquitask-current-view',
     // Migration system keys
     DATA_VERSION: 'liquitask-data-version',
     BACKUPS: 'liquitask-backups',
@@ -22,7 +24,7 @@ export const STORAGE_KEYS = {
 // Default column configuration
 export const DEFAULT_COLUMNS = [
     { id: 'Pending', title: 'Pending', color: '#64748b', wipLimit: 0 },
-    { id: 'InProgress', title: 'In Progress', color: '#3b82f6', wipLimit: 3 },
+    { id: 'InProgress', title: 'In Progress', color: '#3b82f6', wipLimit: 10 },
     { id: 'Completed', title: 'Completed', color: '#10b981', isCompleted: true, wipLimit: 0 },
     { id: 'Delivered', title: 'Delivered', color: '#a855f7', wipLimit: 0 }
 ] as const;

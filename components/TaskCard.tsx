@@ -1,9 +1,12 @@
 import React, { useState, memo, useEffect, useRef } from 'react';
-import { Calendar, CheckCircle, AlertTriangle, GripVertical, Pencil, Trash2, Flag, CheckSquare, Paperclip, Link as LinkIcon, Flame, ArrowDown, ArrowUp, Minus, Star, Zap, Shield, AlertCircle, Clock, ChevronDown, ChevronUp, Check, AlignLeft, Lock, ArrowRightLeft, ExternalLink, Info, Copy, Folder, ChevronRight } from 'lucide-react';
+import { Calendar, CheckCircle, AlertTriangle, GripVertical, Pencil, Trash2, Flag, CheckSquare, Paperclip, Link as LinkIcon, Flame, ArrowDown, ArrowUp, Minus, Star, Zap, Shield, AlertCircle, Clock, ChevronDown, ChevronUp, Check, AlignLeft, Lock, ArrowRightLeft, ExternalLink, Info, Copy, Folder, ChevronRight, FileText } from 'lucide-react';
 import { Task, PriorityDefinition, Project } from '../types';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { taskToJson } from '../src/utils/taskToJson';
+import { InlineEditable, InlineSelect, InlineDatePicker } from '../src/components/InlineEditable';
+import { templateService } from '../src/services/templateService';
+import storageService from '../src/services/storageService';
 
 interface TaskCardProps {
   task: Task;
@@ -19,6 +22,7 @@ interface TaskCardProps {
   projectName?: string; // Optional project name for JSON export
   projects?: Project[]; // Available workspaces/projects
   onMoveToWorkspace?: (taskId: string, projectId: string) => void; // Callback to move task to workspace
+  isFocused?: boolean; // Keyboard navigation focus state
 }
 
 const getDueDateStatus = (dueDate?: Date) => {
@@ -59,7 +63,7 @@ const getPriorityIcon = (iconName?: string, size = 12) => {
   }
 }
 
-export const TaskCard: React.FC<TaskCardProps> = ({ task, isCompletedColumn, onMoveTask, onEditTask, onUpdateTask, onDeleteTask, priorities = [], allTasks = [], isCompact = false, onCopyTask, projectName, projects = [], onMoveToWorkspace }) => {
+export const TaskCard: React.FC<TaskCardProps> = ({ task, isCompletedColumn, onMoveTask, onEditTask, onUpdateTask, onDeleteTask, priorities = [], allTasks = [], isCompact = false, onCopyTask, projectName, projects = [], onMoveToWorkspace, isFocused = false }) => {
   const [isSubtasksExpanded, setIsSubtasksExpanded] = useState(false);
   const [contextMenuVisible, setContextMenuVisible] = useState(false);
   const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
@@ -201,10 +205,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, isCompletedColumn, onM
       <div
         onContextMenu={handleContextMenu}
         className={`
-          liquid-card group relative w-full rounded-2xl ${isCompact ? 'p-3' : 'p-5'} cursor-grab active:cursor-grabbing
+          liquid-card group relative w-full rounded-2xl ${isCompact ? 'p-3.5' : 'p-5'} cursor-grab active:cursor-grabbing
           transition-all duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]
+          border border-white/10 hover:border-white/20
           ${isBlocked ? 'border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.3)]' : ''}
           ${dueInfo?.status === 'overdue' && !isBlocked ? 'border-red-500/30 shadow-[0_0_15px_rgba(239,68,68,0.15)]' : ''}
+          ${isFocused ? 'ring-2 ring-red-500/70 shadow-[0_0_20px_rgba(239,68,68,0.4)] scale-[1.02]' : ''}
+          hover:shadow-lg hover:scale-[1.01]
         `}
       >
 
@@ -220,7 +227,16 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, isCompletedColumn, onM
               }}
             >
               {priorityDef.icon ? <span className="opacity-90">{getPriorityIcon(priorityDef.icon)}</span> : <div className="w-2 h-2 rounded-full" style={{ backgroundColor: priorityDef.color }}></div>}
-              <span className="text-[11px] font-bold uppercase tracking-wider">{priorityDef.label}</span>
+              <InlineSelect
+                value={task.priority}
+                options={priorities.map(p => ({
+                  id: p.id,
+                  label: p.label,
+                  color: p.color,
+                }))}
+                onSave={(newPriority) => onUpdateTask({ ...task, priority: newPriority })}
+                className="inline-block"
+              />
             </div>
             {isBlocked && (
               <div
@@ -245,8 +261,24 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, isCompletedColumn, onM
 
         {/* Main Content */}
         <div onDoubleClick={() => onEditTask(task)} className={`cursor-pointer ${isCompact ? 'mb-1' : 'mb-3'}`}>
-          <h3 className={`${isCompact ? 'text-sm' : 'text-lg'} font-bold text-slate-100 leading-tight mb-1 drop-shadow-sm line-clamp-2`}>{task.title}</h3>
-          {!isCompact && <p className="text-xs text-slate-400 font-semibold tracking-wide uppercase">{task.subtitle}</p>}
+          <h3 className={`${isCompact ? 'text-sm' : 'text-lg'} font-bold text-slate-100 leading-tight mb-1 drop-shadow-sm line-clamp-2`}>
+            <InlineEditable
+              value={task.title}
+              onSave={(newTitle) => onUpdateTask({ ...task, title: newTitle })}
+              className="inline-block"
+              placeholder="Untitled task"
+            />
+          </h3>
+          {!isCompact && (
+            <p className="text-xs text-slate-400 font-semibold tracking-wide uppercase">
+              <InlineEditable
+                value={task.subtitle}
+                onSave={(newSubtitle) => onUpdateTask({ ...task, subtitle: newSubtitle })}
+                className="inline-block"
+                placeholder="Add subtitle..."
+              />
+            </p>
+          )}
         </div>
 
         {/* Compact Content Indicators */}
@@ -283,7 +315,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, isCompletedColumn, onM
                 <div className="flex items-start gap-2 h-full">
                   <AlignLeft size={14} className="text-slate-600 mt-1 shrink-0 group-hover/markdown:text-slate-500 transition-colors" />
                   <div className="text-sm text-slate-300 leading-relaxed font-medium w-full markdown-content">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({ _node, ...props }) => (<a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline" />) }}>{task.summary}</ReactMarkdown>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: (props) => (<a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline" />) }}>{task.summary}</ReactMarkdown>
                   </div>
                 </div>
               </div>
@@ -354,8 +386,23 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, isCompletedColumn, onM
                   <div className="mt-3 space-y-1 animate-in slide-in-from-top-2 duration-200 pl-1">
                     {subtasks.map(subtask => (
                       <div key={subtask.id} className="flex items-center gap-2 group/subtask">
-                        <button onClick={(e) => handleSubtaskToggle(e, subtask.id)} className={`w-4 h-4 rounded border flex items-center justify-center transition-all shrink-0 ${subtask.completed ? 'bg-emerald-500/20 border-emerald-500 text-emerald-500' : 'border-slate-700 hover:border-slate-500 bg-black/20 text-transparent'}`}><Check size={10} strokeWidth={3} /></button>
-                        <input type="text" value={subtask.title} onClick={(e) => e.stopPropagation()} onChange={(e) => handleSubtaskTitleChange(subtask.id, e.target.value)} className={`bg-transparent border-none outline-none text-xs w-full transition-colors p-0.5 rounded hover:bg-white/5 focus:bg-white/5 ${subtask.completed ? 'text-slate-600 line-through decoration-slate-700' : 'text-slate-300 focus:text-white'}`} />
+                        <button 
+                            onClick={(e) => handleSubtaskToggle(e, subtask.id)} 
+                            className={`w-4 h-4 rounded border flex items-center justify-center transition-all shrink-0 ${subtask.completed ? 'bg-emerald-500/20 border-emerald-500 text-emerald-500' : 'border-slate-700 hover:border-slate-500 bg-black/20 text-transparent'}`}
+                            aria-label={subtask.completed ? 'Mark subtask incomplete' : 'Mark subtask complete'}
+                            title={subtask.completed ? 'Mark incomplete' : 'Mark complete'}
+                        >
+                            <Check size={10} strokeWidth={3} />
+                        </button>
+                        <input 
+                            type="text" 
+                            value={subtask.title} 
+                            onClick={(e) => e.stopPropagation()} 
+                            onChange={(e) => handleSubtaskTitleChange(subtask.id, e.target.value)} 
+                            className={`bg-transparent border-none outline-none text-xs w-full transition-colors p-0.5 rounded hover:bg-white/5 focus:bg-white/5 ${subtask.completed ? 'text-slate-600 line-through decoration-slate-700' : 'text-slate-300 focus:text-white'}`}
+                            aria-label="Subtask title"
+                            placeholder="Subtask title"
+                        />
                       </div>
                     ))}
                   </div>
@@ -369,15 +416,21 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, isCompletedColumn, onM
                 <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-900 to-slate-800 flex items-center justify-center border border-white/10 shadow-sm">
                   <span className="text-[10px] font-bold text-indigo-300">{task.assignee ? task.assignee.charAt(0).toUpperCase() : 'U'}</span>
                 </div>
-                <span className="font-medium text-slate-300">{task.assignee || 'Unassigned'}</span>
+                <InlineEditable
+                  value={task.assignee || ''}
+                  onSave={(newAssignee) => onUpdateTask({ ...task, assignee: newAssignee })}
+                  className="font-medium text-slate-300"
+                  placeholder="Unassigned"
+                />
               </div>
 
-              {dueInfo && (
-                <div className={`flex items-center gap-1.5 text-xs font-semibold ${dueInfo.color}`}>
-                  <Calendar size={14} />
-                  <span>{dueInfo.label}</span>
-                </div>
-              )}
+              <div className={`flex items-center gap-1.5 text-xs font-semibold ${dueInfo?.color || 'text-slate-400'}`}>
+                <Calendar size={14} />
+                <InlineDatePicker
+                  value={task.dueDate || null}
+                  onSave={(newDate) => onUpdateTask({ ...task, dueDate: newDate || undefined })}
+                />
+              </div>
             </div>
 
             {/* Action Button for Completed Column */}
@@ -458,6 +511,20 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, isCompletedColumn, onM
           >
             <Copy size={14} className="text-red-400" />
             <span>Copy as JSON</span>
+          </button>
+          <button
+            onClick={() => {
+              templateService.saveAsTemplate(task, `Template: ${task.title}`);
+              storageService.set('liquitask-templates', templateService.getAllTemplates());
+              setContextMenuVisible(false);
+              if (onCopyTask) {
+                onCopyTask('Task saved as template');
+              }
+            }}
+            className="w-full px-4 py-2.5 text-left text-sm text-slate-200 hover:bg-red-500/20 hover:text-white transition-colors flex items-center gap-2"
+          >
+            <FileText size={14} className="text-red-400" />
+            <span>Save as Template</span>
           </button>
         </div>
       )}

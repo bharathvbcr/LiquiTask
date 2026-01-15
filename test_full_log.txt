@@ -1,0 +1,2532 @@
+
+> liquitask@1.0.0 test
+> vitest
+
+
+[1m[44m DEV [49m[22m [34mv4.0.17 [39m[90mC:/Users/bhara/Downloads/Code/LiquiTask[39m
+
+stderr | src/services/__tests__/notificationService.test.ts > notificationService > show > should show notification in browser
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+
+stderr | src/services/__tests__/notificationService.test.ts > notificationService > show > should show notification in Electron
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+
+stderr | src/services/__tests__/notificationService.test.ts > notificationService > show > should attach onClick handler
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+
+stderr | src/services/__tests__/notificationService.test.ts > notificationService > scheduleTaskReminder > should schedule reminder 1 hour before due date
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+[vitest] The show mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+
+stderr | src/services/__tests__/notificationService.test.ts > notificationService > scheduleTaskReminder > should schedule due notification if more than 1 hour away
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+[vitest] The show mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+[vitest] The show mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+
+stderr | src/services/__tests__/notificationService.test.ts > notificationService > notifyOverdue > should notify single overdue task
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+[vitest] The show mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+
+stderr | src/services/__tests__/notificationService.test.ts > notificationService > notifyOverdue > should notify multiple overdue tasks
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+[vitest] The show mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+
+stderr | src/services/__tests__/notificationService.test.ts > notificationService > startPeriodicCheck > should check for overdue tasks periodically
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+[vitest] The show mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+
+stderr | src/services/__tests__/notificationService.test.ts > notificationService > startPeriodicCheck > should only notify for newly overdue tasks
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+[vitest] The show mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+[vitest] The notifyOverdue mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+
+ [31mΓ¥»[39m src/services/__tests__/notificationService.test.ts [2m([22m[2m21 tests[22m[2m | [22m[31m9 failed[39m[2m)[22m[32m 76[2mms[22m[39m
+       [32mΓ£ô[39m should request permission in browser[32m 8[2mms[22m[39m
+       [32mΓ£ô[39m should return true for Electron without requesting[32m 1[2mms[22m[39m
+       [32mΓ£ô[39m should return false if permission denied[32m 1[2mms[22m[39m
+[31m       [31m├ù[31m should show notification in browser[39m[32m 14[2mms[22m[39m
+[31m       [31m├ù[31m should show notification in Electron[39m[32m 2[2mms[22m[39m
+       [32mΓ£ô[39m should not show notification without permission[32m 5[2mms[22m[39m
+[31m       [31m├ù[31m should attach onClick handler[39m[32m 2[2mms[22m[39m
+[31m       [31m├ù[31m should schedule reminder 1 hour before due date[39m[32m 10[2mms[22m[39m
+       [32mΓ£ô[39m should not schedule if already past due[32m 2[2mms[22m[39m
+[31m       [31m├ù[31m should schedule due notification if more than 1 hour away[39m[32m 4[2mms[22m[39m
+       [32mΓ£ô[39m should identify overdue tasks[32m 3[2mms[22m[39m
+       [32mΓ£ô[39m should identify tasks due soon[32m 2[2mms[22m[39m
+       [32mΓ£ô[39m should ignore completed tasks[32m 1[2mms[22m[39m
+       [32mΓ£ô[39m should ignore tasks without due dates[32m 1[2mms[22m[39m
+[31m       [31m├ù[31m should notify single overdue task[39m[32m 2[2mms[22m[39m
+[31m       [31m├ù[31m should notify multiple overdue tasks[39m[32m 1[2mms[22m[39m
+       [32mΓ£ô[39m should not notify if no overdue tasks[32m 1[2mms[22m[39m
+[31m       [31m├ù[31m should check for overdue tasks periodically[39m[32m 3[2mms[22m[39m
+[31m       [31m├ù[31m should only notify for newly overdue tasks[39m[32m 2[2mms[22m[39m
+       [32mΓ£ô[39m should stop periodic check[32m 3[2mms[22m[39m
+       [32mΓ£ô[39m should clear notification tracking for task[32m 3[2mms[22m[39m
+stderr | src/hooks/__tests__/useTimer.test.ts > useTimer > visibility change handling > should restore elapsed time when tab becomes visible
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ [32mΓ£ô[39m src/hooks/__tests__/useTimer.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 143[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/__tests__/useTaskTemplates.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 84[2mms[22m[39m
+stderr | src/hooks/__tests__/useSavedViews.test.ts > useSavedViews > createView > should not create view if max limit reached
+Maximum number of saved views reached
+
+ [32mΓ£ô[39m src/hooks/__tests__/useSearchHistory.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 93[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/__tests__/useBulkSelection.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 145[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/__tests__/useSavedViews.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 160[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/__tests__/useTaskManagement.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 170[2mms[22m[39m
+ [31mΓ¥»[39m src/hooks/__tests__/useProjectManagement.test.ts [2m([22m[2m21 tests[22m[2m | [22m[31m4 failed[39m[2m)[22m[32m 190[2mms[22m[39m
+       [32mΓ£ô[39m should initialize with default projects[32m 42[2mms[22m[39m
+       [32mΓ£ô[39m should load projects from storage[32m 8[2mms[22m[39m
+       [32mΓ£ô[39m should set active project from storage[32m 5[2mms[22m[39m
+       [32mΓ£ô[39m should create a new project[32m 34[2mms[22m[39m
+       [32mΓ£ô[39m should set new project as active if no parent[32m 15[2mms[22m[39m
+       [32mΓ£ô[39m should create sub-project with parentId[32m 5[2mms[22m[39m
+       [32mΓ£ô[39m should assign order to new project[32m 3[2mms[22m[39m
+[31m       [31m├ù[31m should delete a project[39m[32m 17[2mms[22m[39m
+[31m       [31m├ù[31m should not delete if project has children[39m[32m 7[2mms[22m[39m
+[31m       [31m├ù[31m should allow deletion of last project if confirmed[39m[32m 6[2mms[22m[39m
+       [32mΓ£ô[39m should switch active project if deleted project was active[32m 4[2mms[22m[39m
+[31m       [31m├ù[31m should not delete if user cancels confirmation[39m[32m 5[2mms[22m[39m
+       [32mΓ£ô[39m should toggle pin status of a project[32m 6[2mms[22m[39m
+       [32mΓ£ô[39m should move project up[32m 4[2mms[22m[39m
+       [32mΓ£ô[39m should move project down[32m 4[2mms[22m[39m
+       [32mΓ£ô[39m should only move within siblings with same pinned status[32m 3[2mms[22m[39m
+       [32mΓ£ô[39m should not move if already at boundary[32m 4[2mms[22m[39m
+       [32mΓ£ô[39m should set active project ID[32m 3[2mms[22m[39m
+       [32mΓ£ô[39m should return active project[32m 3[2mms[22m[39m
+       [32mΓ£ô[39m should return first project if active project not found[32m 3[2mms[22m[39m
+       [32mΓ£ô[39m should return default project if no projects exist[32m 3[2mms[22m[39m
+ [32mΓ£ô[39m src/components/__tests__/EmptyState.test.tsx [2m([22m[2m11 tests[22m[2m)[22m[33m 456[2mms[22m[39m
+ [32mΓ£ô[39m src/components/__tests__/ErrorBoundary.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 621[2mms[22m[39m
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+ [32mΓ£ô[39m src/services/__tests__/exportService.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 77[2mms[22m[39m
+stderr | src/utils/__tests__/storageQuota.test.ts > storageQuota > getStorageQuotaInfo > should return null on error
+Failed to get storage quota info: Error: Storage error
+    at Object.get [as length] (C:/Users/bhara/Downloads/Code/LiquiTask/src/utils/__tests__/storageQuota.test.ts:101:27)
+    at getStorageQuotaInfo (C:/Users/bhara/Downloads/Code/LiquiTask/src/utils/storageQuota.ts:23:38)
+    at C:/Users/bhara/Downloads/Code/LiquiTask/src/utils/__tests__/storageQuota.test.ts:106:26
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:145:11
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:915:26
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1243:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1209:10)
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1653:37
+    at Traces.$ (file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/vitest/dist/chunks/traces.CCmnQaNT.js:142:27)
+
+stderr | src/utils/__tests__/storageQuota.test.ts > storageQuota > clearOldData > should handle errors gracefully
+Failed to clear old data: Error: Remove error
+    at Object.<anonymous> (C:/Users/bhara/Downloads/Code/LiquiTask/src/utils/__tests__/storageQuota.test.ts:280:27)
+    at Object.Mock [as removeItem] (file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/spy/dist/index.js:285:34)
+    at clearOldData (C:/Users/bhara/Downloads/Code/LiquiTask/src/utils/storageQuota.ts:111:22)
+    at C:/Users/bhara/Downloads/Code/LiquiTask/src/utils/__tests__/storageQuota.test.ts:285:29
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:145:11
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:915:26
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1243:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1209:10)
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1653:37
+
+ [32mΓ£ô[39m src/utils/__tests__/storageQuota.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 43[2mms[22m[39m
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mcreateBackup[2m > [22m[2mshould create a backup with unique ID
+[22m[39m[Migration] [2026-01-14T23:18:50.800Z] Backup created: backup_1768432730798_7uabieq (version 1.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mcreateBackup[2m > [22m[2mshould store backup data correctly
+[22m[39m[Migration] [2026-01-14T23:18:50.803Z] Backup created: backup_1768432730803_7oxkldc (version 1.0.0)
+[Migration] [2026-01-14T23:18:50.804Z] Restored from backup: backup_1768432730803_7oxkldc
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mcreateBackup[2m > [22m[2mshould prune old backups when exceeding max
+[22m[39m[Migration] [2026-01-14T23:18:50.805Z] Backup created: backup_1768432730805_svi6flp (version 1.0.0)
+[Migration] [2026-01-14T23:18:50.805Z] Backup created: backup_1768432730805_b0ptfnd (version 1.0.0)
+[Migration] [2026-01-14T23:18:50.806Z] Backup created: backup_1768432730806_qrqjyxv (version 1.0.0)
+[Migration] [2026-01-14T23:18:50.806Z] Backup created: backup_1768432730806_glh3nfm (version 1.0.0)
+[Migration] [2026-01-14T23:18:50.806Z] Backup created: backup_1768432730806_v15ne9q (version 1.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mrestoreBackup[2m > [22m[2mshould restore backup data
+[22m[39m[Migration] [2026-01-14T23:18:50.808Z] Backup created: backup_1768432730808_fd7yexw (version 1.0.0)
+[Migration] [2026-01-14T23:18:50.809Z] Restored from backup: backup_1768432730808_fd7yexw
+
+stderr | src/services/__tests__/migrationService.test.ts > MigrationService > restoreBackup > should return null for non-existent backup
+Backup not found: non-existent-id
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mrestoreBackup[2m > [22m[2mshould return a deep copy (not reference)
+[22m[39m[Migration] [2026-01-14T23:18:50.811Z] Backup created: backup_1768432730811_r4s12n3 (version 1.0.0)
+[Migration] [2026-01-14T23:18:50.812Z] Restored from backup: backup_1768432730811_r4s12n3
+[Migration] [2026-01-14T23:18:50.812Z] Restored from backup: backup_1768432730811_r4s12n3
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mlistBackups[2m > [22m[2mshould return backups sorted by timestamp (newest first)
+[22m[39m[Migration] [2026-01-14T23:18:50.814Z] Backup created: backup_1768432730814_s1xsc7o (version 1.0.0)
+[Migration] [2026-01-14T23:18:50.814Z] Backup created: backup_1768432730814_54euzmc (version 1.0.0)
+[Migration] [2026-01-14T23:18:50.815Z] Backup created: backup_1768432730815_pwhsxaq (version 1.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mdeleteBackup[2m > [22m[2mshould delete a backup
+[22m[39m[Migration] [2026-01-14T23:18:50.816Z] Backup created: backup_1768432730816_cqcj4vy (version 1.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mrunMigrations[2m > [22m[2mshould create backup before migration
+[22m[39m[Migration] [2026-01-14T23:18:50.819Z] Backup created: backup_1768432730819_mfkbjcx (version 0.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mrunMigrations[2m > [22m[2mshould update version to current after migration
+[22m[39m[Migration] [2026-01-14T23:18:50.820Z] Backup created: backup_1768432730820_f95xv1s (version 0.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mrunMigrations[2m > [22m[2mshould preserve existing data during migration
+[22m[39m[Migration] [2026-01-14T23:18:50.821Z] Backup created: backup_1768432730821_qlnm3ef (version 0.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mMigration Logs[2m > [22m[2mshould store migration logs
+[22m[39m[Migration] [2026-01-14T23:18:50.824Z] Backup created: backup_1768432730823_88zybd9 (version 0.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mMigration Logs[2m > [22m[2mshould clear migration logs
+[22m[39m[Migration] [2026-01-14T23:18:50.825Z] Backup created: backup_1768432730825_wgy6d1v (version 0.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mData Integrity[2m > [22m[2mshould maintain task data integrity through migration
+[22m[39m[Migration] [2026-01-14T23:18:50.827Z] Backup created: backup_1768432730827_g929xvf (version 0.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mData Integrity[2m > [22m[2mshould maintain project hierarchy through migration
+[22m[39m[Migration] [2026-01-14T23:18:50.828Z] Backup created: backup_1768432730828_vomms32 (version 0.0.0)
+
+ [32mΓ£ô[39m src/services/__tests__/migrationService.test.ts [2m([22m[2m29 tests[22m[2m)[22m[32m 49[2mms[22m[39m
+stderr | src/utils/__tests__/validation.test.ts > validateAndTransformImportedData > should throw error for invalid data
+Validation errors: [
+  {
+    expected: 'string',
+    code: 'invalid_type',
+    path: [ 'tasks', 0, 'jobId' ],
+    message: 'Invalid input: expected string, received undefined'
+  },
+  {
+    expected: 'string',
+    code: 'invalid_type',
+    path: [ 'tasks', 0, 'projectId' ],
+    message: 'Invalid input: expected string, received undefined'
+  },
+  {
+    expected: 'string',
+    code: 'invalid_type',
+    path: [ 'tasks', 0, 'title' ],
+    message: 'Invalid input: expected string, received undefined'
+  },
+  {
+    expected: 'string',
+    code: 'invalid_type',
+    path: [ 'tasks', 0, 'subtitle' ],
+    message: 'Invalid input: expected string, received undefined'
+  },
+  {
+    expected: 'string',
+    code: 'invalid_type',
+    path: [ 'tasks', 0, 'summary' ],
+    message: 'Invalid input: expected string, received undefined'
+  },
+  {
+    expected: 'string',
+    code: 'invalid_type',
+    path: [ 'tasks', 0, 'assignee' ],
+    message: 'Invalid input: expected string, received undefined'
+  },
+  {
+    expected: 'string',
+    code: 'invalid_type',
+    path: [ 'tasks', 0, 'priority' ],
+    message: 'Invalid input: expected string, received undefined'
+  },
+  {
+    expected: 'string',
+    code: 'invalid_type',
+    path: [ 'tasks', 0, 'status' ],
+    message: 'Invalid input: expected string, received undefined'
+  }
+]
+
+ [32mΓ£ô[39m src/utils/__tests__/validation.test.ts [2m([22m[2m25 tests[22m[2m)[22m[32m 54[2mms[22m[39m
+stderr | src/services/__tests__/storageService.test.ts > StorageService > importData > should return error for invalid JSON
+Failed to import data: SyntaxError: Unexpected token 'o', "not valid json" is not valid JSON
+    at JSON.parse (<anonymous>)
+    at StorageService.importData (C:/Users/bhara/Downloads/Code/LiquiTask/src/services/storageService.ts:267:33)
+    at C:/Users/bhara/Downloads/Code/LiquiTask/src/services/__tests__/storageService.test.ts:127:43
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:145:11
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:915:26
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1243:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1209:10)
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1653:37
+    at Traces.$ (file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/vitest/dist/chunks/traces.CCmnQaNT.js:142:27)
+
+ [32mΓ£ô[39m src/services/__tests__/storageService.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 46[2mms[22m[39m
+ [32mΓ£ô[39m src/utils/__tests__/bulkTaskSchema.test.ts [2m([22m[2m34 tests[22m[2m)[22m[32m 34[2mms[22m[39m
+ [32mΓ£ô[39m src/services/__tests__/indexedDBService.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 44[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/__tests__/useDragAndDrop.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 67[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/__tests__/useVirtualScroll.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 55[2mms[22m[39m
+ [32mΓ£ô[39m src/components/__tests__/LoadingSpinner.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[32m 113[2mms[22m[39m
+ [32mΓ£ô[39m src/utils/__tests__/debounce.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 23[2mms[22m[39m
+ [32mΓ£ô[39m src/services/__tests__/recurringTaskService.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32mΓ£ô[39m src/utils/__tests__/taskToJson.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32mΓ£ô[39m src/utils/__tests__/taskParser.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32mΓ£ô[39m src/utils/__tests__/queryEngine.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 13 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  src/services/__tests__/notificationService.test.ts > notificationService > show > should show notification in browser
+TypeError: () => mockNotification is not a constructor
+ Γ¥» NotificationService.show src/services/notificationService.ts:48:34
+     46|             });
+     47|         } else if ('Notification' in window) {
+     48|             const notification = new Notification(options.title, {
+       |                                  ^
+     49|                 body: options.body,
+     50|                 icon: options.icon,
+ Γ¥» src/services/__tests__/notificationService.test.ts:75:33
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/13]ΓÄ»
+
+ FAIL  src/services/__tests__/notificationService.test.ts > notificationService > show > should show notification in Electron
+TypeError: () => mockNotification is not a constructor
+ Γ¥» NotificationService.show src/services/notificationService.ts:48:34
+     46|             });
+     47|         } else if ('Notification' in window) {
+     48|             const notification = new Notification(options.title, {
+       |                                  ^
+     49|                 body: options.body,
+     50|                 icon: options.icon,
+ Γ¥» src/services/__tests__/notificationService.test.ts:95:33
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[2/13]ΓÄ»
+
+ FAIL  src/services/__tests__/notificationService.test.ts > notificationService > show > should attach onClick handler
+TypeError: () => mockNotification is not a constructor
+ Γ¥» NotificationService.show src/services/notificationService.ts:48:34
+     46|             });
+     47|         } else if ('Notification' in window) {
+     48|             const notification = new Notification(options.title, {
+       |                                  ^
+     49|                 body: options.body,
+     50|                 icon: options.icon,
+ Γ¥» src/services/__tests__/notificationService.test.ts:138:33
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[3/13]ΓÄ»
+
+ FAIL  src/services/__tests__/notificationService.test.ts > notificationService > scheduleTaskReminder > should schedule reminder 1 hour before due date
+ FAIL  src/services/__tests__/notificationService.test.ts > notificationService > scheduleTaskReminder > should schedule due notification if more than 1 hour away
+TypeError: () => mockNotification is not a constructor
+ Γ¥» NotificationService.show src/services/notificationService.ts:48:34
+     46|             });
+     47|         } else if ('Notification' in window) {
+     48|             const notification = new Notification(options.title, {
+       |                                  ^
+     49|                 body: options.body,
+     50|                 icon: options.icon,
+ Γ¥» src/services/notificationService.ts:73:18
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[4/13]ΓÄ»
+
+ FAIL  src/services/__tests__/notificationService.test.ts > notificationService > notifyOverdue > should notify single overdue task
+TypeError: () => mockNotification is not a constructor
+ Γ¥» NotificationService.show src/services/notificationService.ts:48:34
+     46|             });
+     47|         } else if ('Notification' in window) {
+     48|             const notification = new Notification(options.title, {
+       |                                  ^
+     49|                 body: options.body,
+     50|                 icon: options.icon,
+ Γ¥» NotificationService.notifyOverdue src/services/notificationService.ts:132:18
+ Γ¥» src/services/__tests__/notificationService.test.ts:289:33
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[5/13]ΓÄ»
+
+ FAIL  src/services/__tests__/notificationService.test.ts > notificationService > notifyOverdue > should notify multiple overdue tasks
+TypeError: () => mockNotification is not a constructor
+ Γ¥» NotificationService.show src/services/notificationService.ts:48:34
+     46|             });
+     47|         } else if ('Notification' in window) {
+     48|             const notification = new Notification(options.title, {
+       |                                  ^
+     49|                 body: options.body,
+     50|                 icon: options.icon,
+ Γ¥» NotificationService.notifyOverdue src/services/notificationService.ts:137:18
+ Γ¥» src/services/__tests__/notificationService.test.ts:301:33
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[6/13]ΓÄ»
+
+ FAIL  src/services/__tests__/notificationService.test.ts > notificationService > startPeriodicCheck > should check for overdue tasks periodically
+TypeError: () => mockNotification is not a constructor
+ Γ¥» NotificationService.show src/services/notificationService.ts:48:34
+     46|             });
+     47|         } else if ('Notification' in window) {
+     48|             const notification = new Notification(options.title, {
+       |                                  ^
+     49|                 body: options.body,
+     50|                 icon: options.icon,
+ Γ¥» NotificationService.notifyOverdue src/services/notificationService.ts:132:18
+ Γ¥» check src/services/notificationService.ts:164:22
+ Γ¥» NotificationService.startPeriodicCheck src/services/notificationService.ts:170:9
+ Γ¥» src/services/__tests__/notificationService.test.ts:346:33
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[7/13]ΓÄ»
+
+ FAIL  src/services/__tests__/notificationService.test.ts > notificationService > startPeriodicCheck > should only notify for newly overdue tasks
+TypeError: () => mockNotification is not a constructor
+ Γ¥» NotificationService.show src/services/notificationService.ts:48:34
+     46|             });
+     47|         } else if ('Notification' in window) {
+     48|             const notification = new Notification(options.title, {
+       |                                  ^
+     49|                 body: options.body,
+     50|                 icon: options.icon,
+ Γ¥» NotificationService.notifyOverdue src/services/notificationService.ts:132:18
+ Γ¥» check src/services/notificationService.ts:164:22
+ Γ¥» NotificationService.startPeriodicCheck src/services/notificationService.ts:170:9
+ Γ¥» src/services/__tests__/notificationService.test.ts:369:33
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[8/13]ΓÄ»
+
+ FAIL  src/hooks/__tests__/useProjectManagement.test.ts > useProjectManagement > deleteProject > should delete a project
+AssertionError: expected Promise{ΓÇª} to be true // Object.is equality
+
+- Expected: 
+true
+
++ Received: 
+Promise {}
+
+ Γ¥» src/hooks/__tests__/useProjectManagement.test.ts:151:33
+    149|             act(() => {
+    150|                 const deleted = result.current.deleteProject('p1', mocΓÇª
+    151|                 expect(deleted).toBe(true);
+       |                                 ^
+    152|             });
+    153| 
+ Γ¥» node_modules/@testing-library/react/dist/act-compat.js:48:24
+ Γ¥» process.env.NODE_ENV.exports.act node_modules/react/cjs/react.development.js:814:22
+ Γ¥» Proxy.<anonymous> node_modules/@testing-library/react/dist/act-compat.js:47:25
+ Γ¥» src/hooks/__tests__/useProjectManagement.test.ts:149:13
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[9/13]ΓÄ»
+
+ FAIL  src/hooks/__tests__/useProjectManagement.test.ts > useProjectManagement > deleteProject > should not delete if project has children
+AssertionError: expected Promise{ΓÇª} to be false // Object.is equality
+
+- Expected: 
+false
+
++ Received: 
+Promise {}
+
+ Γ¥» src/hooks/__tests__/useProjectManagement.test.ts:174:33
+    172|             act(() => {
+    173|                 const deleted = result.current.deleteProject('p1', mocΓÇª
+    174|                 expect(deleted).toBe(false);
+       |                                 ^
+    175|             });
+    176| 
+ Γ¥» node_modules/@testing-library/react/dist/act-compat.js:48:24
+ Γ¥» process.env.NODE_ENV.exports.act node_modules/react/cjs/react.development.js:814:22
+ Γ¥» Proxy.<anonymous> node_modules/@testing-library/react/dist/act-compat.js:47:25
+ Γ¥» src/hooks/__tests__/useProjectManagement.test.ts:172:13
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[10/13]ΓÄ»
+
+ FAIL  src/hooks/__tests__/useProjectManagement.test.ts > useProjectManagement > deleteProject > should allow deletion of last project if confirmed
+AssertionError: expected Promise{ΓÇª} to be true // Object.is equality
+
+- Expected: 
+true
+
++ Received: 
+Promise {}
+
+ Γ¥» src/hooks/__tests__/useProjectManagement.test.ts:202:33
+    200|                 const deleted = result.current.deleteProject('p1', mocΓÇª
+    201|                 // The hook itself doesn't check, so it will delete ifΓÇª
+    202|                 expect(deleted).toBe(true);
+       |                                 ^
+    203|             });
+    204| 
+ Γ¥» node_modules/@testing-library/react/dist/act-compat.js:48:24
+ Γ¥» process.env.NODE_ENV.exports.act node_modules/react/cjs/react.development.js:814:22
+ Γ¥» Proxy.<anonymous> node_modules/@testing-library/react/dist/act-compat.js:47:25
+ Γ¥» src/hooks/__tests__/useProjectManagement.test.ts:199:13
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[11/13]ΓÄ»
+
+ FAIL  src/hooks/__tests__/useProjectManagement.test.ts > useProjectManagement > deleteProject > should not delete if user cancels confirmation
+AssertionError: expected Promise{ΓÇª} to be false // Object.is equality
+
+- Expected: 
+false
+
++ Received: 
+Promise {}
+
+ Γ¥» src/hooks/__tests__/useProjectManagement.test.ts:247:33
+    245|             act(() => {
+    246|                 const deleted = result.current.deleteProject('p1', mocΓÇª
+    247|                 expect(deleted).toBe(false);
+       |                                 ^
+    248|             });
+    249| 
+ Γ¥» node_modules/@testing-library/react/dist/act-compat.js:48:24
+ Γ¥» process.env.NODE_ENV.exports.act node_modules/react/cjs/react.development.js:814:22
+ Γ¥» Proxy.<anonymous> node_modules/@testing-library/react/dist/act-compat.js:47:25
+ Γ¥» src/hooks/__tests__/useProjectManagement.test.ts:245:13
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[12/13]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m23 passed[39m[22m[90m (25)[39m
+[2m      Tests [22m [1m[31m13 failed[39m[22m[2m | [22m[1m[32m331 passed[39m[22m[90m (344)[39m
+[2m   Start at [22m 16:18:39
+[2m   Duration [22m 14.25s[2m (transform 3.55s, setup 11.85s, import 21.08s, tests 2.79s, environment 74.83s)[22m
+
+[1m[41m FAIL [49m[22m [31mTests failed. Watching for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/components/__tests__/ErrorBoundary.test.tsx [22m[34mx1 [34m[39m
+
+ [31mΓ¥»[39m src/services/__tests__/notificationService.test.ts [2m([22m[2m21 tests[22m[2m | [22m[31m9 failed[39m[2m)[22m[32m 76[2mms[22m[39m
+       [32mΓ£ô[39m should request permission in browser[32m 8[2mms[22m[39m
+       [32mΓ£ô[39m should return true for Electron without requesting[32m 1[2mms[22m[39m
+       [32mΓ£ô[39m should return false if permission denied[32m 1[2mms[22m[39m
+[31m       [31m├ù[31m should show notification in browser[39m[32m 14[2mms[22m[39m
+[31m       [31m├ù[31m should show notification in Electron[39m[32m 2[2mms[22m[39m
+       [32mΓ£ô[39m should not show notification without permission[32m 5[2mms[22m[39m
+[31m       [31m├ù[31m should attach onClick handler[39m[32m 2[2mms[22m[39m
+[31m       [31m├ù[31m should schedule reminder 1 hour before due date[39m[32m 10[2mms[22m[39m
+       [32mΓ£ô[39m should not schedule if already past due[32m 2[2mms[22m[39m
+[31m       [31m├ù[31m should schedule due notification if more than 1 hour away[39m[32m 4[2mms[22m[39m
+       [32mΓ£ô[39m should identify overdue tasks[32m 3[2mms[22m[39m
+       [32mΓ£ô[39m should identify tasks due soon[32m 2[2mms[22m[39m
+       [32mΓ£ô[39m should ignore completed tasks[32m 1[2mms[22m[39m
+       [32mΓ£ô[39m should ignore tasks without due dates[32m 1[2mms[22m[39m
+[31m       [31m├ù[31m should notify single overdue task[39m[32m 2[2mms[22m[39m
+[31m       [31m├ù[31m should notify multiple overdue tasks[39m[32m 1[2mms[22m[39m
+       [32mΓ£ô[39m should not notify if no overdue tasks[32m 1[2mms[22m[39m
+[31m       [31m├ù[31m should check for overdue tasks periodically[39m[32m 3[2mms[22m[39m
+[31m       [31m├ù[31m should only notify for newly overdue tasks[39m[32m 2[2mms[22m[39m
+       [32mΓ£ô[39m should stop periodic check[32m 3[2mms[22m[39m
+       [32mΓ£ô[39m should clear notification tracking for task[32m 3[2mms[22m[39m
+ [31mΓ¥»[39m src/hooks/__tests__/useProjectManagement.test.ts [2m([22m[2m21 tests[22m[2m | [22m[31m4 failed[39m[2m)[22m[32m 190[2mms[22m[39m
+       [32mΓ£ô[39m should initialize with default projects[32m 42[2mms[22m[39m
+       [32mΓ£ô[39m should load projects from storage[32m 8[2mms[22m[39m
+       [32mΓ£ô[39m should set active project from storage[32m 5[2mms[22m[39m
+       [32mΓ£ô[39m should create a new project[32m 34[2mms[22m[39m
+       [32mΓ£ô[39m should set new project as active if no parent[32m 15[2mms[22m[39m
+       [32mΓ£ô[39m should create sub-project with parentId[32m 5[2mms[22m[39m
+       [32mΓ£ô[39m should assign order to new project[32m 3[2mms[22m[39m
+[31m       [31m├ù[31m should delete a project[39m[32m 17[2mms[22m[39m
+[31m       [31m├ù[31m should not delete if project has children[39m[32m 7[2mms[22m[39m
+[31m       [31m├ù[31m should allow deletion of last project if confirmed[39m[32m 6[2mms[22m[39m
+       [32mΓ£ô[39m should switch active project if deleted project was active[32m 4[2mms[22m[39m
+[31m       [31m├ù[31m should not delete if user cancels confirmation[39m[32m 5[2mms[22m[39m
+       [32mΓ£ô[39m should toggle pin status of a project[32m 6[2mms[22m[39m
+       [32mΓ£ô[39m should move project up[32m 4[2mms[22m[39m
+       [32mΓ£ô[39m should move project down[32m 4[2mms[22m[39m
+       [32mΓ£ô[39m should only move within siblings with same pinned status[32m 3[2mms[22m[39m
+       [32mΓ£ô[39m should not move if already at boundary[32m 4[2mms[22m[39m
+       [32mΓ£ô[39m should set active project ID[32m 3[2mms[22m[39m
+       [32mΓ£ô[39m should return active project[32m 3[2mms[22m[39m
+       [32mΓ£ô[39m should return first project if active project not found[32m 3[2mms[22m[39m
+       [32mΓ£ô[39m should return default project if no projects exist[32m 3[2mms[22m[39m
+ [32mΓ£ô[39m src/components/__tests__/ErrorBoundary.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 470[2mms[22m[39m
+
+[2m Test Files [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m1 passed[39m[22m[90m (3)[39m
+[2m      Tests [22m [1m[31m13 failed[39m[22m[2m | [22m[1m[32m37 passed[39m[22m[90m (50)[39m
+[2m   Start at [22m 16:19:37
+[2m   Duration [22m 1.92s
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/hooks/__tests__/useBulkSelection.test.ts [22m[34mx1 [34m[39m
+
+ [31mΓ¥»[39m src/services/__tests__/notificationService.test.ts [2m([22m[2m21 tests[22m[2m | [22m[31m9 failed[39m[2m)[22m[32m 76[2mms[22m[39m
+       [32mΓ£ô[39m should request permission in browser[32m 8[2mms[22m[39m
+       [32mΓ£ô[39m should return true for Electron without requesting[32m 1[2mms[22m[39m
+       [32mΓ£ô[39m should return false if permission denied[32m 1[2mms[22m[39m
+[31m       [31m├ù[31m should show notification in browser[39m[32m 14[2mms[22m[39m
+[31m       [31m├ù[31m should show notification in Electron[39m[32m 2[2mms[22m[39m
+       [32mΓ£ô[39m should not show notification without permission[32m 5[2mms[22m[39m
+[31m       [31m├ù[31m should attach onClick handler[39m[32m 2[2mms[22m[39m
+[31m       [31m├ù[31m should schedule reminder 1 hour before due date[39m[32m 10[2mms[22m[39m
+       [32mΓ£ô[39m should not schedule if already past due[32m 2[2mms[22m[39m
+[31m       [31m├ù[31m should schedule due notification if more than 1 hour away[39m[32m 4[2mms[22m[39m
+       [32mΓ£ô[39m should identify overdue tasks[32m 3[2mms[22m[39m
+       [32mΓ£ô[39m should identify tasks due soon[32m 2[2mms[22m[39m
+       [32mΓ£ô[39m should ignore completed tasks[32m 1[2mms[22m[39m
+       [32mΓ£ô[39m should ignore tasks without due dates[32m 1[2mms[22m[39m
+[31m       [31m├ù[31m should notify single overdue task[39m[32m 2[2mms[22m[39m
+[31m       [31m├ù[31m should notify multiple overdue tasks[39m[32m 1[2mms[22m[39m
+       [32mΓ£ô[39m should not notify if no overdue tasks[32m 1[2mms[22m[39m
+[31m       [31m├ù[31m should check for overdue tasks periodically[39m[32m 3[2mms[22m[39m
+[31m       [31m├ù[31m should only notify for newly overdue tasks[39m[32m 2[2mms[22m[39m
+       [32mΓ£ô[39m should stop periodic check[32m 3[2mms[22m[39m
+       [32mΓ£ô[39m should clear notification tracking for task[32m 3[2mms[22m[39m
+ [31mΓ¥»[39m src/hooks/__tests__/useProjectManagement.test.ts [2m([22m[2m21 tests[22m[2m | [22m[31m4 failed[39m[2m)[22m[32m 190[2mms[22m[39m
+       [32mΓ£ô[39m should initialize with default projects[32m 42[2mms[22m[39m
+       [32mΓ£ô[39m should load projects from storage[32m 8[2mms[22m[39m
+       [32mΓ£ô[39m should set active project from storage[32m 5[2mms[22m[39m
+       [32mΓ£ô[39m should create a new project[32m 34[2mms[22m[39m
+       [32mΓ£ô[39m should set new project as active if no parent[32m 15[2mms[22m[39m
+       [32mΓ£ô[39m should create sub-project with parentId[32m 5[2mms[22m[39m
+       [32mΓ£ô[39m should assign order to new project[32m 3[2mms[22m[39m
+[31m       [31m├ù[31m should delete a project[39m[32m 17[2mms[22m[39m
+[31m       [31m├ù[31m should not delete if project has children[39m[32m 7[2mms[22m[39m
+[31m       [31m├ù[31m should allow deletion of last project if confirmed[39m[32m 6[2mms[22m[39m
+       [32mΓ£ô[39m should switch active project if deleted project was active[32m 4[2mms[22m[39m
+[31m       [31m├ù[31m should not delete if user cancels confirmation[39m[32m 5[2mms[22m[39m
+       [32mΓ£ô[39m should toggle pin status of a project[32m 6[2mms[22m[39m
+       [32mΓ£ô[39m should move project up[32m 4[2mms[22m[39m
+       [32mΓ£ô[39m should move project down[32m 4[2mms[22m[39m
+       [32mΓ£ô[39m should only move within siblings with same pinned status[32m 3[2mms[22m[39m
+       [32mΓ£ô[39m should not move if already at boundary[32m 4[2mms[22m[39m
+       [32mΓ£ô[39m should set active project ID[32m 3[2mms[22m[39m
+       [32mΓ£ô[39m should return active project[32m 3[2mms[22m[39m
+       [32mΓ£ô[39m should return first project if active project not found[32m 3[2mms[22m[39m
+       [32mΓ£ô[39m should return default project if no projects exist[32m 3[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/__tests__/useBulkSelection.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 98[2mms[22m[39m
+
+[2m Test Files [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m1 passed[39m[22m[90m (3)[39m
+[2m      Tests [22m [1m[31m13 failed[39m[22m[2m | [22m[1m[32m49 passed[39m[22m[90m (62)[39m
+[2m   Start at [22m 16:19:41
+[2m   Duration [22m 1.04s
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/services/__tests__/exportService.test.ts [22m[39m
+
+ [31mΓ¥»[39m src/services/__tests__/notificationService.test.ts [2m([22m[2m21 tests[22m[2m | [22m[31m9 failed[39m[2m)[22m[32m 76[2mms[22m[39m
+       [32mΓ£ô[39m should request permission in browser[32m 8[2mms[22m[39m
+       [32mΓ£ô[39m should return true for Electron without requesting[32m 1[2mms[22m[39m
+       [32mΓ£ô[39m should return false if permission denied[32m 1[2mms[22m[39m
+[31m       [31m├ù[31m should show notification in browser[39m[32m 14[2mms[22m[39m
+[31m       [31m├ù[31m should show notification in Electron[39m[32m 2[2mms[22m[39m
+       [32mΓ£ô[39m should not show notification without permission[32m 5[2mms[22m[39m
+[31m       [31m├ù[31m should attach onClick handler[39m[32m 2[2mms[22m[39m
+[31m       [31m├ù[31m should schedule reminder 1 hour before due date[39m[32m 10[2mms[22m[39m
+       [32mΓ£ô[39m should not schedule if already past due[32m 2[2mms[22m[39m
+[31m       [31m├ù[31m should schedule due notification if more than 1 hour away[39m[32m 4[2mms[22m[39m
+       [32mΓ£ô[39m should identify overdue tasks[32m 3[2mms[22m[39m
+       [32mΓ£ô[39m should identify tasks due soon[32m 2[2mms[22m[39m
+       [32mΓ£ô[39m should ignore completed tasks[32m 1[2mms[22m[39m
+       [32mΓ£ô[39m should ignore tasks without due dates[32m 1[2mms[22m[39m
+[31m       [31m├ù[31m should notify single overdue task[39m[32m 2[2mms[22m[39m
+[31m       [31m├ù[31m should notify multiple overdue tasks[39m[32m 1[2mms[22m[39m
+       [32mΓ£ô[39m should not notify if no overdue tasks[32m 1[2mms[22m[39m
+[31m       [31m├ù[31m should check for overdue tasks periodically[39m[32m 3[2mms[22m[39m
+[31m       [31m├ù[31m should only notify for newly overdue tasks[39m[32m 2[2mms[22m[39m
+       [32mΓ£ô[39m should stop periodic check[32m 3[2mms[22m[39m
+       [32mΓ£ô[39m should clear notification tracking for task[32m 3[2mms[22m[39m
+ [31mΓ¥»[39m src/hooks/__tests__/useProjectManagement.test.ts [2m([22m[2m21 tests[22m[2m | [22m[31m4 failed[39m[2m)[22m[32m 190[2mms[22m[39m
+       [32mΓ£ô[39m should initialize with default projects[32m 42[2mms[22m[39m
+       [32mΓ£ô[39m should load projects from storage[32m 8[2mms[22m[39m
+       [32mΓ£ô[39m should set active project from storage[32m 5[2mms[22m[39m
+       [32mΓ£ô[39m should create a new project[32m 34[2mms[22m[39m
+       [32mΓ£ô[39m should set new project as active if no parent[32m 15[2mms[22m[39m
+       [32mΓ£ô[39m should create sub-project with parentId[32m 5[2mms[22m[39m
+       [32mΓ£ô[39m should assign order to new project[32m 3[2mms[22m[39m
+[31m       [31m├ù[31m should delete a project[39m[32m 17[2mms[22m[39m
+[31m       [31m├ù[31m should not delete if project has children[39m[32m 7[2mms[22m[39m
+[31m       [31m├ù[31m should allow deletion of last project if confirmed[39m[32m 6[2mms[22m[39m
+       [32mΓ£ô[39m should switch active project if deleted project was active[32m 4[2mms[22m[39m
+[31m       [31m├ù[31m should not delete if user cancels confirmation[39m[32m 5[2mms[22m[39m
+       [32mΓ£ô[39m should toggle pin status of a project[32m 6[2mms[22m[39m
+       [32mΓ£ô[39m should move project up[32m 4[2mms[22m[39m
+       [32mΓ£ô[39m should move project down[32m 4[2mms[22m[39m
+       [32mΓ£ô[39m should only move within siblings with same pinned status[32m 3[2mms[22m[39m
+       [32mΓ£ô[39m should not move if already at boundary[32m 4[2mms[22m[39m
+       [32mΓ£ô[39m should set active project ID[32m 3[2mms[22m[39m
+       [32mΓ£ô[39m should return active project[32m 3[2mms[22m[39m
+       [32mΓ£ô[39m should return first project if active project not found[32m 3[2mms[22m[39m
+       [32mΓ£ô[39m should return default project if no projects exist[32m 3[2mms[22m[39m
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+ [32mΓ£ô[39m src/services/__tests__/exportService.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 55[2mms[22m[39m
+stderr | src/hooks/__tests__/useSavedViews.test.ts > useSavedViews > createView > should not create view if max limit reached
+Maximum number of saved views reached
+
+ [32mΓ£ô[39m src/hooks/__tests__/useSavedViews.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 78[2mms[22m[39m
+
+[2m Test Files [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m2 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[31m13 failed[39m[22m[2m | [22m[1m[32m68 passed[39m[22m[90m (81)[39m
+[2m   Start at [22m 16:19:44
+[2m   Duration [22m 1.55s
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/hooks/__tests__/useProjectManagement.test.ts [22m[34mx1 [34m[39m
+
+ [31mΓ¥»[39m src/services/__tests__/notificationService.test.ts [2m([22m[2m21 tests[22m[2m | [22m[31m9 failed[39m[2m)[22m[32m 76[2mms[22m[39m
+       [32mΓ£ô[39m should request permission in browser[32m 8[2mms[22m[39m
+       [32mΓ£ô[39m should return true for Electron without requesting[32m 1[2mms[22m[39m
+       [32mΓ£ô[39m should return false if permission denied[32m 1[2mms[22m[39m
+[31m       [31m├ù[31m should show notification in browser[39m[32m 14[2mms[22m[39m
+[31m       [31m├ù[31m should show notification in Electron[39m[32m 2[2mms[22m[39m
+       [32mΓ£ô[39m should not show notification without permission[32m 5[2mms[22m[39m
+[31m       [31m├ù[31m should attach onClick handler[39m[32m 2[2mms[22m[39m
+[31m       [31m├ù[31m should schedule reminder 1 hour before due date[39m[32m 10[2mms[22m[39m
+       [32mΓ£ô[39m should not schedule if already past due[32m 2[2mms[22m[39m
+[31m       [31m├ù[31m should schedule due notification if more than 1 hour away[39m[32m 4[2mms[22m[39m
+       [32mΓ£ô[39m should identify overdue tasks[32m 3[2mms[22m[39m
+       [32mΓ£ô[39m should identify tasks due soon[32m 2[2mms[22m[39m
+       [32mΓ£ô[39m should ignore completed tasks[32m 1[2mms[22m[39m
+       [32mΓ£ô[39m should ignore tasks without due dates[32m 1[2mms[22m[39m
+[31m       [31m├ù[31m should notify single overdue task[39m[32m 2[2mms[22m[39m
+[31m       [31m├ù[31m should notify multiple overdue tasks[39m[32m 1[2mms[22m[39m
+       [32mΓ£ô[39m should not notify if no overdue tasks[32m 1[2mms[22m[39m
+[31m       [31m├ù[31m should check for overdue tasks periodically[39m[32m 3[2mms[22m[39m
+[31m       [31m├ù[31m should only notify for newly overdue tasks[39m[32m 2[2mms[22m[39m
+       [32mΓ£ô[39m should stop periodic check[32m 3[2mms[22m[39m
+       [32mΓ£ô[39m should clear notification tracking for task[32m 3[2mms[22m[39m
+ [31mΓ¥»[39m src/hooks/__tests__/useProjectManagement.test.ts [2m([22m[2m0 test[22m[2m)[22m
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Suites 1 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  src/hooks/__tests__/useProjectManagement.test.ts [ src/hooks/__tests__/useProjectManagement.test.ts ]
+Error: Transform failed with 1 error:
+C:/Users/bhara/Downloads/Code/LiquiTask/src/hooks/__tests__/useProjectManagement.test.ts:149:12: ERROR: "await" can only be used inside an "async" function
+  Plugin: vite:esbuild
+  File: C:/Users/bhara/Downloads/Code/LiquiTask/src/hooks/__tests__/useProjectManagement.test.ts:149:12
+  
+  "await" can only be used inside an "async" function
+  147|              );
+  148|  
+  149|              await act(async () => {
+     |              ^
+  150|                  const deleted = await result.current.deleteProject('p1', mockDeleteTasks);
+  151|                  expect(deleted).toBe(true);
+  
+ Γ¥» failureErrorWithLog node_modules/esbuild/lib/main.js:1467:15
+ Γ¥» node_modules/esbuild/lib/main.js:736:50
+ Γ¥» responseCallbacks.<computed> node_modules/esbuild/lib/main.js:603:9
+ Γ¥» handleIncomingPacket node_modules/esbuild/lib/main.js:658:12
+ Γ¥» Socket.readFromStdout node_modules/esbuild/lib/main.js:581:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/1]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m2 failed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[31m9 failed[39m[22m[2m | [22m[1m[32m12 passed[39m[22m[90m (21)[39m
+[2m   Start at [22m 16:20:07
+[2m   Duration [22m 309ms
+
+[1m[41m FAIL [49m[22m [31mTests failed. Watching for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/services/__tests__/notificationService.test.ts [22m[34mx1 [34m[39m
+
+ [31mΓ¥»[39m src/hooks/__tests__/useProjectManagement.test.ts [2m([22m[2m0 test[22m[2m)[22m
+ [32mΓ£ô[39m src/services/__tests__/notificationService.test.ts [2m([22m[2m21 tests[22m[2m)[22m[32m 25[2mms[22m[39m
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m1 passed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[32m21 passed[39m[22m[90m (21)[39m
+[2m   Start at [22m 16:20:09
+[2m   Duration [22m 356ms
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/hooks/__tests__/useProjectManagement.test.ts [22m[34mx2 [34m[39m
+
+ [31mΓ¥»[39m src/hooks/__tests__/useProjectManagement.test.ts [2m([22m[2m0 test[22m[2m)[22m
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Suites 1 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  src/hooks/__tests__/useProjectManagement.test.ts [ src/hooks/__tests__/useProjectManagement.test.ts ]
+Error: Transform failed with 1 error:
+C:/Users/bhara/Downloads/Code/LiquiTask/src/hooks/__tests__/useProjectManagement.test.ts:224:12: ERROR: "await" can only be used inside an "async" function
+  Plugin: vite:esbuild
+  File: C:/Users/bhara/Downloads/Code/LiquiTask/src/hooks/__tests__/useProjectManagement.test.ts:224:12
+  
+  "await" can only be used inside an "async" function
+  222|              );
+  223|  
+  224|              await act(async () => {
+     |              ^
+  225|                  await result.current.deleteProject('p1', mockDeleteTasks);
+  226|              });
+  
+ Γ¥» failureErrorWithLog node_modules/esbuild/lib/main.js:1467:15
+ Γ¥» node_modules/esbuild/lib/main.js:736:50
+ Γ¥» responseCallbacks.<computed> node_modules/esbuild/lib/main.js:603:9
+ Γ¥» handleIncomingPacket node_modules/esbuild/lib/main.js:658:12
+ Γ¥» Socket.readFromStdout node_modules/esbuild/lib/main.js:581:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/1]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [2mno tests[22m
+[2m   Start at [22m 16:20:45
+[2m   Duration [22m 241ms
+
+[1m[41m FAIL [49m[22m [31mTests failed. Watching for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/hooks/__tests__/useProjectManagement.test.ts [22m[34mx3 [34m[39m
+
+ [32mΓ£ô[39m src/hooks/__tests__/useProjectManagement.test.ts [2m([22m[2m21 tests[22m[2m)[22m[32m 74[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m21 passed[39m[22m[90m (21)[39m
+[2m   Start at [22m 16:20:53
+[2m   Duration [22m 892ms
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/utils/queryEngine.ts [22m[34mx1 [34m[39m
+
+ [32mΓ£ô[39m src/utils/__tests__/queryEngine.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m   Start at [22m 16:30:37
+[2m   Duration [22m 509ms
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/hooks/useSavedViews.ts [22m[34mx2 [34m[39m
+
+stderr | src/hooks/__tests__/useSavedViews.test.ts > useSavedViews > createView > should not create view if max limit reached
+Maximum number of saved views reached
+
+ [32mΓ£ô[39m src/hooks/__tests__/useSavedViews.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 58[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m20 passed[39m[22m[90m (20)[39m
+[2m   Start at [22m 16:36:20
+[2m   Duration [22m 4.24s
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/utils/queryEngine.ts [22m[34mx2 [34m[39m
+
+ [32mΓ£ô[39m src/utils/__tests__/queryEngine.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m   Start at [22m 16:36:32
+[2m   Duration [22m 279ms
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/hooks/useVirtualScroll.ts [22m[34mx1 [34m[39m
+
+ [32mΓ£ô[39m src/hooks/__tests__/useVirtualScroll.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 41[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m3 passed[39m[22m[90m (3)[39m
+[2m   Start at [22m 16:36:51
+[2m   Duration [22m 847ms
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/hooks/useVirtualScroll.ts [22m[34mx2 [34m[39m
+
+ [32mΓ£ô[39m src/hooks/__tests__/useVirtualScroll.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 30[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m3 passed[39m[22m[90m (3)[39m
+[2m   Start at [22m 16:36:57
+[2m   Duration [22m 746ms
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+[vitest-pool]: Timeout terminating forks worker for test files C:/Users/bhara/Downloads/Code/LiquiTask/src/hooks/__tests__/useVirtualScroll.test.ts.
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/utils/__tests__/queryEngine.test.ts [22m[34mx3 [34m[39m
+
+ [32mΓ£ô[39m src/utils/__tests__/queryEngine.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m   Start at [22m 16:37:04
+[2m   Duration [22m 322ms
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+[vitest-pool]: Timeout terminating forks worker for test files C:/Users/bhara/Downloads/Code/LiquiTask/src/hooks/__tests__/useVirtualScroll.test.ts.
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/utils/__tests__/queryEngine.test.ts [22m[34mx4 [34m[39m
+
+ [32mΓ£ô[39m src/utils/__tests__/queryEngine.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m   Start at [22m 16:37:10
+[2m   Duration [22m 326ms
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/utils/__tests__/queryEngine.test.ts [22m[34mx5 [34m[39m
+
+[vitest-pool]: Timeout terminating forks worker for test files C:/Users/bhara/Downloads/Code/LiquiTask/src/utils/__tests__/queryEngine.test.ts.
+ [32mΓ£ô[39m src/utils/__tests__/queryEngine.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m   Start at [22m 16:37:15
+[2m   Duration [22m 260ms
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/utils/__tests__/queryEngine.test.ts [22m[34mx6 [34m[39m
+
+ [32mΓ£ô[39m src/utils/__tests__/queryEngine.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m   Start at [22m 16:37:20
+[2m   Duration [22m 362ms
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+[vitest-pool]: Timeout terminating forks worker for test files C:/Users/bhara/Downloads/Code/LiquiTask/src/utils/__tests__/queryEngine.test.ts.
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/utils/__tests__/queryEngine.test.ts [22m[34mx7 [34m[39m
+
+ [32mΓ£ô[39m src/utils/__tests__/queryEngine.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m   Start at [22m 16:37:23
+[2m   Duration [22m 411ms
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+[vitest-pool]: Timeout terminating forks worker for test files C:/Users/bhara/Downloads/Code/LiquiTask/src/utils/__tests__/queryEngine.test.ts.
+[vitest-pool]: Timeout terminating forks worker for test files C:/Users/bhara/Downloads/Code/LiquiTask/src/utils/__tests__/queryEngine.test.ts.
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/services/__tests__/indexedDBService.test.ts [22m[34mx1 [34m[39m
+
+[vitest-pool]: Timeout terminating forks worker for test files C:/Users/bhara/Downloads/Code/LiquiTask/src/utils/__tests__/queryEngine.test.ts.
+ [32mΓ£ô[39m src/services/__tests__/indexedDBService.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 38[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m   Start at [22m 16:37:32
+[2m   Duration [22m 4.19s
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/services/__tests__/recurringTaskService.test.ts [22m[34mx1 [34m[39m
+
+ [32mΓ£ô[39m src/services/__tests__/recurringTaskService.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 32[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m5 passed[39m[22m[90m (5)[39m
+[2m   Start at [22m 16:37:39
+[2m   Duration [22m 473ms
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/services/__tests__/indexedDBService.test.ts [22m[34mx2 [34m[39m
+
+ [32mΓ£ô[39m src/services/__tests__/indexedDBService.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 59[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m   Start at [22m 16:39:54
+[2m   Duration [22m 676ms
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/services/__tests__/recurringTaskService.test.ts [22m[39m
+
+ [32mΓ£ô[39m src/services/__tests__/recurringTaskService.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32mΓ£ô[39m src/services/__tests__/indexedDBService.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 36[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[32m9 passed[39m[22m[90m (9)[39m
+[2m   Start at [22m 16:39:58
+[2m   Duration [22m 1.30s
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/services/__tests__/indexedDBService.test.ts [22m[34mx4 [34m[39m
+
+ [32mΓ£ô[39m src/services/__tests__/indexedDBService.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 28[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m   Start at [22m 16:40:24
+[2m   Duration [22m 624ms
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/components/common/__tests__/Button.test.tsx [22m[34mx1 [34m[39m
+
+ [32mΓ£ô[39m src/components/common/__tests__/Button.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[32m 124[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m10 passed[39m[22m[90m (10)[39m
+[2m   Start at [22m 16:41:37
+[2m   Duration [22m 812ms
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/components/__tests__/InlineEditable.test.tsx [22m[34mx1 [34m[39m
+
+ [31mΓ¥»[39m src/components/__tests__/InlineEditable.test.tsx [2m([22m[2m0 test[22m[2m)[22m
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Suites 1 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  src/components/__tests__/InlineEditable.test.tsx [ src/components/__tests__/InlineEditable.test.tsx ]
+Error: Transform failed with 1 error:
+C:/Users/bhara/Downloads/Code/LiquiTask/src/components/__tests__/InlineEditable.test.tsx:27:56: ERROR: Expected ">" but found "["
+  Plugin: vite:esbuild
+  File: C:/Users/bhara/Downloads/Code/LiquiTask/src/components/__tests__/InlineEditable.test.tsx:27:56
+  
+  Expected ">" but found "["
+  25 |      it('should call onSave when Enter is pressed', () => {
+  26 |          const onSave = vi.fn();
+  27 |          render(<InlineEditable value="Test Value" onSave[onSave] />);
+     |                                                          ^
+  28 |          fireEvent.click(screen.getByText('Test Value'));
+  29 |  
+  
+ Γ¥» failureErrorWithLog node_modules/esbuild/lib/main.js:1467:15
+ Γ¥» node_modules/esbuild/lib/main.js:736:50
+ Γ¥» responseCallbacks.<computed> node_modules/esbuild/lib/main.js:603:9
+ Γ¥» handleIncomingPacket node_modules/esbuild/lib/main.js:658:12
+ Γ¥» Socket.readFromStdout node_modules/esbuild/lib/main.js:581:7
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/1]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [2mno tests[22m
+[2m   Start at [22m 16:41:54
+[2m   Duration [22m 111ms
+
+[1m[41m FAIL [49m[22m [31mTests failed. Watching for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/components/__tests__/InlineEditable.test.tsx [22m[34mx2 [34m[39m
+
+stderr | src/components/__tests__/InlineEditable.test.tsx > InlineEditable > should call onSave on blur after a timeout
+An update to InlineEditable inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ [32mΓ£ô[39m src/components/__tests__/InlineEditable.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[32m 78[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m7 passed[39m[22m[90m (7)[39m
+[2m   Start at [22m 16:42:16
+[2m   Duration [22m 816ms
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/services/__tests__/activityService.test.ts [22m[34mx1 [34m[39m
+
+ [32mΓ£ô[39m src/services/__tests__/activityService.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m7 passed[39m[22m[90m (7)[39m
+[2m   Start at [22m 16:42:31
+[2m   Duration [22m 196ms
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/services/__tests__/activityService.test.ts [22m[34mx2 [34m[39m
+
+ [32mΓ£ô[39m src/services/__tests__/activityService.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m7 passed[39m[22m[90m (7)[39m
+[2m   Start at [22m 16:42:35
+[2m   Duration [22m 125ms
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/hooks/__tests__/useKeyboardNav.test.ts [22m[34mx1 [34m[39m
+
+ [32mΓ£ô[39m src/hooks/__tests__/useKeyboardNav.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m7 passed[39m[22m[90m (7)[39m
+[2m   Start at [22m 16:42:51
+[2m   Duration [22m 463ms
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/utils/__tests__/taskParser.test.ts [22m[34mx1 [34m[39m
+
+ [32mΓ£ô[39m src/utils/__tests__/taskParser.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m8 passed[39m[22m[90m (8)[39m
+[2m   Start at [22m 16:43:16
+[2m   Duration [22m 170ms
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/components/__tests__/InlineEditable.test.tsx [22m[34mx3 [34m[39m
+
+stderr | src/components/__tests__/InlineEditable.test.tsx > InlineEditable > should call onSave on blur after a timeout
+An update to InlineEditable inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ [32mΓ£ô[39m src/components/__tests__/InlineEditable.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 407[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m7 passed[39m[22m[90m (7)[39m
+[2m   Start at [22m 16:45:37
+[2m   Duration [22m 3.43s
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/hooks/__tests__/useKeyboardNav.test.ts [22m[34mx2 [34m[39m
+
+ [32mΓ£ô[39m src/hooks/__tests__/useKeyboardNav.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 135[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m7 passed[39m[22m[90m (7)[39m
+[2m   Start at [22m 16:45:48
+[2m   Duration [22m 2.42s
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/services/__tests__/activityService.test.ts [22m[34mx3 [34m[39m
+
+ [32mΓ£ô[39m src/services/__tests__/activityService.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m7 passed[39m[22m[90m (7)[39m
+[2m   Start at [22m 16:50:25
+[2m   Duration [22m 198ms
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2mpackage.json [22m[39m
+
+[1m[35m
+Restarting due to config changes...[39m[22m
+
+[1m[44m DEV [49m[22m [34mv4.0.17 [39m[90mC:/Users/bhara/Downloads/Code/LiquiTask[39m
+
+ [31mΓ¥»[39m src/components/__tests__/LoadingSpinner.test.tsx [2m([22m[2m0 test[22m[2m)[22m
+ [31mΓ¥»[39m src/hooks/__tests__/useTaskManagement.test.ts [2m([22m[2m0 test[22m[2m)[22m
+ [31mΓ¥»[39m src/components/common/__tests__/Button.test.tsx [2m([22m[2m0 test[22m[2m)[22m
+ [31mΓ¥»[39m src/hooks/__tests__/useBulkSelection.test.ts [2m([22m[2m0 test[22m[2m)[22m
+ [31mΓ¥»[39m src/hooks/__tests__/useKeyboardNav.test.ts [2m([22m[2m0 test[22m[2m)[22m
+ [31mΓ¥»[39m src/hooks/__tests__/useTimer.test.ts [2m([22m[2m0 test[22m[2m)[22m
+ [31mΓ¥»[39m src/components/__tests__/InlineEditable.test.tsx [2m([22m[2m0 test[22m[2m)[22m
+ [31mΓ¥»[39m src/components/__tests__/ErrorBoundary.test.tsx [2m([22m[2m0 test[22m[2m)[22m
+ [31mΓ¥»[39m src/components/__tests__/EmptyState.test.tsx [2m([22m[2m0 test[22m[2m)[22m
+ [31mΓ¥»[39m src/hooks/__tests__/useSearchHistory.test.ts [2m([22m[2m0 test[22m[2m)[22m
+ [32mΓ£ô[39m src/hooks/__tests__/useProjectManagement.test.ts [2m([22m[2m21 tests[22m[2m)[22m[32m 71[2mms[22m[39m
+ [32mΓ£ô[39m src/components/__tests__/ErrorBoundary.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 512[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/__tests__/useSearchHistory.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 45[2mms[22m[39m
+ [32mΓ£ô[39m src/components/__tests__/EmptyState.test.tsx [2m([22m[2m11 tests[22m[2m)[22m[32m 284[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/__tests__/useTaskManagement.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 133[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/__tests__/useBulkSelection.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 141[2mms[22m[39m
+stderr | src/hooks/__tests__/useTimer.test.ts > useTimer > visibility change handling > should restore elapsed time when tab becomes visible
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ [32mΓ£ô[39m src/hooks/__tests__/useTimer.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 80[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/__tests__/useTaskTemplates.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 42[2mms[22m[39m
+stderr | src/components/__tests__/InlineEditable.test.tsx > InlineEditable > should call onSave on blur after a timeout
+An update to InlineEditable inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ [32mΓ£ô[39m src/components/__tests__/InlineEditable.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[32m 102[2mms[22m[39m
+ [32mΓ£ô[39m src/components/common/__tests__/Button.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[32m 161[2mms[22m[39m
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+ [32mΓ£ô[39m src/services/__tests__/exportService.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 41[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/__tests__/useTaskTemplates.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 41[2mms[22m[39m
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mcreateBackup[2m > [22m[2mshould create a backup with unique ID
+[22m[39m[Migration] [2026-01-15T00:14:35.698Z] Backup created: backup_1768436075698_nsxp16e (version 1.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mcreateBackup[2m > [22m[2mshould store backup data correctly
+[22m[39m[Migration] [2026-01-15T00:14:35.700Z] Backup created: backup_1768436075700_rn63r1p (version 1.0.0)
+[Migration] [2026-01-15T00:14:35.700Z] Restored from backup: backup_1768436075700_rn63r1p
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mcreateBackup[2m > [22m[2mshould prune old backups when exceeding max
+[22m[39m[Migration] [2026-01-15T00:14:35.701Z] Backup created: backup_1768436075701_2hq0nb4 (version 1.0.0)
+[Migration] [2026-01-15T00:14:35.701Z] Backup created: backup_1768436075701_4pckj7a (version 1.0.0)
+[Migration] [2026-01-15T00:14:35.701Z] Backup created: backup_1768436075701_sy81n8f (version 1.0.0)
+[Migration] [2026-01-15T00:14:35.701Z] Backup created: backup_1768436075701_2bxcoag (version 1.0.0)
+[Migration] [2026-01-15T00:14:35.702Z] Backup created: backup_1768436075702_ox6ibhx (version 1.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mrestoreBackup[2m > [22m[2mshould restore backup data
+[22m[39m[Migration] [2026-01-15T00:14:35.702Z] Backup created: backup_1768436075702_bl1cl3g (version 1.0.0)
+[Migration] [2026-01-15T00:14:35.703Z] Restored from backup: backup_1768436075702_bl1cl3g
+
+stderr | src/services/__tests__/migrationService.test.ts > MigrationService > restoreBackup > should return null for non-existent backup
+Backup not found: non-existent-id
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mrestoreBackup[2m > [22m[2mshould return a deep copy (not reference)
+[22m[39m[Migration] [2026-01-15T00:14:35.704Z] Backup created: backup_1768436075704_5an6tpp (version 1.0.0)
+[Migration] [2026-01-15T00:14:35.704Z] Restored from backup: backup_1768436075704_5an6tpp
+[Migration] [2026-01-15T00:14:35.704Z] Restored from backup: backup_1768436075704_5an6tpp
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mlistBackups[2m > [22m[2mshould return backups sorted by timestamp (newest first)
+[22m[39m[Migration] [2026-01-15T00:14:35.706Z] Backup created: backup_1768436075705_cnt2i38 (version 1.0.0)
+[Migration] [2026-01-15T00:14:35.706Z] Backup created: backup_1768436075706_p4c3ur2 (version 1.0.0)
+[Migration] [2026-01-15T00:14:35.706Z] Backup created: backup_1768436075706_6ydg5ca (version 1.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mdeleteBackup[2m > [22m[2mshould delete a backup
+[22m[39m[Migration] [2026-01-15T00:14:35.706Z] Backup created: backup_1768436075706_o8yj9lm (version 1.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mrunMigrations[2m > [22m[2mshould create backup before migration
+[22m[39m[Migration] [2026-01-15T00:14:35.708Z] Backup created: backup_1768436075708_7zxg7c2 (version 0.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mrunMigrations[2m > [22m[2mshould update version to current after migration
+[22m[39m[Migration] [2026-01-15T00:14:35.709Z] Backup created: backup_1768436075709_6sn84t5 (version 0.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mrunMigrations[2m > [22m[2mshould preserve existing data during migration
+[22m[39m[Migration] [2026-01-15T00:14:35.710Z] Backup created: backup_1768436075710_89nlj3w (version 0.0.0)
+
+ [32mΓ£ô[39m src/utils/__tests__/bulkTaskSchema.test.ts [2m([22m[2m34 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mMigration Logs[2m > [22m[2mshould store migration logs
+[22m[39m[Migration] [2026-01-15T00:14:35.710Z] Backup created: backup_1768436075710_umwm43q (version 0.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mMigration Logs[2m > [22m[2mshould clear migration logs
+[22m[39m[Migration] [2026-01-15T00:14:35.711Z] Backup created: backup_1768436075711_lpy438g (version 0.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mData Integrity[2m > [22m[2mshould maintain task data integrity through migration
+[22m[39m[Migration] [2026-01-15T00:14:35.712Z] Backup created: backup_1768436075712_5psw3zx (version 0.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mData Integrity[2m > [22m[2mshould maintain project hierarchy through migration
+[22m[39m[Migration] [2026-01-15T00:14:35.712Z] Backup created: backup_1768436075712_m9z7pj4 (version 0.0.0)
+
+ [32mΓ£ô[39m src/services/__tests__/migrationService.test.ts [2m([22m[2m29 tests[22m[2m)[22m[32m 24[2mms[22m[39m
+stderr | src/utils/__tests__/validation.test.ts > validateAndTransformImportedData > should throw error for invalid data
+Validation errors: [
+  {
+    expected: 'string',
+    code: 'invalid_type',
+    path: [ 'tasks', 0, 'jobId' ],
+    message: 'Invalid input: expected string, received undefined'
+  },
+  {
+    expected: 'string',
+    code: 'invalid_type',
+    path: [ 'tasks', 0, 'projectId' ],
+    message: 'Invalid input: expected string, received undefined'
+  },
+  {
+    expected: 'string',
+    code: 'invalid_type',
+    path: [ 'tasks', 0, 'title' ],
+    message: 'Invalid input: expected string, received undefined'
+  },
+  {
+    expected: 'string',
+    code: 'invalid_type',
+    path: [ 'tasks', 0, 'subtitle' ],
+    message: 'Invalid input: expected string, received undefined'
+  },
+  {
+    expected: 'string',
+    code: 'invalid_type',
+    path: [ 'tasks', 0, 'summary' ],
+    message: 'Invalid input: expected string, received undefined'
+  },
+  {
+    expected: 'string',
+    code: 'invalid_type',
+    path: [ 'tasks', 0, 'assignee' ],
+    message: 'Invalid input: expected string, received undefined'
+  },
+  {
+    expected: 'string',
+    code: 'invalid_type',
+    path: [ 'tasks', 0, 'priority' ],
+    message: 'Invalid input: expected string, received undefined'
+  },
+  {
+    expected: 'string',
+    code: 'invalid_type',
+    path: [ 'tasks', 0, 'status' ],
+    message: 'Invalid input: expected string, received undefined'
+  }
+]
+
+ [32mΓ£ô[39m src/utils/__tests__/validation.test.ts [2m([22m[2m25 tests[22m[2m)[22m[32m 31[2mms[22m[39m
+stderr | src/utils/__tests__/storageQuota.test.ts > storageQuota > getStorageQuotaInfo > should return null on error
+Failed to get storage quota info: Error: Storage error
+    at Object.get [as length] (C:/Users/bhara/Downloads/Code/LiquiTask/src/utils/__tests__/storageQuota.test.ts:101:27)
+    at getStorageQuotaInfo (C:/Users/bhara/Downloads/Code/LiquiTask/src/utils/storageQuota.ts:23:38)
+    at C:/Users/bhara/Downloads/Code/LiquiTask/src/utils/__tests__/storageQuota.test.ts:106:26
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:145:11
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:915:26
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1243:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1209:10)
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1653:37
+    at Traces.$ (file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/vitest/dist/chunks/traces.CCmnQaNT.js:142:27)
+
+stderr | src/utils/__tests__/storageQuota.test.ts > storageQuota > clearOldData > should handle errors gracefully
+Failed to clear old data: Error: Remove error
+    at Object.<anonymous> (C:/Users/bhara/Downloads/Code/LiquiTask/src/utils/__tests__/storageQuota.test.ts:279:27)
+    at Object.Mock [as removeItem] (file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/spy/dist/index.js:285:34)
+    at clearOldData (C:/Users/bhara/Downloads/Code/LiquiTask/src/utils/storageQuota.ts:111:22)
+    at C:/Users/bhara/Downloads/Code/LiquiTask/src/utils/__tests__/storageQuota.test.ts:284:29
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:145:11
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:915:26
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1243:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1209:10)
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1653:37
+
+ [32mΓ£ô[39m src/utils/__tests__/storageQuota.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+stderr | src/services/__tests__/storageService.test.ts > StorageService > importData > should return error for invalid JSON
+Failed to import data: SyntaxError: Unexpected token 'o', "not valid json" is not valid JSON
+    at JSON.parse (<anonymous>)
+    at StorageService.importData (C:/Users/bhara/Downloads/Code/LiquiTask/src/services/storageService.ts:251:33)
+    at C:/Users/bhara/Downloads/Code/LiquiTask/src/services/__tests__/storageService.test.ts:127:43
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:145:11
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:915:26
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1243:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1209:10)
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1653:37
+    at Traces.$ (file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/vitest/dist/chunks/traces.CCmnQaNT.js:142:27)
+
+ [32mΓ£ô[39m src/services/__tests__/storageService.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/__tests__/useDragAndDrop.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 38[2mms[22m[39m
+stderr | src/hooks/__tests__/useSavedViews.test.ts > useSavedViews > createView > should not create view if max limit reached
+Maximum number of saved views reached
+
+ [32mΓ£ô[39m src/hooks/__tests__/useSavedViews.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 76[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/__tests__/useProjectManagement.test.ts [2m([22m[2m21 tests[22m[2m)[22m[32m 135[2mms[22m[39m
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+ [32mΓ£ô[39m src/services/__tests__/exportService.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 41[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/__tests__/useDragAndDrop.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 37[2mms[22m[39m
+stderr | src/utils/__tests__/validation.test.ts > validateAndTransformImportedData > should throw error for invalid data
+Validation errors: [
+  {
+    expected: 'string',
+    code: 'invalid_type',
+    path: [ 'tasks', 0, 'jobId' ],
+    message: 'Invalid input: expected string, received undefined'
+  },
+  {
+    expected: 'string',
+    code: 'invalid_type',
+    path: [ 'tasks', 0, 'projectId' ],
+    message: 'Invalid input: expected string, received undefined'
+  },
+  {
+    expected: 'string',
+    code: 'invalid_type',
+    path: [ 'tasks', 0, 'title' ],
+    message: 'Invalid input: expected string, received undefined'
+  },
+  {
+    expected: 'string',
+    code: 'invalid_type',
+    path: [ 'tasks', 0, 'subtitle' ],
+    message: 'Invalid input: expected string, received undefined'
+  },
+  {
+    expected: 'string',
+    code: 'invalid_type',
+    path: [ 'tasks', 0, 'summary' ],
+    message: 'Invalid input: expected string, received undefined'
+  },
+  {
+    expected: 'string',
+    code: 'invalid_type',
+    path: [ 'tasks', 0, 'assignee' ],
+    message: 'Invalid input: expected string, received undefined'
+  },
+  {
+    expected: 'string',
+    code: 'invalid_type',
+    path: [ 'tasks', 0, 'priority' ],
+    message: 'Invalid input: expected string, received undefined'
+  },
+  {
+    expected: 'string',
+    code: 'invalid_type',
+    path: [ 'tasks', 0, 'status' ],
+    message: 'Invalid input: expected string, received undefined'
+  }
+]
+
+ [32mΓ£ô[39m src/utils/__tests__/validation.test.ts [2m([22m[2m25 tests[22m[2m)[22m[32m 114[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/__tests__/useKeyboardNav.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 47[2mms[22m[39m
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mcreateBackup[2m > [22m[2mshould create a backup with unique ID
+[22m[39m[Migration] [2026-01-15T00:14:40.869Z] Backup created: backup_1768436080869_sfo66m9 (version 1.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mcreateBackup[2m > [22m[2mshould store backup data correctly
+[22m[39m[Migration] [2026-01-15T00:14:40.871Z] Backup created: backup_1768436080871_cdc2r2t (version 1.0.0)
+[Migration] [2026-01-15T00:14:40.871Z] Restored from backup: backup_1768436080871_cdc2r2t
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mcreateBackup[2m > [22m[2mshould prune old backups when exceeding max
+[22m[39m[Migration] [2026-01-15T00:14:40.872Z] Backup created: backup_1768436080872_es098ol (version 1.0.0)
+[Migration] [2026-01-15T00:14:40.872Z] Backup created: backup_1768436080872_yfrwrt8 (version 1.0.0)
+[Migration] [2026-01-15T00:14:40.872Z] Backup created: backup_1768436080872_w9kxes3 (version 1.0.0)
+[Migration] [2026-01-15T00:14:40.872Z] Backup created: backup_1768436080872_r4b92f7 (version 1.0.0)
+[Migration] [2026-01-15T00:14:40.872Z] Backup created: backup_1768436080872_0n5mvhe (version 1.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mrestoreBackup[2m > [22m[2mshould restore backup data
+[22m[39m[Migration] [2026-01-15T00:14:40.873Z] Backup created: backup_1768436080873_tp6xac5 (version 1.0.0)
+[Migration] [2026-01-15T00:14:40.874Z] Restored from backup: backup_1768436080873_tp6xac5
+
+stderr | src/services/__tests__/migrationService.test.ts > MigrationService > restoreBackup > should return null for non-existent backup
+Backup not found: non-existent-id
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mrestoreBackup[2m > [22m[2mshould return a deep copy (not reference)
+[22m[39m[Migration] [2026-01-15T00:14:40.875Z] Backup created: backup_1768436080875_2r0aocn (version 1.0.0)
+[Migration] [2026-01-15T00:14:40.875Z] Restored from backup: backup_1768436080875_2r0aocn
+[Migration] [2026-01-15T00:14:40.875Z] Restored from backup: backup_1768436080875_2r0aocn
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mlistBackups[2m > [22m[2mshould return backups sorted by timestamp (newest first)
+[22m[39m[Migration] [2026-01-15T00:14:40.877Z] Backup created: backup_1768436080876_hez27mq (version 1.0.0)
+[Migration] [2026-01-15T00:14:40.877Z] Backup created: backup_1768436080877_7pwqpa0 (version 1.0.0)
+[Migration] [2026-01-15T00:14:40.877Z] Backup created: backup_1768436080877_asc41kj (version 1.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mdeleteBackup[2m > [22m[2mshould delete a backup
+[22m[39m[Migration] [2026-01-15T00:14:40.877Z] Backup created: backup_1768436080877_a2x2qj6 (version 1.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mrunMigrations[2m > [22m[2mshould create backup before migration
+[22m[39m[Migration] [2026-01-15T00:14:40.879Z] Backup created: backup_1768436080879_h2a604c (version 0.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mrunMigrations[2m > [22m[2mshould update version to current after migration
+[22m[39m[Migration] [2026-01-15T00:14:40.880Z] Backup created: backup_1768436080880_h4vzkum (version 0.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mrunMigrations[2m > [22m[2mshould preserve existing data during migration
+[22m[39m[Migration] [2026-01-15T00:14:40.880Z] Backup created: backup_1768436080880_d8k02h7 (version 0.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mMigration Logs[2m > [22m[2mshould store migration logs
+[22m[39m[Migration] [2026-01-15T00:14:40.881Z] Backup created: backup_1768436080881_j29dg9b (version 0.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mMigration Logs[2m > [22m[2mshould clear migration logs
+[22m[39m[Migration] [2026-01-15T00:14:40.881Z] Backup created: backup_1768436080881_vvl8plj (version 0.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mData Integrity[2m > [22m[2mshould maintain task data integrity through migration
+[22m[39m[Migration] [2026-01-15T00:14:40.882Z] Backup created: backup_1768436080882_1q5ojg3 (version 0.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mData Integrity[2m > [22m[2mshould maintain project hierarchy through migration
+[22m[39m[Migration] [2026-01-15T00:14:40.883Z] Backup created: backup_1768436080883_fjz7fp3 (version 0.0.0)
+
+ [32mΓ£ô[39m src/services/__tests__/migrationService.test.ts [2m([22m[2m29 tests[22m[2m)[22m[32m 24[2mms[22m[39m
+stderr | src/hooks/__tests__/useSavedViews.test.ts > useSavedViews > createView > should not create view if max limit reached
+Maximum number of saved views reached
+
+ [32mΓ£ô[39m src/hooks/__tests__/useSavedViews.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 79[2mms[22m[39m
+stderr | src/utils/__tests__/storageQuota.test.ts > storageQuota > getStorageQuotaInfo > should return null on error
+Failed to get storage quota info: Error: Storage error
+    at Object.get [as length] (C:/Users/bhara/Downloads/Code/LiquiTask/src/utils/__tests__/storageQuota.test.ts:101:27)
+    at getStorageQuotaInfo (C:/Users/bhara/Downloads/Code/LiquiTask/src/utils/storageQuota.ts:23:38)
+    at C:/Users/bhara/Downloads/Code/LiquiTask/src/utils/__tests__/storageQuota.test.ts:106:26
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:145:11
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:915:26
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1243:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1209:10)
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1653:37
+    at Traces.$ (file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/vitest/dist/chunks/traces.CCmnQaNT.js:142:27)
+
+stderr | src/utils/__tests__/storageQuota.test.ts > storageQuota > clearOldData > should handle errors gracefully
+Failed to clear old data: Error: Remove error
+    at Object.<anonymous> (C:/Users/bhara/Downloads/Code/LiquiTask/src/utils/__tests__/storageQuota.test.ts:279:27)
+    at Object.Mock [as removeItem] (file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/spy/dist/index.js:285:34)
+    at clearOldData (C:/Users/bhara/Downloads/Code/LiquiTask/src/utils/storageQuota.ts:111:22)
+    at C:/Users/bhara/Downloads/Code/LiquiTask/src/utils/__tests__/storageQuota.test.ts:284:29
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:145:11
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:915:26
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1243:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1209:10)
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1653:37
+
+ [32mΓ£ô[39m src/utils/__tests__/storageQuota.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32mΓ£ô[39m src/services/__tests__/indexedDBService.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 121[2mms[22m[39m
+ [32mΓ£ô[39m src/services/__tests__/indexedDBService.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/__tests__/useVirtualScroll.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 28[2mms[22m[39m
+ [32mΓ£ô[39m src/components/__tests__/LoadingSpinner.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[32m 75[2mms[22m[39m
+stderr | src/services/__tests__/notificationService.test.ts > notificationService > show > should show notification in browser
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+
+ [32mΓ£ô[39m src/utils/__tests__/taskToJson.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+stderr | src/services/__tests__/notificationService.test.ts > notificationService > show > should show notification in Electron
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+
+stderr | src/services/__tests__/notificationService.test.ts > notificationService > show > should attach onClick handler
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+
+stderr | src/services/__tests__/notificationService.test.ts > notificationService > scheduleTaskReminder > should schedule reminder 1 hour before due date
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+[vitest] The show mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+
+stderr | src/services/__tests__/notificationService.test.ts > notificationService > scheduleTaskReminder > should schedule due notification if more than 1 hour away
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+[vitest] The show mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+[vitest] The show mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+
+stderr | src/services/__tests__/notificationService.test.ts > notificationService > notifyOverdue > should notify single overdue task
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+[vitest] The show mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+
+stderr | src/services/__tests__/notificationService.test.ts > notificationService > notifyOverdue > should notify multiple overdue tasks
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+[vitest] The show mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+
+stderr | src/services/__tests__/notificationService.test.ts > notificationService > startPeriodicCheck > should check for overdue tasks periodically
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+[vitest] The show mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+[vitest] The notifyOverdue mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+
+stderr | src/services/__tests__/notificationService.test.ts > notificationService > startPeriodicCheck > should only notify for newly overdue tasks
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+[vitest] The show mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+[vitest] The notifyOverdue mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+
+ [31mΓ¥»[39m src/services/__tests__/notificationService.test.ts [2m([22m[2m21 tests[22m[2m | [22m[31m9 failed[39m[2m)[22m[32m 37[2mms[22m[39m
+       [32mΓ£ô[39m should request permission in browser[32m 4[2mms[22m[39m
+       [32mΓ£ô[39m should return true for Electron without requesting[32m 2[2mms[22m[39m
+       [32mΓ£ô[39m should return false if permission denied[32m 1[2mms[22m[39m
+[31m       [31m├ù[31m should show notification in browser[39m[32m 7[2mms[22m[39m
+[31m       [31m├ù[31m should show notification in Electron[39m[32m 1[2mms[22m[39m
+       [32mΓ£ô[39m should not show notification without permission[32m 3[2mms[22m[39m
+[31m       [31m├ù[31m should attach onClick handler[39m[32m 1[2mms[22m[39m
+[31m       [31m├ù[31m should schedule reminder 1 hour before due date[39m[32m 4[2mms[22m[39m
+       [32mΓ£ô[39m should not schedule if already past due[32m 1[2mms[22m[39m
+[31m       [31m├ù[31m should schedule due notification if more than 1 hour away[39m[32m 2[2mms[22m[39m
+       [32mΓ£ô[39m should identify overdue tasks[32m 1[2mms[22m[39m
+       [32mΓ£ô[39m should identify tasks due soon[32m 0[2mms[22m[39m
+       [32mΓ£ô[39m should ignore completed tasks[32m 0[2mms[22m[39m
+       [32mΓ£ô[39m should ignore tasks without due dates[32m 0[2mms[22m[39m
+[31m       [31m├ù[31m should notify single overdue task[39m[32m 1[2mms[22m[39m
+[31m       [31m├ù[31m should notify multiple overdue tasks[39m[32m 1[2mms[22m[39m
+       [32mΓ£ô[39m should not notify if no overdue tasks[32m 0[2mms[22m[39m
+[31m       [31m├ù[31m should check for overdue tasks periodically[39m[32m 1[2mms[22m[39m
+[31m       [31m├ù[31m should only notify for newly overdue tasks[39m[32m 1[2mms[22m[39m
+       [32mΓ£ô[39m should stop periodic check[32m 2[2mms[22m[39m
+       [32mΓ£ô[39m should clear notification tracking for task[32m 0[2mms[22m[39m
+ [32mΓ£ô[39m src/services/__tests__/recurringTaskService.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32mΓ£ô[39m src/utils/__tests__/debounce.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32mΓ£ô[39m src/utils/__tests__/taskParser.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/__tests__/useVirtualScroll.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 30[2mms[22m[39m
+ [32mΓ£ô[39m src/services/__tests__/activityService.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32mΓ£ô[39m src/utils/__tests__/queryEngine.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 9 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  src/services/__tests__/notificationService.test.ts > notificationService > show > should show notification in browser
+TypeError: () => mockNotification is not a constructor
+ Γ¥» NotificationService.show src/services/notificationService.ts:48:34
+     46|             });
+     47|         } else if ('Notification' in window) {
+     48|             const notification = new Notification(options.title, {
+       |                                  ^
+     49|                 body: options.body,
+     50|                 icon: options.icon,
+ Γ¥» src/services/__tests__/notificationService.test.ts:74:33
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/9]ΓÄ»
+
+ FAIL  src/services/__tests__/notificationService.test.ts > notificationService > show > should show notification in Electron
+TypeError: () => mockNotification is not a constructor
+ Γ¥» NotificationService.show src/services/notificationService.ts:48:34
+     46|             });
+     47|         } else if ('Notification' in window) {
+     48|             const notification = new Notification(options.title, {
+       |                                  ^
+     49|                 body: options.body,
+     50|                 icon: options.icon,
+ Γ¥» src/services/__tests__/notificationService.test.ts:94:33
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[2/9]ΓÄ»
+
+ FAIL  src/services/__tests__/notificationService.test.ts > notificationService > show > should attach onClick handler
+TypeError: () => mockNotification is not a constructor
+ Γ¥» NotificationService.show src/services/notificationService.ts:48:34
+     46|             });
+     47|         } else if ('Notification' in window) {
+     48|             const notification = new Notification(options.title, {
+       |                                  ^
+     49|                 body: options.body,
+     50|                 icon: options.icon,
+ Γ¥» src/services/__tests__/notificationService.test.ts:137:33
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[3/9]ΓÄ»
+
+ FAIL  src/services/__tests__/notificationService.test.ts > notificationService > scheduleTaskReminder > should schedule reminder 1 hour before due date
+ FAIL  src/services/__tests__/notificationService.test.ts > notificationService > scheduleTaskReminder > should schedule due notification if more than 1 hour away
+TypeError: () => mockNotification is not a constructor
+ Γ¥» NotificationService.show src/services/notificationService.ts:48:34
+     46|             });
+     47|         } else if ('Notification' in window) {
+     48|             const notification = new Notification(options.title, {
+       |                                  ^
+     49|                 body: options.body,
+     50|                 icon: options.icon,
+ Γ¥» src/services/notificationService.ts:73:18
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[4/9]ΓÄ»
+
+ FAIL  src/services/__tests__/notificationService.test.ts > notificationService > notifyOverdue > should notify single overdue task
+TypeError: () => mockNotification is not a constructor
+ Γ¥» NotificationService.show src/services/notificationService.ts:48:34
+     46|             });
+     47|         } else if ('Notification' in window) {
+     48|             const notification = new Notification(options.title, {
+       |                                  ^
+     49|                 body: options.body,
+     50|                 icon: options.icon,
+ Γ¥» NotificationService.notifyOverdue src/services/notificationService.ts:132:18
+ Γ¥» src/services/__tests__/notificationService.test.ts:288:33
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[5/9]ΓÄ»
+
+ FAIL  src/services/__tests__/notificationService.test.ts > notificationService > notifyOverdue > should notify multiple overdue tasks
+TypeError: () => mockNotification is not a constructor
+ Γ¥» NotificationService.show src/services/notificationService.ts:48:34
+     46|             });
+     47|         } else if ('Notification' in window) {
+     48|             const notification = new Notification(options.title, {
+       |                                  ^
+     49|                 body: options.body,
+     50|                 icon: options.icon,
+ Γ¥» NotificationService.notifyOverdue src/services/notificationService.ts:137:18
+ Γ¥» src/services/__tests__/notificationService.test.ts:300:33
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[6/9]ΓÄ»
+
+ FAIL  src/services/__tests__/notificationService.test.ts > notificationService > startPeriodicCheck > should check for overdue tasks periodically
+TypeError: () => mockNotification is not a constructor
+ Γ¥» NotificationService.show src/services/notificationService.ts:48:34
+     46|             });
+     47|         } else if ('Notification' in window) {
+     48|             const notification = new Notification(options.title, {
+       |                                  ^
+     49|                 body: options.body,
+     50|                 icon: options.icon,
+ Γ¥» NotificationService.notifyOverdue src/services/notificationService.ts:132:18
+ Γ¥» check src/services/notificationService.ts:164:22
+ Γ¥» NotificationService.startPeriodicCheck src/services/notificationService.ts:170:9
+ Γ¥» src/services/__tests__/notificationService.test.ts:345:33
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[7/9]ΓÄ»
+
+ FAIL  src/services/__tests__/notificationService.test.ts > notificationService > startPeriodicCheck > should only notify for newly overdue tasks
+TypeError: () => mockNotification is not a constructor
+ Γ¥» NotificationService.show src/services/notificationService.ts:48:34
+     46|             });
+     47|         } else if ('Notification' in window) {
+     48|             const notification = new Notification(options.title, {
+       |                                  ^
+     49|                 body: options.body,
+     50|                 icon: options.icon,
+ Γ¥» NotificationService.notifyOverdue src/services/notificationService.ts:132:18
+ Γ¥» check src/services/notificationService.ts:164:22
+ Γ¥» NotificationService.startPeriodicCheck src/services/notificationService.ts:170:9
+ Γ¥» src/services/__tests__/notificationService.test.ts:368:33
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[8/9]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m28 passed[39m[22m[90m (29)[39m
+[2m      Tests [22m [1m[31m9 failed[39m[22m[2m | [22m[1m[32m369 passed[39m[22m[90m (378)[39m
+[2m   Start at [22m 17:14:18
+[2m   Duration [22m 24.35s[2m (transform 18.81s, setup 16.31s, import 32.24s, tests 2.26s, environment 175.00s)[22m
+
+[1m[41m FAIL [49m[22m [31mTests failed. Watching for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+stderr | src/services/__tests__/notificationService.test.ts > notificationService > show > should show notification in browser
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+
+stderr | src/services/__tests__/notificationService.test.ts > notificationService > show > should show notification in Electron
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+
+stderr | src/services/__tests__/notificationService.test.ts > notificationService > show > should attach onClick handler
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+
+stderr | src/services/__tests__/notificationService.test.ts > notificationService > scheduleTaskReminder > should schedule reminder 1 hour before due date
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+[vitest] The show mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+
+stderr | src/services/__tests__/notificationService.test.ts > notificationService > scheduleTaskReminder > should schedule due notification if more than 1 hour away
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+[vitest] The show mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+[vitest] The show mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+
+stderr | src/services/__tests__/notificationService.test.ts > notificationService > notifyOverdue > should notify single overdue task
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+[vitest] The show mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+
+stderr | src/services/__tests__/notificationService.test.ts > notificationService > notifyOverdue > should notify multiple overdue tasks
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+[vitest] The show mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+
+stderr | src/services/__tests__/notificationService.test.ts > notificationService > startPeriodicCheck > should check for overdue tasks periodically
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+[vitest] The show mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+[vitest] The notifyOverdue mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+
+stderr | src/services/__tests__/notificationService.test.ts > notificationService > startPeriodicCheck > should only notify for newly overdue tasks
+[vitest] The vi.fn() mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+[vitest] The show mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+[vitest] The notifyOverdue mock did not use 'function' or 'class' in its implementation, see https://vitest.dev/api/vi#vi-spyon for examples.
+
+ [31mΓ¥»[39m src/services/__tests__/notificationService.test.ts [2m([22m[2m21 tests[22m[2m | [22m[31m9 failed[39m[2m)[22m[32m 35[2mms[22m[39m
+       [32mΓ£ô[39m should request permission in browser[32m 4[2mms[22m[39m
+       [32mΓ£ô[39m should return true for Electron without requesting[32m 0[2mms[22m[39m
+       [32mΓ£ô[39m should return false if permission denied[32m 0[2mms[22m[39m
+[31m       [31m├ù[31m should show notification in browser[39m[32m 6[2mms[22m[39m
+[31m       [31m├ù[31m should show notification in Electron[39m[32m 1[2mms[22m[39m
+       [32mΓ£ô[39m should not show notification without permission[32m 3[2mms[22m[39m
+[31m       [31m├ù[31m should attach onClick handler[39m[32m 1[2mms[22m[39m
+[31m       [31m├ù[31m should schedule reminder 1 hour before due date[39m[32m 5[2mms[22m[39m
+       [32mΓ£ô[39m should not schedule if already past due[32m 1[2mms[22m[39m
+[31m       [31m├ù[31m should schedule due notification if more than 1 hour away[39m[32m 2[2mms[22m[39m
+       [32mΓ£ô[39m should identify overdue tasks[32m 1[2mms[22m[39m
+       [32mΓ£ô[39m should identify tasks due soon[32m 0[2mms[22m[39m
+       [32mΓ£ô[39m should ignore completed tasks[32m 1[2mms[22m[39m
+       [32mΓ£ô[39m should ignore tasks without due dates[32m 0[2mms[22m[39m
+[31m       [31m├ù[31m should notify single overdue task[39m[32m 1[2mms[22m[39m
+[31m       [31m├ù[31m should notify multiple overdue tasks[39m[32m 1[2mms[22m[39m
+       [32mΓ£ô[39m should not notify if no overdue tasks[32m 0[2mms[22m[39m
+[31m       [31m├ù[31m should check for overdue tasks periodically[39m[32m 2[2mms[22m[39m
+[31m       [31m├ù[31m should only notify for newly overdue tasks[39m[32m 1[2mms[22m[39m
+       [32mΓ£ô[39m should stop periodic check[32m 2[2mms[22m[39m
+       [32mΓ£ô[39m should clear notification tracking for task[32m 0[2mms[22m[39m
+stderr | src/services/__tests__/storageService.test.ts > StorageService > importData > should return error for invalid JSON
+Failed to import data: SyntaxError: Unexpected token 'o', "not valid json" is not valid JSON
+    at JSON.parse (<anonymous>)
+    at StorageService.importData (C:/Users/bhara/Downloads/Code/LiquiTask/src/services/storageService.ts:251:33)
+    at C:/Users/bhara/Downloads/Code/LiquiTask/src/services/__tests__/storageService.test.ts:127:43
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:145:11
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:915:26
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1243:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1209:10)
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1653:37
+    at Traces.$ (file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/vitest/dist/chunks/traces.CCmnQaNT.js:142:27)
+
+ [32mΓ£ô[39m src/services/__tests__/storageService.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+ [32mΓ£ô[39m src/utils/__tests__/debounce.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 24[2mms[22m[39m
+ [32mΓ£ô[39m src/utils/__tests__/bulkTaskSchema.test.ts [2m([22m[2m34 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+ [32mΓ£ô[39m src/services/__tests__/recurringTaskService.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32mΓ£ô[39m src/utils/__tests__/taskToJson.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32mΓ£ô[39m src/utils/__tests__/queryEngine.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32mΓ£ô[39m src/services/__tests__/activityService.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32mΓ£ô[39m src/utils/__tests__/taskParser.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 9 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  src/services/__tests__/notificationService.test.ts > notificationService > show > should show notification in browser
+TypeError: () => mockNotification is not a constructor
+ Γ¥» NotificationService.show src/services/notificationService.ts:48:34
+     46|             });
+     47|         } else if ('Notification' in window) {
+     48|             const notification = new Notification(options.title, {
+       |                                  ^
+     49|                 body: options.body,
+     50|                 icon: options.icon,
+ Γ¥» src/services/__tests__/notificationService.test.ts:74:33
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/9]ΓÄ»
+
+ FAIL  src/services/__tests__/notificationService.test.ts > notificationService > show > should show notification in Electron
+TypeError: () => mockNotification is not a constructor
+ Γ¥» NotificationService.show src/services/notificationService.ts:48:34
+     46|             });
+     47|         } else if ('Notification' in window) {
+     48|             const notification = new Notification(options.title, {
+       |                                  ^
+     49|                 body: options.body,
+     50|                 icon: options.icon,
+ Γ¥» src/services/__tests__/notificationService.test.ts:94:33
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[2/9]ΓÄ»
+
+ FAIL  src/services/__tests__/notificationService.test.ts > notificationService > show > should attach onClick handler
+TypeError: () => mockNotification is not a constructor
+ Γ¥» NotificationService.show src/services/notificationService.ts:48:34
+     46|             });
+     47|         } else if ('Notification' in window) {
+     48|             const notification = new Notification(options.title, {
+       |                                  ^
+     49|                 body: options.body,
+     50|                 icon: options.icon,
+ Γ¥» src/services/__tests__/notificationService.test.ts:137:33
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[3/9]ΓÄ»
+
+ FAIL  src/services/__tests__/notificationService.test.ts > notificationService > scheduleTaskReminder > should schedule reminder 1 hour before due date
+ FAIL  src/services/__tests__/notificationService.test.ts > notificationService > scheduleTaskReminder > should schedule due notification if more than 1 hour away
+TypeError: () => mockNotification is not a constructor
+ Γ¥» NotificationService.show src/services/notificationService.ts:48:34
+     46|             });
+     47|         } else if ('Notification' in window) {
+     48|             const notification = new Notification(options.title, {
+       |                                  ^
+     49|                 body: options.body,
+     50|                 icon: options.icon,
+ Γ¥» src/services/notificationService.ts:73:18
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[4/9]ΓÄ»
+
+ FAIL  src/services/__tests__/notificationService.test.ts > notificationService > notifyOverdue > should notify single overdue task
+TypeError: () => mockNotification is not a constructor
+ Γ¥» NotificationService.show src/services/notificationService.ts:48:34
+     46|             });
+     47|         } else if ('Notification' in window) {
+     48|             const notification = new Notification(options.title, {
+       |                                  ^
+     49|                 body: options.body,
+     50|                 icon: options.icon,
+ Γ¥» NotificationService.notifyOverdue src/services/notificationService.ts:132:18
+ Γ¥» src/services/__tests__/notificationService.test.ts:288:33
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[5/9]ΓÄ»
+
+ FAIL  src/services/__tests__/notificationService.test.ts > notificationService > notifyOverdue > should notify multiple overdue tasks
+TypeError: () => mockNotification is not a constructor
+ Γ¥» NotificationService.show src/services/notificationService.ts:48:34
+     46|             });
+     47|         } else if ('Notification' in window) {
+     48|             const notification = new Notification(options.title, {
+       |                                  ^
+     49|                 body: options.body,
+     50|                 icon: options.icon,
+ Γ¥» NotificationService.notifyOverdue src/services/notificationService.ts:137:18
+ Γ¥» src/services/__tests__/notificationService.test.ts:300:33
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[6/9]ΓÄ»
+
+ FAIL  src/services/__tests__/notificationService.test.ts > notificationService > startPeriodicCheck > should check for overdue tasks periodically
+TypeError: () => mockNotification is not a constructor
+ Γ¥» NotificationService.show src/services/notificationService.ts:48:34
+     46|             });
+     47|         } else if ('Notification' in window) {
+     48|             const notification = new Notification(options.title, {
+       |                                  ^
+     49|                 body: options.body,
+     50|                 icon: options.icon,
+ Γ¥» NotificationService.notifyOverdue src/services/notificationService.ts:132:18
+ Γ¥» check src/services/notificationService.ts:164:22
+ Γ¥» NotificationService.startPeriodicCheck src/services/notificationService.ts:170:9
+ Γ¥» src/services/__tests__/notificationService.test.ts:345:33
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[7/9]ΓÄ»
+
+ FAIL  src/services/__tests__/notificationService.test.ts > notificationService > startPeriodicCheck > should only notify for newly overdue tasks
+TypeError: () => mockNotification is not a constructor
+ Γ¥» NotificationService.show src/services/notificationService.ts:48:34
+     46|             });
+     47|         } else if ('Notification' in window) {
+     48|             const notification = new Notification(options.title, {
+       |                                  ^
+     49|                 body: options.body,
+     50|                 icon: options.icon,
+ Γ¥» NotificationService.notifyOverdue src/services/notificationService.ts:132:18
+ Γ¥» check src/services/notificationService.ts:164:22
+ Γ¥» NotificationService.startPeriodicCheck src/services/notificationService.ts:170:9
+ Γ¥» src/services/__tests__/notificationService.test.ts:368:33
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[8/9]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m28 passed[39m[22m[90m (29)[39m
+[2m      Tests [22m [1m[31m9 failed[39m[22m[2m | [22m[1m[32m369 passed[39m[22m[90m (378)[39m
+[2m   Start at [22m 17:14:18
+[2m   Duration [22m 26.70s[2m (transform 18.81s, setup 14.35s, import 29.12s, tests 2.27s, environment 159.51s)[22m
+
+[1m[41m FAIL [49m[22m [31mTests failed. Watching for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+[33mTest removed...[39m[2m [ src/components/__tests__/EmptyState.test.tsx ]
+[22m
+[33mTest removed...[39m[2m [ src/components/__tests__/ErrorBoundary.test.tsx ]
+[22m
+[33mTest removed...[39m[2m [ src/components/__tests__/InlineEditable.test.tsx ]
+[22m
+[33mTest removed...[39m[2m [ src/components/__tests__/LoadingSpinner.test.tsx ]
+[22m
+[33mTest removed...[39m[2m [ src/components/common/__tests__/Button.test.tsx ]
+[22m
+[33mTest removed...[39m[2m [ src/hooks/__tests__/useBulkSelection.test.ts ]
+[22m
+[33mTest removed...[39m[2m [ src/hooks/__tests__/useKeyboardNav.test.ts ]
+[22m
+[33mTest removed...[39m[2m [ src/hooks/__tests__/useProjectManagement.test.ts ]
+[22m
+[33mTest removed...[39m[2m [ src/hooks/__tests__/useSavedViews.test.ts ]
+[22m
+[33mTest removed...[39m[2m [ src/hooks/__tests__/useTaskManagement.test.ts ]
+[22m
+[33mTest removed...[39m[2m [ src/hooks/__tests__/useTimer.test.ts ]
+[22m
+[33mTest removed...[39m[2m [ src/services/__tests__/activityService.test.ts ]
+[22m
+[33mTest removed...[39m[2m [ src/utils/__tests__/debounce.test.ts ]
+[22m
+[33mTest removed...[39m[2m [ src/services/__tests__/exportService.test.ts ]
+[22m
+[33mTest removed...[39m[2m [ src/services/__tests__/migrationService.test.ts ]
+[22m
+[33mTest removed...[39m[2m [ src/services/__tests__/notificationService.test.ts ]
+[22m
+[33mTest removed...[39m[2m [ src/utils/__tests__/storageQuota.test.ts ]
+[22m
+[33mTest removed...[39m[2m [ src/utils/__tests__/taskParser.test.ts ]
+[22m
+[33mTest removed...[39m[2m [ src/utils/__tests__/taskToJson.test.ts ]
+[22m
+[33mTest removed...[39m[2m [ src/utils/__tests__/validation.test.ts ]
+[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/constants/index.ts [22m[39m
+
+stderr | src/services/__tests__/storageService.test.ts > StorageService > importData > should return error for invalid JSON
+Failed to import data: SyntaxError: Unexpected token 'o', "not valid json" is not valid JSON
+    at JSON.parse (<anonymous>)
+    at StorageService.importData (C:/Users/bhara/Downloads/Code/LiquiTask/src/services/storageService.ts:251:33)
+    at C:/Users/bhara/Downloads/Code/LiquiTask/src/services/__tests__/storageService.test.ts:127:43
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:145:11
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:915:26
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1243:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1209:10)
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1653:37
+    at Traces.$ (file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/vitest/dist/chunks/traces.CCmnQaNT.js:142:27)
+
+ [32mΓ£ô[39m src/services/__tests__/storageService.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 24[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/__tests__/useTaskTemplates.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 49[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/__tests__/useSearchHistory.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 70[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m3 passed[39m[22m[90m (3)[39m
+[2m      Tests [22m [1m[32m24 passed[39m[22m[90m (24)[39m
+[2m   Start at [22m 17:21:04
+[2m   Duration [22m 5.01s
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/components/common/__tests__/Button.test.tsx [22m[39m
+
+[1m[35m
+Restarting due to config changes...[39m[22m
+ [31mΓ¥»[39m src/hooks/__tests__/useProjectManagement.test.ts [2m([22m[2m0 test[22m[2m)[22m
+ [31mΓ¥»[39m src/components/common/__tests__/Button.test.tsx [2m([22m[2m0 test[22m[2m)[22m
+ [31mΓ¥»[39m src/hooks/__tests__/useBulkSelection.test.ts [2m([22m[2m0 test[22m[2m)[22m
+ [31mΓ¥»[39m src/components/__tests__/EmptyState.test.tsx [2m([22m[2m0 test[22m[2m)[22m
+ [31mΓ¥»[39m src/components/__tests__/ErrorBoundary.test.tsx [2m([22m[2m0 test[22m[2m)[22m
+ [31mΓ¥»[39m src/hooks/__tests__/useTaskManagement.test.ts [2m([22m[2m0 test[22m[2m)[22m
+ [31mΓ¥»[39m src/services/__tests__/notificationService.test.ts [2m([22m[2m0 test[22m[2m)[22m
+ [31mΓ¥»[39m src/components/__tests__/InlineEditable.test.tsx [2m([22m[2m0 test[22m[2m)[22m
+ [31mΓ¥»[39m src/utils/__tests__/validation.test.ts [2m([22m[2m0 test[22m[2m)[22m
+ [31mΓ¥»[39m src/hooks/__tests__/useTimer.test.ts [2m([22m[2m0 test[22m[2m)[22m
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Suites 10 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  src/hooks/__tests__/useBulkSelection.test.ts [ src/hooks/__tests__/useBulkSelection.test.ts ]
+ FAIL  src/hooks/__tests__/useProjectManagement.test.ts [ src/hooks/__tests__/useProjectManagement.test.ts ]
+ FAIL  src/hooks/__tests__/useTaskManagement.test.ts [ src/hooks/__tests__/useTaskManagement.test.ts ]
+ FAIL  src/hooks/__tests__/useTimer.test.ts [ src/hooks/__tests__/useTimer.test.ts ]
+ FAIL  src/services/__tests__/notificationService.test.ts [ src/services/__tests__/notificationService.test.ts ]
+ FAIL  src/utils/__tests__/validation.test.ts [ src/utils/__tests__/validation.test.ts ]
+ FAIL  src/components/__tests__/EmptyState.test.tsx [ src/components/__tests__/EmptyState.test.tsx ]
+ FAIL  src/components/__tests__/ErrorBoundary.test.tsx [ src/components/__tests__/ErrorBoundary.test.tsx ]
+ FAIL  src/components/__tests__/InlineEditable.test.tsx [ src/components/__tests__/InlineEditable.test.tsx ]
+ FAIL  src/components/common/__tests__/Button.test.tsx [ src/components/common/__tests__/Button.test.tsx ]
+Error: The server is being restarted or closed. Request is outdated
+ Γ¥» throwClosedServerError node_modules/vite/dist/node/chunks/dep-D4NMHUTW.js:42055:15
+ Γ¥» EnvironmentPluginContainer.resolveId node_modules/vite/dist/node/chunks/dep-D4NMHUTW.js:42234:9
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/10]ΓÄ»
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Unhandled Errors ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+Vitest caught 1 unhandled error during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Unhandled Error ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+Error: Cancelled
+ Γ¥» Pool.cancel node_modules/vitest/dist/chunks/cli-api.Cx2DW4Bc.js:8083:34
+ Γ¥» Pool.close node_modules/vitest/dist/chunks/cli-api.Cx2DW4Bc.js:8097:14
+ Γ¥» Object.close node_modules/vitest/dist/chunks/cli-api.Cx2DW4Bc.js:8296:10
+ Γ¥» node_modules/vitest/dist/chunks/cli-api.Cx2DW4Bc.js:12923:29
+ Γ¥» node_modules/vitest/dist/chunks/cli-api.Cx2DW4Bc.js:12925:6
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+
+[2m Test Files [22m [1m[31m10 failed[39m[22m[2m | [22m[1m[32m13 passed[39m[22m[90m (23)[39m
+[2m      Tests [22m [1m[32m161 passed[39m[22m[90m (161)[39m
+[2m     Errors [22m [1m[31m1 error[39m[22m
+[2m   Start at [22m 17:21:10
+[2m   Duration [22m 13.98s
+
+[1m[41m FAIL [49m[22m [31mTests failed. Watching for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/hooks/__tests__/useTimer.test.ts [22m[39m
+
+ [31mΓ¥»[39m src/components/common/__tests__/Button.test.tsx [2m([22m[2m0 test[22m[2m)[22m
+ [31mΓ¥»[39m src/components/__tests__/EmptyState.test.tsx [2m([22m[2m0 test[22m[2m)[22m
+ [31mΓ¥»[39m src/hooks/__tests__/useTaskManagement.test.ts [2m([22m[2m0 test[22m[2m)[22m
+ [31mΓ¥»[39m src/services/__tests__/notificationService.test.ts [2m([22m[2m0 test[22m[2m)[22m
+ [31mΓ¥»[39m src/components/__tests__/InlineEditable.test.tsx [2m([22m[2m0 test[22m[2m)[22m
+ [31mΓ¥»[39m src/utils/__tests__/validation.test.ts [2m([22m[2m0 test[22m[2m)[22m
+
+[1m[44m DEV [49m[22m [34mv4.0.17 [39m[90mC:/Users/bhara/Downloads/Code/LiquiTask[39m
+
+ [31mΓ¥»[39m src/hooks/__tests__/useProjectManagement.test.ts [2m([22m[2m0 test[22m[2m)[22m
+ [31mΓ¥»[39m src/hooks/__tests__/useTaskTemplates.test.ts [2m([22m[2m0 test[22m[2m)[22m
+ [31mΓ¥»[39m src/hooks/__tests__/useBulkSelection.test.ts [2m([22m[2m0 test[22m[2m)[22m
+ [31mΓ¥»[39m src/hooks/__tests__/useDragAndDrop.test.ts [2m([22m[2m0 test[22m[2m)[22m
+ [31mΓ¥»[39m src/hooks/__tests__/useSavedViews.test.ts [2m([22m[2m0 test[22m[2m)[22m
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+ [32mΓ£ô[39m src/services/__tests__/exportService.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 49[2mms[22m[39m
+ [32mΓ£ô[39m src/services/__tests__/notificationService.test.ts [2m([22m[2m21 tests[22m[2m)[22m[32m 32[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/__tests__/useBulkSelection.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 78[2mms[22m[39m
+stderr | src/hooks/__tests__/useTimer.test.ts > useTimer > visibility change handling > should restore elapsed time when tab becomes visible
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ [32mΓ£ô[39m src/hooks/__tests__/useTimer.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 137[2mms[22m[39m
+stderr | src/hooks/__tests__/useTimer.test.ts > useTimer > visibility change handling > should restore elapsed time when tab becomes visible
+An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ [32mΓ£ô[39m src/hooks/__tests__/useTimer.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 116[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/__tests__/useTaskTemplates.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 45[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/__tests__/useVirtualScroll.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 33[2mms[22m[39m
+ [32mΓ£ô[39m src/components/common/__tests__/Button.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[32m 215[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/__tests__/useTaskManagement.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 85[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/__tests__/useSearchHistory.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 53[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/__tests__/useProjectManagement.test.ts [2m([22m[2m21 tests[22m[2m)[22m[32m 83[2mms[22m[39m
+stderr | src/components/__tests__/InlineEditable.test.tsx > InlineEditable > should call onSave on blur after a timeout
+An update to InlineEditable inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ [32mΓ£ô[39m src/components/__tests__/InlineEditable.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[32m 124[2mms[22m[39m
+ [32mΓ£ô[39m src/components/__tests__/EmptyState.test.tsx [2m([22m[2m11 tests[22m[2m)[22m[32m 252[2mms[22m[39m
+ [32mΓ£ô[39m src/components/__tests__/ErrorBoundary.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 427[2mms[22m[39m
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Suites 2 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  src/hooks/__tests__/useDragAndDrop.test.ts [ src/hooks/__tests__/useDragAndDrop.test.ts ]
+ FAIL  src/hooks/__tests__/useSavedViews.test.ts [ src/hooks/__tests__/useSavedViews.test.ts ]
+Error: ENOENT: no such file or directory, open 'C:\Users\bhara\AppData\Local\Temp\X_fN0qdyl2i6Sv0XqHADQ\client\.tmp-1768436490068-jgi7d8bjm1p'
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/2]ΓÄ»
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Unhandled Errors ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+Vitest caught 1 unhandled error during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Unhandled Error ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+Error: Cancelled
+ Γ¥» Pool.cancel node_modules/vitest/dist/chunks/cli-api.Cx2DW4Bc.js:8083:34
+ Γ¥» Pool.close node_modules/vitest/dist/chunks/cli-api.Cx2DW4Bc.js:8097:14
+ Γ¥» Object.close node_modules/vitest/dist/chunks/cli-api.Cx2DW4Bc.js:8296:10
+ Γ¥» Vitest._setServer node_modules/vitest/dist/chunks/cli-api.Cx2DW4Bc.js:12175:21
+ Γ¥» handler node_modules/vitest/dist/chunks/cli-api.Cx2DW4Bc.js:13158:19
+ Γ¥» _createServer node_modules/vite/dist/node/chunks/dep-D4NMHUTW.js:38686:26
+ Γ¥» restartServer node_modules/vite/dist/node/chunks/dep-D4NMHUTW.js:38912:19
+ Γ¥» FSWatcher.<anonymous> node_modules/vitest/dist/chunks/cli-api.Cx2DW4Bc.js:12219:6
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+
+[2m Test Files [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m8 passed[39m[22m[90m (10)[39m
+[2m      Tests [22m [1m[32m104 passed[39m[22m[90m (104)[39m
+[2m     Errors [22m [1m[31m1 error[39m[22m
+[2m   Start at [22m 17:21:18
+[2m   Duration [22m 16.13s[2m (transform 6.19s, setup 5.66s, import 10.70s, tests 883ms, environment 110.97s)[22m
+
+[1m[41m FAIL [49m[22m [31mTests failed. Watching for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+ [32mΓ£ô[39m src/components/__tests__/ErrorBoundary.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 586[2mms[22m[39m
+     [33m[2mΓ£ô[22m[39m should reset error state when Try Again clicked [33m 420[2mms[22m[39m
+stderr | src/hooks/__tests__/useSavedViews.test.ts > useSavedViews > createView > should not create view if max limit reached
+Maximum number of saved views reached
+
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+Error: Not implemented: navigation (except hash changes)
+    at module.exports (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\browser\not-implemented.js:9:17)
+    at navigateFetch (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:77:3)
+    at exports.navigate (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\window\navigation.js:55:3)
+    at Timeout._onTimeout (C:\Users\bhara\Downloads\Code\LiquiTask\node_modules\jsdom\lib\jsdom\living\nodes\HTMLHyperlinkElementUtils-impl.js:81:7)
+    at listOnTimeout (node:internal/timers:605:17)
+    at processTimers (node:internal/timers:541:7) undefined
+ [32mΓ£ô[39m src/services/__tests__/exportService.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 55[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/__tests__/useSavedViews.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 89[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/__tests__/useSearchHistory.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 54[2mms[22m[39m
+ [32mΓ£ô[39m src/components/__tests__/LoadingSpinner.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[32m 75[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/__tests__/useDragAndDrop.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 42[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/__tests__/useKeyboardNav.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 56[2mms[22m[39m
+stderr | src/utils/__tests__/validation.test.ts > validateAndTransformImportedData > should throw error for invalid data
+Validation errors: [
+  {
+    expected: 'string',
+    code: 'invalid_type',
+    path: [ 'tasks', 0, 'jobId' ],
+    message: 'Invalid input: expected string, received undefined'
+  },
+  {
+    expected: 'string',
+    code: 'invalid_type',
+    path: [ 'tasks', 0, 'projectId' ],
+    message: 'Invalid input: expected string, received undefined'
+  },
+  {
+    expected: 'string',
+    code: 'invalid_type',
+    path: [ 'tasks', 0, 'title' ],
+    message: 'Invalid input: expected string, received undefined'
+  },
+  {
+    expected: 'string',
+    code: 'invalid_type',
+    path: [ 'tasks', 0, 'subtitle' ],
+    message: 'Invalid input: expected string, received undefined'
+  },
+  {
+    expected: 'string',
+    code: 'invalid_type',
+    path: [ 'tasks', 0, 'summary' ],
+    message: 'Invalid input: expected string, received undefined'
+  },
+  {
+    expected: 'string',
+    code: 'invalid_type',
+    path: [ 'tasks', 0, 'assignee' ],
+    message: 'Invalid input: expected string, received undefined'
+  },
+  {
+    expected: 'string',
+    code: 'invalid_type',
+    path: [ 'tasks', 0, 'priority' ],
+    message: 'Invalid input: expected string, received undefined'
+  },
+  {
+    expected: 'string',
+    code: 'invalid_type',
+    path: [ 'tasks', 0, 'status' ],
+    message: 'Invalid input: expected string, received undefined'
+  }
+]
+
+ [32mΓ£ô[39m src/utils/__tests__/validation.test.ts [2m([22m[2m25 tests[22m[2m)[22m[32m 29[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/__tests__/useVirtualScroll.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 33[2mms[22m[39m
+stderr | src/utils/__tests__/storageQuota.test.ts > storageQuota > getStorageQuotaInfo > should return null on error
+Failed to get storage quota info: Error: Storage error
+    at Object.get [as length] (C:/Users/bhara/Downloads/Code/LiquiTask/src/utils/__tests__/storageQuota.test.ts:101:27)
+    at getStorageQuotaInfo (C:/Users/bhara/Downloads/Code/LiquiTask/src/utils/storageQuota.ts:23:38)
+    at C:/Users/bhara/Downloads/Code/LiquiTask/src/utils/__tests__/storageQuota.test.ts:106:26
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:145:11
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:915:26
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1243:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1209:10)
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1653:37
+    at Traces.$ (file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/vitest/dist/chunks/traces.CCmnQaNT.js:142:27)
+
+stderr | src/utils/__tests__/storageQuota.test.ts > storageQuota > clearOldData > should handle errors gracefully
+Failed to clear old data: Error: Remove error
+    at Object.<anonymous> (C:/Users/bhara/Downloads/Code/LiquiTask/src/utils/__tests__/storageQuota.test.ts:280:27)
+    at Object.Mock [as removeItem] (file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/spy/dist/index.js:285:34)
+    at clearOldData (C:/Users/bhara/Downloads/Code/LiquiTask/src/utils/storageQuota.ts:111:22)
+    at C:/Users/bhara/Downloads/Code/LiquiTask/src/utils/__tests__/storageQuota.test.ts:285:29
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:145:11
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:915:26
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1243:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1209:10)
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1653:37
+
+ [32mΓ£ô[39m src/utils/__tests__/storageQuota.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+stderr | src/services/__tests__/storageService.test.ts > StorageService > importData > should return error for invalid JSON
+Failed to import data: SyntaxError: Unexpected token 'o', "not valid json" is not valid JSON
+    at JSON.parse (<anonymous>)
+    at StorageService.importData (C:/Users/bhara/Downloads/Code/LiquiTask/src/services/storageService.ts:267:33)
+    at C:/Users/bhara/Downloads/Code/LiquiTask/src/services/__tests__/storageService.test.ts:127:43
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:145:11
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:915:26
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1243:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1209:10)
+    at file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/@vitest/runner/dist/index.js:1653:37
+    at Traces.$ (file:///C:/Users/bhara/Downloads/Code/LiquiTask/node_modules/vitest/dist/chunks/traces.CCmnQaNT.js:142:27)
+
+ [32mΓ£ô[39m src/services/__tests__/storageService.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 26[2mms[22m[39m
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mcreateBackup[2m > [22m[2mshould create a backup with unique ID
+[22m[39m[Migration] [2026-01-15T00:21:41.059Z] Backup created: backup_1768436501058_y98c7fu (version 1.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mcreateBackup[2m > [22m[2mshould store backup data correctly
+[22m[39m[Migration] [2026-01-15T00:21:41.061Z] Backup created: backup_1768436501061_nkx2xfu (version 1.0.0)
+[Migration] [2026-01-15T00:21:41.062Z] Restored from backup: backup_1768436501061_nkx2xfu
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mcreateBackup[2m > [22m[2mshould prune old backups when exceeding max
+[22m[39m[Migration] [2026-01-15T00:21:41.063Z] Backup created: backup_1768436501062_yodg3yt (version 1.0.0)
+[Migration] [2026-01-15T00:21:41.063Z] Backup created: backup_1768436501063_kbvcy4r (version 1.0.0)
+[Migration] [2026-01-15T00:21:41.063Z] Backup created: backup_1768436501063_0fcjiib (version 1.0.0)
+[Migration] [2026-01-15T00:21:41.063Z] Backup created: backup_1768436501063_stw5lb2 (version 1.0.0)
+[Migration] [2026-01-15T00:21:41.063Z] Backup created: backup_1768436501063_w54snbi (version 1.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mrestoreBackup[2m > [22m[2mshould restore backup data
+[22m[39m[Migration] [2026-01-15T00:21:41.064Z] Backup created: backup_1768436501064_23pwwuq (version 1.0.0)
+[Migration] [2026-01-15T00:21:41.064Z] Restored from backup: backup_1768436501064_23pwwuq
+
+stderr | src/services/__tests__/migrationService.test.ts > MigrationService > restoreBackup > should return null for non-existent backup
+Backup not found: non-existent-id
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mrestoreBackup[2m > [22m[2mshould return a deep copy (not reference)
+[22m[39m[Migration] [2026-01-15T00:21:41.066Z] Backup created: backup_1768436501066_edlziko (version 1.0.0)
+[Migration] [2026-01-15T00:21:41.066Z] Restored from backup: backup_1768436501066_edlziko
+[Migration] [2026-01-15T00:21:41.066Z] Restored from backup: backup_1768436501066_edlziko
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mlistBackups[2m > [22m[2mshould return backups sorted by timestamp (newest first)
+[22m[39m[Migration] [2026-01-15T00:21:41.067Z] Backup created: backup_1768436501067_andomid (version 1.0.0)
+[Migration] [2026-01-15T00:21:41.067Z] Backup created: backup_1768436501067_8dfktvp (version 1.0.0)
+[Migration] [2026-01-15T00:21:41.067Z] Backup created: backup_1768436501067_jwb11k1 (version 1.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mdeleteBackup[2m > [22m[2mshould delete a backup
+[22m[39m[Migration] [2026-01-15T00:21:41.068Z] Backup created: backup_1768436501068_oj2v1hx (version 1.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mrunMigrations[2m > [22m[2mshould create backup before migration
+[22m[39m[Migration] [2026-01-15T00:21:41.070Z] Backup created: backup_1768436501070_829kwsd (version 0.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mrunMigrations[2m > [22m[2mshould update version to current after migration
+[22m[39m[Migration] [2026-01-15T00:21:41.070Z] Backup created: backup_1768436501070_mugpgl5 (version 0.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mrunMigrations[2m > [22m[2mshould preserve existing data during migration
+[22m[39m[Migration] [2026-01-15T00:21:41.071Z] Backup created: backup_1768436501071_xff2kar (version 0.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mMigration Logs[2m > [22m[2mshould store migration logs
+[22m[39m[Migration] [2026-01-15T00:21:41.072Z] Backup created: backup_1768436501072_obp77o6 (version 0.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mMigrationService[2m > [22m[2mMigration Logs[2m > [22m[2mshould clear migration logs
+[22m[39m[Migration] [2026-01-15T00:21:41.072Z] Backup created: backup_1768436501072_es4yh03 (version 0.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mData Integrity[2m > [22m[2mshould maintain task data integrity through migration
+[22m[39m[Migration] [2026-01-15T00:21:41.073Z] Backup created: backup_1768436501073_a8q9aj4 (version 0.0.0)
+
+[90mstdout[2m | src/services/__tests__/migrationService.test.ts[2m > [22m[2mData Integrity[2m > [22m[2mshould maintain project hierarchy through migration
+[22m[39m[Migration] [2026-01-15T00:21:41.074Z] Backup created: backup_1768436501073_buhiwef (version 0.0.0)
+
+ [32mΓ£ô[39m src/services/__tests__/migrationService.test.ts [2m([22m[2m29 tests[22m[2m)[22m[32m 26[2mms[22m[39m
+ [32mΓ£ô[39m src/utils/__tests__/bulkTaskSchema.test.ts [2m([22m[2m34 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+ [32mΓ£ô[39m src/utils/__tests__/debounce.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 24[2mms[22m[39m
+ [32mΓ£ô[39m src/services/__tests__/activityService.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32mΓ£ô[39m src/utils/__tests__/taskToJson.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 27[2mms[22m[39m
+ [32mΓ£ô[39m src/services/__tests__/recurringTaskService.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32mΓ£ô[39m src/utils/__tests__/queryEngine.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32mΓ£ô[39m src/services/__tests__/indexedDBService.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+ [32mΓ£ô[39m src/utils/__tests__/taskParser.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Unhandled Errors ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+Vitest caught 1 unhandled error during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Unhandled Error ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+Error: Cancelled
+ Γ¥» Pool.cancel node_modules/vitest/dist/chunks/cli-api.Cx2DW4Bc.js:8083:34
+ Γ¥» Pool.close node_modules/vitest/dist/chunks/cli-api.Cx2DW4Bc.js:8097:14
+ Γ¥» Object.close node_modules/vitest/dist/chunks/cli-api.Cx2DW4Bc.js:8296:10
+ Γ¥» Vitest._setServer node_modules/vitest/dist/chunks/cli-api.Cx2DW4Bc.js:12175:21
+ Γ¥» handler node_modules/vitest/dist/chunks/cli-api.Cx2DW4Bc.js:13158:19
+ Γ¥» _createServer node_modules/vite/dist/node/chunks/dep-D4NMHUTW.js:38686:26
+ Γ¥» restartServer node_modules/vite/dist/node/chunks/dep-D4NMHUTW.js:38912:19
+ Γ¥» FSWatcher.<anonymous> node_modules/vitest/dist/chunks/cli-api.Cx2DW4Bc.js:12219:6
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+
+[2m Test Files [22m [1m[32m29 passed[39m[22m[90m (29)[39m
+[2m      Tests [22m [1m[32m378 passed[39m[22m[90m (378)[39m
+[2m     Errors [22m [1m[31m1 error[39m[22m
+[2m   Start at [22m 17:21:18
+[2m   Duration [22m 24.91s[2m (transform 8.55s, setup 13.55s, import 24.35s, tests 2.26s, environment 165.89s)[22m
+
+[1m[41m FAIL [49m[22m [31mTests failed. Watching for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m

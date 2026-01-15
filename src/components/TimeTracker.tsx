@@ -2,6 +2,7 @@ import React from 'react';
 import { Play, Pause, RotateCcw, Clock, Save } from 'lucide-react';
 import { useTimer, formatMinutes, secondsToMinutes } from '../hooks/useTimer';
 import { Task } from '../../types';
+import { useConfirmation } from '../contexts/ConfirmationContext';
 
 interface TimeTrackerProps {
     task: Task;
@@ -14,6 +15,7 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({
     onSaveTime,
     isCompact = false,
 }) => {
+    const { confirm } = useConfirmation();
     // Convert existing time spent (minutes) to seconds for initial value
     const initialSeconds = (task.timeSpent || 0) * 60;
 
@@ -29,8 +31,15 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({
         onSaveTime(task.id, secondsToMinutes(seconds));
     };
 
-    const handleReset = () => {
-        if (window.confirm('Reset timer to 0? This cannot be undone.')) {
+    const handleReset = async () => {
+        const confirmed = await confirm({
+            title: 'Reset Timer',
+            message: 'Reset timer to 0? This cannot be undone.',
+            confirmText: 'Reset',
+            variant: 'danger'
+        });
+
+        if (confirmed) {
             reset();
             onSaveTime(task.id, 0);
         }

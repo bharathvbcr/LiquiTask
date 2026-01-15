@@ -245,8 +245,10 @@ export class MigrationService {
         const logEntry = `[${timestamp}] ${message}`;
 
         if (level === 'error') {
+            // eslint-disable-next-line no-console
             console.error(`[Migration] ${logEntry}`);
         } else {
+            // eslint-disable-next-line no-console
             console.log(`[Migration] ${logEntry}`);
         }
 

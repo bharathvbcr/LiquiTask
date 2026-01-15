@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Search, X, ArrowRight, Settings, LayoutGrid, FolderOpen, FileText, Keyboard } from 'lucide-react';
+import { Search, X, ArrowRight, Settings, LayoutGrid, FolderOpen, FileText, Keyboard, Plus, Flag, Calendar, Tag, Clock } from 'lucide-react';
+import { parseQuickTask, ParsedTask } from '../utils/taskParser';
 
 export interface CommandAction {
     id: string;
@@ -15,6 +16,7 @@ interface CommandPaletteProps {
     isOpen: boolean;
     onClose: () => void;
     actions: CommandAction[];
+    onCreateTask?: (task: ParsedTask) => void;
 }
 
 // Simple fuzzy search implementation
@@ -59,27 +61,55 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     isOpen,
     onClose,
     actions,
+    onCreateTask,
 }) => {
     const [query, setQuery] = useState('');
     const [selectedIndex, setSelectedIndex] = useState(0);
     const inputRef = useRef<HTMLInputElement>(null);
     const listRef = useRef<HTMLDivElement>(null);
 
+    // Parse query for task creation
+    const parsedTask = useMemo(() => {
+        if (!query.trim()) return null;
+        return parseQuickTask(query);
+    }, [query]);
+
     // Filter and sort actions based on query
     const filteredActions = useMemo(() => {
-        if (!query.trim()) {
-            return actions;
+        let results = [];
+
+        // 1. Dynamic "Create Task" Action (if query exists)
+        if (query.trim() && onCreateTask && parsedTask?.title) {
+            results.push({
+                id: 'quick-create-task',
+                label: `Create: ${parsedTask.title}`,
+                description: `Priority: ${parsedTask.priority || 'Default'} • Due: ${parsedTask.dueDate?.toLocaleDateString() || 'None'} • Project: ${parsedTask.projectName || 'Current'}`,
+                category: 'task' as const,
+                icon: <Plus size={16} className="text-emerald-400" />,
+                action: () => {
+                    if (parsedTask) onCreateTask(parsedTask);
+                }
+            });
         }
 
-        return actions
-            .map(action => ({
-                action,
-                ...fuzzyMatch(action.label + ' ' + (action.description || ''), query),
-            }))
-            .filter(result => result.matches)
-            .sort((a, b) => b.score - a.score)
-            .map(result => result.action);
-    }, [actions, query]);
+        // 2. Existing Actions
+        if (!query.trim()) {
+            results = [...results, ...actions];
+        } else {
+            const matched = actions
+                .map(action => ({
+                    action,
+                    ...fuzzyMatch(action.label + ' ' + (action.description || ''), query),
+                }))
+                .filter(result => result.matches)
+                .sort((a, b) => b.score - a.score)
+                .map(result => result.action);
+            
+            results = [...results, ...matched];
+        }
+
+        return results;
+    }, [actions, query, onCreateTask, parsedTask]);
 
     // Group actions by category
     const groupedActions = useMemo((): Record<'task' | 'project' | 'view' | 'action', CommandAction[]> => {
@@ -91,7 +121,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         };
 
         filteredActions.forEach(action => {
-            groups[action.category].push(action);
+            if (groups[action.category]) {
+                groups[action.category].push(action);
+            }
         });
 
         return groups;
@@ -142,7 +174,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     // Reset selection when filtered results change
     useEffect(() => {
         setSelectedIndex(0);
-    }, [query]);
+    }, [query, filteredActions.length]);
 
     if (!isOpen) return null;
 
@@ -164,6 +196,45 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             case 'action': return 'Actions';
             default: return category;
         }
+    };
+
+    // Helper to render preview badges for the creation action
+    const renderTaskPreview = () => {
+        if (!parsedTask || query.trim() === '') return null;
+        
+        return (
+            <div className="flex flex-wrap gap-2 mt-1">
+                {parsedTask.priority && (
+                    <span className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded uppercase font-bold ${
+                        parsedTask.priority === 'high' ? 'bg-red-500/20 text-red-400' :
+                        parsedTask.priority === 'medium' ? 'bg-amber-500/20 text-amber-400' :
+                        'bg-emerald-500/20 text-emerald-400'
+                    }`}>
+                        <Flag size={10} /> {parsedTask.priority}
+                    </span>
+                )}
+                {parsedTask.dueDate && (
+                    <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">
+                        <Calendar size={10} /> {parsedTask.dueDate.toLocaleDateString()}
+                    </span>
+                )}
+                {parsedTask.projectName && (
+                    <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400">
+                        <FolderOpen size={10} /> {parsedTask.projectName}
+                    </span>
+                )}
+                {parsedTask.timeEstimate && (
+                    <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-slate-500/20 text-slate-400">
+                        <Clock size={10} /> {parsedTask.timeEstimate}m
+                    </span>
+                )}
+                {parsedTask.tags.map(tag => (
+                    <span key={tag} className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-slate-300">
+                        <Tag size={10} /> {tag}
+                    </span>
+                ))}
+            </div>
+        );
     };
 
     let globalIndex = -1;
@@ -188,7 +259,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
                             onKeyDown={handleKeyDown}
-                            placeholder="Type a command or search..."
+                            placeholder="Type a command or create task (e.g. 'Buy milk !high @tomorrow')..."
                             className="flex-1 bg-transparent text-lg text-white placeholder-slate-500 outline-none"
                         />
                         <kbd className="hidden sm:flex items-center gap-1 px-2 py-1 bg-white/5 rounded text-[10px] text-slate-500 font-mono">
@@ -203,7 +274,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                     </div>
 
                     {/* Results */}
-                    <div ref={listRef} className="max-h-[50vh] overflow-y-auto">
+                    <div ref={listRef} className="max-h-[50vh] overflow-y-auto custom-scrollbar">
                         {filteredActions.length === 0 ? (
                             <div className="p-8 text-center text-slate-500">
                                 No commands found for &quot;{query}&quot;
@@ -221,6 +292,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                                         {categoryActions.map((action) => {
                                             globalIndex++;
                                             const isSelected = globalIndex === selectedIndex;
+                                            const isCreateAction = action.id === 'quick-create-task';
 
                                             return (
                                                 <button
@@ -240,11 +312,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                                                     </span>
                                                     <div className="flex-1 min-w-0">
                                                         <div className="font-medium truncate">{action.label}</div>
-                                                        {action.description && (
+                                                        {action.description && !isCreateAction && (
                                                             <div className="text-xs text-slate-500 truncate">
                                                                 {action.description}
                                                             </div>
                                                         )}
+                                                        {isCreateAction && renderTaskPreview()}
                                                     </div>
                                                     {action.shortcut && (
                                                         <kbd className="shrink-0 px-2 py-0.5 bg-white/5 rounded text-[10px] text-slate-500 font-mono">

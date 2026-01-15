@@ -1,18 +1,25 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
-import { ErrorBoundary } from './src/components/ErrorBoundary';
+import { AppProvider } from './src/context/AppContext';
+import { KeybindingProvider } from './src/context/KeybindingContext';
+import { ConfirmationProvider } from './src/contexts/ConfirmationContext';
+import './index.css';
 
-const rootElement = document.getElementById('root');
-if (!rootElement) {
-  throw new Error("Could not find root element to mount to");
+// Handle window controls for electron
+if (window.electronAPI) {
+    window.electronAPI.on('maximize', () => document.body.classList.add('maximized'));
+    window.electronAPI.on('unmaximize', () => document.body.classList.remove('maximized'));
 }
 
-const root = ReactDOM.createRoot(rootElement);
-root.render(
-  <React.StrictMode>
-    <ErrorBoundary>
-      <App />
-    </ErrorBoundary>
-  </React.StrictMode>
+ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+    <React.StrictMode>
+        <KeybindingProvider>
+            <AppProvider>
+                <ConfirmationProvider>
+                    <App />
+                </ConfirmationProvider>
+            </AppProvider>
+        </KeybindingProvider>
+    </React.StrictMode>,
 );

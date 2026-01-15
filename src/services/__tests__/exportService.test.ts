@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { exportService } from '../exportService';
-import { Task, Project, BoardColumn, PriorityDefinition, CustomFieldDefinition } from '../../../types';
+import { Task, CustomFieldDefinition } from '../../../types';
 
 describe('exportService', () => {
     beforeEach(() => {
@@ -226,7 +226,7 @@ describe('exportService', () => {
 
         it('should create blob with correct content and type', () => {
             const blobSpy = vi.fn();
-            global.Blob = blobSpy as any;
+            global.Blob = blobSpy as unknown as typeof Blob;
 
             exportService.downloadFile('test content', 'test.txt', 'text/plain');
 

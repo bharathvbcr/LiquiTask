@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useBulkSelection } from '../useBulkSelection';
 
@@ -301,13 +301,13 @@ describe('useBulkSelection', () => {
             expect(result.current.isAllSelected).toBe(false);
             // selectedCount includes invalid selections, so it's still 4
             expect(result.current.selectedCount).toBe(4);
-            
+
             // Clear all selections first
             act(() => {
                 result.current.selectNone();
             });
             expect(result.current.selectedCount).toBe(0);
-            
+
             // Then select the new item
             act(() => {
                 result.current.toggleSelect('1');

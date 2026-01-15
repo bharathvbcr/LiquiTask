@@ -3,6 +3,7 @@ import { STORAGE_KEYS, DEFAULT_COLUMNS, DEFAULT_PROJECTS, DEFAULT_PROJECT_TYPES,
 import { validateAndTransformImportedData } from '../utils/validation';
 import { trySaveToStorage } from '../utils/storageQuota';
 import { migrationService, CURRENT_DATA_VERSION } from './migrationService';
+import { indexedDBService } from './indexedDBService';
 
 // Type guard for Electron environment
 function hasElectronAPI(win: Window): win is Window & { electronAPI: NonNullable<typeof window.electronAPI> } {
@@ -149,6 +150,7 @@ class StorageService {
             return;
         }
 
+        // eslint-disable-next-line no-console
         console.log(`[Storage] Data migration needed: ${storedVersion} → ${CURRENT_DATA_VERSION}`);
 
         // Run migrations
@@ -157,6 +159,7 @@ class StorageService {
         if (result.success && result.data) {
             // Save migrated data
             await this.saveAllData(result.data);
+            // eslint-disable-next-line no-console
             console.log(`[Storage] Migration complete: ${result.migratedFrom} → ${result.migratedTo}`);
         } else {
             console.error(`[Storage] Migration failed: ${result.error}`);
@@ -184,21 +187,34 @@ class StorageService {
     set<T>(key: string, value: T): void {
         this.cache.set(key, value);
 
+        // Save to IndexedDB if available (for large data like tasks)
+        if (indexedDBService.isAvailable() && (key === STORAGE_KEYS.TASKS || key === STORAGE_KEYS.PROJECTS || key === STORAGE_KEYS.COLUMNS || key === STORAGE_KEYS.PRIORITIES || key === STORAGE_KEYS.CUSTOM_FIELDS)) {
+            if (key === STORAGE_KEYS.TASKS) {
+                indexedDBService.saveTasks(value as Task[]).catch(console.error);
+            } else if (key === STORAGE_KEYS.PROJECTS) {
+                const projects = value as Project[];
+                Promise.all(projects.map(p => indexedDBService.saveProject(p))).catch(console.error);
+            } else if (key === STORAGE_KEYS.COLUMNS) {
+                indexedDBService.saveColumns(value as BoardColumn[]).catch(console.error);
+            } else if (key === STORAGE_KEYS.PRIORITIES) {
+                indexedDBService.savePriorities(value as PriorityDefinition[]).catch(console.error);
+            } else if (key === STORAGE_KEYS.CUSTOM_FIELDS) {
+                indexedDBService.saveCustomFields(value as CustomFieldDefinition[]).catch(console.error);
+            }
+        }
+
         if (isElectron) {
-            // Native Save
+            // Native Save (backup)
             window.electronAPI!.storage.set(key, value).catch(console.error);
         }
 
-        // Always save to localStorage as backup/fallback for now (or strictly separate)
-        // For now, let's keep localStorage sync as well to be safe, or conditionally:
-        if (!isElectron) {
-            try {
-                const serialized = JSON.stringify(value);
-                const result = trySaveToStorage(key, serialized);
-                if (!result.success) throw new Error(result.error);
-            } catch (e) {
-                console.error(`Failed to save ${key}:`, e);
-            }
+        // Always save to localStorage as backup/fallback (for settings and small data)
+        try {
+            const serialized = JSON.stringify(value);
+            const result = trySaveToStorage(key, serialized);
+            if (!result.success) throw new Error(result.error);
+        } catch (e) {
+            console.error(`Failed to save ${key} to localStorage:`, e);
         }
     }
 

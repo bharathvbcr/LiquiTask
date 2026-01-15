@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import * as storageQuotaModule from '../storageQuota';
+
 import {
     getStorageQuotaInfo,
     isStorageNearQuota,
@@ -41,23 +41,23 @@ describe('storageQuota', () => {
         // Reset all mocks to their default implementations
         localStorageMock.getItem.mockReset();
         localStorageMock.getItem.mockImplementation((key: string) => localStorageMock.store[key] || null);
-        
+
         localStorageMock.setItem.mockReset();
         localStorageMock.setItem.mockImplementation((key: string, value: string) => {
             localStorageMock.store[key] = value;
         });
-        
+
         localStorageMock.removeItem.mockReset();
         localStorageMock.removeItem.mockImplementation((key: string) => {
             delete localStorageMock.store[key];
         });
-        
+
         localStorageMock.key.mockReset();
         localStorageMock.key.mockImplementation((index: number) => {
             const keys = Object.keys(localStorageMock.store);
             return index >= 0 && index < keys.length ? keys[index] : null;
         });
-        
+
         vi.clearAllMocks();
     });
 
@@ -106,11 +106,12 @@ describe('storageQuota', () => {
             const info = getStorageQuotaInfo();
 
             expect(info).toBeNull();
-            
+
             // Restore
             if (originalLength) {
                 Object.defineProperty(localStorageMock, 'length', originalLength);
             } else {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 delete (localStorageMock as any).length;
             }
         });
@@ -203,9 +204,9 @@ describe('storageQuota', () => {
             delete localStorageMock.store['liquitask-storage-quota-warning'];
 
             const result1 = trySaveToStorage('test-key-1', 'value1');
-            
+
             // Second call should also fail (within same hour, but we're still near quota)
-            const result2 = trySaveToStorage('test-key-2', 'value2');
+            trySaveToStorage('test-key-2', 'value2');
 
             // First call should warn
             expect(result1.success).toBe(false);
@@ -231,7 +232,7 @@ describe('storageQuota', () => {
             localStorageMock.removeItem.mockClear();
             localStorageMock.setItem.mockClear();
             localStorageMock.store = {};
-            
+
             localStorageMock.setItem('liquitask-temp-1', 'data1');
             localStorageMock.setItem('liquitask-cache-1', 'data2');
             localStorageMock.setItem('liquitask-important', 'data3');
@@ -251,7 +252,7 @@ describe('storageQuota', () => {
             localStorageMock.removeItem.mockClear();
             localStorageMock.setItem.mockClear();
             localStorageMock.store = {};
-            
+
             localStorageMock.setItem('liquitask-temp-1', 'data1');
             localStorageMock.setItem('liquitask-temp-2', 'data2');
             localStorageMock.setItem('liquitask-cache-1', 'data3');
@@ -266,11 +267,11 @@ describe('storageQuota', () => {
             localStorageMock.removeItem.mockClear();
             localStorageMock.setItem.mockClear();
             localStorageMock.store = {};
-            
+
             // Set up items first
             localStorageMock.setItem('liquitask-temp-1', 'data1');
             localStorageMock.setItem('liquitask-temp-2', 'data2');
-            
+
             // The function iterates backwards (length-1 to 0)
             // So it will process temp-2 first (index 1), then temp-1 (index 0)
             // Make removeItem throw for temp-1, succeed for temp-2
@@ -293,7 +294,7 @@ describe('storageQuota', () => {
             localStorageMock.removeItem.mockClear();
             localStorageMock.setItem.mockClear();
             localStorageMock.store = {};
-            
+
             localStorageMock.setItem('other-key', 'data');
 
             const cleared = clearOldData(30);

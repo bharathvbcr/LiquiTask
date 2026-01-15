@@ -17,6 +17,8 @@ ipcMain.handle('storage:has', (_event, key) => store.has(key));
 let mainWindow: BrowserWindow | null = null;
 
 function createWindow() {
+    const preloadPath = join(__dirname, '../preload/preload.js');
+    const iconPath = join(__dirname, '../build/icon.png');
     mainWindow = new BrowserWindow({
         width: 1400,
         height: 900,
@@ -32,19 +34,27 @@ function createWindow() {
             height: 40
         },
         webPreferences: {
-            preload: join(__dirname, '../preload/preload.mjs'),
+            preload: preloadPath,
             nodeIntegration: false,
             contextIsolation: true,
             sandbox: true
         },
         show: false, // Show when ready
-        icon: join(__dirname, '../build/icon.png')
+        icon: iconPath
     });
 
     // Graceful window show
+    let windowShown = false;
+    const showWindow = () => {
+        if (!windowShown && mainWindow && !mainWindow.isDestroyed()) {
+            windowShown = true;
+            mainWindow.show();
+            mainWindow.focus();
+        }
+    };
+
     mainWindow.once('ready-to-show', () => {
-        mainWindow?.show();
-        mainWindow?.focus();
+        showWindow();
     });
 
     // Open external links in browser
@@ -60,23 +70,85 @@ function createWindow() {
                 ...details.responseHeaders,
                 'Content-Security-Policy': [
                     process.env.VITE_DEV_SERVER_URL
-                        ? "default-src 'self' 'unsafe-inline' 'unsafe-eval'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:;"
-                        : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:;"
+                        ? "default-src 'self' 'unsafe-inline' 'unsafe-eval'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' data: https://fonts.gstatic.com;"
+                        : "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' data: https://fonts.gstatic.com;"
                 ]
             }
         });
     });
 
     // Load app
-    if (process.env.VITE_DEV_SERVER_URL) {
-        mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
-        mainWindow.webContents.openDevTools();
+    // Try to use dev server URL if available, fallback to localhost:5173 in dev mode
+    const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+    const devServerUrl = process.env.VITE_DEV_SERVER_URL
+        || process.env.ELECTRON_VITE_DEV_SERVER_URL
+        || (isDev ? 'http://localhost:5173' : null);
+
+    if (devServerUrl) {
+        // console.log('[Electron] Loading from dev server:', devServerUrl);
+        mainWindow.loadURL(devServerUrl).catch((_err) => {
+            // console.error('[Electron] Failed to load dev server URL:', err);
+            // Fallback to file if dev server fails
+            const filePath = join(__dirname, '../renderer/index.html');
+            // console.log('[Electron] Falling back to file:', filePath);
+            mainWindow.loadFile(filePath).catch((/* fileErr */) => {
+                // console.error('[Electron] Failed to load file:', fileErr);
+            });
+        });
+        // Only open dev tools in development
+        if (isDev) {
+            mainWindow.webContents.openDevTools();
+        }
     } else {
-        mainWindow.loadFile(join(__dirname, '../renderer/index.html'));
+        const filePath = join(__dirname, '../renderer/index.html');
+        // console.log('[Electron] Loading from file:', filePath);
+        mainWindow.loadFile(filePath).catch((/* err */) => {
+            // console.error('[Electron] Failed to load file:', err);
+        });
     }
+
+    // Handle load errors
+    mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+        /*
+        console.error('[Electron] Failed to load:', {
+            errorCode,
+            errorDescription,
+            validatedURL
+        });
+        */
+        // If dev server fails, try to reload after a short delay
+        if (isDev && devServerUrl && validatedURL === devServerUrl) {
+            // console.log('[Electron] Retrying dev server load in 2 seconds...');
+            setTimeout(() => {
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.loadURL(devServerUrl).catch((err) => {
+                        console.error('[Electron] Retry failed:', err);
+                    });
+                }
+            }, 2000);
+        }
+    });
+
+    // Fallback: show window if ready-to-show hasn't fired yet
+    mainWindow.webContents.on('did-finish-load', () => {
+        // console.log('[Electron] Page loaded successfully');
+        setTimeout(() => {
+            if (!windowShown) {
+                showWindow();
+            }
+        }, 100);
+    });
 
     mainWindow.on('closed', () => {
         mainWindow = null;
+    });
+
+    // Send window state events to renderer
+    mainWindow.on('maximize', () => {
+        mainWindow?.webContents.send('window:maximize');
+    });
+    mainWindow.on('unmaximize', () => {
+        mainWindow?.webContents.send('window:unmaximize');
     });
 }
 

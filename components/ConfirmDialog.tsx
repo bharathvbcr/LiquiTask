@@ -51,7 +51,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     };
 
     return (
-        <ModalWrapper isOpen={isOpen} onClose={onClose}>
+        <ModalWrapper isOpen={isOpen} onClose={onClose} title={title}>
             <div className="w-full max-w-md">
                 <div className="flex items-start gap-4 mb-6">
                     <div className="p-3 rounded-full bg-white/5 border border-white/10">

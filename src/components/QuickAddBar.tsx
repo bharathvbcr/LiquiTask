@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Plus, Calendar, Flag, X } from 'lucide-react';
+import { Button } from './common/Button';
 
 interface QuickAddBarProps {
     onAddTask: (title: string, options?: {
@@ -167,13 +168,14 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({
                                 placeholder="Add task... (e.g., 'Review PR !high @tomorrow')"
                                 className="flex-1 bg-transparent text-lg text-white placeholder-slate-500 outline-none"
                             />
-                            <button
+                            <Button
                                 type="button"
                                 onClick={onClose}
-                                className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                                variant="ghost"
+                                className="!p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg h-auto"
                             >
                                 <X size={18} />
-                            </button>
+                            </Button>
                         </div>
 
                         {/* Preview & Hints */}

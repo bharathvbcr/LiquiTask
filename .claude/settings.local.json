@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm ls)",
+      "Bash(npm run build:electron:*)",
+      "Bash(findstr:*)",
+      "Bash(npm run lint)",
+      "Bash(dir /b:*)",
+      "Bash(xargs cat:*)",
+      "Bash(find:*)"
+    ]
+  }
+}

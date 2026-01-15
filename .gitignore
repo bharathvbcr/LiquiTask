@@ -24,3 +24,9 @@ release
 *.njsproj
 *.sln
 *.sw?
+
+# Agent and Reports
+.agent/
+.gemini/
+POWER_USER_AUDIT*.md
+test_output.txt

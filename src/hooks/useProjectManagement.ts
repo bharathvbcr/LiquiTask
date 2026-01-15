@@ -3,11 +3,14 @@ import { Project, ToastType } from '../../types';
 import { storageService } from '../services/storageService';
 import { STORAGE_KEYS, DEFAULT_PROJECTS } from '../constants';
 
+import { ConfirmationOptions } from '../contexts/ConfirmationContext';
+
 interface UseProjectManagementProps {
     addToast: (message: string, type: ToastType) => void;
+    confirm?: (options: ConfirmationOptions) => Promise<boolean>;
 }
 
-export function useProjectManagement({ addToast }: UseProjectManagementProps) {
+export function useProjectManagement({ addToast, confirm }: UseProjectManagementProps) {
     const [projects, setProjects] = useState<Project[]>(() =>
         storageService.get(STORAGE_KEYS.PROJECTS, [...DEFAULT_PROJECTS] as Project[])
     );
@@ -55,15 +58,26 @@ export function useProjectManagement({ addToast }: UseProjectManagementProps) {
     }, [projects, saveProjects, setActiveProject, addToast]);
 
     // Delete project
-    const deleteProject = useCallback((id: string, onDeleteTasks: (projectId: string) => void) => {
+    const deleteProject = useCallback(async (id: string, onDeleteTasks: (projectId: string) => void) => {
         const hasChildren = projects.some(p => p.parentId === id);
         if (hasChildren) {
             addToast('Cannot delete a project that has sub-projects.', 'error');
             return false;
         }
 
+        let confirmed = false;
+        if (confirm) {
+            confirmed = await confirm({
+                title: 'Delete Workspace',
+                message: 'Delete this workspace? All associated tasks will be removed.',
+                confirmText: 'Delete Workspace',
+                variant: 'danger'
+            });
+        } else {
+            confirmed = window.confirm('Delete this workspace? All associated tasks will be removed.');
+        }
 
-        if (window.confirm('Delete this workspace? All associated tasks will be removed.')) {
+        if (confirmed) {
             const newProjects = projects.filter(p => p.id !== id);
             saveProjects(newProjects);
             onDeleteTasks(id);
@@ -80,7 +94,7 @@ export function useProjectManagement({ addToast }: UseProjectManagementProps) {
             return true;
         }
         return false;
-    }, [projects, activeProjectId, saveProjects, setActiveProject, addToast]);
+    }, [projects, activeProjectId, saveProjects, setActiveProject, addToast, confirm]);
 
     // Toggle pin
     const togglePin = useCallback((projectId: string) => {

@@ -65,7 +65,7 @@ export function trySaveToStorage(key: string, value: string): { success: boolean
     if (isStorageNearQuota(90)) {
       const lastWarning = localStorage.getItem(STORAGE_QUOTA_KEY);
       const now = Date.now();
-      
+
       // Only warn once per hour
       if (!lastWarning || now - parseInt(lastWarning) > 3600000) {
         localStorage.setItem(STORAGE_QUOTA_KEY, now.toString());
@@ -96,15 +96,15 @@ export function trySaveToStorage(key: string, value: string): { success: boolean
  * Clear old data to free up space
  * Removes data older than specified days
  */
-export function clearOldData(olderThanDays = 30): number {
+export function clearOldData(_olderThanDays = 30): number {
   let cleared = 0;
-  const cutoffDate = Date.now() - olderThanDays * 24 * 60 * 60 * 1000;
+
 
   try {
     // This is a placeholder - in a real app, you'd identify old data
     // For now, we'll just clear non-essential keys
     const keysToCheck = ['liquitask-temp-', 'liquitask-cache-'];
-    
+
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const key = localStorage.key(i);
       if (key && keysToCheck.some(prefix => key.startsWith(prefix))) {

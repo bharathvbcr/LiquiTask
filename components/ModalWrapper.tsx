@@ -7,7 +7,8 @@ interface ModalWrapperProps {
   title: string;
   children: React.ReactNode;
   icon?: React.ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+  logo?: string;
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | 'full';
 }
 
 export const ModalWrapper: React.FC<ModalWrapperProps> = ({
@@ -16,6 +17,7 @@ export const ModalWrapper: React.FC<ModalWrapperProps> = ({
   title,
   children,
   icon,
+  logo,
   size = 'lg'
 }) => {
   // Close on Escape key
@@ -35,6 +37,11 @@ export const ModalWrapper: React.FC<ModalWrapperProps> = ({
     lg: 'max-w-lg',
     xl: 'max-w-xl',
     '2xl': 'max-w-2xl',
+    '3xl': 'max-w-3xl',
+    '4xl': 'max-w-4xl',
+    '5xl': 'max-w-5xl',
+    '6xl': 'max-w-6xl',
+    'full': 'max-w-full mx-4',
   };
 
   return (
@@ -55,6 +62,9 @@ export const ModalWrapper: React.FC<ModalWrapperProps> = ({
         <div className="p-8 pb-4 relative z-10 shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
+              {logo && (
+                <img src={logo} alt="LiquiTask" className="w-6 h-6 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]" />
+              )}
               {icon && (
                 <div className="p-2.5 bg-red-500/10 rounded-xl border border-red-500/30 text-red-400 shadow-[0_0_15px_rgba(220,38,38,0.2)]">
                   {icon}
@@ -67,8 +77,10 @@ export const ModalWrapper: React.FC<ModalWrapperProps> = ({
             <button
               onClick={onClose}
               className="text-slate-400 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-full"
+              title="Close"
+              aria-label="Close modal"
             >
-              <X size={20} />
+              <X size={20} aria-hidden="true" />
             </button>
           </div>
         </div>
