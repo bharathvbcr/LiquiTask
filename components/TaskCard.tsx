@@ -347,10 +347,27 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, isCompletedColumn, onM
             {attachments.length > 0 && (
               <div className="mb-4 flex flex-wrap gap-2 pt-2 border-t border-white/5">
                 {attachments.map(att => (
-                  <a key={att.id} href={att.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="group/att flex items-center gap-2 px-2.5 py-1.5 bg-black/40 hover:bg-white/5 border border-white/10 hover:border-white/20 rounded-lg text-[10px] font-medium text-slate-400 hover:text-slate-200 transition-all duration-200 hover:scale-105 hover:shadow-sm" title={att.name}>
-                    {att.type === 'file' ? <Paperclip size={11} className="text-slate-500 group-hover/att:text-red-400 transition-colors" /> : <LinkIcon size={11} className="text-slate-500 group-hover/att:text-blue-400 transition-colors" />}
-                    <span className="truncate max-w-[120px] decoration-slate-600/50 group-hover/att:underline">{att.name}</span>
-                  </a>
+                  <React.Fragment key={att.id}>
+                    {(() => {
+                      const isSafe = !att.url.trim().toLowerCase().startsWith('javascript:');
+                      return (
+                        <a
+                          href={isSafe ? att.url : '#'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!isSafe) e.preventDefault();
+                          }}
+                          className={`group/att flex items-center gap-2 px-2.5 py-1.5 bg-black/40 hover:bg-white/5 border border-white/10 hover:border-white/20 rounded-lg text-[10px] font-medium transition-all duration-200 hover:scale-105 hover:shadow-sm ${isSafe ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 cursor-not-allowed decoration-slate-500/30'}`}
+                          title={isSafe ? att.name : 'Unsafe URL blocked'}
+                        >
+                          {att.type === 'file' ? <Paperclip size={11} className="text-slate-500 group-hover/att:text-red-400 transition-colors" /> : <LinkIcon size={11} className="text-slate-500 group-hover/att:text-blue-400 transition-colors" />}
+                          <span className="truncate max-w-[120px] decoration-slate-600/50 group-hover/att:underline">{att.name}</span>
+                        </a>
+                      );
+                    })()}
+                  </React.Fragment>
                 ))}
               </div>
             )}
@@ -386,22 +403,22 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, isCompletedColumn, onM
                   <div className="mt-3 space-y-1 animate-in slide-in-from-top-2 duration-200 pl-1">
                     {subtasks.map(subtask => (
                       <div key={subtask.id} className="flex items-center gap-2 group/subtask">
-                        <button 
-                            onClick={(e) => handleSubtaskToggle(e, subtask.id)} 
-                            className={`w-4 h-4 rounded border flex items-center justify-center transition-all shrink-0 ${subtask.completed ? 'bg-emerald-500/20 border-emerald-500 text-emerald-500' : 'border-slate-700 hover:border-slate-500 bg-black/20 text-transparent'}`}
-                            aria-label={subtask.completed ? 'Mark subtask incomplete' : 'Mark subtask complete'}
-                            title={subtask.completed ? 'Mark incomplete' : 'Mark complete'}
+                        <button
+                          onClick={(e) => handleSubtaskToggle(e, subtask.id)}
+                          className={`w-4 h-4 rounded border flex items-center justify-center transition-all shrink-0 ${subtask.completed ? 'bg-emerald-500/20 border-emerald-500 text-emerald-500' : 'border-slate-700 hover:border-slate-500 bg-black/20 text-transparent'}`}
+                          aria-label={subtask.completed ? 'Mark subtask incomplete' : 'Mark subtask complete'}
+                          title={subtask.completed ? 'Mark incomplete' : 'Mark complete'}
                         >
-                            <Check size={10} strokeWidth={3} />
+                          <Check size={10} strokeWidth={3} />
                         </button>
-                        <input 
-                            type="text" 
-                            value={subtask.title} 
-                            onClick={(e) => e.stopPropagation()} 
-                            onChange={(e) => handleSubtaskTitleChange(subtask.id, e.target.value)} 
-                            className={`bg-transparent border-none outline-none text-xs w-full transition-colors p-0.5 rounded hover:bg-white/5 focus:bg-white/5 ${subtask.completed ? 'text-slate-600 line-through decoration-slate-700' : 'text-slate-300 focus:text-white'}`}
-                            aria-label="Subtask title"
-                            placeholder="Subtask title"
+                        <input
+                          type="text"
+                          value={subtask.title}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => handleSubtaskTitleChange(subtask.id, e.target.value)}
+                          className={`bg-transparent border-none outline-none text-xs w-full transition-colors p-0.5 rounded hover:bg-white/5 focus:bg-white/5 ${subtask.completed ? 'text-slate-600 line-through decoration-slate-700' : 'text-slate-300 focus:text-white'}`}
+                          aria-label="Subtask title"
+                          placeholder="Subtask title"
                         />
                       </div>
                     ))}
@@ -470,7 +487,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, isCompletedColumn, onM
                 </div>
                 <ChevronRight size={14} className="text-slate-500" />
               </button>
-              
+
               {/* Workspace Submenu */}
               {showWorkspaceSubmenu && (
                 <div
@@ -504,7 +521,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, isCompletedColumn, onM
               )}
             </div>
           )}
-          
+
           <button
             onClick={handleCopyAsJson}
             className="w-full px-4 py-2.5 text-left text-sm text-slate-200 hover:bg-red-500/20 hover:text-white transition-colors flex items-center gap-2"

@@ -497,7 +497,22 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
               {attachments.map(att => (
                 <div key={att.id} className="flex items-center gap-3 p-2.5 rounded-xl bg-black/20 border border-white/5 group hover:border-white/10 transition-colors">
                   <div className="p-1.5 rounded-lg bg-white/5 text-slate-400">{att.type === 'file' ? <Paperclip size={14} /> : <LinkIcon size={14} />}</div>
-                  <a href={att.url} target="_blank" rel="noopener noreferrer" className="flex-1 text-sm font-medium text-blue-400 hover:text-blue-300 truncate underline decoration-blue-500/30 hover:decoration-blue-400">{att.name}</a>
+
+                  {(() => {
+                    const isSafe = !att.url.trim().toLowerCase().startsWith('javascript:');
+                    return (
+                      <a
+                        href={isSafe ? att.url : '#'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`flex-1 text-sm font-medium truncate underline decoration-blue-500/30 hover:decoration-blue-400 ${isSafe ? 'text-blue-400 hover:text-blue-300' : 'text-slate-500 cursor-not-allowed decoration-slate-500/30'}`}
+                        onClick={e => !isSafe && e.preventDefault()}
+                        title={isSafe ? att.url : 'Unsafe URL blocked'}
+                      >
+                        {att.name}
+                      </a>
+                    );
+                  })()}
                   <button type="button" onClick={() => handleRemoveAttachment(att.id)} className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all" aria-label={`Remove attachment "${att.name}"`} title={`Remove attachment "${att.name}"`}><X size={16} aria-hidden="true" /></button>
                 </div>
               ))}
