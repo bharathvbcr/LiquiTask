@@ -2530,3 +2530,5 @@ Error: Cancelled
 
 [1m[41m FAIL [49m[22m [31mTests failed. Watching for file changes...[39m
        [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2mcomponents/__tests__/TaskFormModal.test.tsx [22m[34mx1 [34m[39m
+

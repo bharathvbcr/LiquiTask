@@ -391,7 +391,7 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = ({
                     tabIndex={0}
                 >
                     {/* Column headers */}
-                    <div className="flex gap-6 sticky top-[120px] z-20 pb-4 bg-[#020000]/90 backdrop-blur-md -mx-6 px-6 pt-4 border-b border-white/5 overflow-x-auto scrollbar-hide min-w-0">
+                    <div className="flex gap-6 sticky top-[120px] z-20 pb-4 bg-[#020000]/90 backdrop-blur-md -mx-6 px-[44px] pt-4 border-b border-white/5 overflow-x-auto scrollbar-hide min-w-0">
                         {safeColumns.map((col) => {
                             const tasksInCol = getTasksByContext(col.id);
                             return (
