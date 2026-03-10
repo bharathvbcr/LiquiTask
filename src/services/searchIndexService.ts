@@ -83,7 +83,18 @@ export class SearchIndexService {
         if (!query.trim()) return [];
 
         const words = this.tokenize(query);
-        if (words.length === 0) return [];
+        if (words.length === 0) {
+            // If tokenization returns nothing (e.g. all words < 3 chars), 
+            // try a simple lowercase match on jobId
+            const results = new Set<string>();
+            const lowerQuery = query.toLowerCase().trim();
+            this.index.jobIdIndex.forEach((taskIds, jobId) => {
+                if (jobId.includes(lowerQuery)) {
+                    taskIds.forEach(id => results.add(id));
+                }
+            });
+            return Array.from(results);
+        }
 
         // Get matches for each word
         const resultSets = words.map(word => {
@@ -100,9 +111,12 @@ export class SearchIndexService {
                 this.index.jobIdIndex.get(word)?.forEach(id => matches.add(id));
             }
 
-            // Partial jobId match
+            // Partial jobId match (search for word in jobId)
             this.index.jobIdIndex.forEach((taskIds, jobId) => {
-                if (jobId.includes(word)) {
+                // If jobId is "LT-101", word might be "101" or "lt101"
+                // We compare normalized versions
+                const normalizedJobId = jobId.replace(/[^\w]/g, '');
+                if (jobId.includes(word) || normalizedJobId.includes(word)) {
                     taskIds.forEach(id => matches.add(id));
                 }
             });
@@ -111,8 +125,6 @@ export class SearchIndexService {
         });
 
         // Intersect result sets (AND logic - all words must match)
-        if (resultSets.length === 0) return [];
-        
         return Array.from(resultSets.reduce((acc, set) => {
             return new Set([...acc].filter(id => set.has(id)));
         }));
@@ -155,7 +167,7 @@ export class SearchIndexService {
             .toLowerCase()
             .split(/\s+/)
             .map(word => word.replace(/[^\w]/g, ''))
-            .filter(word => word.length > 2); // Only words with 3+ characters
+            .filter(word => word.length >= 2); // Only words with 2+ characters
     }
 
     /**
@@ -175,23 +187,33 @@ export class SearchIndexService {
      * Remove task from index
      */
     removeTask(task: Task): void {
+        const removeFromMap = (map: Map<string, Set<string>>, key: string, id: string) => {
+            const set = map.get(key);
+            if (set) {
+                set.delete(id);
+                if (set.size === 0) {
+                    map.delete(key);
+                }
+            }
+        };
+
         this.tokenize(task.title).forEach(word => {
-            this.index.titleIndex.get(word)?.delete(task.id);
+            removeFromMap(this.index.titleIndex, word, task.id);
         });
 
         task.tags.forEach(tag => {
-            this.index.tagIndex.get(tag.toLowerCase())?.delete(task.id);
+            removeFromMap(this.index.tagIndex, tag.toLowerCase(), task.id);
         });
 
         if (task.assignee) {
-            this.index.assigneeIndex.get(task.assignee.toLowerCase())?.delete(task.id);
+            removeFromMap(this.index.assigneeIndex, task.assignee.toLowerCase(), task.id);
         }
 
-        this.index.jobIdIndex.get(task.jobId.toLowerCase())?.delete(task.id);
+        removeFromMap(this.index.jobIdIndex, task.jobId.toLowerCase(), task.id);
 
         if (task.summary) {
             this.tokenize(task.summary).forEach(word => {
-                this.index.summaryIndex.get(word)?.delete(task.id);
+                removeFromMap(this.index.summaryIndex, word, task.id);
             });
         }
     }

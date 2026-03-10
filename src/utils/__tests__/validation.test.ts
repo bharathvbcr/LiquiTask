@@ -222,6 +222,17 @@ describe('validation schemas', () => {
             expect(() => CustomFieldDefinitionSchema.parse(dropdownField)).not.toThrow();
         });
 
+        it('should validate formula field with formula expression', () => {
+            const formulaField = {
+                id: 'field-2',
+                label: 'Lead Time',
+                type: 'formula',
+                formula: '{{dueDate}} - {{today}}',
+            };
+
+            expect(() => CustomFieldDefinitionSchema.parse(formulaField)).not.toThrow();
+        });
+
         it('should reject invalid field type', () => {
             const invalidField = {
                 id: 'field-1',

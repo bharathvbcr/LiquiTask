@@ -130,4 +130,33 @@ describe('StorageService', () => {
             expect(result.error).toBeDefined();
         });
     });
+
+    describe('save methods', () => {
+        it('should save tasks using set', () => {
+            const tasks = [{ id: '1', title: 'Task 1' }] as any;
+            storageService.set(STORAGE_KEYS.TASKS, tasks);
+            expect(storageService.get(STORAGE_KEYS.TASKS, [])).toEqual(tasks);
+        });
+
+        it('should save projects using set', () => {
+            const projects = [{ id: 'p1', name: 'P1' }] as any;
+            storageService.set(STORAGE_KEYS.PROJECTS, projects);
+            expect(storageService.get(STORAGE_KEYS.PROJECTS, [])).toEqual(projects);
+        });
+
+        it('should save active project ID using set', () => {
+            storageService.set(STORAGE_KEYS.ACTIVE_PROJECT, 'p1');
+            expect(storageService.get(STORAGE_KEYS.ACTIVE_PROJECT, '')).toBe('p1');
+        });
+    });
+
+    describe('clear', () => {
+        it('should clear all data and cache', () => {
+            storageService.set(STORAGE_KEYS.TASKS, [{ id: '1' }] as any);
+            storageService.clear();
+            
+            expect(mockLocalStorage.removeItem).toHaveBeenCalledWith(STORAGE_KEYS.TASKS);
+            expect(storageService.get(STORAGE_KEYS.TASKS, null)).toBeNull();
+        });
+    });
 });

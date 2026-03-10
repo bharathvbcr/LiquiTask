@@ -6,10 +6,15 @@ interface UseBoardKeyboardNavOptions {
     columns: BoardColumn[];
     tasks: Task[];
     onMoveTask: (taskId: string, newStatus: string, newPriority?: string, newOrder?: number) => void;
+    canMoveTask?: (taskId: string, newStatus: string, newPriority?: string) => {
+        allowed: boolean;
+        reason?: string;
+    };
     onEditTask: (task: Task) => void;
     onDeleteTask: (taskId: string) => void;
     getTasksByContext: (statusId: string, priorityId?: string) => Task[];
     boardGrouping: 'none' | 'priority';
+    onMoveBlocked?: (message: string) => void;
     isEnabled?: boolean;
 }
 
@@ -27,10 +32,12 @@ export function useBoardKeyboardNav({
     columns,
     tasks,
     onMoveTask,
+    canMoveTask,
     onEditTask,
     onDeleteTask,
     getTasksByContext,
     boardGrouping: _boardGrouping,
+    onMoveBlocked,
     isEnabled = true,
 }: UseBoardKeyboardNavOptions): UseBoardKeyboardNavReturn {
     const [focusedColumnIndex, setFocusedColumnIndex] = useState(-1);
@@ -103,11 +110,19 @@ export function useBoardKeyboardNav({
             : Math.max(currentColumnIndex - 1, 0);
 
         const targetColumn = columns[targetIndex];
+        const moveValidation = canMoveTask?.(focusedTaskId, targetColumn.id);
+        if (moveValidation && !moveValidation.allowed) {
+            if (onMoveBlocked) {
+                onMoveBlocked(moveValidation.reason || 'Cannot move task');
+            }
+            return;
+        }
+
         onMoveTask(focusedTaskId, targetColumn.id);
 
         // Update focus to new column
         setFocusedColumnIndex(targetIndex);
-    }, [focusedTaskId, tasks, columns, onMoveTask]);
+    }, [focusedTaskId, tasks, columns, onMoveTask, canMoveTask, onMoveBlocked]);
 
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
         if (!isEnabled) return;
@@ -200,6 +215,8 @@ export function useBoardKeyboardNav({
         moveTaskToColumn,
         onEditTask,
         onDeleteTask,
+        canMoveTask,
+        onMoveBlocked,
     ]);
 
     // Reset focus when columns change

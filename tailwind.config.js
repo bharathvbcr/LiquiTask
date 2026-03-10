@@ -9,7 +9,7 @@ export default {
     theme: {
         extend: {
             fontFamily: {
-                sans: ['Inter', 'sans-serif'],
+                sans: ['"Segoe UI"', '"Helvetica Neue"', 'Arial', 'sans-serif'],
             },
             colors: {
                 navy: {

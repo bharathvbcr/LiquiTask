@@ -85,7 +85,7 @@ export const SortableColumn: React.FC<SortableColumnProps> = ({
         <div
             ref={setSortableRef}
             style={style}
-            className="flex-1 flex flex-col min-w-[300px] scroll-mt-40"
+            className="flex-1 flex flex-col min-w-[300px] max-w-[350px] scroll-mt-48"
         >
             {/* Draggable Header */}
             <div

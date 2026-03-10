@@ -5,6 +5,12 @@ import { Layers, Calendar, User, AlignLeft, Tag, Flag, CheckSquare, Plus, X, Pap
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Input } from '../src/components/common/Input';
+import { getSafeExternalUrl } from '../src/utils/safeUrl';
+
+const EMPTY_PRIORITIES: PriorityDefinition[] = [];
+const EMPTY_CUSTOM_FIELDS: CustomFieldDefinition[] = [];
+const EMPTY_TASKS: Task[] = [];
+const EMPTY_COLUMNS: BoardColumn[] = [];
 
 interface TaskFormModalProps {
   isOpen: boolean;
@@ -24,10 +30,10 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   onSubmit,
   initialData,
   projectId,
-  priorities = [],
-  customFields = [],
-  availableTasks = [],
-  columns = []
+  priorities = EMPTY_PRIORITIES,
+  customFields = EMPTY_CUSTOM_FIELDS,
+  availableTasks = EMPTY_TASKS,
+  columns = EMPTY_COLUMNS
 }) => {
   const [activeTab, setActiveTab] = useState<'details' | 'activity'>('details');
   const [formData, setFormData] = useState({
@@ -77,9 +83,9 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
 
       setFormData({
         title: initialData.title,
-        subtitle: initialData.subtitle,
-        summary: initialData.summary,
-        assignee: initialData.assignee,
+        subtitle: initialData.subtitle ?? '',
+        summary: initialData.summary ?? '',
+        assignee: initialData.assignee ?? '',
         priority: initialData.priority || defaultPrio,
         dueDate: dateStr,
         status: initialData.status || defaultStatus,
@@ -133,11 +139,13 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
 
   // Attachment Handlers
   const handleAddLink = () => {
-    if (!newLinkUrl.trim()) return;
+    const safeUrl = getSafeExternalUrl(newLinkUrl);
+    if (!safeUrl) return;
+
     const item: Attachment = {
       id: `att-${Date.now()}`,
-      name: newLinkName.trim() || newLinkUrl,
-      url: newLinkUrl,
+      name: newLinkName.trim() || safeUrl,
+      url: safeUrl,
       type: 'link'
     };
     setAttachments([...attachments, item]);
@@ -270,6 +278,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
           {/* Title */}
           <div className="space-y-2">
             <Input
+              name="title"
               label="Task Title"
               required
               autoFocus
@@ -499,15 +508,16 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                   <div className="p-1.5 rounded-lg bg-white/5 text-slate-400">{att.type === 'file' ? <Paperclip size={14} /> : <LinkIcon size={14} />}</div>
 
                   {(() => {
-                    const isSafe = !att.url.trim().toLowerCase().startsWith('javascript:');
+                    const safeUrl = att.type === 'file' ? att.url : getSafeExternalUrl(att.url);
+                    const isSafe = Boolean(safeUrl);
                     return (
                       <a
-                        href={isSafe ? att.url : '#'}
+                        href={safeUrl ?? '#'}
                         target="_blank"
                         rel="noopener noreferrer"
                         className={`flex-1 text-sm font-medium truncate underline decoration-blue-500/30 hover:decoration-blue-400 ${isSafe ? 'text-blue-400 hover:text-blue-300' : 'text-slate-500 cursor-not-allowed decoration-slate-500/30'}`}
                         onClick={e => !isSafe && e.preventDefault()}
-                        title={isSafe ? att.url : 'Unsafe URL blocked'}
+                        title={safeUrl ?? 'Unsafe URL blocked'}
                       >
                         {att.name}
                       </a>

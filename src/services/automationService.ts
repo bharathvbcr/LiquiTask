@@ -19,6 +19,8 @@ export interface AutomationRule {
     schedule?: {
         frequency: 'daily' | 'weekly' | 'monthly';
         time: string; // HH:mm format
+        dayOfWeek?: number; // 0-6, optional for weekly rules
+        dayOfMonth?: number; // 1-31, optional for monthly rules
     };
 }
 
@@ -31,12 +33,17 @@ export interface TaskContext {
 export class AutomationService {
     private rules: AutomationRule[] = [];
     private scheduleInterval: NodeJS.Timeout | null = null;
+    private schedulerContext: {
+        getAllTasks: () => Task[];
+        applyTaskUpdates: (taskId: string, updates: Partial<Task>) => void;
+        notify?: (message: string) => void;
+    } | null = null;
 
     /**
      * Load rules from storage
      */
-    loadRules(rules: AutomationRule[]): void {
-        this.rules = rules;
+    loadRules(rules: AutomationRule[] | undefined | null): void {
+        this.rules = Array.isArray(rules) ? rules : [];
         this.startScheduler();
     }
 
@@ -75,12 +82,35 @@ export class AutomationService {
     }
 
     /**
+     * Configure task context for scheduled automation.
+     */
+    configureSchedulerContext(context: {
+        getAllTasks: () => Task[];
+        applyTaskUpdates: (taskId: string, updates: Partial<Task>) => void;
+        notify?: (message: string) => void;
+    }): void {
+        this.schedulerContext = context;
+        this.startScheduler();
+    }
+
+    /**
+     * Clear scheduler context (typically on unmount).
+     */
+    clearSchedulerContext(): void {
+        this.schedulerContext = null;
+        this.stop();
+    }
+
+    /**
      * Process task event and execute matching rules
      */
     processTaskEvent(
         event: AutomationTrigger,
         context: TaskContext,
-        allTasks: Task[]
+        allTasks: Task[],
+        options?: {
+            onNotify?: (message: string) => void;
+        }
     ): Partial<Task> | null {
         const matchingRules = this.rules.filter(rule =>
             rule.enabled &&
@@ -94,6 +124,8 @@ export class AutomationService {
         const updates: Partial<Task> = {};
         const tagsToAdd: string[] = [];
         const tagsToRemove: string[] = [];
+        const notifications: string[] = [];
+        const notify = options?.onNotify || this.schedulerContext?.notify;
 
         matchingRules.forEach(rule => {
             rule.actions.forEach(action => {
@@ -120,6 +152,11 @@ export class AutomationService {
                     case 'setPriority':
                         updates.priority = action.value as string;
                         break;
+                    case 'notify':
+                        if (typeof action.value === 'string') {
+                            notifications.push(action.value);
+                        }
+                        break;
                 }
             });
         });
@@ -132,6 +169,11 @@ export class AutomationService {
                 ...tagsToAdd.filter(t => !currentTags.includes(t)),
             ];
             updates.tags = newTags;
+        }
+
+        if (notifications.length > 0 && notify) {
+            const deduped = Array.from(new Set(notifications.map((n) => n.trim()).filter(Boolean)));
+            deduped.forEach((message) => notify(message));
         }
 
         return Object.keys(updates).length > 0 ? updates : null;
@@ -148,6 +190,25 @@ export class AutomationService {
         return executeAdvancedFilter([task], rule.conditions).length > 0;
     }
 
+    private isRuleDue(rule: AutomationRule, now: Date): boolean {
+        if (!rule.schedule) return false;
+
+        const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+        if (rule.schedule.time !== currentTime) {
+            return false;
+        }
+
+        if (rule.schedule.frequency === 'weekly' && typeof rule.schedule.dayOfWeek === 'number') {
+            return now.getDay() === rule.schedule.dayOfWeek;
+        }
+
+        if (rule.schedule.frequency === 'monthly' && typeof rule.schedule.dayOfMonth === 'number') {
+            return now.getDate() === rule.schedule.dayOfMonth;
+        }
+
+        return true;
+    }
+
     /**
      * Start scheduler for scheduled rules
      */
@@ -156,21 +217,33 @@ export class AutomationService {
             clearInterval(this.scheduleInterval);
         }
 
-        const hasScheduledRules = this.rules.some(r => r.enabled && r.trigger === 'onSchedule');
-        if (!hasScheduledRules) return;
+        const rules = Array.isArray(this.rules) ? this.rules : [];
+        const hasScheduledRules = rules.some(r => r.enabled && r.trigger === 'onSchedule');
+        if (!hasScheduledRules || !this.schedulerContext) return;
 
         // Check every minute for scheduled rules
         this.scheduleInterval = setInterval(() => {
             const now = new Date();
-            const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+            const tasks = this.schedulerContext?.getAllTasks?.() || [];
 
-            this.rules
+            rules
                 .filter(r => r.enabled && r.trigger === 'onSchedule' && r.schedule)
                 .forEach(rule => {
-                    if (rule.schedule!.time === currentTime) {
-                        // Execute scheduled rule (would need task list passed in)
-                        // This is a placeholder - actual implementation would need access to all tasks
+                    if (!this.isRuleDue(rule, now)) {
+                        return;
                     }
+
+                    tasks.forEach(task => {
+                        const updates = this.processTaskEvent(
+                            'onSchedule',
+                            { newTask: task },
+                            tasks,
+                            { onNotify: this.schedulerContext?.notify }
+                        );
+                        if (updates) {
+                            this.schedulerContext?.applyTaskUpdates(task.id, updates);
+                        }
+                    });
                 });
         }, 60000); // Check every minute
     }

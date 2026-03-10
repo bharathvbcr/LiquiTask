@@ -49,6 +49,29 @@ describe('activityService', () => {
             expect(updatedTask.activity![0].field).toBe('priority');
         });
 
+        it('should log title and assignee changes', () => {
+            const updatedTask = activityService.logChange(mockTask, {
+                title: 'New Title',
+                assignee: 'Alice'
+            });
+
+            expect(updatedTask.activity).toHaveLength(2);
+            expect(updatedTask.activity?.some(a => a.field === 'title')).toBe(true);
+            expect(updatedTask.activity?.some(a => a.field === 'assignee')).toBe(true);
+        });
+
+        it('should log summary and dueDate changes', () => {
+            const date = new Date();
+            const updatedTask = activityService.logChange(mockTask, {
+                summary: 'New Summary',
+                dueDate: date
+            });
+
+            expect(updatedTask.activity).toHaveLength(2);
+            expect(updatedTask.activity?.some(a => a.field === 'summary')).toBe(true);
+            expect(updatedTask.activity?.some(a => a.field === 'dueDate')).toBe(true);
+        });
+
         it('should log multiple changes', () => {
             const updatedTask = activityService.logChange(mockTask, {
                 status: 'done',

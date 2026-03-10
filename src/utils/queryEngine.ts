@@ -20,6 +20,7 @@ function evaluateRule(task: Task, rule: FilterRule): boolean {
             case 'tags': taskValue = task.tags; break; // Array
             case 'dueDate': taskValue = task.dueDate; break;
             case 'createdAt': taskValue = task.createdAt; break;
+            case 'projectId': taskValue = task.projectId; break;
             default: taskValue = undefined;
         }
     }

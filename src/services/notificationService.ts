@@ -1,5 +1,4 @@
-// Check if Electron notifications are available
-const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
+import { getRuntimeKind } from '../runtime/runtimeEnvironment';
 
 interface NotificationOptions {
     title: string;
@@ -18,8 +17,9 @@ class NotificationService {
     }
 
     async requestPermission(): Promise<boolean> {
-        if (isElectron) {
-            // Electron has notification permission by default
+        const runtime = getRuntimeKind();
+
+        if (runtime === 'electron' || runtime === 'electrobun') {
             this.hasPermission = true;
             return true;
         }
@@ -39,12 +39,24 @@ class NotificationService {
             return;
         }
 
-        if (isElectron && window.electronAPI?.showNotification) {
-            window.electronAPI.showNotification({
+        if (getRuntimeKind() === 'electron' && (window as Window & { electronAPI?: { showNotification?: (payload: unknown) => void } }).electronAPI?.showNotification) {
+            (window as Window & { electronAPI: { showNotification: (payload: unknown) => void } }).electronAPI.showNotification({
                 title: options.title,
                 body: options.body,
             });
-        } else if ('Notification' in window) {
+            return;
+        }
+
+        if (getRuntimeKind() === 'electrobun' && window.electrobunAPI?.showNotification) {
+            window.electrobunAPI.showNotification({
+                title: options.title,
+                body: options.body,
+                silent: options.silent,
+            });
+            return;
+        }
+
+        if ('Notification' in window) {
             const notification = new Notification(options.title, {
                 body: options.body,
                 icon: options.icon,

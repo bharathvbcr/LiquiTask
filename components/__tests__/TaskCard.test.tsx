@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import React from 'react';
 import { TaskCard } from '../TaskCard';
-import { Task, Attachment } from '../../src/types';
+import { Task } from '../../src/types';
 
 // Mock sub-components to avoid complex rendering dependencies
 vi.mock('../../src/components/InlineEditable', () => ({
@@ -12,7 +12,7 @@ vi.mock('../../src/components/InlineEditable', () => ({
 }));
 
 
-describe('TaskCard URL Sanitization', () => {
+describe('TaskCard Features', () => {
     const mockOnMoveTask = vi.fn();
     const mockOnEditTask = vi.fn();
     const mockOnUpdateTask = vi.fn();
@@ -23,64 +23,67 @@ describe('TaskCard URL Sanitization', () => {
         onEditTask: mockOnEditTask,
         onUpdateTask: mockOnUpdateTask,
         onDeleteTask: mockOnDeleteTask,
-        priorities: [],
+        priorities: [{ id: 'high', label: 'High Priority', color: '#ff0000' }] as any,
         allTasks: [],
     };
 
-    const createMockTask = (attachments: Attachment[]): Task => ({
+    const mockTask: Task = {
         id: '1',
         jobId: 'T-1',
         title: 'Test Task',
+        subtitle: 'General',
+        summary: 'Task summary',
+        status: 'Todo',
+        priority: 'high',
         columnId: 'col1',
         projectId: 'test-project',
         createdAt: new Date(),
         updatedAt: new Date(),
-        attachments: attachments,
-        subtasks: [],
-        comments: [],
-        activity: []
-    } as unknown as Task);
+        attachments: [],
+        subtasks: [{ id: 'st-1', title: 'Subtask 1', completed: false }],
+        customFieldValues: {
+            'field1': 'Custom Value',
+            'field2': 'https://google.com'
+        }
+    } as unknown as Task;
 
-    it('should render safe URLs correctly', () => {
-        const safeTask = createMockTask([
-            { id: '1', name: 'Safe Link', url: 'https://example.com', type: 'link' }
-        ]);
-
-        render(
-            <TaskCard
-                {...baseProps}
-                task={safeTask}
-            />
-        );
-
-        const link = screen.getByText('Safe Link').closest('a');
-        expect(link).toHaveAttribute('href', 'https://example.com');
+    it('renders task details in non-compact mode', () => {
+        render(<TaskCard {...baseProps} task={mockTask} isCompact={false} />);
+        
+        expect(screen.getByText('Test Task')).toBeInTheDocument();
+        expect(screen.getByText('General')).toBeInTheDocument();
+        // Since InlineSelect is mocked to show value, it will show 'high'
+        expect(screen.getByText('high')).toBeInTheDocument();
+        expect(screen.getByText('Custom Value')).toBeInTheDocument();
+        expect(screen.getByText('Link')).toHaveAttribute('href', 'https://google.com/');
     });
 
-    it('should block javascript: URLs', () => {
-        const unsafeTask = createMockTask([
-            { id: '2', name: 'Unsafe Link', url: 'javascript:alert(1)', type: 'link' }
-        ]);
+    it('renders focused state', () => {
+        const { container } = render(<TaskCard {...baseProps} task={mockTask} isFocused />);
+        
+        // Check for focused styles (ring-red-500/70)
+        expect(container.firstChild).toHaveClass('ring-2');
+        expect(container.firstChild).toHaveClass('ring-red-500/70');
+    });
 
-        render(
-            <TaskCard
-                {...baseProps}
-                task={unsafeTask}
-            />
-        );
+    it('does not render unsafe custom field URLs as links', () => {
+        const unsafeTask: Task = {
+            ...mockTask,
+            customFieldValues: {
+                field1: 'javascript:alert(1)'
+            }
+        } as unknown as Task;
 
-        const link = screen.getByText('Unsafe Link').closest('a');
-        expect(link).toHaveAttribute('href', '#');
-        expect(link).toHaveAttribute('title', 'Unsafe URL blocked');
-        expect(link).toHaveClass('cursor-not-allowed');
+        render(<TaskCard {...baseProps} task={unsafeTask} isCompact={false} />);
 
-        // Verify click prevents default
-        const clickEvent = new MouseEvent('click', { bubbles: true, cancelable: true });
-        Object.defineProperty(clickEvent, 'preventDefault', { value: vi.fn() });
-        Object.defineProperty(clickEvent, 'stopPropagation', { value: vi.fn() });
+        expect(screen.queryByRole('link', { name: 'Link' })).not.toBeInTheDocument();
+        expect(screen.getByText('javascript:alert(1)')).toBeInTheDocument();
+    });
 
-        fireEvent(link!, clickEvent);
-        expect(clickEvent.preventDefault).toHaveBeenCalled();
-        expect(clickEvent.stopPropagation).toHaveBeenCalled();
+    it('calls onEditTask when edit button is clicked', () => {
+        render(<TaskCard {...baseProps} task={mockTask} />);
+        
+        fireEvent.click(screen.getByTitle(/Edit task/i));
+        expect(mockOnEditTask).toHaveBeenCalled();
     });
 });

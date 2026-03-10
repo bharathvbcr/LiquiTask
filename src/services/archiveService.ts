@@ -58,8 +58,8 @@ export class ArchiveService {
         return this.archivedTasks.filter(task =>
             task.title.toLowerCase().includes(lowerQuery) ||
             task.jobId.toLowerCase().includes(lowerQuery) ||
-            task.summary.toLowerCase().includes(lowerQuery) ||
-            task.assignee.toLowerCase().includes(lowerQuery)
+            (task.summary?.toLowerCase().includes(lowerQuery) ?? false) ||
+            (task.assignee?.toLowerCase().includes(lowerQuery) ?? false)
         );
     }
 

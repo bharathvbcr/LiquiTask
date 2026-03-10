@@ -33,6 +33,12 @@ export const activityService = {
         if (changes.assignee && changes.assignee !== task.assignee) {
             activities.push(this.createActivity('update', `Assigned to ${changes.assignee || 'Unassigned'}`, 'assignee', task.assignee, changes.assignee));
         }
+        if (changes.title && changes.title !== task.title) {
+            activities.push(this.createActivity('update', `Title changed`, 'title', task.title, changes.title));
+        }
+        if (changes.summary && changes.summary !== task.summary) {
+            activities.push(this.createActivity('update', `Description updated`, 'summary', task.summary, changes.summary));
+        }
         if (changes.dueDate) {
             const oldDate = task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No date';
             const newDate = changes.dueDate ? new Date(changes.dueDate).toLocaleDateString() : 'No date';

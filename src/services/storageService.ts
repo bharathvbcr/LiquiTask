@@ -4,14 +4,7 @@ import { validateAndTransformImportedData } from '../utils/validation';
 import { trySaveToStorage } from '../utils/storageQuota';
 import { migrationService, CURRENT_DATA_VERSION } from './migrationService';
 import { indexedDBService } from './indexedDBService';
-
-// Type guard for Electron environment
-function hasElectronAPI(win: Window): win is Window & { electronAPI: NonNullable<typeof window.electronAPI> } {
-    return typeof win !== 'undefined' && !!win.electronAPI;
-}
-
-// Check if running in Electron
-const isElectron = typeof window !== 'undefined' && hasElectronAPI(window);
+import { getNativeStorageApi } from '../runtime/runtimeEnvironment';
 
 // Type for all storable data
 export interface AppData {
@@ -96,13 +89,14 @@ class StorageService {
     }
 
     async initialize(): Promise<void> {
-        if (!isElectron) return;
+        const electronStorage = getNativeStorageApi();
+        if (!electronStorage) return;
 
         try {
             // Load all keys from native storage
             const keys = Object.values(STORAGE_KEYS);
             for (const key of keys) {
-                const value = await window.electronAPI!.storage.get(key);
+                const value = await electronStorage.get(key);
 
                 if (value) {
                     if (key === STORAGE_KEYS.TASKS) {
@@ -122,7 +116,7 @@ class StorageService {
                                 this.cache.set(key, parsed);
                             }
                             // Save to native storage for next time
-                            await window.electronAPI!.storage.set(key, parsed);
+                            await electronStorage.set(key, parsed);
                             // Migration complete for key
                         } catch (e) {
                             console.error(`Failed to migrate ${key}`, e);
@@ -203,9 +197,10 @@ class StorageService {
             }
         }
 
-        if (isElectron) {
+        const electronStorage = getNativeStorageApi();
+        if (electronStorage) {
             // Native Save (backup)
-            window.electronAPI!.storage.set(key, value).catch(console.error);
+            electronStorage.set(key, value).catch(console.error);
         }
 
         // Always save to localStorage as backup/fallback (for settings and small data)
@@ -220,16 +215,18 @@ class StorageService {
 
     remove(key: string): void {
         this.cache.delete(key);
-        if (isElectron) {
-            window.electronAPI!.storage.delete(key).catch(console.error);
+        const electronStorage = getNativeStorageApi();
+        if (electronStorage) {
+            electronStorage.delete(key).catch(console.error);
         }
         localStorage.removeItem(key);
     }
 
     clear(): void {
         this.cache.clear();
-        if (isElectron) {
-            window.electronAPI!.storage.clear().catch(console.error);
+        const electronStorage = getNativeStorageApi();
+        if (electronStorage) {
+            electronStorage.clear().catch(console.error);
         }
         Object.values(STORAGE_KEYS).forEach(key => {
             localStorage.removeItem(key);

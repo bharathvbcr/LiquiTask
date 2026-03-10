@@ -1,27 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { Minus, Square, X, Copy } from 'lucide-react';
 import logo from '../src/assets/logo.png';
+import { getRuntimeWindowControls } from '../src/runtime/runtimeEnvironment';
 
 export const TitleBar: React.FC = () => {
     const [isMaximized, setIsMaximized] = useState(false);
-    const isElectron = !!window.electronAPI;
+    const controls = React.useMemo(() => getRuntimeWindowControls(), []);
+    const isCustomWindow = !!controls;
 
     useEffect(() => {
-        if (isElectron) {
-            window.electronAPI?.isMaximized().then(setIsMaximized);
+        if (controls) {
+            controls.isMaximized().then(setIsMaximized);
+            return controls.onWindowStateChange(setIsMaximized);
         }
-    }, [isElectron]);
+    }, [controls]);
 
-    const handleMinimize = () => window.electronAPI?.minimize();
-    const handleMaximize = async () => {
-        await window.electronAPI?.maximize();
-        const maximized = await window.electronAPI?.isMaximized();
-        setIsMaximized(maximized || false);
+    const handleMinimize = async () => {
+        await controls?.minimize();
     };
-    const handleClose = () => window.electronAPI?.close();
+    const handleMaximize = async () => {
+        if (!controls) return;
+        const isCurrentlyMaximized = await controls.isMaximized();
+        await controls.maximize();
+        const nowMaximized = await controls.isMaximized();
+        setIsMaximized(typeof nowMaximized === 'boolean' ? nowMaximized : !isCurrentlyMaximized);
+    };
+    const handleClose = async () => {
+        await controls?.close();
+    };
 
     // Don't render in browser mode
-    if (!isElectron) return null;
+    if (!isCustomWindow) return null;
 
     return (
         <div className="fixed top-0 left-0 right-0 h-10 z-[100] flex items-center justify-between bg-[#0a0505]/95 backdrop-blur-md border-b border-white/5 titlebar-drag-region">

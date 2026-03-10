@@ -1,15 +1,15 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import React from 'react';
 import { TaskFormModal } from '../TaskFormModal';
 import { Task, Attachment } from '../../src/types';
 
 // Mock ModalWrapper since it might use portals or complex logic
-vi.mock('./ModalWrapper', () => ({
+vi.mock('../ModalWrapper', () => ({
     ModalWrapper: ({ children }: { children: React.ReactNode }) => <div>{children}</div>
 }));
 
-describe('TaskFormModal URL Sanitization', () => {
+describe('TaskFormModal Features', () => {
     const mockOnClose = vi.fn();
     const mockOnSubmit = vi.fn();
     const baseProps = {
@@ -17,76 +17,120 @@ describe('TaskFormModal URL Sanitization', () => {
         onClose: mockOnClose,
         onSubmit: mockOnSubmit,
         projectId: 'test-project',
+        columns: [{ id: 'col1', title: 'Todo' }, { id: 'col2', title: 'Done' }] as any,
     };
 
-    const createMockTask = (attachments: Attachment[]): Task => ({
+    const mockTask: Task = {
         id: '1',
-        title: 'Test Task',
+        title: 'Original Title',
+        subtitle: 'General',
+        summary: 'Original Summary',
+        status: 'Todo',
+        priority: 'Medium',
         columnId: 'col1',
         projectId: 'test-project',
         createdAt: new Date(),
         updatedAt: new Date(),
-        attachments: attachments,
-        subtasks: [],
+        attachments: [],
+        subtasks: [{ id: 'st1', title: 'Subtask 1', completed: false }],
         comments: [],
-        activity: []
-    } as unknown as Task);
+        activity: [{ id: 'a1', type: 'create', timestamp: new Date(), details: 'Created task' }]
+    } as unknown as Task;
 
-    it('should render safe URLs correctly', () => {
-        const safeTask = createMockTask([
-            { id: '1', name: 'Safe Link', url: 'https://example.com', type: 'link' }
-        ]);
+    it('should switch between Details and Activity tabs', () => {
+        render(<TaskFormModal {...baseProps} initialData={mockTask} />);
+        
+        // Initially on Details tab
+        expect(screen.getByPlaceholderText(/e\.g\., Update Q3 Financials/i)).toBeInTheDocument();
 
-        render(
-            <TaskFormModal
-                {...baseProps}
-                initialData={safeTask}
-            />
-        );
-
-        const link = screen.getByText('Safe Link');
-        expect(link).toHaveAttribute('href', 'https://example.com');
-        expect(link).not.toHaveClass('cursor-not-allowed');
+        // Switch to Activity tab
+        fireEvent.click(screen.getByText(/Activity/i));
+        expect(screen.getByText('Created task')).toBeInTheDocument();
+        expect(screen.queryByPlaceholderText(/e\.g\., Update Q3 Financials/i)).not.toBeInTheDocument();
     });
 
-    it('should block javascript: URLs', () => {
-        const unsafeTask = createMockTask([
-            { id: '2', name: 'Unsafe Link', url: 'javascript:alert(1)', type: 'link' }
-        ]);
+    it('should update fields and submit', () => {
+        render(<TaskFormModal {...baseProps} initialData={mockTask} />);
+        
+        const titleInput = screen.getByPlaceholderText(/e\.g\., Update Q3 Financials/i);
+        fireEvent.change(titleInput, { target: { value: 'Updated Title' } });
+        
+        const summaryInput = screen.getByPlaceholderText(/Describe the task details/i);
+        fireEvent.change(summaryInput, { target: { value: 'Updated Summary' } });
 
-        render(
-            <TaskFormModal
-                {...baseProps}
-                initialData={unsafeTask}
-            />
-        );
+        fireEvent.click(screen.getByText('Update Task'));
 
-        const link = screen.getByText('Unsafe Link');
-        expect(link).toHaveAttribute('href', '#');
-        expect(link).toHaveAttribute('title', 'Unsafe URL blocked');
-        expect(link).toHaveClass('cursor-not-allowed');
-
-        // Verify click is prevented
-        const clickEvent = new MouseEvent('click', { bubbles: true, cancelable: true });
-        Object.defineProperty(clickEvent, 'preventDefault', { value: vi.fn() });
-
-        fireEvent(link, clickEvent);
-        expect(clickEvent.preventDefault).toHaveBeenCalled();
+        expect(mockOnSubmit).toHaveBeenCalledWith(expect.objectContaining({
+            title: 'Updated Title',
+            summary: 'Updated Summary'
+        }));
     });
 
-    it('should allow mailto: links', () => {
-        const mailtoTask = createMockTask([
-            { id: '3', name: 'Email Link', url: 'mailto:test@example.com', type: 'link' }
-        ]);
+    it('should add a subtask within Details tab', () => {
+        render(<TaskFormModal {...baseProps} initialData={mockTask} />);
+        
+        const subtaskInput = screen.getByPlaceholderText(/Add a subtask/i);
+        fireEvent.change(subtaskInput, { target: { value: 'New Subtask' } });
+        fireEvent.keyDown(subtaskInput, { key: 'Enter', code: 'Enter' });
 
-        render(
-            <TaskFormModal
-                {...baseProps}
-                initialData={mailtoTask}
-            />
-        );
+        fireEvent.click(screen.getByText('Update Task'));
+        
+        expect(mockOnSubmit).toHaveBeenCalledWith(expect.objectContaining({
+            subtasks: expect.arrayContaining([
+                expect.objectContaining({ title: 'New Subtask' })
+            ])
+        }));
+    });
 
-        const link = screen.getByText('Email Link');
-        expect(link).toHaveAttribute('href', 'mailto:test@example.com');
+    it('should add an attachment link', () => {
+        render(<TaskFormModal {...baseProps} initialData={mockTask} />);
+        
+        const nameInput = screen.getByPlaceholderText(/Link Name \(Optional\)/i);
+        const urlInput = screen.getByPlaceholderText(/https:\/\/.../i);
+        
+        fireEvent.change(nameInput, { target: { value: 'My Link' } });
+        fireEvent.change(urlInput, { target: { value: 'https://google.com' } });
+        
+        fireEvent.click(screen.getByLabelText('Add link'));
+
+        fireEvent.click(screen.getByText('Update Task'));
+        
+        expect(mockOnSubmit).toHaveBeenCalledWith(expect.objectContaining({
+            attachments: expect.arrayContaining([
+                expect.objectContaining({ name: 'My Link', url: 'https://google.com/' })
+            ])
+        }));
+    });
+
+    it('should reject unsafe attachment links', () => {
+        render(<TaskFormModal {...baseProps} initialData={mockTask} />);
+
+        const urlInput = screen.getByPlaceholderText(/https:\/\/.../i);
+        fireEvent.change(urlInput, { target: { value: 'javascript:alert(1)' } });
+
+        fireEvent.click(screen.getByLabelText('Add link'));
+        fireEvent.click(screen.getByText('Update Task'));
+
+        expect(mockOnSubmit).toHaveBeenCalledWith(expect.objectContaining({
+            attachments: []
+        }));
+    });
+
+    it('should add a task link', () => {
+        const availableTasks: Task[] = [
+            { id: '2', jobId: 'LT-102', title: 'Target Task' } as Task
+        ];
+        render(<TaskFormModal {...baseProps} initialData={mockTask} availableTasks={availableTasks} />);
+        
+        fireEvent.change(screen.getByLabelText(/Select task to link/i), { target: { value: '2' } });
+        fireEvent.click(screen.getByLabelText('Add task link'));
+
+        fireEvent.click(screen.getByText('Update Task'));
+        
+        expect(mockOnSubmit).toHaveBeenCalledWith(expect.objectContaining({
+            links: expect.arrayContaining([
+                expect.objectContaining({ targetTaskId: '2', type: 'relates-to' })
+            ])
+        }));
     });
 });

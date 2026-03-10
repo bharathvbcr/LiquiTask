@@ -1,14 +1,15 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { Suspense, useState, useMemo, useEffect, useRef } from 'react';
 import {
   Briefcase, Code, Megaphone, Smartphone, Box, Settings, Plus, Trash2, Folder, Globe, Cpu, Shield,
-  ChevronLeft, ChevronRight, LayoutDashboard, CornerDownRight, Wrench, Zap, Truck, Database, Server,
-  PenTool, Music, Video, Camera, Anchor, Coffee, Pin, PinOff, ArrowUp, ArrowDown, Search, Layout,
-  FolderPlus, ChevronDown, MoreHorizontal, Edit2, Rocket, Heart, Star, Target, Flag, BookOpen,
-  Lightbulb, Users, ShoppingCart, TrendingUp, MessageSquare, Home, Award, Gift, Calendar
+  ChevronLeft, ChevronRight, LayoutDashboard, CornerDownRight, Wrench, Zap, Database, Pin, PinOff,
+  ArrowUp, ArrowDown, Search, FolderPlus, ChevronDown, MoreHorizontal, Edit2, Star, Users, Calendar
 } from 'lucide-react';
 import { Project, ProjectType } from '../types';
-import { EditProjectModal } from './EditProjectModal';
 import logo from '../src/assets/logo.png';
+
+const EditProjectModal = React.lazy(() =>
+  import('./EditProjectModal').then(module => ({ default: module.EditProjectModal }))
+);
 
 interface SidebarProps {
   projects: Project[];
@@ -43,7 +44,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onMoveProject,
   onEditProject
 }) => {
+  const collapsedOffset = -240;
   const [projectSearch, setProjectSearch] = useState('');
+  const [isRailHovered, setIsRailHovered] = useState(false);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set((projects || []).map(p => p.id)));
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -69,6 +72,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       document.removeEventListener('mouseup', handleMouseUp);
     };
   }, []);
+
+  const isHoverExpanded = isCollapsed && isRailHovered;
+  const isEffectivelyCollapsed = isCollapsed && !isHoverExpanded;
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -102,32 +108,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
       case 'shield': return <Shield size={18} />;
       case 'wrench': return <Wrench size={18} />;
       case 'zap': return <Zap size={18} />;
-      case 'truck': return <Truck size={18} />;
       case 'database': return <Database size={18} />;
-      case 'server': return <Server size={18} />;
-      case 'layout': return <Layout size={18} />;
-      case 'pen-tool': return <PenTool size={18} />;
-      case 'music': return <Music size={18} />;
-      case 'video': return <Video size={18} />;
-      case 'camera': return <Camera size={18} />;
-      case 'anchor': return <Anchor size={18} />;
-      case 'coffee': return <Coffee size={18} />;
-      case 'rocket': return <Rocket size={18} />;
-      case 'heart': return <Heart size={18} />;
       case 'star': return <Star size={18} />;
-      case 'target': return <Target size={18} />;
-      case 'flag': return <Flag size={18} />;
-      case 'book-open': return <BookOpen size={18} />;
-      case 'lightbulb': return <Lightbulb size={18} />;
       case 'users': return <Users size={18} />;
-      case 'shopping-cart': return <ShoppingCart size={18} />;
-      case 'trending-up': return <TrendingUp size={18} />;
-      case 'message-square': return <MessageSquare size={18} />;
       case 'settings': return <Settings size={18} />;
-      case 'home': return <Home size={18} />;
-      case 'award': return <Award size={18} />;
-      case 'gift': return <Gift size={18} />;
       case 'calendar': return <Calendar size={18} />;
+      case 'server':
+      case 'layout':
+      case 'pen-tool':
+      case 'book-open':
+      case 'home':
+        return <Folder size={18} />;
+      case 'truck':
+      case 'shopping-cart':
+        return <Box size={18} />;
+      case 'target':
+      case 'trending-up':
+      case 'lightbulb':
+        return <Zap size={18} />;
+      case 'video':
+      case 'camera':
+      case 'music':
+      case 'anchor':
+      case 'coffee':
+      case 'rocket':
+      case 'heart':
+      case 'flag':
+      case 'award':
+      case 'gift':
+        return <Star size={18} />;
+      case 'message-square':
+        return <Users size={18} />;
       default: return <Briefcase size={18} />;
     }
   };
@@ -149,8 +160,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const hasVisibleChildren = children.length > 0;
     const isExpanded = expandedProjects.has(project.id) || projectSearch.length > 0;
     const isActive = project.id === activeProjectId && currentView === 'project';
-    const indent = isCollapsed ? 0 : depth * 12;
+    const indent = depth * 12;
     const isMenuOpen = activeMenuId === project.id;
+    const expandedContentClass = isEffectivelyCollapsed
+      ? 'max-w-0 opacity-0 -translate-x-2 pointer-events-none'
+      : 'max-w-[220px] opacity-100 translate-x-0';
 
     return (
       <div className="flex flex-col gap-0.5">
@@ -167,7 +181,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onSelectProject(project.id);
             onChangeView('project');
             // Clear hover state after click completes
-            if (isCollapsed) {
+            if (isEffectivelyCollapsed) {
               setTimeout(() => setHoveredProject(null), 100);
             }
           }}
@@ -177,7 +191,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               clearTimeout(hoverTimeoutRef.current);
               hoverTimeoutRef.current = null;
             }
-            if (isCollapsed) {
+            if (isEffectivelyCollapsed) {
               const rect = e.currentTarget.getBoundingClientRect();
               setHoveredProject({ project, top: rect.top + rect.height / 2 });
             }
@@ -193,13 +207,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }, 150);
           }}
           className={`
-                group relative px-2.5 py-3 rounded-xl cursor-pointer transition-all duration-200
+                group relative px-2.5 py-3 rounded-xl cursor-pointer transition-[background-color,color,transform] duration-200
                 flex items-center overflow-visible
-                ${isCollapsed ? 'justify-center' : 'justify-between'}
+                ${isEffectivelyCollapsed ? 'justify-center' : 'justify-between'}
                 ${isActive ? 'bg-white/5 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'}
-                ${isCollapsed ? 'active:scale-95 active:bg-white/10' : ''}
+                ${!isEffectivelyCollapsed && !isActive ? 'hover:translate-x-1' : ''}
+                ${isEffectivelyCollapsed ? 'active:bg-white/10' : ''}
               `}
-          style={isCollapsed ? undefined : { '--indent': `${indent}px`, marginLeft: 'var(--indent)' } as React.CSSProperties & { '--indent': string }}
+          style={isEffectivelyCollapsed ? undefined : { '--indent': `${indent}px`, marginLeft: 'var(--indent)' } as React.CSSProperties & { '--indent': string }}
         >
 
           {/* Active Indicator Line */}
@@ -208,38 +223,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
 
           <div className="flex items-center gap-3 relative z-10 w-full overflow-hidden">
-            {depth > 0 && !isCollapsed && (
-              <CornerDownRight size={14} className="text-slate-700 shrink-0" />
-            )}
-
-            {hasVisibleChildren && !isCollapsed && (
-              <div
-                onClick={(e) => toggleProjectExpand(e, project.id)}
-                className="hover:bg-white/10 rounded p-0.5 -ml-1 transition-colors"
-              >
-                {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+            <div className={`flex items-center gap-3 min-w-0 overflow-hidden transition-[max-width,opacity,transform] duration-300 ease-out ${expandedContentClass}`}>
+              <div className="shrink-0">
+                {depth > 0 && <CornerDownRight size={14} className="text-slate-700" />}
               </div>
-            )}
+
+              <div className="shrink-0">
+                {hasVisibleChildren && (
+                  <div
+                    onClick={(e) => toggleProjectExpand(e, project.id)}
+                    className="hover:bg-white/10 rounded p-0.5 -ml-1 transition-colors"
+                  >
+                    {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                  </div>
+                )}
+              </div>
+            </div>
 
             <span className={`transition-colors shrink-0 duration-300 ${isActive ? 'text-red-400' : 'group-hover:text-red-400/80'}`}>
               {getProjectIcon(project)}
             </span>
 
-            {!isCollapsed && (
-              <span className="font-medium text-sm truncate transition-all duration-300 flex-1">
-                {project.name}
-              </span>
-            )}
+            <span className={`font-medium text-sm truncate transition-[max-width,opacity,transform] duration-300 ease-out ${expandedContentClass} flex-1`}>
+              {project.name}
+            </span>
 
             {/* Pinned Icon */}
-            {project.pinned && !isCollapsed && (
-              <Pin size={10} className="text-red-500 fill-red-500 rotate-45 shrink-0" />
-            )}
+            <Pin size={10} className={`text-red-500 fill-red-500 rotate-45 shrink-0 transition-[opacity,transform,max-width] duration-300 ease-out ${project.pinned ? expandedContentClass : 'max-w-0 opacity-0 -translate-x-2 pointer-events-none'}`} />
           </div>
 
           {/* Action Button (Visible on Hover) */}
-          {!isCollapsed && (
-            <div className={`absolute right-2 z-20 ${isMenuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
+          <div className={`absolute right-2 z-20 transition-[opacity,transform,max-width] duration-300 ease-out ${expandedContentClass} ${isMenuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -302,7 +316,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
               )}
             </div>
-          )}
         </div>
 
         {/* Nested Children */}
@@ -335,28 +348,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
           }
           setHoveredProject(null);
           setHoveredItem(null);
+          setIsRailHovered(false);
+        }
+      }}
+      onMouseEnter={() => {
+        if (isCollapsed) {
+          setIsRailHovered(true);
         }
       }}
       className={`
-            h-[calc(100vh-4.5rem)] fixed left-4 top-14 liquid-glass flex-col z-50 transition-all duration-[400ms] ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform
-            hidden md:flex shadow-2xl
-            ${isCollapsed ? 'w-20 overflow-visible' : 'w-80 overflow-hidden'}
+            pointer-events-none fixed left-4 top-14 z-50 hidden h-[calc(100vh-4.5rem)] w-20 overflow-visible md:block
         `}
     >
+      <div
+        className="pointer-events-auto flex h-full w-80 flex-col overflow-visible rounded-[28px] shadow-2xl transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform"
+        style={{
+          transform: `translateX(${isEffectivelyCollapsed ? collapsedOffset : 0}px)`,
+          paddingLeft: isEffectivelyCollapsed ? `${Math.abs(collapsedOffset)}px` : '0px',
+        }}
+      >
       {/* Header Logo */}
-      <div className={`p-6 pb-2 flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]`}>
+      <div className={`p-6 pb-2 flex items-center liquid-glass ${isEffectivelyCollapsed ? 'justify-center' : 'justify-between'} transition-[padding] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]`}>
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 flex items-center justify-center shrink-0 relative group">
             <img src={logo} alt="Logo" className="w-8 h-8 object-contain relative z-10 drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]" />
           </div>
-          {!isCollapsed && (
-            <div className="animate-fade-in">
-              <h1 className="text-xl font-bold text-white tracking-tight whitespace-nowrap text-glow">
-                Liqui<span className="text-red-500 font-light">Task</span>
-              </h1>
-
-            </div>
-          )}
+          <div className={`overflow-hidden transition-[max-width,opacity,transform] duration-300 ease-out ${isEffectivelyCollapsed ? 'max-w-0 opacity-0 -translate-x-2' : 'max-w-[160px] opacity-100 translate-x-0'}`}>
+            <h1 className="text-xl font-bold text-white tracking-tight whitespace-nowrap text-glow">
+              Liqui<span className="text-red-500 font-light">Task</span>
+            </h1>
+          </div>
         </div>
       </div>
 
@@ -364,43 +385,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="flex justify-end px-4 mb-4">
         <button
           onClick={toggleSidebar}
-          className="p-1.5 text-slate-500 hover:text-white rounded-lg hover:bg-white/5 transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform hover:scale-110"
+          className="p-2.5 text-slate-500 hover:text-white rounded-xl hover:bg-white/5 transition-colors duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]"
         >
-          {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
         </button>
       </div>
 
       {/* Scrollable Area */}
-      <div className={`px-3 flex-1 custom-scrollbar space-y-6 pb-4 ${isCollapsed ? 'overflow-visible' : 'overflow-y-auto'}`}>
+      <div className={`px-3 flex-1 custom-scrollbar space-y-6 pb-4 liquid-glass ${isEffectivelyCollapsed ? 'overflow-visible' : 'overflow-y-auto'}`}>
 
         {/* Quick Navigation */}
         <div className="space-y-1 mb-4">
           <div
             onClick={() => onChangeView('dashboard')}
             onMouseEnter={(e) => {
-              if (isCollapsed) {
+              if (isEffectivelyCollapsed) {
                 const rect = e.currentTarget.getBoundingClientRect();
                 setHoveredItem({ label: 'Dashboard', top: rect.top + rect.height / 2 });
               }
             }}
             onMouseLeave={() => setHoveredItem(null)}
             className={`
-              group px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-300
+              group px-3 py-2.5 rounded-xl cursor-pointer transition-[background-color,color,transform] duration-300
               flex items-center relative overflow-hidden border border-transparent
-              ${isCollapsed ? 'justify-center' : ''}
+              ${isEffectivelyCollapsed ? 'justify-center' : ''}
               ${currentView === 'dashboard' ? 'bg-gradient-to-r from-red-900/40 to-transparent border-red-500/20 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}
+              ${!isEffectivelyCollapsed && currentView !== 'dashboard' ? 'hover:translate-x-1' : ''}
             `}
           >
             <div className="relative z-10 flex items-center gap-3">
               <LayoutDashboard size={18} className={`shrink-0 transition-colors ${currentView === 'dashboard' ? 'text-red-400 drop-shadow-md' : 'group-hover:text-red-400'}`} />
-              {!isCollapsed && <span className="font-medium text-sm">Dashboard</span>}
+              {!isEffectivelyCollapsed && <span className="font-medium text-sm">Dashboard</span>}
             </div>
           </div>
         </div>
 
         {/* Search Bar */}
-        {!isCollapsed && (
-          <div className="px-1 relative group">
+        <div className={`px-1 relative group overflow-hidden transition-[max-height,opacity,transform] duration-300 ease-out ${isEffectivelyCollapsed ? 'max-h-0 opacity-0 -translate-y-2 pointer-events-none' : 'max-h-16 opacity-100 translate-y-0'}`}>
             <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-red-400 transition-colors" />
             <input
               type="text"
@@ -409,29 +430,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
               placeholder="Search workspaces..."
               className="w-full bg-[#050000]/50 border border-white/10 rounded-xl py-2 pl-9 pr-3 text-xs text-slate-300 placeholder-slate-600 focus:outline-none focus:border-red-500/30 transition-all"
             />
-          </div>
-        )}
+        </div>
 
         {/* Pinned Section */}
         {pinnedProjects.length > 0 && !projectSearch && (
           <div className="space-y-1">
-            {!isCollapsed && (
-              <div className="flex items-center gap-2 mb-2 px-2 text-slate-500">
+            <div className={`flex items-center gap-2 mb-2 px-2 text-slate-500 overflow-hidden transition-[max-height,opacity,transform] duration-300 ease-out ${isEffectivelyCollapsed ? 'max-h-0 opacity-0 -translate-y-2 pointer-events-none' : 'max-h-8 opacity-100 translate-y-0'}`}>
                 <Pin size={10} />
                 <h2 className="text-[10px] font-bold uppercase tracking-widest">Pinned</h2>
               </div>
-            )}
             {pinnedProjects.map((project) => (
               <ProjectItem key={project.id} project={project} depth={0} />
             ))}
-            {!isCollapsed && <div className="h-px bg-white/5 mx-2 mt-4"></div>}
+            <div className={`h-px bg-white/5 mx-2 mt-4 transition-[opacity,max-height,margin] duration-300 ease-out ${isEffectivelyCollapsed ? 'opacity-0 max-h-0 mt-0' : 'opacity-100 max-h-px'}`}></div>
           </div>
         )}
 
         {/* Workspaces Section */}
         <div className="space-y-1">
-          {!isCollapsed && (
-            <div className="flex items-center justify-between mb-2 px-2">
+          <div className={`flex items-center justify-between mb-2 px-2 overflow-hidden transition-[max-height,opacity,transform] duration-300 ease-out ${isEffectivelyCollapsed ? 'max-h-0 opacity-0 -translate-y-2 pointer-events-none' : 'max-h-8 opacity-100 translate-y-0'}`}>
               <h2 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Workspaces</h2>
               <button
                 onClick={() => onAddProject()}
@@ -441,9 +458,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <Plus size={14} />
               </button>
             </div>
-          )}
 
-          {isCollapsed && (
+          {isEffectivelyCollapsed && (
             <button
               onClick={() => onAddProject()}
               onMouseEnter={(e) => {
@@ -451,7 +467,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 setHoveredItem({ label: 'New Workspace', top: rect.top + rect.height / 2 });
               }}
               onMouseLeave={() => setHoveredItem(null)}
-              className="w-full p-3 mb-2 rounded-xl bg-white/5 hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-all flex justify-center"
+              className="w-full p-3 mb-2 rounded-xl bg-white/5 hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors flex justify-center"
               aria-label="New Workspace"
               title="New Workspace"
             >
@@ -478,35 +494,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Footer */}
-      <div className="mt-auto p-4 border-t border-white/5 bg-[#050000]/30 backdrop-blur-md rounded-b-3xl">
+      <div className="mt-auto rounded-b-[28px] border-t border-white/5 bg-[#050000]/30 p-4 backdrop-blur-md liquid-glass">
         <button
           onClick={onOpenSettings}
           onMouseEnter={(e) => {
-            if (isCollapsed) {
+            if (isEffectivelyCollapsed) {
               const rect = e.currentTarget.getBoundingClientRect();
               setHoveredItem({ label: 'Settings', top: rect.top + rect.height / 2 });
             }
           }}
           onMouseLeave={() => setHoveredItem(null)}
-          className={`flex items-center gap-3 px-3 py-2.5 w-full rounded-xl hover:bg-white/5 cursor-pointer text-slate-400 hover:text-white transition-colors border border-transparent hover:border-white/5 ${isCollapsed ? 'justify-center' : ''}`}
+          className={`flex items-center gap-3 w-full rounded-xl hover:bg-white/5 cursor-pointer text-slate-400 hover:text-white transition-[background-color,color,transform] border border-transparent hover:border-white/5 ${isEffectivelyCollapsed ? 'justify-center px-2 py-3.5' : 'px-3 py-3'} ${!isEffectivelyCollapsed ? 'hover:translate-x-1' : ''}`}
         >
-          <Settings size={20} />
-          {!isCollapsed && <span className="text-sm font-medium">Settings</span>}
+          <Settings size={isEffectivelyCollapsed ? 26 : 22} />
+          <span className={`text-sm font-medium overflow-hidden transition-[max-width,opacity,transform] duration-300 ease-out ${isEffectivelyCollapsed ? 'max-w-0 opacity-0 -translate-x-2' : 'max-w-[120px] opacity-100 translate-x-0'}`}>Settings</span>
         </button>
       </div>
 
       {/* Edit Project Modal */}
-      <EditProjectModal
-        isOpen={editingProject !== null}
-        onClose={() => setEditingProject(null)}
-        onSave={onEditProject}
-        project={editingProject}
-      />
+      <Suspense fallback={null}>
+        <EditProjectModal
+          isOpen={editingProject !== null}
+          onClose={() => setEditingProject(null)}
+          onSave={onEditProject}
+          project={editingProject}
+        />
+      </Suspense>
+      </div>
 
       {/* Hover Tooltip for Collapsed Sidebar - rendered outside scroll container */}
       {/* Dynamic positioning requires inline style for tooltip placement */}
       {/* eslint-disable-next-line react/forbid-dom-props */}
-      {isCollapsed && hoveredProject && (
+      {isEffectivelyCollapsed && hoveredProject && (
         <div
           className="fixed left-24 px-3 py-1.5 bg-[#1a1a2e] border border-white/10 rounded-lg shadow-2xl pointer-events-none whitespace-nowrap z-[9999] animate-in fade-in duration-150"
           style={{ top: hoveredProject.top, transform: 'translateY(-50%)' }}
@@ -520,7 +539,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Hover Tooltip for other icons (Dashboard, Settings, Add) */}
       {/* Dynamic positioning requires inline style for tooltip placement */}
       {/* eslint-disable-next-line react/forbid-dom-props */}
-      {isCollapsed && hoveredItem && (
+      {isEffectivelyCollapsed && hoveredItem && (
         <div
           className="fixed left-24 px-3 py-1.5 bg-[#1a1a2e] border border-white/10 rounded-lg shadow-2xl pointer-events-none whitespace-nowrap z-[9999] animate-in fade-in duration-150"
           style={{ top: hoveredItem.top, transform: 'translateY(-50%)' }}

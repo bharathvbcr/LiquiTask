@@ -94,8 +94,9 @@ export const PriorityDefinitionSchema: z.ZodType<PriorityDefinition> = z.object(
 export const CustomFieldDefinitionSchema: z.ZodType<CustomFieldDefinition> = z.object({
   id: z.string(),
   label: z.string().min(1, 'Label is required'),
-  type: z.enum(['text', 'number', 'dropdown', 'url']),
+  type: z.enum(['text', 'number', 'dropdown', 'url', 'formula']),
   options: z.array(z.string()).optional(),
+  formula: z.string().optional(),
 });
 
 // App data schema for import/export

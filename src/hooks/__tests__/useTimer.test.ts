@@ -237,7 +237,9 @@ describe('useTimer', () => {
 
             // Simulate tab becoming hidden
             Object.defineProperty(document, 'hidden', { value: true, writable: true });
-            document.dispatchEvent(new Event('visibilitychange'));
+            act(() => {
+                document.dispatchEvent(new Event('visibilitychange'));
+            });
 
             expect(sessionStorage.getItem('timer-seconds-at-hide')).toBe('100');
         });
@@ -257,7 +259,9 @@ describe('useTimer', () => {
 
             // Simulate tab visible
             Object.defineProperty(document, 'hidden', { value: false, writable: true });
-            document.dispatchEvent(new Event('visibilitychange'));
+            act(() => {
+                document.dispatchEvent(new Event('visibilitychange'));
+            });
 
             // Timer should have advanced by ~5 seconds
             expect(result.current.seconds).toBeGreaterThanOrEqual(100);
@@ -286,4 +290,5 @@ describe('secondsToMinutes', () => {
         expect(secondsToMinutes(30)).toBe(1); // 30/60 = 0.5, rounded = 1
     });
 });
+
 

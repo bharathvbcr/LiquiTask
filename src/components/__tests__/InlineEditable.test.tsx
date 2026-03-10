@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { InlineEditable } from '../InlineEditable';
 import React from 'react';
 
@@ -43,8 +43,9 @@ describe('InlineEditable', () => {
         const input = screen.getByDisplayValue('Test Value');
         fireEvent.change(input, { target: { value: 'Blurred Value' } });
         fireEvent.blur(input);
-
-        vi.advanceTimersByTime(200);
+        act(() => {
+            vi.advanceTimersByTime(200);
+        });
 
         expect(onSave).toHaveBeenCalledWith('Blurred Value');
     });
@@ -76,3 +77,4 @@ describe('InlineEditable', () => {
         expect(textarea.tagName).toBe('TEXTAREA');
     });
 });
+

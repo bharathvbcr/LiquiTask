@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Save, ChevronDown, Check, Trash2, Layout, Plus, Search } from 'lucide-react';
 import { SavedView } from '../../types';
 import { Button } from './common/Button';
@@ -22,9 +23,50 @@ export const SavedViewControls: React.FC<SavedViewControlsProps> = ({
     const [isCreating, setIsCreating] = useState(false);
     const [newViewName, setNewViewName] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
+    const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
+    const triggerRef = useRef<HTMLDivElement>(null);
 
     const activeView = views.find(v => v.id === activeViewId);
     const filteredViews = views.filter(v => v.name.toLowerCase().includes(searchQuery.toLowerCase()));
+
+    useLayoutEffect(() => {
+        if (!isOpen || !triggerRef.current) return;
+
+        const updateMenuPosition = () => {
+            const rect = triggerRef.current?.getBoundingClientRect();
+            if (!rect) return;
+
+            setMenuStyle({
+                position: 'fixed',
+                top: rect.bottom + 8,
+                left: Math.max(16, rect.right - 288),
+                width: 288,
+                zIndex: 60,
+            });
+        };
+
+        updateMenuPosition();
+        window.addEventListener('resize', updateMenuPosition);
+        window.addEventListener('scroll', updateMenuPosition, true);
+
+        return () => {
+            window.removeEventListener('resize', updateMenuPosition);
+            window.removeEventListener('scroll', updateMenuPosition, true);
+        };
+    }, [isOpen]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const handleEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setIsOpen(false);
+            }
+        };
+
+        document.addEventListener('keydown', handleEscape);
+        return () => document.removeEventListener('keydown', handleEscape);
+    }, [isOpen]);
 
     const handleCreate = (e: React.FormEvent) => {
         e.preventDefault();
@@ -37,29 +79,33 @@ export const SavedViewControls: React.FC<SavedViewControlsProps> = ({
     };
 
     return (
-        <div className="relative">
+        <div ref={triggerRef} className="relative">
             {/* Trigger Button */}
             <Button
                 onClick={() => setIsOpen(!isOpen)}
                 variant="secondary"
-                className={`flex items-center gap-2 px-3 py-2 text-sm font-medium transition-colors ${activeView
+                className={`flex items-center gap-2 min-w-[180px] justify-between px-4 py-2 text-sm font-medium transition-colors ${activeView
                     ? 'bg-blue-500/10 border-blue-500/30 text-blue-400 ring-1 ring-blue-500/30'
                     : ''
                     }`}
             >
-                <Layout size={16} />
-                <span className="max-w-[100px] truncate">
-                    {activeView ? activeView.name : 'Views'}
-                </span>
+                <div className="flex items-center gap-2 min-w-0">
+                    <Layout size={16} />
+                    <span className="max-w-[130px] truncate">
+                        {activeView ? activeView.name : 'Views'}
+                    </span>
+                </div>
                 <ChevronDown size={14} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
             </Button>
 
             {/* Dropdown Menu */}
-            {isOpen && (
+            {isOpen && typeof document !== 'undefined' && createPortal(
                 <>
                     <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-                    <div className="absolute right-0 top-full mt-2 w-72 bg-[#0a0e17] border border-white/10 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100 origin-top-right">
-
+                    <div
+                        style={menuStyle}
+                        className="bg-[#0a0e17] border border-white/10 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100 origin-top-right"
+                    >
                         {/* Header / Search */}
                         <div className="p-3 border-b border-white/5 space-y-2">
                             <div className="relative">
@@ -155,7 +201,8 @@ export const SavedViewControls: React.FC<SavedViewControlsProps> = ({
                             )}
                         </div>
                     </div>
-                </>
+                </>,
+                document.body
             )}
         </div>
     );

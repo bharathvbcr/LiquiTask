@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Search, X, ArrowRight, Settings, LayoutGrid, FolderOpen, FileText, Keyboard, Plus, Flag, Calendar, Tag, Clock } from 'lucide-react';
 import { parseQuickTask, ParsedTask } from '../utils/taskParser';
 
+type CommandActionKeywordSet = string[];
+
 export interface CommandAction {
     id: string;
     label: string;
@@ -9,6 +11,8 @@ export interface CommandAction {
     category: 'task' | 'project' | 'view' | 'action';
     icon?: React.ReactNode;
     shortcut?: string;
+    keywords?: CommandActionKeywordSet;
+    aliases?: CommandActionKeywordSet;
     action: () => void;
 }
 
@@ -17,12 +21,21 @@ interface CommandPaletteProps {
     onClose: () => void;
     actions: CommandAction[];
     onCreateTask?: (task: ParsedTask) => void;
+    commandUsageHistory?: Record<string, number>;
+    onActionExecuted?: (actionId: string) => void;
 }
 
-// Simple fuzzy search implementation
+type ActionWithScore = { action: CommandAction; score: number };
+
+const RECENCY_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
+
 function fuzzyMatch(text: string, query: string): { matches: boolean; score: number } {
     const textLower = text.toLowerCase();
     const queryLower = query.toLowerCase();
+
+    if (!queryLower) {
+        return { matches: true, score: 0 };
+    }
 
     // Exact match gets highest score
     if (textLower === queryLower) {
@@ -57,11 +70,111 @@ function fuzzyMatch(text: string, query: string): { matches: boolean; score: num
     return { matches: false, score: 0 };
 }
 
+const normalizeText = (value: string) => value.toLowerCase().trim();
+
+const getRecencyScore = (lastUsed?: number) => {
+    if (!lastUsed) return 0;
+    const age = Date.now() - lastUsed;
+    if (age <= 0) return 100;
+    if (age >= RECENCY_WINDOW_MS) return 0;
+    return ((RECENCY_WINDOW_MS - age) / RECENCY_WINDOW_MS) * 100;
+};
+
+const getActionSearchText = (action: CommandAction) => {
+    const pieces = [
+        action.label,
+        action.description ?? '',
+        action.id,
+        action.shortcut ?? '',
+        ...(action.keywords ?? []),
+        ...(action.aliases ?? []),
+        action.category,
+    ];
+
+    return pieces
+        .filter(Boolean)
+        .map((value) => normalizeText(String(value)))
+        .join(' ');
+};
+
+const buildActionScores = (
+    actions: CommandAction[],
+    query: string,
+    usageHistory: Record<string, number>,
+) => {
+    const trimmedQuery = normalizeText(query);
+    if (!trimmedQuery) {
+        return actions.map((action) => ({
+            action,
+            score: getRecencyScore(usageHistory[action.id]),
+        }));
+    }
+
+    const tokens = trimmedQuery
+        .split(/\s+/)
+        .map((token) => token.trim())
+        .filter(Boolean);
+
+    return actions
+        .map((action) => {
+            const actionText = getActionSearchText(action);
+            let cumulativeScore = 0;
+
+            for (const token of tokens) {
+                const result = fuzzyMatch(actionText, token);
+                if (!result.matches) {
+                    return null;
+                }
+                cumulativeScore += result.score;
+            }
+
+            const averageMatch = cumulativeScore / tokens.length;
+            return {
+                action,
+                score: averageMatch + getRecencyScore(usageHistory[action.id]),
+            };
+        })
+        .filter((candidate): candidate is ActionWithScore => candidate !== null);
+};
+
+const sortCandidates = (candidates: ActionWithScore[], hasQuery: boolean) => {
+    return [...candidates].sort((a, b) => {
+        if (b.score !== a.score) {
+            return b.score - a.score;
+        }
+
+        if (!hasQuery) {
+            return a.action.label.localeCompare(b.action.label);
+        }
+
+        return 0;
+    });
+};
+
+const groupByCategory = (actions: CommandAction[]) => {
+    const groups: Record<'task' | 'project' | 'view' | 'action', CommandAction[]> = {
+        task: [],
+        project: [],
+        view: [],
+        action: [],
+    };
+
+    actions.forEach((action) => {
+        if (groups[action.category]) {
+            groups[action.category].push(action);
+        }
+    });
+
+    return groups;
+};
+
 export const CommandPalette: React.FC<CommandPaletteProps> = ({
     isOpen,
     onClose,
     actions,
     onCreateTask,
+    commandUsageHistory = {},
+    onActionExecuted,
 }) => {
     const [query, setQuery] = useState('');
     const [selectedIndex, setSelectedIndex] = useState(0);
@@ -76,58 +189,35 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
     // Filter and sort actions based on query
     const filteredActions = useMemo(() => {
-        let results = [];
-
-        // 1. Dynamic "Create Task" Action (if query exists)
-        if (query.trim() && onCreateTask && parsedTask?.title) {
-            results.push({
+        const quickCreateResult = query.trim() && onCreateTask && parsedTask?.title
+            ? [{
                 id: 'quick-create-task',
                 label: `Create: ${parsedTask.title}`,
-                description: `Priority: ${parsedTask.priority || 'Default'} • Due: ${parsedTask.dueDate?.toLocaleDateString() || 'None'} • Project: ${parsedTask.projectName || 'Current'}`,
                 category: 'task' as const,
+                description: `Priority: ${parsedTask.priority || 'Default'} • Due: ${parsedTask.dueDate?.toLocaleDateString() || 'None'} • Project: ${parsedTask.projectName || 'Current'}`,
                 icon: <Plus size={16} className="text-emerald-400" />,
+                shortcut: '↵',
+                keywords: ['create', 'new', 'task', 'todo', 'add', parsedTask.title],
+                aliases: [parsedTask.projectName || 'task'],
                 action: () => {
                     if (parsedTask) onCreateTask(parsedTask);
-                }
-            });
-        }
+                },
+            }]
+            : [];
 
-        // 2. Existing Actions
-        if (!query.trim()) {
-            results = [...results, ...actions];
-        } else {
-            const matched = actions
-                .map(action => ({
-                    action,
-                    ...fuzzyMatch(action.label + ' ' + (action.description || ''), query),
-                }))
-                .filter(result => result.matches)
-                .sort((a, b) => b.score - a.score)
-                .map(result => result.action);
-            
-            results = [...results, ...matched];
-        }
+        const scored = buildActionScores(actions, query, commandUsageHistory);
+        const sortedCandidates = sortCandidates(scored, Boolean(query.trim()));
 
-        return results;
-    }, [actions, query, onCreateTask, parsedTask]);
+        return [
+            ...quickCreateResult,
+            ...sortedCandidates.map(candidate => candidate.action),
+        ];
+    }, [actions, commandUsageHistory, onCreateTask, parsedTask, query]);
 
-    // Group actions by category
-    const groupedActions = useMemo((): Record<'task' | 'project' | 'view' | 'action', CommandAction[]> => {
-        const groups: Record<'task' | 'project' | 'view' | 'action', CommandAction[]> = {
-            task: [],
-            project: [],
-            view: [],
-            action: [],
-        };
-
-        filteredActions.forEach(action => {
-            if (groups[action.category]) {
-                groups[action.category].push(action);
-            }
-        });
-
-        return groups;
-    }, [filteredActions]);
+    const groupedActions = useMemo(
+        () => groupByCategory(filteredActions),
+        [filteredActions],
+    );
 
     // Reset state when opening/closing
     useEffect(() => {
@@ -143,6 +233,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         const selectedElement = listRef.current?.querySelector(`[data-index="${selectedIndex}"]`);
         selectedElement?.scrollIntoView({ block: 'nearest' });
     }, [selectedIndex]);
+
+    const executeAction = useCallback((action: CommandAction) => {
+        action.action();
+        onActionExecuted?.(action.id);
+        onClose();
+    }, [onActionExecuted, onClose]);
 
     // Handle keyboard navigation
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -160,8 +256,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             case 'Enter':
                 e.preventDefault();
                 if (filteredActions[selectedIndex]) {
-                    filteredActions[selectedIndex].action();
-                    onClose();
+                    executeAction(filteredActions[selectedIndex]);
                 }
                 break;
             case 'Escape':
@@ -169,7 +264,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                 onClose();
                 break;
         }
-    }, [filteredActions, selectedIndex, onClose]);
+    }, [executeAction, filteredActions, onClose, selectedIndex]);
 
     // Reset selection when filtered results change
     useEffect(() => {
@@ -241,16 +336,13 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
     return (
         <>
-            {/* Backdrop */}
             <div
                 className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
                 onClick={onClose}
             />
 
-            {/* Command Palette */}
             <div className="fixed top-[20%] left-1/2 -translate-x-1/2 w-full max-w-xl z-50 animate-in zoom-in-95 fade-in duration-150">
                 <div className="mx-4 bg-[#0a0505]/98 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden">
-                    {/* Search Input */}
                     <div className="flex items-center gap-3 p-4 border-b border-white/5">
                         <Search size={20} className="text-red-400 shrink-0" />
                         <input
@@ -273,7 +365,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                         </button>
                     </div>
 
-                    {/* Results */}
                     <div ref={listRef} className="max-h-[50vh] overflow-y-auto custom-scrollbar">
                         {filteredActions.length === 0 ? (
                             <div className="p-8 text-center text-slate-500">
@@ -298,10 +389,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                                                 <button
                                                     key={action.id}
                                                     data-index={globalIndex}
-                                                    onClick={() => {
-                                                        action.action();
-                                                        onClose();
-                                                    }}
+                                                    onClick={() => executeAction(action)}
                                                     className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${isSelected
                                                         ? 'bg-red-500/10 text-white'
                                                         : 'text-slate-300 hover:bg-white/5'
@@ -333,7 +421,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                         )}
                     </div>
 
-                    {/* Footer Hints */}
                     <div className="flex items-center justify-between px-4 py-2 border-t border-white/5 text-[10px] text-slate-500">
                         <div className="flex items-center gap-4">
                             <span className="flex items-center gap-1">

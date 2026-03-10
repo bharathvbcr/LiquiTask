@@ -16,6 +16,10 @@ const mockElectronAPI = {
     showNotification: vi.fn(),
 };
 
+const mockElectrobunAPI = {
+    showNotification: vi.fn(),
+};
+
 describe('notificationService', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -26,6 +30,8 @@ describe('notificationService', () => {
         (global as any).window = {
             ...global.window,
             electronAPI: undefined,
+            electrobunAPI: undefined,
+            __electrobun: undefined,
         };
     });
 
@@ -64,6 +70,18 @@ describe('notificationService', () => {
             const result = await notificationService.requestPermission();
 
             expect(result).toBe(false);
+        });
+
+        it('should return true for Electrobun without requesting browser permission', async () => {
+            (notificationService as any).hasPermission = false;
+            (global as any).window.electronAPI = undefined;
+            (global as any).window.electrobunAPI = mockElectrobunAPI;
+            (global as any).window.__electrobun = {};
+
+            const result = await notificationService.requestPermission();
+
+            expect(result).toBe(true);
+            expect(NotificationMock.requestPermission).not.toHaveBeenCalled();
         });
     });
 
@@ -142,6 +160,26 @@ describe('notificationService', () => {
             });
 
             expect(mockNotification.onclick).toBe(onClick);
+        });
+
+        it('should show notification in Electrobun', () => {
+            (global as any).window.electronAPI = undefined;
+            (global as any).window.electrobunAPI = mockElectrobunAPI;
+            (global as any).window.__electrobun = {};
+            (notificationService as any).hasPermission = true;
+            mockElectrobunAPI.showNotification.mockClear();
+
+            notificationService.show({
+                title: 'Test Title',
+                body: 'Test Body',
+                silent: true,
+            });
+
+            expect(mockElectrobunAPI.showNotification).toHaveBeenCalledWith({
+                title: 'Test Title',
+                body: 'Test Body',
+                silent: true,
+            });
         });
     });
 
