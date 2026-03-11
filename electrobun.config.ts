@@ -4,7 +4,7 @@ const config: ElectrobunConfig = {
     app: {
         name: 'LiquiTask',
         identifier: 'com.liquitask.app',
-        version: '1.0.0',
+        version: '1.0.1',
         description: 'A premium Kanban task management desktop app with a stunning liquid glass aesthetic',
     },
     build: {

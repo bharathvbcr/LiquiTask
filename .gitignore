@@ -12,6 +12,12 @@ dist
 dist-ssr
 dist-electron
 release
+build-electrobun/
+artifacts-electrobun/
+coverage/
+electrobun-*.tgz
+diff.txt
+test_full_log.txt
 *.local
 
 # Editor directories and files

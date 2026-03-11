@@ -107,9 +107,9 @@ describe('Sidebar', () => {
 
     it('renders correctly in collapsed mode', () => {
         render(<Sidebar {...baseProps} isCollapsed={true} />);
-        
-        expect(screen.queryByText('Project 1')).not.toBeInTheDocument();
-        expect(screen.queryByPlaceholderText(/Search workspaces/i)).not.toBeInTheDocument();
+
+        expect(screen.getByText('Project 1')).toHaveClass('max-w-0', 'opacity-0', 'pointer-events-none');
+        expect(screen.getByPlaceholderText(/Search workspaces/i).parentElement).toHaveClass('max-h-0', 'opacity-0', 'pointer-events-none');
     });
 
     it('calls onAddProject when add button is clicked', () => {

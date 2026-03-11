@@ -82,8 +82,8 @@ npm run package:electron:linux
 Push a semantic version tag to build and publish the Windows Electrobun release automatically:
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+git tag v1.0.1
+git push origin v1.0.1
 ```
 
 The release workflow uploads these assets to the GitHub release:
