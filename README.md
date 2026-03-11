@@ -1,13 +1,13 @@
 # LiquiTask
 
-LiquiTask is a desktop-first task management app built with React, TypeScript, Vite, and Electrobun. It combines a Kanban workflow with saved views, automation, recurring tasks, time tracking, export tools, and a glass-heavy desktop UI.
+LiquiTask is a desktop-first task management app built with React, TypeScript, Vite, and Electron. It combines a Kanban workflow with saved views, automation, recurring tasks, time tracking, export tools, and a glass-heavy desktop UI.
 
 ## What It Includes
 
 - Kanban board with drag and drop, WIP limits, and keyboard navigation
 - Multiple task views including board, calendar, gantt, archive, and dashboard surfaces
 - Custom fields, subtasks, task links, tags, templates, and quick-add parsing
-- Native desktop window controls, notifications, and local persistence through the Electrobun runtime bridge
+- Native desktop window controls, notifications, and local persistence through the Electron runtime bridge
 - Search history, saved views, bulk actions, automation rules, recurring tasks, and time reporting
 - CSV and JSON export support
 - Unit and component test coverage with Vitest and Testing Library
@@ -17,14 +17,14 @@ LiquiTask is a desktop-first task management app built with React, TypeScript, V
 - React 19
 - TypeScript
 - Vite
-- Electrobun
+- Electron
 - Tailwind CSS
 - Vitest
 
 ## Requirements
 
 - Node.js 20 or newer
-- Bun 1.3 or newer installed locally for Electrobun desktop development and packaging
+- Bun 1.3 or newer installed locally for Electron desktop development and packaging
 - npm
 - Windows is the primary packaged target in the current release workflow
 
@@ -36,9 +36,9 @@ Install dependencies:
 npm install
 ```
 
-Desktop Electrobun commands in this repo run through the checked-in wrapper at `scripts/electrobun.cjs`, which materializes a local patched ElectroBun CLI source tree for Windows icon embedding and uses the `.electrobun-shims/powershell.cmd` shim for archive commands. `electrobun init` is delegated to the stock ElectroBun launcher.
+Desktop Electron commands in this repo use the standard Electron CLI for development and packaging.
 
-Run the desktop app with Electrobun:
+Run the desktop app with Electron:
 
 ```bash
 npm run dev
@@ -52,7 +52,7 @@ npm run dev:web
 
 ## Build
 
-Build the renderer and Electrobun app:
+Build the renderer and Electron app:
 
 ```bash
 npm run build
@@ -64,16 +64,16 @@ Build only the renderer:
 npm run build:web
 ```
 
-Create a stable Electrobun package:
+Create a stable Electron package:
 
 ```bash
 npm run package
 ```
 
-Electrobun outputs are written to:
+Electron outputs are written to:
 
-- `build-electrobun/`
-- `artifacts-electrobun/`
+- `build-electron/`
+- `artifacts-electron/`
 
 Those directories are generated build output and should not be committed.
 
@@ -108,8 +108,8 @@ The tagged release workflow does the following:
 
 1. Installs dependencies with `npm ci`
 2. Runs the full test suite
-3. Verifies that the git tag matches `package.json` and `electrobun.config.ts`
-4. Builds the Electrobun package
+3. Verifies that the git tag matches `package.json` and `electron.config.ts`
+4. Builds the Electron package
 5. Uploads the packaged Windows artifacts to the GitHub Release
 
 Current release assets:
@@ -129,7 +129,7 @@ Before tagging a new version, update:
 
 - `package.json`
 - `package-lock.json`
-- `electrobun.config.ts`
+- `electron.config.ts`
 
 ## Patch Notes
 
@@ -156,14 +156,14 @@ The final tagged release is still created by the `Release` workflow, which publi
 LiquiTask/
 ├── components/              Shared UI layer used by the desktop app
 ├── src/
-│   ├── bun/                 Electrobun desktop entrypoint
+│   ├── bun/                 Electron desktop entrypoint
 │   ├── components/          Main React UI
 │   ├── constants/           Shared constants and keybindings
 │   ├── context/             React context providers
 │   ├── contexts/            Additional app contexts
 │   ├── hooks/               App controllers and UI hooks
 │   ├── migrations/          Data migration logic
-│   ├── runtime/             Runtime detection and Electrobun bridge
+│   ├── runtime/             Runtime detection and Electron bridge
 │   ├── services/            Persistence, export, notifications, automation
 │   ├── test/                Test setup
 │   ├── types/               Shared types

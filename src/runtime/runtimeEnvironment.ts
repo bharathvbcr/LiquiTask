@@ -1,4 +1,4 @@
-export type RuntimeKind = 'web' | 'electrobun';
+export type RuntimeKind = 'web' | 'electron';
 
 export interface RuntimeState {
     kind: RuntimeKind;
@@ -16,58 +16,58 @@ export interface RuntimeWindowControls {
 
 const isBrowser = typeof window !== 'undefined';
 
-const getElectrobunAPI = () => {
-    return isBrowser && (window as Window & { electrobunAPI?: unknown }).electrobunAPI
-        ? (window as Window & { electrobunAPI: ElectrobunAPI }).electrobunAPI
+const getElectronAPI = () => {
+    return isBrowser && (window as Window & { electronAPI?: unknown }).electronAPI
+        ? (window as Window & { electronAPI: ElectronAPI }).electronAPI
         : undefined;
 };
 
-const hasElectrobunBridge = () => {
+const hasElectronAPI = () => {
     if (!isBrowser) return false;
     const anyWindow = window as Window & {
-        __electrobun?: unknown;
+        electronAPI?: unknown;
     };
-    return Boolean(anyWindow.__electrobun);
+    return Boolean(anyWindow.electronAPI);
 };
 
 export const getRuntimeKind = (): RuntimeKind => {
-    if (hasElectrobunBridge()) {
-        return 'electrobun';
+    if (hasElectronAPI()) {
+        return 'electron';
     }
 
     return 'web';
 };
 
-export const isElectrobun = () => getRuntimeKind() === 'electrobun';
+export const isElectron = () => getRuntimeKind() === 'electron';
 export const isWeb = () => getRuntimeKind() === 'web';
 
 export const getRuntimeState = (): RuntimeState => ({
     kind: getRuntimeKind(),
-    hasCustomWindowControls: isElectrobun(),
+    hasCustomWindowControls: isElectron(),
 });
 
 export const getRuntimeWindowControls = (): RuntimeWindowControls | null => {
     if (!isBrowser) return null;
 
-    const electrobunAPI = getElectrobunAPI();
-    if (electrobunAPI) {
+    const electronAPI = getElectronAPI();
+    if (electronAPI) {
         return {
             minimize: async () => {
-                await electrobunAPI.minimize();
+                await electronAPI.minimize();
             },
             maximize: async () => {
-                await electrobunAPI.maximize();
+                await electronAPI.maximize();
             },
             restore: async () => {
-                await electrobunAPI.restore();
+                await electronAPI.restore();
             },
             close: async () => {
-                await electrobunAPI.close();
+                await electronAPI.close();
             },
             isMaximized: async () => {
-                return Boolean(await electrobunAPI.isMaximized());
+                return Boolean(await electronAPI.isMaximized());
             },
-            onWindowStateChange: (callback) => electrobunAPI.onWindowStateChange(callback),
+            onWindowStateChange: (callback) => electronAPI.onWindowStateChange(callback),
         };
     }
 
@@ -75,8 +75,8 @@ export const getRuntimeWindowControls = (): RuntimeWindowControls | null => {
 };
 
 export const getNativeStorageApi = () => {
-    const electrobunAPI = getElectrobunAPI();
-    if (electrobunAPI) {
-        return electrobunAPI.storage;
+    const electronAPI = getElectronAPI();
+    if (electronAPI) {
+        return electronAPI.storage;
     }
 };

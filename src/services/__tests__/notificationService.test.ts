@@ -11,7 +11,7 @@ const NotificationMock = vi.fn(function () { return mockNotification; }) as any;
 NotificationMock.requestPermission = vi.fn(() => Promise.resolve('granted'));
 NotificationMock.permission = 'granted';
 
-const mockElectrobunAPI = {
+const mockElectronAPI = {
     showNotification: vi.fn(),
 };
 
@@ -24,8 +24,8 @@ describe('notificationService', () => {
         (global as any).Notification = NotificationMock;
         (global as any).window = {
             ...global.window,
-            electrobunAPI: undefined,
-            __electrobun: undefined,
+            electronAPI: undefined,
+            __electronAPI: undefined,
         };
     });
 
@@ -52,10 +52,10 @@ describe('notificationService', () => {
             expect(result).toBe(false);
         });
 
-        it('should return true for Electrobun without requesting browser permission', async () => {
+        it('should return true for Electron without requesting browser permission', async () => {
             (notificationService as any).hasPermission = false;
-            (global as any).window.electrobunAPI = mockElectrobunAPI;
-            (global as any).window.__electrobun = {};
+            (global as any).window.electronAPI = mockElectronAPI;
+            (global as any).window.__electronAPI = {};
 
             const result = await notificationService.requestPermission();
 
@@ -109,11 +109,11 @@ describe('notificationService', () => {
             expect(mockNotification.onclick).toBe(onClick);
         });
 
-        it('should show notification in Electrobun', () => {
-            (global as any).window.electrobunAPI = mockElectrobunAPI;
-            (global as any).window.__electrobun = {};
+        it('should show notification in Electron', () => {
+            (global as any).window.electronAPI = mockElectronAPI;
+            (global as any).window.__electronAPI = {};
             (notificationService as any).hasPermission = true;
-            mockElectrobunAPI.showNotification.mockClear();
+            mockElectronAPI.showNotification.mockClear();
 
             notificationService.show({
                 title: 'Test Title',
@@ -121,7 +121,7 @@ describe('notificationService', () => {
                 silent: true,
             });
 
-            expect(mockElectrobunAPI.showNotification).toHaveBeenCalledWith({
+            expect(mockElectronAPI.showNotification).toHaveBeenCalledWith({
                 title: 'Test Title',
                 body: 'Test Body',
                 silent: true,

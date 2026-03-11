@@ -12,11 +12,7 @@ dist
 dist-ssr
 dist-electron
 release
-build-electrobun/
-build/webview2/
-artifacts-electrobun/
 coverage/
-electrobun-*.tgz
 diff.txt
 test_full_log.txt
 *.local
@@ -39,5 +35,3 @@ POWER_USER_AUDIT*.md
 test_output.txt
 .claude/
 .cursor/
-.electrobun-shims/*
-!.electrobun-shims/powershell.cmd

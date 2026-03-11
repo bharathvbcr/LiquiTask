@@ -8,8 +8,8 @@ import {
 
 describe('runtimeEnvironment', () => {
     beforeEach(() => {
-        window.electrobunAPI = undefined;
-        delete (window as Window & { __electrobun?: unknown }).__electrobun;
+        window.electronAPI = undefined;
+        delete (window as Window & { __electronAPI?: unknown }).__electronAPI;
     });
 
     it('detects web runtime by default', () => {
@@ -21,35 +21,35 @@ describe('runtimeEnvironment', () => {
         expect(getRuntimeWindowControls()).toBeNull();
         expect(getNativeStorageApi()).toBeUndefined();
     });
+it('uses electron runtime when bridge is initialized', async () => {
+    const electronStorage = {
+        get: vi.fn(),
+        set: vi.fn(),
+        delete: vi.fn(),
+        clear: vi.fn(),
+        has: vi.fn(),
+    };
 
-    it('uses electrobun runtime when bridge is initialized', async () => {
-        const listenerCleanup = vi.fn();
-        const electrobunStorage = {
-            get: vi.fn(),
-            set: vi.fn(),
-            delete: vi.fn(),
-            clear: vi.fn(),
-            has: vi.fn(),
-        };
+    const listenerCleanup = vi.fn();
 
-        window.electrobunAPI = {
-            minimize: vi.fn().mockResolvedValue(undefined),
-            maximize: vi.fn().mockResolvedValue(undefined),
-            restore: vi.fn().mockResolvedValue(undefined),
-            close: vi.fn().mockResolvedValue(undefined),
-            isMaximized: vi.fn().mockResolvedValue(false),
-            onWindowStateChange: vi.fn().mockReturnValue(listenerCleanup),
-            showNotification: vi.fn().mockResolvedValue(undefined),
-            storage: electrobunStorage,
-        };
-        (window as Window & { __electrobun?: unknown }).__electrobun = {};
+    window.electronAPI = {
+        minimize: vi.fn().mockResolvedValue(undefined),
+        maximize: vi.fn().mockResolvedValue(undefined),
+        restore: vi.fn().mockResolvedValue(undefined),
+        close: vi.fn().mockResolvedValue(undefined),
+        isMaximized: vi.fn().mockResolvedValue(false),
+        onWindowStateChange: vi.fn().mockReturnValue(listenerCleanup),
+        showNotification: vi.fn().mockResolvedValue(undefined),
+        storage: electronStorage,
+    };
+    (window as Window & { __electronAPI?: unknown }).__electronAPI = {};
 
-        expect(getRuntimeKind()).toBe('electrobun');
-        expect(getRuntimeState()).toEqual({
-            kind: 'electrobun',
-            hasCustomWindowControls: true,
-        });
-        expect(getNativeStorageApi()).toBe(electrobunStorage);
+    expect(getRuntimeKind()).toBe('electron');
+    expect(getRuntimeState()).toEqual({
+        kind: 'electron',
+        hasCustomWindowControls: true,
+    });
+    expect(getNativeStorageApi()).toBe(electronStorage);
 
         const controls = getRuntimeWindowControls();
         expect(controls).not.toBeNull();
@@ -62,11 +62,11 @@ describe('runtimeEnvironment', () => {
         const cleanup = controls?.onWindowStateChange(vi.fn());
         cleanup?.();
 
-        expect(window.electrobunAPI.minimize).toHaveBeenCalled();
-        expect(window.electrobunAPI.maximize).toHaveBeenCalled();
-        expect(window.electrobunAPI.restore).toHaveBeenCalled();
-        expect(window.electrobunAPI.close).toHaveBeenCalled();
-        expect(window.electrobunAPI.onWindowStateChange).toHaveBeenCalled();
+        expect(window.electronAPI.minimize).toHaveBeenCalled();
+        expect(window.electronAPI.maximize).toHaveBeenCalled();
+        expect(window.electronAPI.restore).toHaveBeenCalled();
+        expect(window.electronAPI.close).toHaveBeenCalled();
+        expect(window.electronAPI.onWindowStateChange).toHaveBeenCalled();
         expect(listenerCleanup).toHaveBeenCalled();
     });
 });

@@ -6,7 +6,7 @@ interface NativeStorageAPI {
     has: (key: string) => Promise<boolean>;
 }
 
-interface ElectrobunAPI {
+interface ElectronAPI {
     minimize: () => Promise<void>;
     maximize: () => Promise<void>;
     close: () => Promise<void>;
@@ -19,7 +19,7 @@ interface ElectrobunAPI {
 
 declare global {
     interface Window {
-        electrobunAPI?: ElectrobunAPI;
+        electronAPI?: ElectronAPI;
     }
 }
 

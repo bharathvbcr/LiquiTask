@@ -19,7 +19,7 @@ class NotificationService {
     async requestPermission(): Promise<boolean> {
         const runtime = getRuntimeKind();
 
-        if (runtime === 'electrobun') {
+        if (runtime === 'electron') {
             this.hasPermission = true;
             return true;
         }
@@ -39,8 +39,8 @@ class NotificationService {
             return;
         }
 
-        if (getRuntimeKind() === 'electrobun' && window.electrobunAPI?.showNotification) {
-            window.electrobunAPI.showNotification({
+        if (getRuntimeKind() === 'electron' && window.electronAPI?.showNotification) {
+            window.electronAPI.showNotification({
                 title: options.title,
                 body: options.body,
                 silent: options.silent,

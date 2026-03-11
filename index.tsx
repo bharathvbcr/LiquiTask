@@ -5,11 +5,8 @@ import { KeybindingProvider } from './src/context/KeybindingContext';
 import { ConfirmationProvider } from './src/contexts/ConfirmationContext';
 import './index.css';
 import { getRuntimeWindowControls } from './src/runtime/runtimeEnvironment';
-import { initializeElectrobunBridge } from './src/runtime/electrobunBridge';
 
 const bootstrap = async () => {
-    await initializeElectrobunBridge();
-
     const runtimeWindowControls = getRuntimeWindowControls();
     if (runtimeWindowControls) {
         runtimeWindowControls.onWindowStateChange((isMaximized) => {
@@ -28,10 +25,8 @@ const bootstrap = async () => {
                     <App />
                 </ConfirmationProvider>
             </KeybindingProvider>
-        </React.StrictMode>,
+        </React.StrictMode>
     );
 };
 
-bootstrap().catch((error) => {
-    console.error('Failed to bootstrap LiquiTask runtime', error);
-});
+bootstrap().catch(console.error);
