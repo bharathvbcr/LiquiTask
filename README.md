@@ -1,144 +1,182 @@
 # LiquiTask
 
-A premium Kanban task management desktop app featuring a stunning liquid glass aesthetic and modern frameless window design.
+LiquiTask is a desktop-first task management app built with React, TypeScript, Vite, and Electrobun. It combines a Kanban workflow with saved views, automation, recurring tasks, time tracking, export tools, and a glass-heavy desktop UI.
 
-## Features
+## What It Includes
 
-- 🎨 **Liquid Glass UI** - Beautiful dark/light mode interface with glassmorphism effects
-- 📋 **Kanban Board** - Drag-and-drop task management with customizable columns
-- 🏷️ **Custom Fields** - Define your own fields for tasks
-- 🔗 **Task Dependencies** - Link tasks with blocking/related relationships
-- 🧱 **Native Persistence** - Secure local storage in both Electrobun and Electron
-- 📊 **Executive Dashboard** - Cross-project analytics and overview
-- ⌨️ **Command Palette** - Quick actions with Cmd+K fuzzy search
-- 📤 **Export** - CSV/JSON export with Cmd+E
-- 🔔 **Smart Notifications** - Desktop alerts for overdue tasks
-- 🎚️ **WIP Limits** - Column limits with visual warnings
+- Kanban board with drag and drop, WIP limits, and keyboard navigation
+- Multiple task views including board, calendar, gantt, archive, and dashboard surfaces
+- Custom fields, subtasks, task links, tags, templates, and quick-add parsing
+- Native desktop window controls, notifications, and local persistence through the Electrobun runtime bridge
+- Search history, saved views, bulk actions, automation rules, recurring tasks, and time reporting
+- CSV and JSON export support
+- Unit and component test coverage with Vitest and Testing Library
 
-## Tech Stack
+## Stack
 
-- **Frontend:** React 19 + TypeScript
-- **Build Tool:** Vite + Electrobun
-- **Desktop:** Electrobun is the default desktop runtime and release target
-- **Data:** Native runtime storage bridge, `localStorage` (Web Fallback)
-- **Styling:** TailwindCSS
+- React 19
+- TypeScript
+- Vite
+- Electrobun
+- Tailwind CSS
+- Vitest
 
-## Run Locally
+## Requirements
 
-**Prerequisites:** Node.js 18+
+- Node.js 20 or newer
+- npm
+- Windows is the primary packaged target in the current release workflow
 
-1. Install dependencies:
+## Development
 
-   ```bash
-   npm install
-   ```
-
-2. Run in development mode:
-
-   ```bash
-   # Desktop app (Electrobun, default)
-   npm run dev
-
-   # Web only
-   npm run dev:web
-
-   # Desktop app (Electron compatibility path)
-   npm run dev:electron
-
-   # Desktop app (Electrobun shell with manual split UI/runtime)
-   # Run this in one terminal:
-   npm run dev:electrobun:ui
-   # Run this in a second terminal:
-   npm run dev:electrobun
-   ```
-
-## Build for Production
+Install dependencies:
 
 ```bash
-# Build Electrobun app (default)
+npm install
+```
+
+Run the desktop app with Electrobun:
+
+```bash
+npm run dev
+```
+
+Run the web renderer only:
+
+```bash
+npm run dev:web
+```
+
+## Build
+
+Build the renderer and Electrobun app:
+
+```bash
 npm run build
-
-# Build web bundle only
-npm run build:web
-
-# Build Electron app
-npm run build:electron
-
-# Build Electrobun app explicitly
-npm run build:electrobun
-
-# Package for distribution (Electrobun default)
-npm run package
-
-# Package Electron compatibility builds explicitly
-npm run package:electron
-npm run package:electron:win
-npm run package:electron:mac
-npm run package:electron:linux
 ```
 
-## GitHub Releases
-
-Push a semantic version tag to build and publish the Windows Electrobun release automatically:
+Build only the renderer:
 
 ```bash
-git tag v1.0.1
-git push origin v1.0.1
+npm run build:web
 ```
 
-The release workflow uploads these assets to the GitHub release:
+Create a stable Electrobun package:
+
+```bash
+npm run package
+```
+
+Electrobun outputs are written to:
+
+- `build-electrobun/`
+- `artifacts-electrobun/`
+
+Those directories are generated build output and should not be committed.
+
+## Test
+
+Run the full test suite:
+
+```bash
+npm test -- --run
+```
+
+Run coverage:
+
+```bash
+npm run test:coverage
+```
+
+Lint:
+
+```bash
+npm run lint
+```
+
+## Release Flow
+
+LiquiTask uses two GitHub Actions release paths:
+
+1. `Release Drafter` updates a draft release on every push to `main`.
+2. `Release` runs when a semantic version tag such as `v1.0.2` is pushed.
+
+The tagged release workflow does the following:
+
+1. Installs dependencies with `npm ci`
+2. Runs the full test suite
+3. Verifies that the git tag matches `package.json` and `electrobun.config.ts`
+4. Builds the Electrobun package
+5. Uploads the packaged Windows artifacts to the GitHub Release
+
+Current release assets:
 
 - `stable-win-x64-LiquiTask-Setup.zip`
 - `stable-win-x64-LiquiTask.tar.zst`
 - `stable-win-x64-update.json`
 
+Create a release:
+
+```bash
+git tag v1.0.2
+git push origin v1.0.2
+```
+
+Before tagging a new version, update:
+
+- `package.json`
+- `package-lock.json`
+- `electrobun.config.ts`
+
+## Patch Notes
+
+Patch notes are generated automatically with Release Drafter.
+
+Files involved:
+
+- `.github/workflows/release-drafter.yml`
+- `.github/release-drafter.yml`
+- `.github/workflows/release.yml`
+
+Release Drafter behavior in this repo:
+
+- groups changes into Features, Fixes, Security, Documentation, and Maintenance
+- auto-labels some changes based on touched files
+- defaults unlabeled releases to a patch bump
+- keeps a draft release updated on `main`
+
+The final tagged release is still created by the `Release` workflow, which publishes the packaged assets.
+
 ## Project Structure
 
 ```text
 LiquiTask/
+├── components/              Shared UI layer used by the desktop app
 ├── src/
-│   ├── components/     # React UI components
-│   ├── hooks/          # Custom React hooks
-│   ├── services/       # Core services (Storage, Notifications, Export)
-│   ├── utils/          # Helper functions
-│   └── types.ts        # TypeScript definitions
-├── electron/
-│   ├── main.ts         # Electron main process
-│   └── preload.ts      # ContextBridge & IPC
-├── src/bun/
-│   └── index.ts        # Electrobun main process entry
-├── build/              # Icons and build assets
-└── .github/            # CI/CD workflows
+│   ├── bun/                 Electrobun desktop entrypoint
+│   ├── components/          Main React UI
+│   ├── constants/           Shared constants and keybindings
+│   ├── context/             React context providers
+│   ├── contexts/            Additional app contexts
+│   ├── hooks/               App controllers and UI hooks
+│   ├── migrations/          Data migration logic
+│   ├── runtime/             Runtime detection and Electrobun bridge
+│   ├── services/            Persistence, export, notifications, automation
+│   ├── test/                Test setup
+│   ├── types/               Shared types
+│   └── utils/               Parsers, query helpers, validation, search helpers
+├── build/                   Icons and packaging assets
+└── .github/                 CI, release, and code scanning workflows
 ```
-
-## Runtime Notes
-
-- Electrobun is the primary desktop runtime and now has a native bridge for window controls, local persistence, and notifications while reusing the same React renderer.
-- Electron remains available only as an explicit compatibility path.
 
 ## Keyboard Shortcuts
 
-| Shortcut | Action |
-|----------|--------|
-| `Cmd/Ctrl + K` | Open Command Palette |
-| `Cmd/Ctrl + E` | Export to CSV |
-| `Cmd/Ctrl + B` | Toggle sidebar |
-| `Cmd/Ctrl + Z` | Undo last action |
-| `C` | Create new task |
-| `Escape` | Close modals |
-
-## QuickAdd Syntax
-
-Create tasks quickly with natural language:
-
-| Syntax | Example | Effect |
-|--------|---------|--------|
-| `!h/!m/!l` | `Task !high` | Set priority |
-| `@today` | `Task @today` | Due today |
-| `@tom` | `Task @tom` | Due tomorrow |
-| `#project` | `Task #backend` | Assign project |
-| `~2h` | `Task ~2h` | Time estimate |
-| `+tag` | `Task +urgent` | Add tag |
+- `Cmd/Ctrl + K` opens the command palette
+- `Cmd/Ctrl + E` exports data
+- `Cmd/Ctrl + B` toggles the sidebar
+- `Cmd/Ctrl + Z` undoes the last action
+- `C` creates a task
+- `Escape` closes active overlays
 
 ## License
 

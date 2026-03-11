@@ -8,7 +8,6 @@ import {
 
 describe('runtimeEnvironment', () => {
     beforeEach(() => {
-        window.electronAPI = undefined;
         window.electrobunAPI = undefined;
         delete (window as Window & { __electrobun?: unknown }).__electrobun;
     });
@@ -21,55 +20,6 @@ describe('runtimeEnvironment', () => {
         });
         expect(getRuntimeWindowControls()).toBeNull();
         expect(getNativeStorageApi()).toBeUndefined();
-    });
-
-    it('prefers electron runtime when electronAPI exists', async () => {
-        const unsubscribe = vi.fn();
-        const electronStorage = {
-            get: vi.fn(),
-            set: vi.fn(),
-            delete: vi.fn(),
-            clear: vi.fn(),
-            has: vi.fn(),
-        };
-
-        window.electronAPI = {
-            minimize: vi.fn().mockResolvedValue(undefined),
-            maximize: vi.fn().mockResolvedValue(undefined),
-            close: vi.fn().mockResolvedValue(undefined),
-            isMaximized: vi.fn().mockResolvedValue(true),
-            on: vi.fn().mockReturnValue(unsubscribe),
-            platform: 'win32',
-            versions: {
-                node: '22',
-                chrome: '130',
-                electron: '39',
-            },
-            showNotification: vi.fn().mockResolvedValue(undefined),
-            storage: electronStorage,
-        };
-
-        (window as Window & { __electrobun?: unknown }).__electrobun = {};
-
-        expect(getRuntimeKind()).toBe('electron');
-        expect(getRuntimeState().hasCustomWindowControls).toBe(true);
-        expect(getNativeStorageApi()).toBe(electronStorage);
-
-        const controls = getRuntimeWindowControls();
-        expect(controls).not.toBeNull();
-        await controls?.minimize();
-        await controls?.maximize();
-        await controls?.close();
-        expect(await controls?.isMaximized()).toBe(true);
-
-        const cleanup = controls?.onWindowStateChange(vi.fn());
-        cleanup?.();
-
-        expect(window.electronAPI.minimize).toHaveBeenCalled();
-        expect(window.electronAPI.maximize).toHaveBeenCalled();
-        expect(window.electronAPI.close).toHaveBeenCalled();
-        expect(window.electronAPI.on).toHaveBeenCalledTimes(2);
-        expect(unsubscribe).toHaveBeenCalledTimes(2);
     });
 
     it('uses electrobun runtime when bridge is initialized', async () => {

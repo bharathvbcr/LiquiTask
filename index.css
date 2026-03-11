@@ -245,7 +245,7 @@ body {
   margin-top: 0.5rem;
 }
 
-/* Electron title bar drag region */
+/* Native desktop title bar drag region */
 .titlebar-drag-region {
   -webkit-app-region: drag;
 }

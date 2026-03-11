@@ -1,0 +1,78 @@
+name-template: 'v$RESOLVED_VERSION'
+tag-template: 'v$RESOLVED_VERSION'
+template: |
+  ## Patch Notes
+
+  $CHANGES
+
+  ## Full Changelog
+
+  $CONTRIBUTORS
+
+categories:
+  - title: 'Features'
+    labels:
+      - 'feature'
+      - 'enhancement'
+      - 'feat'
+  - title: 'Fixes'
+    labels:
+      - 'fix'
+      - 'bug'
+      - 'bugfix'
+  - title: 'Security'
+    labels:
+      - 'security'
+  - title: 'Documentation'
+    labels:
+      - 'documentation'
+      - 'docs'
+  - title: 'Maintenance'
+    labels:
+      - 'chore'
+      - 'dependencies'
+      - 'ci'
+
+change-template: '- $TITLE (#$NUMBER) @$AUTHOR'
+change-title-escapes: '\<*_&'
+no-changes-template: '- No user-facing changes in this release.'
+version-resolver:
+  major:
+    labels:
+      - 'major'
+  minor:
+    labels:
+      - 'minor'
+      - 'feature'
+      - 'enhancement'
+      - 'feat'
+  patch:
+    labels:
+      - 'patch'
+      - 'fix'
+      - 'bug'
+      - 'bugfix'
+      - 'security'
+      - 'chore'
+      - 'dependencies'
+      - 'ci'
+  default: patch
+
+autolabeler:
+  - label: 'documentation'
+    files:
+      - '*.md'
+      - 'docs/**'
+  - label: 'ci'
+    files:
+      - '.github/**'
+  - label: 'dependencies'
+    files:
+      - 'package.json'
+      - 'package-lock.json'
+  - label: 'security'
+    files:
+      - 'src/utils/safeUrl.ts'
+
+exclude-labels:
+  - 'skip-changelog'

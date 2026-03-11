@@ -89,14 +89,14 @@ class StorageService {
     }
 
     async initialize(): Promise<void> {
-        const electronStorage = getNativeStorageApi();
-        if (!electronStorage) return;
+        const nativeStorage = getNativeStorageApi();
+        if (!nativeStorage) return;
 
         try {
             // Load all keys from native storage
             const keys = Object.values(STORAGE_KEYS);
             for (const key of keys) {
-                const value = await electronStorage.get(key);
+                const value = await nativeStorage.get(key);
 
                 if (value) {
                     if (key === STORAGE_KEYS.TASKS) {
@@ -116,7 +116,7 @@ class StorageService {
                                 this.cache.set(key, parsed);
                             }
                             // Save to native storage for next time
-                            await electronStorage.set(key, parsed);
+                            await nativeStorage.set(key, parsed);
                             // Migration complete for key
                         } catch (e) {
                             console.error(`Failed to migrate ${key}`, e);
@@ -197,10 +197,10 @@ class StorageService {
             }
         }
 
-        const electronStorage = getNativeStorageApi();
-        if (electronStorage) {
+        const nativeStorage = getNativeStorageApi();
+        if (nativeStorage) {
             // Native Save (backup)
-            electronStorage.set(key, value).catch(console.error);
+            nativeStorage.set(key, value).catch(console.error);
         }
 
         // Always save to localStorage as backup/fallback (for settings and small data)
@@ -215,18 +215,18 @@ class StorageService {
 
     remove(key: string): void {
         this.cache.delete(key);
-        const electronStorage = getNativeStorageApi();
-        if (electronStorage) {
-            electronStorage.delete(key).catch(console.error);
+        const nativeStorage = getNativeStorageApi();
+        if (nativeStorage) {
+            nativeStorage.delete(key).catch(console.error);
         }
         localStorage.removeItem(key);
     }
 
     clear(): void {
         this.cache.clear();
-        const electronStorage = getNativeStorageApi();
-        if (electronStorage) {
-            electronStorage.clear().catch(console.error);
+        const nativeStorage = getNativeStorageApi();
+        if (nativeStorage) {
+            nativeStorage.clear().catch(console.error);
         }
         Object.values(STORAGE_KEYS).forEach(key => {
             localStorage.removeItem(key);

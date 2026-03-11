@@ -11,11 +11,6 @@ const NotificationMock = vi.fn(function () { return mockNotification; }) as any;
 NotificationMock.requestPermission = vi.fn(() => Promise.resolve('granted'));
 NotificationMock.permission = 'granted';
 
-// Mock window.electronAPI
-const mockElectronAPI = {
-    showNotification: vi.fn(),
-};
-
 const mockElectrobunAPI = {
     showNotification: vi.fn(),
 };
@@ -29,7 +24,6 @@ describe('notificationService', () => {
         (global as any).Notification = NotificationMock;
         (global as any).window = {
             ...global.window,
-            electronAPI: undefined,
             electrobunAPI: undefined,
             __electrobun: undefined,
         };
@@ -42,7 +36,6 @@ describe('notificationService', () => {
 
     describe('requestPermission', () => {
         it('should request permission in browser', async () => {
-            (global as any).window.electronAPI = undefined;
             NotificationMock.requestPermission.mockResolvedValue('granted');
 
             const result = await notificationService.requestPermission();
@@ -51,20 +44,7 @@ describe('notificationService', () => {
             expect(NotificationMock.requestPermission).toHaveBeenCalled();
         });
 
-        it('should return true for Electron without requesting', async () => {
-            // Reset the service's permission state
-            (notificationService as any).hasPermission = false;
-            (global as any).window.electronAPI = mockElectronAPI;
-
-            const result = await notificationService.requestPermission();
-
-            expect(result).toBe(true);
-            // In Electron, it sets hasPermission directly without calling requestPermission
-            // But the constructor might have already called it, so we just check the result
-        });
-
         it('should return false if permission denied', async () => {
-            (global as any).window.electronAPI = undefined;
             NotificationMock.requestPermission.mockResolvedValue('denied');
 
             const result = await notificationService.requestPermission();
@@ -74,7 +54,6 @@ describe('notificationService', () => {
 
         it('should return true for Electrobun without requesting browser permission', async () => {
             (notificationService as any).hasPermission = false;
-            (global as any).window.electronAPI = undefined;
             (global as any).window.electrobunAPI = mockElectrobunAPI;
             (global as any).window.__electrobun = {};
 
@@ -87,7 +66,6 @@ describe('notificationService', () => {
 
     describe('show', () => {
         it('should show notification in browser', () => {
-            (global as any).window.electronAPI = undefined;
             (notificationService as any).hasPermission = true;
 
             notificationService.show({
@@ -101,36 +79,6 @@ describe('notificationService', () => {
                 tag: undefined,
                 silent: undefined,
             });
-        });
-
-        it('should show notification in Electron', () => {
-            // Set up Electron environment before the service is used
-            (global as any).window.electronAPI = mockElectronAPI;
-            (notificationService as any).hasPermission = true;
-            mockElectronAPI.showNotification.mockClear();
-            NotificationMock.mockClear();
-
-            notificationService.show({
-                title: 'Test Title',
-                body: 'Test Body',
-            });
-
-            // The service checks isElectron at module load time
-            // If window.electronAPI exists when module loads, isElectron will be true
-            // Since we set it before calling show, it should use Electron API if available
-            // Otherwise it falls back to browser Notification
-            const usedElectron = mockElectronAPI.showNotification.mock.calls.length > 0;
-            const usedBrowser = NotificationMock.mock.calls.length > 0;
-
-            // One of them should have been called
-            expect(usedElectron || usedBrowser).toBe(true);
-
-            if (usedElectron) {
-                expect(mockElectronAPI.showNotification).toHaveBeenCalledWith({
-                    title: 'Test Title',
-                    body: 'Test Body',
-                });
-            }
         });
 
         it('should not show notification without permission', () => {
@@ -149,7 +97,6 @@ describe('notificationService', () => {
         });
 
         it('should attach onClick handler', () => {
-            (global as any).window.electronAPI = undefined;
             (notificationService as any).hasPermission = true;
             const onClick = vi.fn();
 
@@ -163,7 +110,6 @@ describe('notificationService', () => {
         });
 
         it('should show notification in Electrobun', () => {
-            (global as any).window.electronAPI = undefined;
             (global as any).window.electrobunAPI = mockElectrobunAPI;
             (global as any).window.__electrobun = {};
             (notificationService as any).hasPermission = true;

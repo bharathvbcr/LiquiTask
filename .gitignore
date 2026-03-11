@@ -36,3 +36,6 @@ test_full_log.txt
 .gemini/
 POWER_USER_AUDIT*.md
 test_output.txt
+.claude/
+.cursor/
+.electrobun-shims/

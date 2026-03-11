@@ -19,7 +19,7 @@ class NotificationService {
     async requestPermission(): Promise<boolean> {
         const runtime = getRuntimeKind();
 
-        if (runtime === 'electron' || runtime === 'electrobun') {
+        if (runtime === 'electrobun') {
             this.hasPermission = true;
             return true;
         }
@@ -36,14 +36,6 @@ class NotificationService {
     show(options: NotificationOptions): void {
         if (!this.hasPermission) {
             console.warn('Notification permission not granted');
-            return;
-        }
-
-        if (getRuntimeKind() === 'electron' && (window as Window & { electronAPI?: { showNotification?: (payload: unknown) => void } }).electronAPI?.showNotification) {
-            (window as Window & { electronAPI: { showNotification: (payload: unknown) => void } }).electronAPI.showNotification({
-                title: options.title,
-                body: options.body,
-            });
             return;
         }
 

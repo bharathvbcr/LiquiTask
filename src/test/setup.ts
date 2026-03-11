@@ -15,12 +15,6 @@ Object.defineProperty(window, 'localStorage', {
     value: localStorageMock,
 });
 
-// Mock window.electronAPI if needed
-Object.defineProperty(window, 'electronAPI', {
-    value: undefined,
-    writable: true,
-});
-
 // Reset mocks between tests
 beforeEach(() => {
     vi.clearAllMocks();

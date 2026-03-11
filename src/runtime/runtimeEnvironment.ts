@@ -1,4 +1,4 @@
-export type RuntimeKind = 'web' | 'electron' | 'electrobun';
+export type RuntimeKind = 'web' | 'electrobun';
 
 export interface RuntimeState {
     kind: RuntimeKind;
@@ -22,12 +22,6 @@ const getElectrobunAPI = () => {
         : undefined;
 };
 
-const getElectronAPI = () => {
-    return isBrowser && (window as Window & { electronAPI?: unknown }).electronAPI
-        ? (window as Window & { electronAPI: ElectronAPI }).electronAPI
-        : undefined;
-};
-
 const hasElectrobunBridge = () => {
     if (!isBrowser) return false;
     const anyWindow = window as Window & {
@@ -37,10 +31,6 @@ const hasElectrobunBridge = () => {
 };
 
 export const getRuntimeKind = (): RuntimeKind => {
-    if (getElectronAPI()) {
-        return 'electron';
-    }
-
     if (hasElectrobunBridge()) {
         return 'electrobun';
     }
@@ -48,13 +38,12 @@ export const getRuntimeKind = (): RuntimeKind => {
     return 'web';
 };
 
-export const isElectron = () => getRuntimeKind() === 'electron';
 export const isElectrobun = () => getRuntimeKind() === 'electrobun';
 export const isWeb = () => getRuntimeKind() === 'web';
 
 export const getRuntimeState = (): RuntimeState => ({
     kind: getRuntimeKind(),
-    hasCustomWindowControls: isElectron() || isElectrobun(),
+    hasCustomWindowControls: isElectrobun(),
 });
 
 export const getRuntimeWindowControls = (): RuntimeWindowControls | null => {
@@ -82,45 +71,7 @@ export const getRuntimeWindowControls = (): RuntimeWindowControls | null => {
         };
     }
 
-    const electronAPI = getElectronAPI();
-    if (!electronAPI) return null;
-
-    return {
-        minimize: async () => {
-            await electronAPI.minimize?.();
-        },
-        maximize: async () => {
-            await electronAPI.maximize?.();
-        },
-        restore: async () => {
-            await electronAPI.isMaximized?.().then((maximized: boolean) => {
-                if (maximized) {
-                    electronAPI.unmaximize?.();
-                } else {
-                    electronAPI.maximize?.();
-                }
-            });
-        },
-        close: async () => {
-            await electronAPI.close?.();
-        },
-        isMaximized: async () => {
-            if (!electronAPI.isMaximized) return false;
-            return Boolean(await electronAPI.isMaximized());
-        },
-        onWindowStateChange: (callback) => {
-            const unsubs: Array<(() => void) | undefined> = [];
-            if (electronAPI.on) {
-                const offMax = electronAPI.on('maximize', () => callback(true));
-                const offUnmax = electronAPI.on('unmaximize', () => callback(false));
-                if (offMax) unsubs.push(offMax);
-                if (offUnmax) unsubs.push(offUnmax);
-            }
-            return () => {
-                unsubs.forEach(unsub => unsub?.());
-            };
-        },
-    };
+    return null;
 };
 
 export const getNativeStorageApi = () => {
@@ -128,7 +79,4 @@ export const getNativeStorageApi = () => {
     if (electrobunAPI) {
         return electrobunAPI.storage;
     }
-
-    const electronAPI = getElectronAPI();
-    return electronAPI?.storage;
 };

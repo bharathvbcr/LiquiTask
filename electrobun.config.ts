@@ -4,7 +4,7 @@ const config: ElectrobunConfig = {
     app: {
         name: 'LiquiTask',
         identifier: 'com.liquitask.app',
-        version: '1.0.1',
+        version: '1.0.2',
         description: 'A premium Kanban task management desktop app with a stunning liquid glass aesthetic',
     },
     build: {
@@ -19,7 +19,7 @@ const config: ElectrobunConfig = {
             'build/icon.png': 'assets/icon.png',
         },
         watch: ['dist'],
-        watchIgnore: ['dist-electron/**', 'release/**'],
+        watchIgnore: ['release/**'],
         win: {
             icon: 'build/icon.png',
         },

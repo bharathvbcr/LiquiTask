@@ -2,42 +2,34 @@
   "name": "liquitask",
   "productName": "LiquiTask",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A premium Kanban task management desktop app with a stunning liquid glass aesthetic",
   "author": {
     "name": "LiquidTask",
     "email": "support@liquitask.com"
   },
-  "main": "dist-electron/main/main.js",
   "type": "module",
   "scripts": {
     "dev": "electrobun dev",
     "dev:web": "vite",
-    "dev:electron": "electron-vite dev",
     "dev:electrobun": "electrobun dev",
     "dev:electrobun:ui": "vite",
     "build": "npm run build:electrobun",
     "build:web": "vite build",
-    "build:electron": "npm run build:web && electron-vite build",
     "build:electrobun": "npm run build:web && electrobun build",
     "preview": "vite preview",
     "package": "electrobun build --env=stable",
     "package:electrobun": "electrobun build --env=stable",
-    "package:electron": "electron-builder",
-    "package:electron:win": "electron-builder --win",
-    "package:electron:mac": "electron-builder --mac",
-    "package:electron:linux": "electron-builder --linux",
     "test": "vitest",
     "test:coverage": "vitest --coverage",
-    "lint": "eslint . --ext .ts,.tsx --max-warnings 0",
-    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "lint": "biome check .",
+    "lint:fix": "biome check . --write",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\""
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
-    "electron-store": "^10.0.0",
     "lucide-react": "^0.562.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
@@ -46,60 +38,24 @@
     "zod": "^4.3.5"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.6",
     "@testing-library/jest-dom": "^6.4.0",
     "@testing-library/react": "^14.2.0",
     "@types/node": "^22.14.0",
-    "@typescript-eslint/eslint-plugin": "^7.0.0",
-    "@typescript-eslint/parser": "^7.0.0",
-    "@vitejs/plugin-react": "^5.0.0",
+    "@vitejs/plugin-react": "^5.1.4",
     "@vitest/coverage-v8": "^4.0.18",
     "autoprefixer": "^10.4.20",
     "electrobun": "^1.15.1",
-    "electron": "^39.2.7",
-    "electron-builder": "^25.1.8",
-    "electron-vite": "^3.0.0",
-    "eslint": "^8.57.0",
-    "eslint-plugin-react": "^7.33.0",
-    "eslint-plugin-react-hooks": "^4.6.0",
     "fake-indexeddb": "^6.2.5",
     "jsdom": "^24.0.0",
     "postcss": "^8.4.47",
     "prettier": "^3.2.0",
     "tailwindcss": "^3.4.0",
     "typescript": "~5.8.2",
-    "vite": "^6.2.0",
-    "vitest": "^4.0.17"
+    "vite": "^7.3.1",
+    "vitest": "^4.0.18"
   },
-  "build": {
-    "appId": "com.liquitask.app",
-    "productName": "LiquiTask",
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "dist/**/*",
-      "dist-electron/**/*"
-    ],
-    "win": {
-      "target": [
-        "nsis",
-        "portable"
-      ],
-      "icon": "build/icon.png"
-    },
-    "mac": {
-      "target": [
-        "dmg",
-        "zip"
-      ],
-      "icon": "build/icon.png"
-    },
-    "linux": {
-      "target": [
-        "AppImage",
-        "deb"
-      ],
-      "icon": "build/icon.png"
-    }
+  "overrides": {
+    "rollup": "4.59.0"
   }
 }
