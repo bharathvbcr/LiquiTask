@@ -38,4 +38,5 @@ POWER_USER_AUDIT*.md
 test_output.txt
 .claude/
 .cursor/
-.electrobun-shims/
+.electrobun-shims/*
+!.electrobun-shims/powershell.cmd

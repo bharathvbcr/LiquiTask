@@ -28,14 +28,39 @@ jobs:
           node-version: 20
           cache: "npm"
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.8
+
       - name: Install dependencies
-        run: npm install --legacy-peer-deps
+        run: npm install
 
       - name: Run Tests
-        run: npm test -- --run
+        run: npm run test:run
 
       - name: Build Electrobun App
         run: npm run build
+
+      - name: Windows Packaging Smoke Test
+        if: matrix.os == 'windows-latest'
+        run: npm run package
+
+      - name: Assert Windows package artifacts
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $expected = @(
+            "artifacts-electrobun/stable-win-x64-LiquiTask-Setup.zip",
+            "artifacts-electrobun/stable-win-x64-LiquiTask.tar.zst",
+            "artifacts-electrobun/stable-win-x64-update.json"
+          )
+          foreach ($path in $expected) {
+            if (-not (Test-Path $path)) {
+              Write-Error "Missing expected artifact: $path"
+              exit 1
+            }
+          }
 
       - name: Upload Web Build Artifact
         if: matrix.os == 'windows-latest'

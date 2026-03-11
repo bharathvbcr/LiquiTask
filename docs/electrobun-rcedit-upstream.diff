@@ -1,0 +1,56 @@
+diff --git a/src/cli/index.ts b/src/cli/index.ts
+index 0000000..1111111 100644
+--- a/src/cli/index.ts
++++ b/src/cli/index.ts
+@@
+-import { execSync } from "child_process";
++import { execFileSync, execSync } from "child_process";
+@@
++function resolveLocalRceditBinaryPath() {
++	const rceditPackageJsonPath = require.resolve("rcedit/package.json", {
++		paths: [projectRoot],
++	});
++	const rceditPackageDir = dirname(rceditPackageJsonPath);
++	const candidatePaths = [
++		join(rceditPackageDir, "bin", "rcedit-x64.exe"),
++		join(rceditPackageDir, "bin", "rcedit.exe"),
++	];
++	const rceditBinaryPath = candidatePaths.find((candidatePath) =>
++		existsSync(candidatePath),
++	);
++
++	if (!rceditBinaryPath) {
++		throw new Error(
++			`Could not find a local rcedit executable in ${join(rceditPackageDir, "bin")}`,
++		);
++	}
++
++	return rceditBinaryPath;
++}
++
++function embedWindowsIconWithLocalRcedit(
++	executablePath: string,
++	iconPath: string,
++) {
++	execFileSync(resolveLocalRceditBinaryPath(), [executablePath, "--set-icon", iconPath], {
++		stdio: "pipe",
++	});
++}
+@@
+-					const rcedit = (await import("rcedit")).default;
+-					await rcedit(bunCliLauncherDestination, {
+-						icon: iconPath,
+-					});
++					embedWindowsIconWithLocalRcedit(bunCliLauncherDestination, iconPath);
+@@
+-					const rcedit = (await import("rcedit")).default;
+-					await rcedit(bunBinaryDestInBundlePath, {
+-						icon: iconPath,
+-					});
++					embedWindowsIconWithLocalRcedit(bunBinaryDestInBundlePath, iconPath);
+@@
+-					const rcedit = (await import("rcedit")).default;
+-					await rcedit(outputExePath, {
+-						icon: iconPath,
+-					});
++					embedWindowsIconWithLocalRcedit(outputExePath, iconPath);

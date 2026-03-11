@@ -24,6 +24,7 @@ LiquiTask is a desktop-first task management app built with React, TypeScript, V
 ## Requirements
 
 - Node.js 20 or newer
+- Bun 1.3 or newer installed locally for Electrobun desktop development and packaging
 - npm
 - Windows is the primary packaged target in the current release workflow
 
@@ -34,6 +35,8 @@ Install dependencies:
 ```bash
 npm install
 ```
+
+Desktop Electrobun commands in this repo run through the checked-in wrapper at `scripts/electrobun.cjs`, which materializes a local patched ElectroBun CLI source tree for Windows icon embedding and uses the `.electrobun-shims/powershell.cmd` shim for archive commands. `electrobun init` is delegated to the stock ElectroBun launcher.
 
 Run the desktop app with Electrobun:
 
