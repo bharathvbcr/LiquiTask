@@ -30,6 +30,10 @@ const config: ElectrobunConfig = {
     runtime: {
         exitOnLastWindowClosed: true,
     },
+    scripts: {
+        preBuild: './scripts/pre-build.ts',
+        postBuild: './scripts/post-build.ts',
+    },
 };
 
 export default config;

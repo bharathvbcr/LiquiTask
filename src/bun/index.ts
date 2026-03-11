@@ -2,6 +2,8 @@ import { BrowserWindow, Utils, defineElectrobunRPC } from 'electrobun';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
+import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 
 const DEFAULT_DEV_SERVER_URL = 'http://127.0.0.1:3000';
 const APP_NAME = 'LiquiTask';
@@ -147,6 +149,41 @@ const rpc = defineElectrobunRPC<LiquiTaskElectrobunRPC, 'bun'>('bun', {
         messages: {},
     },
 });
+
+const ensureWebView2 = () => {
+    if (process.platform !== 'win32') return;
+
+    try {
+        const checkCmd = `reg query "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" /v pv`;
+        execFileSync('cmd.exe', ['/c', checkCmd], { stdio: 'ignore' });
+        return;
+    } catch {
+        try {
+            const checkCmd2 = `reg query "HKCU\\Software\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" /v pv`;
+            execFileSync('cmd.exe', ['/c', checkCmd2], { stdio: 'ignore' });
+            return;
+        } catch {
+            // Not installed, proceed to installer
+        }
+    }
+
+    console.log("WebView2 Runtime not detected. Running silent bootstrapper...");
+    const installerPath = join(import.meta.dir, '..', 'webview2', 'MicrosoftEdgeWebview2Setup.exe');
+    
+    if (existsSync(installerPath)) {
+        try {
+            console.log("Starting WebView2 installation... this may take a few minutes as it downloads the runtime.");
+            execFileSync(installerPath, ['/silent', '/install'], { stdio: 'inherit' });
+            console.log("WebView2 installation completed.");
+        } catch (err) {
+            console.error("Failed to install WebView2:", err);
+        }
+    } else {
+        console.warn("WebView2 bootstrapper not found at", installerPath);
+    }
+};
+
+ensureWebView2();
 
 const mainWindow = new BrowserWindow({
     title: APP_NAME,
