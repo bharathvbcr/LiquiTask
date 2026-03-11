@@ -1,10 +1,6 @@
 import { app, BrowserWindow, ipcMain, Notification } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const DEFAULT_DEV_SERVER_URL = 'http://localhost:3000';
 const APP_NAME = 'LiquiTask';
@@ -53,7 +49,7 @@ function createWindow() {
     titleBarStyle: 'hidden',
     transparent: false,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, 'preload.cjs'),
       sandbox: false,
       contextIsolation: true,
       nodeIntegration: false,

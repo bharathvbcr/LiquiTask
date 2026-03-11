@@ -9,7 +9,7 @@
     "email": "support@liquitask.com"
   },
   "type": "module",
-  "main": "dist-electron/main.js",
+  "main": "dist-electron/main.cjs",
   "scripts": {
     "dev": "concurrently -k \"npm run dev:web\" \"npm run dev:electron\"",
     "dev:web": "vite",
