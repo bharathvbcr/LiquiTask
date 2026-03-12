@@ -31,6 +31,8 @@ describe('useSavedViews', () => {
         localStorageMock.getItem.mockClear();
         localStorageMock.setItem.mockClear();
         vi.clearAllMocks();
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+        vi.spyOn(console, 'error').mockImplementation(() => {});
     });
 
     describe('initialization', () => {

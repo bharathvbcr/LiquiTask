@@ -179,6 +179,39 @@ export interface TaskTemplate {
   variables?: string[]; // e.g., ['projectName', 'assignee']
 }
 
+// AI Provider configuration
+export type AIProviderId = 'gemini' | 'ollama';
+
+export interface AIConfig {
+  provider: AIProviderId;
+  geminiApiKey?: string;
+  geminiModel?: string;
+  ollamaBaseUrl?: string;
+  ollamaModel?: string;
+}
+
+export interface AITaskSchema {
+  title: string;
+  summary: string;
+  priority: string;
+  dueDate?: string; // ISO string
+  tags: string[];
+  timeEstimate: number; // in minutes
+  subtasks?: string[];
+}
+
+export interface AIContext {
+  activeProjectId: string;
+  projects: Project[];
+  priorities: PriorityDefinition[];
+}
+
+export interface AITestResult {
+  ok: boolean;
+  stage: 'config' | 'service' | 'model' | 'inference';
+  message: string;
+}
+
 // Migration system types
 export interface Migration {
   version: string;

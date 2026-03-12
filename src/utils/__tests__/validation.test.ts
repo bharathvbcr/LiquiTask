@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
     TaskSchema,
     ProjectSchema,
@@ -11,6 +11,10 @@ import {
 } from '../validation';
 
 describe('validation schemas', () => {
+    beforeEach(() => {
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+    });
+
     describe('TaskSchema', () => {
         it('should validate a valid task', () => {
             const validTask = {
@@ -281,6 +285,10 @@ describe('validation schemas', () => {
 });
 
 describe('validateAndTransformImportedData', () => {
+    beforeEach(() => {
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+    });
+
     it('should validate and transform valid data', () => {
         const data = {
             tasks: [

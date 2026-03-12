@@ -59,6 +59,7 @@ describe('storageQuota', () => {
         });
 
         vi.clearAllMocks();
+        vi.spyOn(console, 'error').mockImplementation(() => {});
     });
 
     describe('getStorageQuotaInfo', () => {

@@ -585,7 +585,19 @@ const App: React.FC = () => {
 
       {isTaskModalOpen && (
         <Suspense fallback={<ModalLoadingFallback />}>
-          <TaskFormModal isOpen={isTaskModalOpen} onClose={() => setIsTaskModalOpen(false)} onSubmit={(data) => handleCreateOrUpdateTask(data, editingTask)} initialData={editingTask} projectId={activeProjectId} priorities={priorities} customFields={customFields} availableTasks={tasks} columns={columns} />
+          <TaskFormModal
+            isOpen={isTaskModalOpen}
+            onClose={() => setIsTaskModalOpen(false)}
+            onSubmit={(data) => handleCreateOrUpdateTask(data, editingTask)}
+            onBulkCreateTasks={handleBulkCreateTasks}
+            initialData={editingTask}
+            projectId={activeProjectId}
+            priorities={priorities}
+            customFields={customFields}
+            availableTasks={tasks}
+            columns={columns}
+            allProjects={projects}
+          />
         </Suspense>
       )}
 

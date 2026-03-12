@@ -20,6 +20,8 @@ export const STORAGE_KEYS = {
     DATA_VERSION: 'liquitask-data-version',
     BACKUPS: 'liquitask-backups',
     MIGRATION_LOG: 'liquitask-migration-log',
+    AI_CONFIG: 'liquitask-ai-config',
+    GEMINI_API_KEY: 'liquitask-gemini-api-key',
 } as const;
 
 // Default column configuration

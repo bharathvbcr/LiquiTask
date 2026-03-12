@@ -21,6 +21,7 @@ describe('StorageService', () => {
         mockLocalStorage.getItem.mockClear();
         mockLocalStorage.setItem.mockClear();
         vi.clearAllMocks();
+        vi.spyOn(console, 'error').mockImplementation(() => {});
     });
 
     describe('get', () => {

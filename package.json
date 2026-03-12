@@ -2,7 +2,7 @@
   "name": "liquitask",
   "productName": "LiquiTask",
   "private": true,
-  "version": "1.0.2",
+  "version": "1.3.0",
   "description": "A premium Kanban task management desktop app with a stunning liquid glass aesthetic",
   "author": {
     "name": "LiquidTask",
@@ -29,6 +29,7 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
+    "@google/generative-ai": "0.21.0",
     "lucide-react": "^0.562.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",

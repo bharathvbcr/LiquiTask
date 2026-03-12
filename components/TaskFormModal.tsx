@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ModalWrapper } from './ModalWrapper';
-import { Task, PriorityDefinition, Subtask, Attachment, CustomFieldDefinition, TaskLink, BoardColumn } from '../types';
-import { Layers, Calendar, User, AlignLeft, Tag, Flag, CheckSquare, Plus, X, Paperclip, Link as LinkIcon, Upload, Eye, Edit2, Link, Copy, ArrowRightLeft, Lock, Trash2, Kanban, Check, Shield, History } from 'lucide-react';
+import { Task, PriorityDefinition, Subtask, Attachment, CustomFieldDefinition, TaskLink, BoardColumn, Project, AITaskSchema, AIContext } from '../types';
+import { Layers, Calendar, User, AlignLeft, Tag, Flag, CheckSquare, Plus, X, Paperclip, Link as LinkIcon, Upload, Eye, Edit2, Link, Copy, ArrowRightLeft, Lock, Trash2, Kanban, Check, Shield, History, Sparkles, Loader2, Wand2, FileText, ChevronRight, MessageSquareText } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Input } from '../src/components/common/Input';
 import { getSafeExternalUrl } from '../src/utils/safeUrl';
+import { aiService } from '../src/services/aiService';
 
 const EMPTY_PRIORITIES: PriorityDefinition[] = [];
 const EMPTY_CUSTOM_FIELDS: CustomFieldDefinition[] = [];
@@ -16,24 +17,28 @@ interface TaskFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (task: Partial<Task>) => void;
+  onBulkCreateTasks?: (tasks: Partial<Task>[]) => void;
   initialData?: Task | null;
   projectId: string;
   priorities?: PriorityDefinition[];
   customFields?: CustomFieldDefinition[];
   availableTasks?: Task[]; // For linking
   columns?: BoardColumn[]; // For status selection
+  allProjects?: Project[]; // Added for AI project suggestion
 }
 
 export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
+  onBulkCreateTasks,
   initialData,
   projectId,
   priorities = EMPTY_PRIORITIES,
   customFields = EMPTY_CUSTOM_FIELDS,
   availableTasks = EMPTY_TASKS,
-  columns = EMPTY_COLUMNS
+  columns = EMPTY_COLUMNS,
+  allProjects = []
 }) => {
   const [activeTab, setActiveTab] = useState<'details' | 'activity'>('details');
   const [formData, setFormData] = useState({
@@ -66,6 +71,20 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   const [newLinkTarget, setNewLinkTarget] = useState<string>('');
   const [newLinkType, setNewLinkType] = useState<string>('relates-to');
 
+  // AI State
+  const [aiInput, setAiInput] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isSuggesting, setIsSuggesting] = useState(false);
+  const [isBreakingDown, setIsBreakingDown] = useState(false);
+  const [aiError, setAiError] = useState('');
+  const [localProjectId, setLocalProjectId] = useState(projectId);
+  const [extractedTasks, setExtractedTasks] = useState<AITaskSchema[] | null>(null);
+  const [isExtracting, setIsExtracting] = useState(false);
+
+  useEffect(() => {
+    setLocalProjectId(projectId);
+  }, [projectId]);
+
   useEffect(() => {
     // Determine default priority ID
     const defaultPrio = priorities.length > 0 ? priorities[0].id : '';
@@ -90,6 +109,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
         dueDate: dateStr,
         status: initialData.status || defaultStatus,
       });
+      setLocalProjectId(initialData.projectId);
       setSubtasks(initialData.subtasks || []);
       setAttachments(initialData.attachments || []);
       setCustomValues(initialData.customFieldValues || {});
@@ -110,7 +130,12 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
       setLinks([]);
     }
     setErrors({});
-    if (isOpen) setActiveTab('details');
+    if (isOpen) {
+      setActiveTab('details');
+      setAiInput('');
+      setAiError('');
+      setExtractedTasks(null);
+    }
   }, [initialData, isOpen, priorities, columns]);
 
   // Subtask Handlers
@@ -135,6 +160,138 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
 
   const toggleSubtask = (id: string) => {
     setSubtasks(subtasks.map(s => s.id === id ? { ...s, completed: !s.completed } : s));
+  };
+
+  // AI Handlers
+  const handleSuggestMetadata = async () => {
+    if (!formData.title.trim()) return;
+    setIsSuggesting(true);
+    setAiError('');
+    try {
+      const context: AIContext = { activeProjectId: localProjectId, projects: allProjects, priorities };
+      const suggestion = await aiService.refineTaskDraft('Suggest metadata like priority and tags based on the title and summary.', { title: formData.title, summary: formData.summary }, context);
+      
+      if (suggestion.priority) {
+        const matched = priorities.find(p => p.id.toLowerCase() === suggestion.priority?.toLowerCase() || p.label.toLowerCase() === suggestion.priority?.toLowerCase());
+        if (matched) setFormData(f => ({ ...f, priority: matched.id }));
+      }
+      
+      if (suggestion.tags && suggestion.tags.length > 0) {
+        setFormData(f => ({ ...f, subtitle: suggestion.tags![0] }));
+      }
+    } catch (e) {
+      setAiError((e as Error).message);
+    } finally {
+      setIsSuggesting(false);
+    }
+  };
+
+  const handleAiRefine = async (customPrompt?: string) => {
+    const prompt = customPrompt || aiInput || 'Refine this task draft to be clearer and more professional.';
+    if (!formData.title.trim()) return;
+    setIsGenerating(true);
+    setAiError('');
+    try {
+        const context: AIContext = { activeProjectId: localProjectId, projects: allProjects, priorities };
+        const refined = await aiService.refineTaskDraft(prompt, { 
+            title: formData.title, 
+            summary: formData.summary,
+            priority: formData.priority,
+            dueDate: formData.dueDate ? new Date(formData.dueDate) : undefined,
+            subtitle: formData.subtitle
+        } as any, context);
+
+        setFormData(prev => ({
+            ...prev,
+            title: refined.title || prev.title,
+            summary: refined.summary || prev.summary,
+            priority: refined.priority || prev.priority,
+            subtitle: refined.tags && refined.tags.length > 0 ? refined.tags[0] : prev.subtitle,
+            dueDate: refined.dueDate ? refined.dueDate.split('T')[0] : prev.dueDate
+        }));
+        
+        if (refined.subtasks && refined.subtasks.length > 0) {
+            const newSubtasks = refined.subtasks.map((st, i) => ({
+                id: `ai-st-${Date.now()}-${i}`,
+                title: st,
+                completed: false
+            }));
+            setSubtasks(prev => [...prev, ...newSubtasks]);
+        }
+        setAiInput('');
+    } catch (e) {
+        setAiError((e as Error).message);
+    } finally {
+        setIsGenerating(false);
+    }
+  };
+
+  const handleExtractTasks = async () => {
+    if (!aiInput.trim()) return;
+    setIsExtracting(true);
+    setAiError('');
+    setExtractedTasks(null);
+    try {
+        const context: AIContext = { activeProjectId: localProjectId, projects: allProjects, priorities };
+        const tasks = await aiService.extractTasksFromText(aiInput, context);
+        setExtractedTasks(tasks);
+    } catch (e) {
+        setAiError((e as Error).message);
+    } finally {
+        setIsExtracting(false);
+    }
+  };
+
+  const handleCreateExtractedTasks = () => {
+      if (!extractedTasks) return;
+      const newTasks = extractedTasks.map(et => {
+          let parsedDate: Date | undefined = undefined;
+          if (et.dueDate) {
+              parsedDate = new Date(et.dueDate);
+          }
+
+          return {
+              title: et.title,
+              summary: et.summary,
+              priority: et.priority,
+              subtitle: et.tags && et.tags.length > 0 ? et.tags[0] : 'General',
+              dueDate: parsedDate,
+              projectId: localProjectId,
+              status: columns[0]?.id || 'Pending',
+              subtasks: et.subtasks?.map((st, i) => ({
+                  id: `st-${Date.now()}-${i}`,
+                  title: st,
+                  completed: false
+              })) || [],
+              tags: et.tags || [],
+              timeEstimate: et.timeEstimate || 0
+          };
+      });
+
+      if (onBulkCreateTasks) {
+          onBulkCreateTasks(newTasks);
+      } else {
+          newTasks.forEach(t => onSubmit(t));
+      }
+      onClose();
+  };
+
+  const handleAiBreakdown = async () => {
+    if (!formData.title.trim()) return;
+    setIsBreakingDown(true);
+    try {
+      const suggested = await aiService.generateSubtasks(formData.title, formData.summary);
+      const newItems = suggested.map((title, i) => ({
+        id: `ai-st-${Date.now()}-${i}`,
+        title,
+        completed: false
+      }));
+      setSubtasks([...subtasks, ...newItems]);
+    } catch (e) {
+      console.error('AI Breakdown error:', e);
+    } finally {
+      setIsBreakingDown(false);
+    }
   };
 
   // Attachment Handlers
@@ -210,7 +367,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
     onSubmit({
       ...initialData,
       ...formData,
-      projectId,
+      projectId: localProjectId,
       status: formData.status || 'Pending',
       createdAt: initialData ? initialData.createdAt : new Date(),
       dueDate: parsedDate,
@@ -220,7 +377,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
       links: links
     });
     onClose();
-  }, [formData, initialData, projectId, subtasks, attachments, customValues, links, onSubmit, onClose]);
+  }, [formData, initialData, localProjectId, subtasks, attachments, customValues, links, onSubmit, onClose]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -249,6 +406,12 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
     }
   };
 
+  const quickPrompts = [
+      { label: 'Summarize', icon: <AlignLeft size={10} />, prompt: 'Summarize this task clearly.' },
+      { label: 'Technical', icon: <Layers size={10} />, prompt: 'Refine this into a technical task with implementation steps.' },
+      { label: 'Formal', icon: <User size={10} />, prompt: 'Rewrite this description in a formal, professional tone.' }
+  ];
+
   return (
     <ModalWrapper
       isOpen={isOpen}
@@ -273,267 +436,418 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
       </div>
 
       {activeTab === 'details' && (
-        <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+        <div className="flex flex-col gap-6">
 
-          {/* Title */}
-          <div className="space-y-2">
-            <Input
-              name="title"
-              label="Task Title"
-              required
-              autoFocus
-              value={formData.title}
-              onChange={(e) => {
-                setFormData({ ...formData, title: e.target.value });
-                if (errors.title) setErrors({ ...errors, title: '' });
-              }}
-              placeholder="e.g., Update Q3 Financials"
-              className="font-medium text-lg"
-              error={errors.title}
-            />
-          </div>
-
-          {/* Basic Meta Grid */}
-          <div className="grid grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1 flex items-center gap-2">
-                <Tag size={12} /> Category
-              </label>
-              <input type="text" value={formData.subtitle} onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })} placeholder="e.g., Marketing" className="w-full liquid-input rounded-xl px-4 py-3 text-sm" />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1 flex items-center gap-2">
-                <Flag size={12} /> Priority
-              </label>
-              <div className="relative">
-                <select value={formData.priority} onChange={(e) => setFormData({ ...formData, priority: e.target.value })} className="w-full liquid-input rounded-xl px-4 py-3 text-sm appearance-none cursor-pointer" aria-label="Task priority" title="Select task priority">
-                  {priorities.map(p => (
-                    <option key={p.id} value={p.id} className="bg-navy-900 text-slate-200">{p.label}</option>
-                  ))}
-                </select>
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
-                  <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                </div>
-              </div>
-            </div>
-
-            {/* Status Selection */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1 flex items-center gap-2">
-                <Kanban size={12} /> Status
-              </label>
-              <div className="relative">
-                <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="w-full liquid-input rounded-xl px-4 py-3 text-sm appearance-none cursor-pointer" aria-label="Task status" title="Select task status">
-                  {columns.map(col => (
-                    <option key={col.id} value={col.id} className="bg-navy-900 text-slate-200">{col.title}</option>
-                  ))}
-                </select>
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
-                  <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1 flex items-center gap-2">
-                <User size={12} /> Assignee
-              </label>
-              <input type="text" value={formData.assignee} onChange={(e) => setFormData({ ...formData, assignee: e.target.value })} placeholder="e.g., Sarah Smith" className="w-full liquid-input rounded-xl px-4 py-3 text-sm" />
-            </div>
-
-            <div className="space-y-2 col-span-2">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1 flex items-center gap-2">
-                <Calendar size={12} /> Due Date
-              </label>
-              <input type="date" value={formData.dueDate} onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })} className="w-full liquid-input rounded-xl px-4 py-3 text-sm [color-scheme:dark]" aria-label="Task due date" title="Select task due date" />
-            </div>
-          </div>
-
-          {/* Custom Fields Section */}
-          {customFields.length > 0 && (
-            <div className="space-y-3 pt-2 border-t border-white/5">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1">Custom Fields</label>
-              <div className="grid grid-cols-2 gap-6">
-                {customFields.map(field => (
-                  <div key={field.id} className="space-y-2">
-                    <label className="text-xs text-slate-500 font-semibold">{field.label}</label>
-                    {field.type === 'dropdown' ? (
-                      <select
-                        value={customValues[field.id] || ''}
-                        onChange={(e) => setCustomValues({ ...customValues, [field.id]: e.target.value })}
-                        className="w-full liquid-input rounded-xl px-4 py-3 text-sm appearance-none"
-                        aria-label={field.label}
-                        title={`Select ${field.label}`}
+          {/* AI Quick Add */}
+          <div className="bg-cyan-500/10 border border-cyan-500/20 rounded-xl p-4 space-y-3">
+            <label className="flex items-center gap-2 text-sm font-bold text-cyan-300">
+              <Sparkles size={16} /> AI Assistant
+            </label>
+            <div className="flex flex-col gap-2">
+              <textarea
+                value={aiInput}
+                onChange={(e) => setAiInput(e.target.value)}
+                placeholder={initialData ? "How should AI refine this task?" : "Paste meeting notes or describe tasks..."}
+                className="w-full bg-black/40 border border-cyan-500/20 rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50 min-h-[80px] resize-none"
+              />
+              
+              <div className="flex flex-wrap gap-2 mb-1">
+                  {quickPrompts.map(qp => (
+                      <button
+                        key={qp.label}
+                        type="button"
+                        onClick={() => handleAiRefine(qp.prompt)}
+                        disabled={isGenerating || !formData.title.trim()}
+                        className="flex items-center gap-1.5 px-2 py-1 rounded bg-white/5 border border-white/5 hover:bg-white/10 text-[10px] font-bold text-slate-400 hover:text-slate-200 transition-all"
                       >
-                        <option value="">Select...</option>
-                        {field.options?.map(opt => <option key={opt} value={opt} className="bg-navy-900">{opt}</option>)}
-                      </select>
-                    ) : (
-                      <input
-                        type={field.type === 'number' ? 'number' : 'text'}
-                        value={customValues[field.id] || ''}
-                        onChange={(e) => setCustomValues({ ...customValues, [field.id]: e.target.value })}
-                        className="w-full liquid-input rounded-xl px-4 py-3 text-sm"
-                        placeholder={field.type === 'url' ? 'https://...' : field.type === 'number' ? 'Enter number...' : `Enter ${field.label.toLowerCase()}...`}
-                        aria-label={field.label}
-                        title={`Enter ${field.label}`}
-                      />
-                    )}
-                  </div>
-                ))}
+                          {qp.icon} {qp.label}
+                      </button>
+                  ))}
               </div>
-            </div>
-          )}
 
-          {/* Description */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1 flex items-center gap-2">
-                <AlignLeft size={12} /> Description
-              </label>
-              <div className="flex bg-white/5 rounded-lg p-0.5 border border-white/5">
-                <button type="button" onClick={() => setViewMode('write')} className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${viewMode === 'write' ? 'bg-red-500/20 text-red-300 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}><Edit2 size={10} /> Write</button>
-                <button type="button" onClick={() => setViewMode('preview')} className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${viewMode === 'preview' ? 'bg-red-500/20 text-red-300 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}><Eye size={10} /> Preview</button>
+              <div className="flex gap-2">
+                {!initialData && (
+                    <button
+                        type="button"
+                        onClick={handleExtractTasks}
+                        disabled={isExtracting || !aiInput.trim()}
+                        className="flex-1 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:bg-cyan-600/50 disabled:cursor-not-allowed text-slate-950 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors"
+                    >
+                        {isExtracting ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
+                        Extract Tasks
+                    </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleAiRefine()}
+                  disabled={isGenerating || (!initialData && !aiInput.trim())}
+                  className="flex-1 px-4 py-2 bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed text-white border border-white/10 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors"
+                >
+                  {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />}
+                  Refine Draft
+                </button>
               </div>
             </div>
-            {viewMode === 'write' ? (
-              <textarea required value={formData.summary} onChange={(e) => setFormData({ ...formData, summary: e.target.value })} placeholder="Describe the task details. Supports Markdown (e.g., **bold**, - list)..." className="w-full h-32 liquid-input rounded-xl px-4 py-3 text-sm resize-none font-mono" />
-            ) : (
-              <div className="w-full h-32 liquid-input rounded-xl px-4 py-3 text-sm overflow-y-auto markdown-content bg-black/20">
-                {formData.summary ? <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({ ...props }) => (<a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline" />) }}>{formData.summary}</ReactMarkdown> : <span className="text-slate-600 italic">No description to preview.</span>}
-              </div>
+            {aiError && <p className="text-xs text-red-400 mt-1 flex items-center gap-1.5"><X size={12} /> {aiError}</p>}
+            
+            {/* Extracted Tasks Review */}
+            {extractedTasks !== null && (
+                <div className="mt-4 space-y-3 animate-in fade-in slide-in-from-top-2">
+                    <div className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1">Review Extracted Tasks ({extractedTasks.length})</div>
+                    {extractedTasks.length > 0 ? (
+                        <>
+                            <div className="max-h-48 overflow-y-auto space-y-2 custom-scrollbar pr-2">
+                                {extractedTasks.map((et, i) => (
+                                    <div key={i} className="bg-black/40 border border-white/10 rounded-lg p-3 group">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <div className="text-sm font-bold text-white flex items-center gap-2">
+                                                <ChevronRight size={14} className="text-cyan-300" />
+                                                {et.title}
+                                            </div>
+                                            <span className="px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 text-[10px] font-bold uppercase">{et.priority}</span>
+                                        </div>
+                                        <p className="text-xs text-slate-400 line-clamp-1">{et.summary}</p>
+                                    </div>
+                                ))}
+                            </div>
+                            <button
+                                onClick={handleCreateExtractedTasks}
+                                className="w-full py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-bold shadow-lg shadow-emerald-500/20 transition-all"
+                            >
+                                Create All {extractedTasks.length} Tasks
+                            </button>
+                        </>
+                    ) : (
+                        <div className="p-6 text-center bg-black/20 border border-dashed border-white/10 rounded-xl">
+                            <MessageSquareText size={24} className="mx-auto text-slate-600 mb-2" />
+                            <p className="text-sm text-slate-500 italic">AI could not identify any specific tasks in your text. Try providing more detail.</p>
+                        </div>
+                    )}
+                </div>
             )}
           </div>
 
-          {/* Links & Dependencies */}
-          <div className="space-y-3">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1 flex items-center gap-2">
-              <Link size={12} /> Linked Tasks & Dependencies
-            </label>
-            <div className="flex gap-2">
-              <select
-                value={newLinkType}
-                onChange={(e) => setNewLinkType(e.target.value)}
-                className="w-1/3 liquid-input rounded-xl px-4 py-2.5 text-xs appearance-none"
-                aria-label="Link type"
-                title="Select link type"
-              >
-                <option value="relates-to" className="bg-navy-900">Relates to</option>
-                <option value="blocks" className="bg-navy-900">Blocks</option>
-                <option value="blocked-by" className="bg-navy-900">Blocked By</option>
-                <option value="duplicates" className="bg-navy-900">Duplicates</option>
-              </select>
-              <select
-                value={newLinkTarget}
-                onChange={(e) => setNewLinkTarget(e.target.value)}
-                className="flex-1 liquid-input rounded-xl px-4 py-2.5 text-xs appearance-none"
-                aria-label="Select task to link"
-                title="Select task to link"
-              >
-                <option value="" className="bg-navy-900">Select Task...</option>
-                {availableTasks.filter(t => t.id !== initialData?.id).map(t => (
-                  <option key={t.id} value={t.id} className="bg-navy-900">[{t.jobId}] {t.title}</option>
-                ))}
-              </select>
-              <button type="button" onClick={handleAddTaskLink} className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 transition-colors border border-white/5" aria-label="Add task link" title="Add task link"><Plus size={18} aria-hidden="true" /></button>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+            {/* Title */}
+            <div className="space-y-2">
+                <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1">Task Title</label>
+                <button
+                    type="button"
+                    onClick={handleSuggestMetadata}
+                    disabled={isSuggesting || !formData.title.trim()}
+                    className="text-[10px] font-bold text-cyan-300 hover:text-cyan-200 flex items-center gap-1 transition-colors px-2 py-1 rounded bg-cyan-500/10 border border-cyan-500/20"
+                >
+                    {isSuggesting ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
+                    Suggest Metadata
+                </button>
+                </div>
+                <Input
+                name="title"
+                required
+                autoFocus
+                value={formData.title}
+                onChange={(e) => {
+                    setFormData({ ...formData, title: e.target.value });
+                    if (errors.title) setErrors({ ...errors, title: '' });
+                }}
+                placeholder="e.g., Update Q3 Financials"
+                className="font-medium text-lg"
+                error={errors.title}
+                />
             </div>
-            <div className="space-y-2 mt-2">
-              {links.map((link, idx) => {
-                const target = availableTasks.find(t => t.id === link.targetTaskId);
-                if (!target) return null;
-                return (
-                  <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-[#0a0a0a] border border-white/10 group hover:border-white/20 hover:bg-white/5 transition-all">
-                    <div className="flex items-center gap-3">
-                      <span className={`px-2 py-1.5 rounded-lg uppercase font-bold text-[10px] tracking-wide border flex items-center gap-1.5
-                                    ${link.type === 'blocked-by' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                          link.type === 'blocks' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
-                            link.type === 'duplicates' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}`}>
-                        {getLinkIcon(link.type)}
-                        {link.type.replace('-', ' ')}
-                      </span>
-                      <div className="flex flex-col">
-                        <span className="text-xs font-mono text-slate-500">{target.jobId}</span>
-                        <span className="text-sm font-medium text-slate-200 truncate max-w-[200px]">{target.title}</span>
-                      </div>
+
+            {/* Basic Meta Grid */}
+            <div className="grid grid-cols-2 gap-6">
+                {/* Project Selection */}
+                <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1 flex items-center gap-2">
+                    <Layers size={12} /> Project
+                </label>
+                <div className="relative">
+                    <select value={localProjectId} onChange={(e) => setLocalProjectId(e.target.value)} className="w-full liquid-input rounded-xl px-4 py-3 text-sm appearance-none cursor-pointer" aria-label="Task project" title="Select task project">
+                    {allProjects.map(p => (
+                        <option key={p.id} value={p.id} className="bg-navy-900 text-slate-200">{p.name}</option>
+                    ))}
+                    </select>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                    <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
                     </div>
+                </div>
+                </div>
+
+                <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1 flex items-center gap-2">
+                    <Flag size={12} /> Priority
+                </label>
+                <div className="relative">
+                    <select value={formData.priority} onChange={(e) => setFormData({ ...formData, priority: e.target.value })} className="w-full liquid-input rounded-xl px-4 py-3 text-sm appearance-none cursor-pointer" aria-label="Task priority" title="Select task priority">
+                    {priorities.map(p => (
+                        <option key={p.id} value={p.id} className="bg-navy-900 text-slate-200">{p.label}</option>
+                    ))}
+                    </select>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                    <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    </div>
+                </div>
+                </div>
+
+                {/* Status Selection */}
+                <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1 flex items-center gap-2">
+                    <Kanban size={12} /> Status
+                </label>
+                <div className="relative">
+                    <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="w-full liquid-input rounded-xl px-4 py-3 text-sm appearance-none cursor-pointer" aria-label="Task status" title="Select task status">
+                    {columns.map(col => (
+                        <option key={col.id} value={col.id} className="bg-navy-900 text-slate-200">{col.title}</option>
+                    ))}
+                    </select>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                    <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    </div>
+                </div>
+                </div>
+
+                <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1 flex items-center gap-2">
+                    <Tag size={12} /> Category / Tag
+                </label>
+                <input type="text" value={formData.subtitle} onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })} placeholder="e.g., Marketing" className="w-full liquid-input rounded-xl px-4 py-3 text-sm" />
+                </div>
+
+                <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1 flex items-center gap-2">
+                    <User size={12} /> Assignee
+                </label>
+                <input type="text" value={formData.assignee} onChange={(e) => setFormData({ ...formData, assignee: e.target.value })} placeholder="e.g., Sarah Smith" className="w-full liquid-input rounded-xl px-4 py-3 text-sm" />
+                </div>
+
+                <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1 flex items-center gap-2">
+                    <Calendar size={12} /> Due Date
+                </label>
+                <input type="date" value={formData.dueDate} onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })} className="w-full liquid-input rounded-xl px-4 py-3 text-sm [color-scheme:dark]" aria-label="Task due date" title="Select task due date" />
+                </div>
+            </div>
+
+            {/* Custom Fields Section */}
+            {customFields.length > 0 && (
+                <div className="space-y-3 pt-2 border-t border-white/5">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1">Custom Fields</label>
+                <div className="grid grid-cols-2 gap-6">
+                    {customFields.map(field => (
+                    <div key={field.id} className="space-y-2">
+                        <label className="text-xs text-slate-500 font-semibold">{field.label}</label>
+                        {field.type === 'dropdown' ? (
+                        <select
+                            value={customValues[field.id] || ''}
+                            onChange={(e) => setCustomValues({ ...customValues, [field.id]: e.target.value })}
+                            className="w-full liquid-input rounded-xl px-4 py-3 text-sm appearance-none"
+                            aria-label={field.label}
+                            title={`Select ${field.label}`}
+                        >
+                            <option value="">Select...</option>
+                            {field.options?.map(opt => <option key={opt} value={opt} className="bg-navy-900">{opt}</option>)}
+                        </select>
+                        ) : (
+                        <input
+                            type={field.type === 'number' ? 'number' : 'text'}
+                            value={customValues[field.id] || ''}
+                            onChange={(e) => setCustomValues({ ...customValues, [field.id]: e.target.value })}
+                            className="w-full liquid-input rounded-xl px-4 py-3 text-sm"
+                            placeholder={field.type === 'url' ? 'https://...' : field.type === 'number' ? 'Enter number...' : `Enter ${field.label.toLowerCase()}...`}
+                            aria-label={field.label}
+                            title={`Enter ${field.label}`}
+                        />
+                        )}
+                    </div>
+                    ))}
+                </div>
+                </div>
+            )}
+
+            {/* Description */}
+            <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1 flex items-center gap-2">
+                    <AlignLeft size={12} /> Description
+                </label>
+                <div className="flex items-center gap-2">
                     <button
-                      type="button"
-                      onClick={() => handleRemoveTaskLink(link.targetTaskId)}
-                      className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors flex items-center gap-2"
+                        type="button"
+                        onClick={async () => {
+                            if (!formData.summary.trim()) return;
+                            setIsGenerating(true);
+                            try {
+                                const context: AIContext = { activeProjectId: localProjectId, projects: allProjects, priorities };
+                                const refined = await aiService.refineTaskDraft('Polish this task description to be professional and clear. Maintain markdown formatting.', { title: formData.title, summary: formData.summary }, context);
+                                if (refined.summary) setFormData(f => ({ ...f, summary: refined.summary! }));
+                            } catch (e) { setAiError((e as Error).message); }
+                            finally { setIsGenerating(false); }
+                        }}
+                        disabled={isGenerating || !formData.summary.trim()}
+                        className="text-[10px] font-bold text-cyan-300 hover:text-cyan-200 flex items-center gap-1 transition-colors px-2 py-1 rounded bg-cyan-500/10 border border-cyan-500/20"
                     >
-                      <span className="text-xs font-medium">Unlink</span>
-                      <Trash2 size={14} />
+                        {isGenerating ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
+                        Polish
                     </button>
-                  </div>
-                )
-              })}
-              {links.length === 0 && <div className="text-center py-4 text-xs text-slate-600 italic border border-dashed border-white/5 rounded-xl">No linked tasks</div>}
-            </div>
-          </div>
-
-          {/* Subtasks */}
-          <div className="space-y-3">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1 flex items-center gap-2"><CheckSquare size={12} /> Subtasks</label>
-            <div className="flex gap-2">
-              <input type="text" value={newSubtask} onChange={(e) => setNewSubtask(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSubtask())} placeholder="Add a subtask..." className="flex-1 liquid-input rounded-xl px-4 py-2.5 text-sm" aria-label="New subtask title" />
-              <button type="button" onClick={handleAddSubtask} className="p-3 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 transition-colors border border-white/5" aria-label="Add subtask" title="Add subtask"><Plus size={18} aria-hidden="true" /></button>
-            </div>
-            <div className="max-h-32 overflow-y-auto space-y-2 custom-scrollbar pr-2">
-              {subtasks.map(subtask => (
-                <div key={subtask.id} className="flex items-center gap-3 p-3 rounded-xl bg-black/20 border border-white/5 group hover:border-white/10 transition-colors">
-                  <button type="button" onClick={() => toggleSubtask(subtask.id)} className={`flex-shrink-0 w-5 h-5 rounded border flex items-center justify-center transition-all ${subtask.completed ? 'bg-emerald-500/20 border-emerald-500 text-emerald-500' : 'border-slate-600 text-transparent hover:border-slate-400'}`} aria-label={subtask.completed ? `Mark subtask "${subtask.title}" as incomplete` : `Mark subtask "${subtask.title}" as complete`} title={subtask.completed ? "Mark as incomplete" : "Mark as complete"}><Check size={12} aria-hidden="true" /></button>
-                  <input type="text" value={subtask.title} onChange={(e) => handleUpdateSubtask(subtask.id, e.target.value)} className={`flex-1 bg-transparent border-none outline-none text-sm font-medium focus:text-white transition-colors ${subtask.completed ? 'text-slate-500 line-through decoration-slate-600' : 'text-slate-300'}`} onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()} aria-label={`Edit subtask ${subtask.id}`} placeholder="Subtask title" />
-                  <button type="button" onClick={() => handleRemoveSubtask(subtask.id)} className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all" aria-label={`Remove subtask "${subtask.title}"`} title={`Remove subtask "${subtask.title}"`}><X size={16} aria-hidden="true" /></button>
+                    <div className="flex bg-white/5 rounded-lg p-0.5 border border-white/5">
+                        <button type="button" onClick={() => setViewMode('write')} className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${viewMode === 'write' ? 'bg-red-500/20 text-red-300 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}><Edit2 size={10} /> Write</button>
+                        <button type="button" onClick={() => setViewMode('preview')} className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${viewMode === 'preview' ? 'bg-red-500/20 text-red-300 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}><Eye size={10} /> Preview</button>
+                    </div>
                 </div>
-              ))}
+                </div>
+                {viewMode === 'write' ? (
+                <textarea required value={formData.summary} onChange={(e) => setFormData({ ...formData, summary: e.target.value })} placeholder="Describe the task details. Supports Markdown (e.g., **bold**, - list)..." className="w-full h-32 liquid-input rounded-xl px-4 py-3 text-sm resize-none font-mono" />
+                ) : (
+                <div className="w-full h-32 liquid-input rounded-xl px-4 py-3 text-sm overflow-y-auto markdown-content bg-black/20">
+                    {formData.summary ? <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({ ...props }) => (<a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline" />) }}>{formData.summary}</ReactMarkdown> : <span className="text-slate-600 italic">No description to preview.</span>}
+                </div>
+                )}
             </div>
-          </div>
 
-          {/* Attachments */}
-          <div className="space-y-3">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1 flex items-center gap-2"><Paperclip size={12} /> Attachments</label>
-            <div className="flex flex-col gap-2">
-              <div className="flex gap-2">
-                <input type="text" value={newLinkName} onChange={(e) => setNewLinkName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddLink())} placeholder="Link Name (Optional)" className="w-1/3 liquid-input rounded-xl px-4 py-2.5 text-sm" aria-label="Link name (optional)" />
-                <input type="text" value={newLinkUrl} onChange={(e) => setNewLinkUrl(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddLink())} placeholder="https://..." className="flex-1 liquid-input rounded-xl px-4 py-2.5 text-sm" aria-label="Link URL" />
-                <button type="button" onClick={handleAddLink} className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 transition-colors border border-white/5" title="Add Link" aria-label="Add link"><LinkIcon size={18} aria-hidden="true" /></button>
-                <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 transition-colors border border-white/5" title="Upload File" aria-label="Upload file"><Upload size={18} aria-hidden="true" /></button>
-                <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} aria-label="Upload file attachment" />
-              </div>
-            </div>
-            <div className="max-h-32 overflow-y-auto space-y-2 custom-scrollbar pr-2">
-              {attachments.map(att => (
-                <div key={att.id} className="flex items-center gap-3 p-2.5 rounded-xl bg-black/20 border border-white/5 group hover:border-white/10 transition-colors">
-                  <div className="p-1.5 rounded-lg bg-white/5 text-slate-400">{att.type === 'file' ? <Paperclip size={14} /> : <LinkIcon size={14} />}</div>
-
-                  {(() => {
-                    const safeUrl = att.type === 'file' ? att.url : getSafeExternalUrl(att.url);
-                    const isSafe = Boolean(safeUrl);
+            {/* Links & Dependencies */}
+            <div className="space-y-3">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1 flex items-center gap-2">
+                <Link size={12} /> Linked Tasks & Dependencies
+                </label>
+                <div className="flex gap-2">
+                <select
+                    value={newLinkType}
+                    onChange={(e) => setNewLinkType(e.target.value)}
+                    className="w-1/3 liquid-input rounded-xl px-4 py-2.5 text-xs appearance-none"
+                    aria-label="Link type"
+                    title="Select link type"
+                >
+                    <option value="relates-to" className="bg-navy-900">Relates to</option>
+                    <option value="blocks" className="bg-navy-900">Blocks</option>
+                    <option value="blocked-by" className="bg-navy-900">Blocked By</option>
+                    <option value="duplicates" className="bg-navy-900">Duplicates</option>
+                </select>
+                <select
+                    value={newLinkTarget}
+                    onChange={(e) => setNewLinkTarget(e.target.value)}
+                    className="flex-1 liquid-input rounded-xl px-4 py-2.5 text-xs appearance-none"
+                    aria-label="Select task to link"
+                    title="Select task to link"
+                >
+                    <option value="" className="bg-navy-900">Select Task...</option>
+                    {availableTasks.filter(t => t.id !== initialData?.id).map(t => (
+                    <option key={t.id} value={t.id} className="bg-navy-900">[{t.jobId}] {t.title}</option>
+                    ))}
+                </select>
+                <button type="button" onClick={handleAddTaskLink} className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 transition-colors border border-white/5" aria-label="Add task link" title="Add task link"><Plus size={18} aria-hidden="true" /></button>
+                </div>
+                <div className="space-y-2 mt-2">
+                {links.map((link, idx) => {
+                    const target = availableTasks.find(t => t.id === link.targetTaskId);
+                    if (!target) return null;
                     return (
-                      <a
-                        href={safeUrl ?? '#'}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={`flex-1 text-sm font-medium truncate underline decoration-blue-500/30 hover:decoration-blue-400 ${isSafe ? 'text-blue-400 hover:text-blue-300' : 'text-slate-500 cursor-not-allowed decoration-slate-500/30'}`}
-                        onClick={e => !isSafe && e.preventDefault()}
-                        title={safeUrl ?? 'Unsafe URL blocked'}
-                      >
-                        {att.name}
-                      </a>
-                    );
-                  })()}
-                  <button type="button" onClick={() => handleRemoveAttachment(att.id)} className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all" aria-label={`Remove attachment "${att.name}"`} title={`Remove attachment "${att.name}"`}><X size={16} aria-hidden="true" /></button>
+                    <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-[#0a0a0a] border border-white/10 group hover:border-white/20 hover:bg-white/5 transition-all">
+                        <div className="flex items-center gap-3">
+                        <span className={`px-2 py-1.5 rounded-lg uppercase font-bold text-[10px] tracking-wide border flex items-center gap-1.5
+                                        ${link.type === 'blocked-by' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                            link.type === 'blocks' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                                link.type === 'duplicates' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}`}>
+                            {getLinkIcon(link.type)}
+                            {link.type.replace('-', ' ')}
+                        </span>
+                        <div className="flex flex-col">
+                            <span className="text-xs font-mono text-slate-500">{target.jobId}</span>
+                            <span className="text-sm font-medium text-slate-200 truncate max-w-[200px]">{target.title}</span>
+                        </div>
+                        </div>
+                        <button
+                        type="button"
+                        onClick={() => handleRemoveTaskLink(link.targetTaskId)}
+                        className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors flex items-center gap-2"
+                        >
+                        <span className="text-xs font-medium">Unlink</span>
+                        <Trash2 size={14} />
+                        </button>
+                    </div>
+                    )
+                })}
+                {links.length === 0 && <div className="text-center py-4 text-xs text-slate-600 italic border border-dashed border-white/5 rounded-xl">No linked tasks</div>}
                 </div>
-              ))}
             </div>
-          </div>
 
-          <div className="flex justify-end gap-3 pt-4 mt-2 border-t border-white/5">
-            <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-400 hover:text-white transition-colors">Cancel</button>
-            <button type="submit" className="bg-gradient-to-r from-red-600 to-red-800 hover:from-red-500 hover:to-red-700 text-white px-8 py-2.5 rounded-xl text-sm font-bold shadow-glow-red transition-all duration-300 transform hover:scale-105">{initialData ? 'Update Task' : 'Create Task'}</button>
-          </div>
-        </form>
+            {/* Subtasks */}
+            <div className="space-y-3">
+                <div className="flex items-center justify-between pl-1">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2"><CheckSquare size={12} /> Subtasks</label>
+                <button
+                    type="button"
+                    onClick={handleAiBreakdown}
+                    disabled={isBreakingDown || !formData.title.trim()}
+                    className="text-[10px] font-bold text-cyan-300 hover:text-cyan-200 flex items-center gap-1 transition-colors"
+                    title="AI Breakdown - Generate subtasks"
+                >
+                    {isBreakingDown ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
+                    AI Breakdown
+                </button>
+                </div>
+                <div className="flex gap-2">
+                <input type="text" value={newSubtask} onChange={(e) => setNewSubtask(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSubtask())} placeholder="Add a subtask..." className="flex-1 liquid-input rounded-xl px-4 py-2.5 text-sm" aria-label="New subtask title" />
+                <button type="button" onClick={handleAddSubtask} className="p-3 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 transition-colors border border-white/5" aria-label="Add subtask" title="Add subtask"><Plus size={18} aria-hidden="true" /></button>
+                </div>
+                <div className="max-h-32 overflow-y-auto space-y-2 custom-scrollbar pr-2">
+                {subtasks.map(subtask => (
+                    <div key={subtask.id} className="flex items-center gap-3 p-3 rounded-xl bg-black/20 border border-white/5 group hover:border-white/10 transition-colors">
+                    <button type="button" onClick={() => toggleSubtask(subtask.id)} className={`flex-shrink-0 w-5 h-5 rounded border flex items-center justify-center transition-all ${subtask.completed ? 'bg-emerald-500/20 border-emerald-500 text-emerald-500' : 'border-slate-600 text-transparent hover:border-slate-400'}`} aria-label={subtask.completed ? `Mark subtask "${subtask.title}" as incomplete` : `Mark subtask "${subtask.title}" as complete`} title={subtask.completed ? "Mark as incomplete" : "Mark as complete"}><Check size={12} aria-hidden="true" /></button>
+                    <input type="text" value={subtask.title} onChange={(e) => handleUpdateSubtask(subtask.id, e.target.value)} className={`flex-1 bg-transparent border-none outline-none text-sm font-medium focus:text-white transition-colors ${subtask.completed ? 'text-slate-500 line-through decoration-slate-600' : 'text-slate-300'}`} onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()} aria-label={`Edit subtask ${subtask.id}`} placeholder="Subtask title" />
+                    <button type="button" onClick={() => handleRemoveSubtask(subtask.id)} className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all" aria-label={`Remove subtask "${subtask.title}"`} title={`Remove subtask "${subtask.title}"`}><X size={16} aria-hidden="true" /></button>
+                    </div>
+                ))}
+                </div>
+            </div>
+
+            {/* Attachments */}
+            <div className="space-y-3">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1 flex items-center gap-2"><Paperclip size={12} /> Attachments</label>
+                <div className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                    <input type="text" value={newLinkName} onChange={(e) => setNewLinkName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddLink())} placeholder="Link Name (Optional)" className="w-1/3 liquid-input rounded-xl px-4 py-2.5 text-sm" aria-label="Link name (optional)" />
+                    <input type="text" value={newLinkUrl} onChange={(e) => setNewLinkUrl(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddLink())} placeholder="https://..." className="flex-1 liquid-input rounded-xl px-4 py-2.5 text-sm" aria-label="Link URL" />
+                    <button type="button" onClick={handleAddLink} className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 transition-colors border border-white/5" title="Add Link" aria-label="Add link"><LinkIcon size={18} aria-hidden="true" /></button>
+                    <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 transition-colors border border-white/10 rounded-xl text-slate-300 transition-colors border border-white/5" title="Upload File" aria-label="Upload file"><Upload size={18} aria-hidden="true" /></button>
+                    <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} aria-label="Upload file attachment" />
+                </div>
+                </div>
+                <div className="max-h-32 overflow-y-auto space-y-2 custom-scrollbar pr-2">
+                {attachments.map(att => (
+                    <div key={att.id} className="flex items-center gap-3 p-2.5 rounded-xl bg-black/20 border border-white/5 group hover:border-white/10 transition-colors">
+                    <div className="p-1.5 rounded-lg bg-white/5 text-slate-400">{att.type === 'file' ? <Paperclip size={14} /> : <LinkIcon size={14} />}</div>
+
+                    {(() => {
+                        const safeUrl = att.type === 'file' ? att.url : getSafeExternalUrl(att.url);
+                        const isSafe = Boolean(safeUrl);
+                        return (
+                        <a
+                            href={safeUrl ?? '#'}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`flex-1 text-sm font-medium truncate underline decoration-blue-500/30 hover:decoration-blue-400 ${isSafe ? 'text-blue-400 hover:text-blue-300' : 'text-slate-500 cursor-not-allowed decoration-slate-500/30'}`}
+                            onClick={e => !isSafe && e.preventDefault()}
+                            title={safeUrl ?? 'Unsafe URL blocked'}
+                        >
+                            {att.name}
+                        </a>
+                        );
+                    })()}
+                    <button type="button" onClick={() => handleRemoveAttachment(att.id)} className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all" aria-label={`Remove attachment "${att.name}"`} title={`Remove attachment "${att.name}"`}><X size={16} aria-hidden="true" /></button>
+                    </div>
+                ))}
+                </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 mt-2 border-t border-white/5">
+                <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-400 hover:text-white transition-colors">Cancel</button>
+                <button type="submit" className="bg-gradient-to-r from-red-600 to-red-800 hover:from-red-500 hover:to-red-700 text-white px-8 py-2.5 rounded-xl text-sm font-bold shadow-glow-red transition-all duration-300 transform hover:scale-105">{initialData ? 'Update Task' : 'Create Task'}</button>
+            </div>
+          </form>
+        </div>
       )}
 
       {activeTab === 'activity' && (

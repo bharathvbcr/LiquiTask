@@ -92,6 +92,9 @@ describe('MigrationService', () => {
     beforeEach(() => {
         localStorageMock.clear();
         vi.clearAllMocks();
+        vi.spyOn(console, 'log').mockImplementation(() => {});
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
         service = new MigrationService();
     });
 
@@ -297,6 +300,9 @@ describe('Data Integrity', () => {
     beforeEach(() => {
         localStorageMock.clear();
         vi.clearAllMocks();
+        vi.spyOn(console, 'log').mockImplementation(() => {});
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
         service = new MigrationService();
     });
 

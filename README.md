@@ -6,11 +6,33 @@ LiquiTask is a desktop-first task management app built with React, TypeScript, V
 
 - Kanban board with drag and drop, WIP limits, and keyboard navigation
 - Multiple task views including board, calendar, gantt, archive, and dashboard surfaces
+- AI-powered task creation and refinement with Google Gemini 3.1 Flash-Lite and Ollama support
 - Custom fields, subtasks, task links, tags, templates, and quick-add parsing
 - Native desktop window controls, notifications, and local persistence through the Electron runtime bridge
 - Search history, saved views, bulk actions, automation rules, recurring tasks, and time reporting
 - CSV and JSON export support
 - Unit and component test coverage with Vitest and Testing Library
+
+## AI Integration
+
+LiquiTask 1.3.0 introduces a robust AI layer for intelligent task management.
+
+### Supported Providers
+
+- **Google Gemini**: Cloud-based intelligence using the Gemini 3.1 Flash-Lite model.
+- **Ollama**: Local, private AI running on your own hardware. Supports any GGUF-compatible model.
+
+### Key AI Capabilities
+
+- **Batch Extraction**: Paste meeting notes or raw text to extract multiple tasks into your active workspace.
+- **Task Refinement**: Refine task titles and metadata using natural language or quick-action chips (Summarize, Technical, Formal).
+- **One-Click Polish**: Professionalize task descriptions with markdown support.
+- **AI Breakdown**: Automatically generate actionable subtask checklists from task summaries.
+- **Smart Metadata**: AI-driven suggestions for task priority and tags based on context.
+
+### Configuration
+
+AI settings are managed in **Settings > AI Settings**. You can configure your preferred provider, enter model card names, and test your connection with real-time feedback. All AI credentials and settings stay strictly local on your device.
 
 ## Stack
 
@@ -102,34 +124,32 @@ npm run lint
 LiquiTask uses two GitHub Actions release paths:
 
 1. `Release Drafter` updates a draft release on every push to `main`.
-2. `Release` runs when a semantic version tag such as `v1.0.2` is pushed.
+2. `Release` runs when a semantic version tag such as `v1.3.0` is pushed.
 
 The tagged release workflow does the following:
 
 1. Installs dependencies with `npm ci`
 2. Runs the full test suite
-3. Verifies that the git tag matches `package.json` and `electron.config.ts`
+3. Verifies that the git tag matches `package.json`
 4. Builds the Electron package
 5. Uploads the packaged Windows artifacts to the GitHub Release
 
 Current release assets:
 
-- `stable-win-x64-LiquiTask-Setup.zip`
-- `stable-win-x64-LiquiTask.tar.zst`
-- `stable-win-x64-update.json`
+- `LiquiTask Setup 1.3.0.exe`
+- `LiquiTask Setup 1.3.0.exe.blockmap`
 
 Create a release:
 
 ```bash
-git tag v1.0.2
-git push origin v1.0.2
+git tag v1.3.0
+git push origin v1.3.0
 ```
 
 Before tagging a new version, update:
 
 - `package.json`
 - `package-lock.json`
-- `electron.config.ts`
 
 ## Patch Notes
 

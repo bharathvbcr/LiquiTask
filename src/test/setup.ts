@@ -15,6 +15,12 @@ Object.defineProperty(window, 'localStorage', {
     value: localStorageMock,
 });
 
+// Prevent jsdom from throwing navigation errors when test-rendered links are clicked.
+Object.defineProperty(HTMLAnchorElement.prototype, 'click', {
+    configurable: true,
+    value: vi.fn(),
+});
+
 // Reset mocks between tests
 beforeEach(() => {
     vi.clearAllMocks();

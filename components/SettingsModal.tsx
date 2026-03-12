@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ModalWrapper } from './ModalWrapper';
-import { Settings, Database, Kanban, Flag, Keyboard } from 'lucide-react';
-import { Project, Task, BoardColumn, PriorityDefinition, GroupingOption, ToastType, CustomFieldDefinition } from '../types';
+import { Settings, Database, Kanban, Flag, Keyboard, Sparkles } from 'lucide-react';
+import { Project, Task, BoardColumn, PriorityDefinition, GroupingOption, ToastType, CustomFieldDefinition, ProjectType } from '../types';
 import storageService from '../src/services/storageService';
 import { validateBulkTasks, generateTemplateBlob } from '../src/utils/bulkTaskSchema';
 import { useKeybinding } from '../src/context/KeybindingContext';
@@ -11,20 +11,22 @@ import logo from '../src/assets/logo.png';
 import { GeneralSettings } from './settings/GeneralSettings';
 import { WorkflowSettings } from './settings/WorkflowSettings';
 import { DataSettings } from './settings/DataSettings';
+import { AiSettings } from './settings/AiSettings';
 
 
 interface ImportedData { projects?: Project[]; tasks?: Task[]; columns?: BoardColumn[]; priorities?: PriorityDefinition[]; customFields?: CustomFieldDefinition[]; }
 
 interface SettingsModalProps {
   isOpen: boolean; onClose: () => void;
-  appData: { projects: Project[]; tasks: Task[]; columns: BoardColumn[]; priorities: PriorityDefinition[]; customFields: CustomFieldDefinition[]; };
+  appData: { projects: Project[]; tasks: Task[]; columns: BoardColumn[]; priorities: PriorityDefinition[]; customFields: CustomFieldDefinition[]; projectTypes?: ProjectType[]; };
   onImportData: (data: ImportedData) => void; onUpdateColumns: (cols: BoardColumn[]) => void; onUpdatePriorities: (p: PriorityDefinition[]) => void; onUpdateCustomFields: (f: CustomFieldDefinition[]) => void;
+  onUpdateProjectTypes?: (pt: ProjectType[]) => void;
   grouping: GroupingOption; onUpdateGrouping: (g: GroupingOption) => void; addToast: (m: string, t: ToastType) => void;
   onBulkCreateTasks?: (tasks: Partial<Task>[]) => void; showSubWorkspaceTasks: boolean; onUpdateShowSubWorkspaceTasks?: (s: boolean) => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
-  isOpen, onClose, appData, onImportData, onUpdateColumns, onUpdatePriorities, onUpdateCustomFields,
+  isOpen, onClose, appData, onImportData, onUpdateColumns, onUpdatePriorities, onUpdateCustomFields, onUpdateProjectTypes,
   grouping = 'none', onUpdateGrouping, addToast, onBulkCreateTasks, showSubWorkspaceTasks = false, onUpdateShowSubWorkspaceTasks
 }) => {
   const [activeTab, setActiveTab] = useState('general');
@@ -81,6 +83,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     { id: 'priorities', icon: <Flag size={16} />, label: 'Priorities' },
     { id: 'data', icon: <Database size={16} />, label: 'Data' },
     { id: 'shortcuts', icon: <Keyboard size={16} />, label: 'Shortcuts' },
+    { id: 'ai', icon: <Sparkles size={16} />, label: 'AI Settings' },
   ];
 
   return (
@@ -108,6 +111,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               ))}
             </div>
           )}
+          {activeTab === 'ai' && <AiSettings addToast={addToast} />}
         </div>
       </div>
     </ModalWrapper>
