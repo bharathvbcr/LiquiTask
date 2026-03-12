@@ -40,6 +40,9 @@ const emitWindowState = () => {
 };
 
 function createWindow() {
+  const isDev = process.env.NODE_ENV === 'development';
+  const preloadPath = path.join(__dirname, 'preload.cjs');
+
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -49,17 +52,16 @@ function createWindow() {
     titleBarStyle: 'hidden',
     transparent: false,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.cjs'),
-      sandbox: false,
+      preload: preloadPath,
+      sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
 
-  const isDev = process.env.NODE_ENV === 'development';
-
   if (isDev) {
-    mainWindow.loadURL(DEFAULT_DEV_SERVER_URL);
+    const devUrl = process.env.VITE_DEV_SERVER_URL || DEFAULT_DEV_SERVER_URL;
+    mainWindow.loadURL(devUrl);
     mainWindow.webContents.openDevTools();
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
