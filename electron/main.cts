@@ -7,6 +7,21 @@ const APP_NAME = 'LiquiTask';
 
 let mainWindow: BrowserWindow | null = null;
 
+// Single Instance Protection
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    // Someone tried to run a second instance, we should focus our window.
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+}
+
 const getStorageFilePath = () => {
   return path.join(app.getPath('userData'), 'electron-store.json');
 };
@@ -32,7 +47,7 @@ const writeStorage = async (data: Record<string, unknown>) => {
 };
 
 const emitWindowState = () => {
-  if (mainWindow) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('windowStateChanged', {
       isMaximized: mainWindow.isMaximized(),
     });
@@ -42,6 +57,7 @@ const emitWindowState = () => {
 function createWindow() {
   const isDev = process.env.NODE_ENV === 'development';
   const preloadPath = path.join(__dirname, 'preload.cjs');
+  const iconPath = path.join(__dirname, isDev ? '../build/icon.png' : '../build/icon.png'); // Standardize or adjust based on build structure
 
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -49,6 +65,8 @@ function createWindow() {
     x: 80,
     y: 80,
     title: APP_NAME,
+    icon: iconPath,
+    show: false, // Ready-to-show logic
     titleBarStyle: 'hidden',
     transparent: false,
     webPreferences: {
@@ -67,9 +85,18 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
 
+  // Ready-to-show logic: prevents the "white flash"
+  mainWindow.once('ready-to-show', () => {
+    mainWindow?.show();
+  });
+
   mainWindow.on('resize', emitWindowState);
   mainWindow.on('maximize', emitWindowState);
   mainWindow.on('unmaximize', emitWindowState);
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
 }
 
 app.whenReady().then(() => {
@@ -84,37 +111,45 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-// IPC Handlers
+// IPC Handlers with Guards
 ipcMain.on('minimizeWindow', () => {
-  mainWindow?.minimize();
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.minimize();
+  }
 });
 
 ipcMain.on('maximizeWindow', () => {
-  if (mainWindow?.isMaximized()) {
-    mainWindow.unmaximize();
-  } else {
-    mainWindow?.maximize();
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+    } else {
+      mainWindow.maximize();
+    }
+    emitWindowState();
   }
-  emitWindowState();
 });
 
 ipcMain.on('restoreWindow', () => {
-  if (mainWindow?.isMaximized()) {
-    mainWindow.unmaximize();
-  } else if (mainWindow?.isMinimized()) {
-    mainWindow.restore();
-  } else {
-    mainWindow?.maximize();
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+    } else if (mainWindow.isMinimized()) {
+      mainWindow.restore();
+    } else {
+      mainWindow.maximize();
+    }
+    emitWindowState();
   }
-  emitWindowState();
 });
 
 ipcMain.on('closeWindow', () => {
-  mainWindow?.close();
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.close();
+  }
 });
 
 ipcMain.handle('isWindowMaximized', () => {
-  return mainWindow?.isMaximized() ?? false;
+  return (mainWindow && !mainWindow.isDestroyed()) ? mainWindow.isMaximized() : false;
 });
 
 ipcMain.handle('storageGet', async (_, key: string) => {
@@ -144,6 +179,8 @@ ipcMain.handle('storageHas', async (_, key: string) => {
 });
 
 ipcMain.on('showNotification', (_, options: { title: string; body: string; silent?: boolean }) => {
+  if (!Notification.isSupported()) return;
+  
   new Notification({
     title: options.title,
     body: options.body,
