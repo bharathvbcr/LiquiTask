@@ -8,6 +8,7 @@ const DEFAULT_GEMINI_MODEL = 'gemini-3.1-flash-lite';
 
 // Zod schema for individual task output with repair transforms
 const aiTaskZodSchema = z.object({
+  reasoning: z.string().catch('').transform(s => s.trim()),
   title: z.string().catch('New Task').transform(s => s.trim() || 'New Task'),
   summary: z.string().catch('').transform(s => s.trim()),
   priority: z.string().catch('medium').transform(s => s.toLowerCase()),
@@ -232,20 +233,26 @@ class OllamaProvider implements AIProvider {
     return `Ollama server unreachable at ${this.getBaseUrl()}. Ensure Ollama is running and the URL is correct.`;
   }
 
-  private async request(prompt: string): Promise<any> {
+  private async request(systemInstruction: string, userMessage: string): Promise<any> {
     const baseUrl = this.getBaseUrl();
     const model = this.getModelName();
     if (!model) throw new Error('Ollama model name is not configured.');
 
     try {
-      const response = await fetch(`${baseUrl}/api/generate`, {
+      const response = await fetch(`${baseUrl}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model,
-          prompt,
+          messages: [
+            { role: 'system', content: systemInstruction },
+            { role: 'user', content: userMessage }
+          ],
           stream: false,
-          format: 'json'
+          format: 'json',
+          options: {
+            temperature: 0.4 // Slightly higher for better reasoning flow
+          }
         })
       });
 
@@ -257,7 +264,7 @@ class OllamaProvider implements AIProvider {
       }
 
       const data = await response.json();
-      return extractJson(data.response);
+      return extractJson(data.message?.content || '');
     } catch (e: any) {
       if (e.name === 'TypeError' || e.message?.includes('Failed to fetch')) {
           throw new Error(this.buildUnreachableMessage());
@@ -267,14 +274,19 @@ class OllamaProvider implements AIProvider {
   }
 
   async extractTasks(input: string, context: AIContext): Promise<AITaskSchema[]> {
-    const prompt = `You are a professional task extraction assistant. 
-    Extract ALL actionable tasks from the provided text and return them as a JSON array of objects.
+    const systemInstruction = `You are a professional task extraction assistant. 
+    Analyze the text carefully and extract ALL actionable tasks. 
     
-    Rules:
-    1. Output ONLY a valid JSON array.
-    2. No conversational text or markdown explanation.
-    3. Each task object must follow this structure exactly:
+    CRITICAL: For each task, you MUST first perform a step-by-step reasoning process in the "reasoning" field. 
+    Think about:
+    - What is the core action?
+    - Are there dates or deadlines mentioned?
+    - What tags are most relevant?
+    - How complex is this (for time estimate and subtasks)?
+    
+    Output ONLY a valid JSON array of objects following this structure:
     {
+      "reasoning": "Your step-by-step thought process for this specific task",
       "title": "Short actionable title",
       "summary": "Context or details",
       "priority": "low" | "medium" | "high",
@@ -287,14 +299,13 @@ class OllamaProvider implements AIProvider {
     Context:
     Current Workspace: ${context.projects.find(p => p.id === context.activeProjectId)?.name || 'General'}
     Available Priorities: ${context.priorities.map(p => p.id).join(', ')}
-    Today's Date: ${new Date().toISOString()}
-    
-    Text to process:
-    "${input}"`;
+    Today's Date: ${new Date().toISOString()}`;
+
+    const userMessage = `Text to process: "${input}"`;
 
     let raw: any;
     try {
-        raw = await this.request(prompt);
+        raw = await this.request(systemInstruction, userMessage);
         const rawArray = Array.isArray(raw) ? raw : [raw];
         return aiTaskListZodSchema.parse(rawArray) as AITaskSchema[];
     } catch (e) {
@@ -307,22 +318,20 @@ class OllamaProvider implements AIProvider {
   }
 
   async refineTask(input: string, draft: Partial<Task>, context: AIContext): Promise<Partial<AITaskSchema>> {
-    const prompt = `Refine the provided task draft based on instructions.
-    Output ONLY a valid JSON object representing the refined fields. No conversation.
-    
-    Draft to refine:
-    ${JSON.stringify(draft, null, 2)}
-    
-    Instruction: "${input}"
+    const systemInstruction = `Refine the provided task draft based on user instructions.
+    First, reason through the requested changes in the "reasoning" field.
+    Output ONLY a valid JSON object representing the refined fields.
     
     Context:
     Workspace: ${context.projects.find(p => p.id === context.activeProjectId)?.name || 'General'}
     Available Priorities: ${context.priorities.map(p => p.id).join(', ')}
     Today's Date: ${new Date().toISOString()}`;
 
+    const userMessage = `Instruction: "${input}"\n\nDraft to refine:\n${JSON.stringify(draft, null, 2)}`;
+
     let raw: any;
     try {
-        raw = await this.request(prompt);
+        raw = await this.request(systemInstruction, userMessage);
         return aiTaskZodSchema.partial().parse(raw) as Partial<AITaskSchema>;
     } catch (e) {
         if (isOperationalAiError(e)) {
@@ -358,7 +367,7 @@ class OllamaProvider implements AIProvider {
       
       // Stage 3: Real Inference Test
       try {
-          await this.request('Say "ok"');
+          await this.request('You are a helpful assistant. Return JSON only.', 'Say {"ok": true}');
           return { ok: true, stage: 'inference', message: `Successfully connected to Ollama (${model})` };
       } catch (e: any) {
           return { ok: false, stage: 'inference', message: e.message || 'Inference failed' };

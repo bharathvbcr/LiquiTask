@@ -191,6 +191,7 @@ export interface AIConfig {
 }
 
 export interface AITaskSchema {
+  reasoning?: string; // Step-by-step analysis before final output
   title: string;
   summary: string;
   priority: string;

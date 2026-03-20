@@ -90,7 +90,9 @@ describe('AiService', () => {
       (global.fetch as any).mockResolvedValue({
         ok: true,
         json: () => Promise.resolve({
-          response: JSON.stringify([{ title: 'Ollama Task', summary: 'Local AI', priority: 'medium', tags: [], timeEstimate: 10 }])
+          message: {
+            content: JSON.stringify([{ reasoning: 'Analysis...', title: 'Ollama Task', summary: 'Local AI', priority: 'medium', tags: [], timeEstimate: 10 }])
+          }
         })
       });
 
@@ -108,14 +110,16 @@ describe('AiService', () => {
       (global.fetch as any).mockResolvedValue({
         ok: true,
         json: () => Promise.resolve({
-          response: JSON.stringify([{ title: 'Ollama Task', summary: 'Local AI', priority: 'medium', tags: [], timeEstimate: 10 }])
+          message: {
+            content: JSON.stringify([{ reasoning: 'Analysis...', title: 'Ollama Task', summary: 'Local AI', priority: 'medium', tags: [], timeEstimate: 10 }])
+          }
         })
       });
 
       await aiService.extractTasksFromText('test', mockContext);
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:11434/api/generate',
+        'http://localhost:11434/api/chat',
         expect.not.objectContaining({ signal: expect.anything() })
       );
     });
@@ -166,10 +170,14 @@ describe('AiService', () => {
               json: () => Promise.resolve({ models: [{ name: 'llama3' }] })
           });
 
-          // Mock /api/generate (inference test)
+          // Mock /api/chat (inference test)
           (global.fetch as any).mockResolvedValueOnce({
               ok: true,
-              json: () => Promise.resolve({ response: JSON.stringify({ ok: true }) })
+              json: () => Promise.resolve({ 
+                message: {
+                  content: JSON.stringify({ ok: true })
+                }
+              })
           });
 
           const result = await aiService.testProviderConnection();
@@ -216,14 +224,18 @@ describe('AiService', () => {
 
           (global.fetch as any).mockResolvedValueOnce({
               ok: true,
-              json: () => Promise.resolve({ response: JSON.stringify({ ok: true }) })
+              json: () => Promise.resolve({ 
+                message: {
+                  content: JSON.stringify({ ok: true })
+                }
+              })
           });
 
           const result = await aiService.testProviderConnection();
           expect(result.ok).toBe(true);
           expect(global.fetch).toHaveBeenNthCalledWith(
             2,
-            'http://localhost:11434/api/generate',
+            'http://localhost:11434/api/chat',
             expect.not.objectContaining({ signal: expect.anything() })
           );
       });
