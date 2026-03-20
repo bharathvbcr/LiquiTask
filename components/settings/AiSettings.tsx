@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Key, Globe, Server, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { Sparkles, Key, Globe, Server, CheckCircle2, AlertCircle, Loader2, Download } from 'lucide-react';
 import storageService from '../../src/services/storageService';
 import { STORAGE_KEYS } from '../../src/constants';
 import { ToastType, AIConfig } from '../../types';
 import { aiService } from '../../src/services/aiService';
+import { sanitizeUrl } from '../../src/utils/validation';
 
 interface AiSettingsProps {
   addToast: (msg: string, type: ToastType) => void;
@@ -20,6 +21,10 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
   
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
+  
+  const [isPulling, setIsPulling] = useState(false);
+  const [pullProgress, setPullProgress] = useState(0);
+  const [pullStatus, setPullStatus] = useState('');
 
   useEffect(() => {
     const savedConfig = storageService.get<AIConfig | null>(STORAGE_KEYS.AI_CONFIG, null);
@@ -40,7 +45,12 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
   }, []);
 
   const handleSave = () => {
-    storageService.set(STORAGE_KEYS.AI_CONFIG, config);
+    const sanitizedConfig = {
+      ...config,
+      ollamaBaseUrl: sanitizeUrl(config.ollamaBaseUrl)
+    };
+    storageService.set(STORAGE_KEYS.AI_CONFIG, sanitizedConfig);
+    setConfig(sanitizedConfig);
     addToast('AI configuration saved successfully', 'success');
   };
 
@@ -48,8 +58,14 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
     setIsTesting(true);
     setTestResult(null);
     try {
-      // Temporarily save to test
-      storageService.set(STORAGE_KEYS.AI_CONFIG, config);
+      // Temporarily save to test with sanitized URL
+      const sanitizedConfig = {
+        ...config,
+        ollamaBaseUrl: sanitizeUrl(config.ollamaBaseUrl)
+      };
+      storageService.set(STORAGE_KEYS.AI_CONFIG, sanitizedConfig);
+      setConfig(sanitizedConfig);
+      
       const result = await aiService.testProviderConnection();
       
       setTestResult(result.ok ? 'success' : 'error');
@@ -63,6 +79,41 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
       addToast((e as Error).message || 'Connection test failed', 'error');
     } finally {
       setIsTesting(false);
+    }
+  };
+
+  const handlePullModel = async () => {
+    if (!config.ollamaModel) {
+      addToast('Please enter a model name to pull', 'error');
+      return;
+    }
+
+    setIsPulling(true);
+    setPullProgress(0);
+    setPullStatus('Starting pull...');
+    
+    try {
+      // Save current config with sanitized URL
+      const sanitizedConfig = {
+        ...config,
+        ollamaBaseUrl: sanitizeUrl(config.ollamaBaseUrl)
+      };
+      storageService.set(STORAGE_KEYS.AI_CONFIG, sanitizedConfig);
+      setConfig(sanitizedConfig);
+      
+      await aiService.pullModel(config.ollamaModel, (status, percentage) => {
+        setPullStatus(status);
+        if (percentage !== undefined) setPullProgress(percentage);
+      });
+      
+      addToast(`Successfully pulled ${config.ollamaModel}`, 'success');
+      setTestResult('success');
+    } catch (e) {
+      addToast((e as Error).message || 'Failed to pull model', 'error');
+    } finally {
+      setIsPulling(false);
+      setPullProgress(0);
+      setPullStatus('');
     }
   };
 
@@ -148,6 +199,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
                 type="text"
                 value={config.ollamaBaseUrl}
                 onChange={(e) => setConfig({ ...config, ollamaBaseUrl: e.target.value })}
+                onBlur={(e) => setConfig({ ...config, ollamaBaseUrl: sanitizeUrl(e.target.value) })}
                 placeholder="http://localhost:11434"
                 className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-500"
               />
@@ -156,19 +208,43 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
               <label className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
                 <Server size={16} /> Model Name
               </label>
-              <input
-                type="text"
-                value={config.ollamaModel}
-                onChange={(e) => setConfig({ ...config, ollamaModel: e.target.value })}
-                placeholder="llama3, mistral, etc."
-                className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-500"
-              />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={config.ollamaModel}
+                  onChange={(e) => setConfig({ ...config, ollamaModel: e.target.value })}
+                  placeholder="llama3, mistral, etc."
+                  className="flex-1 bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-500"
+                />
+                <button
+                  onClick={handlePullModel}
+                  disabled={isPulling || !config.ollamaModel}
+                  className="px-3 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg border border-white/10 transition-all disabled:opacity-50 flex items-center gap-2"
+                  title="Download model from Ollama"
+                >
+                  {isPulling ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                  <span className="text-xs font-bold">Pull</span>
+                </button>
+              </div>
             </div>
+
+            {isPulling && (
+              <div className="space-y-2">
+                <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase tracking-tighter">
+                  <span>{pullStatus}</span>
+                  <span>{pullProgress}%</span>
+                </div>
+                <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden border border-white/5">
+                  <div 
+                    className="h-full bg-amber-500 transition-all duration-300 ease-out"
+                    style={{ width: `${pullProgress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
             <p className="text-xs text-slate-500">
-              Ensure Ollama is running locally and the model is pulled (<code className="bg-white/5 px-1 rounded">ollama pull {config.ollamaModel || 'llama3.2'}</code>).
-            </p>
-            <p className="text-xs text-slate-500">
-              Test Connection checks the Ollama service, confirms the model is installed, and asks that model for a real response.
+              Ensure Ollama is running locally. You can download models using the "Pull" button or via CLI (<code className="bg-white/5 px-1 rounded">ollama pull {config.ollamaModel || 'llama3.2'}</code>).
             </p>
           </div>
         )}
@@ -177,7 +253,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
         <div className="flex gap-3">
           <button
             onClick={handleTestConnection}
-            disabled={isTesting}
+            disabled={isTesting || isPulling}
             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-xl text-sm font-bold transition-all border border-white/10 disabled:opacity-50"
           >
             {isTesting ? <Loader2 size={18} className="animate-spin" /> : testResult === 'success' ? <CheckCircle2 size={18} className="text-emerald-500" /> : testResult === 'error' ? <AlertCircle size={18} className="text-red-500" /> : null}
@@ -185,7 +261,8 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
           </button>
           <button
             onClick={handleSave}
-            className="flex-1 px-4 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-slate-950 rounded-xl text-sm font-bold shadow-lg shadow-cyan-500/20 transition-all"
+            disabled={isPulling}
+            className="flex-1 px-4 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-slate-950 rounded-xl text-sm font-bold shadow-lg shadow-cyan-500/20 transition-all disabled:opacity-50"
           >
             Save Configuration
           </button>

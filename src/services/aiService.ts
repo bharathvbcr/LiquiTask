@@ -3,6 +3,7 @@ import { z } from 'zod';
 import storageService from './storageService';
 import { STORAGE_KEYS } from '../constants';
 import { Project, PriorityDefinition, Task, AIConfig, AITaskSchema, AIContext, AITestResult } from '../../types';
+import { sanitizeUrl } from '../utils/validation';
 
 const DEFAULT_GEMINI_MODEL = 'gemini-3.1-flash-lite';
 
@@ -71,6 +72,7 @@ export interface AIProvider {
   extractTasks(input: string, context: AIContext): Promise<AITaskSchema[]>;
   refineTask(input: string, draft: Partial<Task>, context: AIContext): Promise<Partial<AITaskSchema>>;
   testConnection(): Promise<AITestResult>;
+  pullModel?(modelName: string, onProgress?: (status: string, percentage?: number) => void): Promise<void>;
 }
 
 class GeminiProvider implements AIProvider {
@@ -222,7 +224,7 @@ class OllamaProvider implements AIProvider {
   }
 
   private getBaseUrl() {
-    return this.config.ollamaBaseUrl || 'http://localhost:11434';
+    return sanitizeUrl(this.config.ollamaBaseUrl || 'http://localhost:11434');
   }
 
   private getModelName() {
@@ -231,6 +233,52 @@ class OllamaProvider implements AIProvider {
 
   private buildUnreachableMessage() {
     return `Ollama server unreachable at ${this.getBaseUrl()}. Ensure Ollama is running and the URL is correct.`;
+  }
+
+  async pullModel(modelName: string, onProgress?: (status: string, percentage?: number) => void): Promise<void> {
+    const baseUrl = this.getBaseUrl();
+    
+    const response = await fetch(`${baseUrl}/api/pull`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: modelName, stream: true })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to start pull: ${response.statusText}`);
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error('ReadableStream not supported');
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const status = JSON.parse(line);
+          if (status.error) throw new Error(status.error);
+          
+          let percentage = 0;
+          if (status.completed && status.total) {
+            percentage = Math.round((status.completed / status.total) * 100);
+          }
+          
+          onProgress?.(status.status || 'Downloading...', percentage);
+        } catch (e) {
+          console.error('Error parsing pull status:', e, 'Line:', line);
+        }
+      }
+    }
   }
 
   private async request(systemInstruction: string, userMessage: string): Promise<any> {
@@ -432,6 +480,14 @@ class AiService {
     const provider = this.getProvider();
     if (!provider) return { ok: false, stage: 'config', message: 'AI provider is not configured' };
     return await provider.testConnection();
+  }
+
+  async pullModel(modelName: string, onProgress?: (status: string, percentage?: number) => void): Promise<void> {
+    const provider = this.getProvider();
+    if (!provider || !provider.pullModel) {
+      throw new Error('Current AI provider does not support model pulling.');
+    }
+    await provider.pullModel(modelName, onProgress);
   }
 
   // Compatibility bridges

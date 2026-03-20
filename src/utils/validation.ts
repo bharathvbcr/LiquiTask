@@ -127,6 +127,29 @@ function parseDate(value: unknown): Date | undefined {
   return undefined;
 }
 
+// URL validation and sanitization
+export function sanitizeUrl(url: string): string {
+  if (!url) return '';
+  let sanitized = url.trim();
+  // Remove trailing slashes
+  sanitized = sanitized.replace(/\/+$/, '');
+  // Add protocol if missing
+  if (sanitized && !/^https?:\/\//i.test(sanitized)) {
+    sanitized = 'http://' + sanitized;
+  }
+  return sanitized;
+}
+
+export function isValidUrl(url: string): boolean {
+  if (!url) return false;
+  try {
+    new URL(sanitizeUrl(url));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // Validate and transform imported data
 // Validate and transform imported data
 export function validateAndTransformImportedData(data: unknown): ValidatedAppData | null {
