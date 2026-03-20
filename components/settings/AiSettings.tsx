@@ -246,6 +246,9 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
             <p className="text-xs text-slate-500">
               Ensure Ollama is running locally. You can download models using the "Pull" button or via CLI (<code className="bg-white/5 px-1 rounded">ollama pull {config.ollamaModel || 'llama3.2'}</code>).
             </p>
+            <p className="text-xs text-slate-500">
+              Test Connection checks the Ollama service, confirms the model is installed, and asks that model for a real response.
+            </p>
           </div>
         )}
 
