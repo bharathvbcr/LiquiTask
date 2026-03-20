@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Sparkles, Key, Globe, Server, CheckCircle2, AlertCircle, Loader2, Download } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Sparkles, Key, Globe, Server, CheckCircle2, AlertCircle, Loader2, Download, RefreshCw } from 'lucide-react';
 import storageService from '../../src/services/storageService';
 import { STORAGE_KEYS } from '../../src/constants';
 import { ToastType, AIConfig } from '../../types';
@@ -25,6 +25,52 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
   const [isPulling, setIsPulling] = useState(false);
   const [pullProgress, setPullProgress] = useState(0);
   const [pullStatus, setPullStatus] = useState('');
+  const [pullController, setPullController] = useState<AbortController | null>(null);
+
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
+  const [modelFetchError, setModelFetchError] = useState<string | null>(null);
+
+  // Use a debounced function to avoid fetching too rapidly when typing URLs
+  const fetchModels = useCallback(async (baseUrl: string, retryCount = 0) => {
+    if (!baseUrl) return;
+    
+    setIsLoadingModels(true);
+    setModelFetchError(null);
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+
+    try {
+      // Temporarily set the base URL for the service to fetch models
+      const tempConfig = { ...config, ollamaBaseUrl: sanitizeUrl(baseUrl) };
+      storageService.set(STORAGE_KEYS.AI_CONFIG, tempConfig);
+      
+      const models = await aiService.listModels(controller.signal);
+      setAvailableModels(models);
+      
+      // Auto-select the first model if none is currently selected
+      if (models.length > 0 && !config.ollamaModel) {
+        setConfig(prev => ({ ...prev, ollamaModel: models[0] }));
+      }
+    } catch (e: any) {
+      if (e.name === 'AbortError') {
+        setModelFetchError('Request timed out');
+      } else {
+        console.warn('Could not fetch Ollama models:', e);
+        // Simple retry for network errors
+        if (retryCount < 1) {
+           setTimeout(() => fetchModels(baseUrl, retryCount + 1), 1000);
+           return;
+        }
+        setModelFetchError(e.message || 'Could not reach Ollama');
+      }
+      setAvailableModels([]);
+    } finally {
+      clearTimeout(timeoutId);
+      setIsLoadingModels(false);
+    }
+  }, [config]);
 
   useEffect(() => {
     const savedConfig = storageService.get<AIConfig | null>(STORAGE_KEYS.AI_CONFIG, null);
@@ -33,6 +79,9 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
           ...config,
           ...savedConfig
       });
+      if (savedConfig.provider === 'ollama' && savedConfig.ollamaBaseUrl) {
+          fetchModels(savedConfig.ollamaBaseUrl);
+      }
     } else {
         // Migration from old key
         const oldKey = storageService.get<string>(STORAGE_KEYS.GEMINI_API_KEY, '');
@@ -43,6 +92,13 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
         }
     }
   }, []);
+
+  // Re-fetch models when switching to Ollama
+  useEffect(() => {
+      if (config.provider === 'ollama') {
+          fetchModels(config.ollamaBaseUrl || 'http://localhost:11434');
+      }
+  }, [config.provider]);
 
   const handleSave = () => {
     const sanitizedConfig = {
@@ -71,6 +127,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
       setTestResult(result.ok ? 'success' : 'error');
       if (result.ok) {
           addToast(result.message, 'success');
+          if (config.provider === 'ollama') fetchModels(sanitizedConfig.ollamaBaseUrl); // Refresh list on success
       } else {
           addToast(result.message, 'error');
       }
@@ -88,6 +145,8 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
       return;
     }
 
+    const controller = new AbortController();
+    setPullController(controller);
     setIsPulling(true);
     setPullProgress(0);
     setPullStatus('Starting pull...');
@@ -104,17 +163,33 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
       await aiService.pullModel(config.ollamaModel, (status, percentage) => {
         setPullStatus(status);
         if (percentage !== undefined) setPullProgress(percentage);
-      });
+      }, controller.signal);
       
       addToast(`Successfully pulled ${config.ollamaModel}`, 'success');
       setTestResult('success');
-    } catch (e) {
-      addToast((e as Error).message || 'Failed to pull model', 'error');
+      fetchModels(sanitizedConfig.ollamaBaseUrl); // Refresh the list after a successful pull
+    } catch (e: any) {
+      if (e.name === 'AbortError') {
+        addToast('Pull cancelled', 'info');
+      } else {
+        addToast((e as Error).message || 'Failed to pull model', 'error');
+      }
     } finally {
       setIsPulling(false);
       setPullProgress(0);
       setPullStatus('');
+      setPullController(null);
     }
+  };
+
+  const handleCancelPull = () => {
+    pullController?.abort();
+  };
+
+  const handleOllamaUrlBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const sanitized = sanitizeUrl(e.target.value);
+    setConfig({ ...config, ollamaBaseUrl: sanitized });
+    fetchModels(sanitized);
   };
 
   return (
@@ -199,40 +274,78 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
                 type="text"
                 value={config.ollamaBaseUrl}
                 onChange={(e) => setConfig({ ...config, ollamaBaseUrl: e.target.value })}
-                onBlur={(e) => setConfig({ ...config, ollamaBaseUrl: sanitizeUrl(e.target.value) })}
+                onBlur={handleOllamaUrlBlur}
                 placeholder="http://localhost:11434"
                 className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-500"
               />
             </div>
             <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
-                <Server size={16} /> Model Name
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="flex items-center gap-2 text-sm font-medium text-slate-300">
+                  <Server size={16} /> Model Name
+                </label>
+                <button 
+                  onClick={() => fetchModels(config.ollamaBaseUrl || 'http://localhost:11434')}
+                  disabled={isLoadingModels}
+                  className="text-slate-400 hover:text-white transition-colors"
+                  title="Refresh downloaded models"
+                >
+                  <RefreshCw size={14} className={isLoadingModels ? 'animate-spin' : ''} />
+                </button>
+              </div>
               <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={config.ollamaModel}
-                  onChange={(e) => setConfig({ ...config, ollamaModel: e.target.value })}
-                  placeholder="llama3, mistral, etc."
-                  className="flex-1 bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-500"
-                />
+                {availableModels.length > 0 ? (
+                  <select
+                    value={config.ollamaModel}
+                    onChange={(e) => setConfig({ ...config, ollamaModel: e.target.value })}
+                    className="flex-1 bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-amber-500 appearance-none"
+                  >
+                    {availableModels.map(model => (
+                      <option key={model} value={model}>{model}</option>
+                    ))}
+                    {config.ollamaModel && !availableModels.includes(config.ollamaModel) && (
+                       <option value={config.ollamaModel}>{config.ollamaModel} (Not downloaded)</option>
+                    )}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={config.ollamaModel}
+                    onChange={(e) => setConfig({ ...config, ollamaModel: e.target.value })}
+                    placeholder="llama3, mistral, etc."
+                    className="flex-1 bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-500"
+                  />
+                )}
                 <button
                   onClick={handlePullModel}
                   disabled={isPulling || !config.ollamaModel}
-                  className="px-3 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg border border-white/10 transition-all disabled:opacity-50 flex items-center gap-2"
+                  className="px-3 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg border border-white/10 transition-all disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
                   title="Download model from Ollama"
                 >
                   {isPulling ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-                  <span className="text-xs font-bold">Pull</span>
+                  <span className="text-xs font-bold hidden sm:inline">Pull</span>
                 </button>
               </div>
+              {availableModels.length === 0 && !isLoadingModels && (
+                 <p className="text-xs text-amber-500/70 mt-1 mt-2">
+                    Make sure Ollama is running to see available models.
+                 </p>
+              )}
             </div>
 
             {isPulling && (
               <div className="space-y-2">
-                <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase tracking-tighter">
+                <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase tracking-tighter">
                   <span>{pullStatus}</span>
-                  <span>{pullProgress}%</span>
+                  <div className="flex items-center gap-2">
+                    <span>{pullProgress}%</span>
+                    <button 
+                      onClick={handleCancelPull}
+                      className="text-red-400 hover:text-red-300 transition-colors px-1"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
                 <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden border border-white/5">
                   <div 

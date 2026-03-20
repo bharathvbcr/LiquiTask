@@ -16,6 +16,8 @@ vi.mock('../../../src/services/storageService', () => ({
 vi.mock('../../../src/services/aiService', () => ({
   aiService: {
     testProviderConnection: vi.fn(),
+    listModels: vi.fn().mockResolvedValue([]),
+    pullModel: vi.fn()
   }
 }));
 

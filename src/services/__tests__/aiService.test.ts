@@ -58,6 +58,7 @@ describe('AiService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(console, 'error').mockImplementation(() => {});
+    aiService.listModels = vi.fn().mockResolvedValue([]);
   });
 
   describe('extractTasksFromText', () => {

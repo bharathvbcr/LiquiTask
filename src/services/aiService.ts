@@ -73,6 +73,7 @@ export interface AIProvider {
   refineTask(input: string, draft: Partial<Task>, context: AIContext): Promise<Partial<AITaskSchema>>;
   testConnection(): Promise<AITestResult>;
   pullModel?(modelName: string, onProgress?: (status: string, percentage?: number) => void): Promise<void>;
+  listModels?(): Promise<string[]>;
 }
 
 class GeminiProvider implements AIProvider {
@@ -235,13 +236,37 @@ class OllamaProvider implements AIProvider {
     return `Ollama server unreachable at ${this.getBaseUrl()}. Ensure Ollama is running and the URL is correct.`;
   }
 
-  async pullModel(modelName: string, onProgress?: (status: string, percentage?: number) => void): Promise<void> {
+  async listModels(signal?: AbortSignal): Promise<string[]> {
+    const baseUrl = this.getBaseUrl();
+    try {
+      const response = await fetch(`${baseUrl}/api/tags`, { 
+        signal,
+        // Short timeout for model listing to keep UI responsive
+        priority: 'low'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Ollama returned ${response.status}: ${response.statusText}`);
+      }
+      const data = await response.json();
+      return Array.isArray(data.models) ? data.models.map((m: any) => m.name) : [];
+    } catch (e: any) {
+      if (e.name === 'AbortError') throw e;
+      if (e.name === 'TypeError' || e.message?.includes('Failed to fetch')) {
+        throw new Error(this.buildUnreachableMessage());
+      }
+      throw e;
+    }
+  }
+
+  async pullModel(modelName: string, onProgress?: (status: string, percentage?: number) => void, signal?: AbortSignal): Promise<void> {
     const baseUrl = this.getBaseUrl();
     
     const response = await fetch(`${baseUrl}/api/pull`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: modelName, stream: true })
+      body: JSON.stringify({ name: modelName, stream: true }),
+      signal
     });
 
     if (!response.ok) {
@@ -488,6 +513,14 @@ class AiService {
       throw new Error('Current AI provider does not support model pulling.');
     }
     await provider.pullModel(modelName, onProgress);
+  }
+
+  async listModels(): Promise<string[]> {
+    const provider = this.getProvider();
+    if (provider && provider.listModels) {
+      return await provider.listModels();
+    }
+    return [];
   }
 
   // Compatibility bridges
