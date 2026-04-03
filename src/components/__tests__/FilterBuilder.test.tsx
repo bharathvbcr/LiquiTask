@@ -15,7 +15,9 @@ describe("FilterBuilder", () => {
   const baseProps = {
     rootGroup: initialGroup,
     onChange: mockOnChange,
-    customFields: [{ id: "cf1", label: "My Custom Field", type: "text" }] as any,
+    customFields: [
+      { id: "cf1", label: "My Custom Field", type: "text" },
+    ] as unknown as CustomFieldDefinition[],
   };
 
   it("renders the initial rule correctly", () => {
@@ -60,7 +62,7 @@ describe("FilterBuilder", () => {
     fireEvent.click(screen.getByText(/Add Group/i));
 
     const lastCall = mockOnChange.mock.calls[mockOnChange.mock.calls.length - 1][0];
-    const newGroup = lastCall.rules.find((r: any) => "rules" in r);
+    const newGroup = lastCall.rules.find((r: Record<string, unknown>) => "rules" in r);
     expect(newGroup).toBeDefined();
     expect(newGroup.operator).toBe("AND");
   });

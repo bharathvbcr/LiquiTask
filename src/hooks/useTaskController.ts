@@ -89,14 +89,14 @@ export const useTaskController = ({
     switch (action.type) {
       case "task-delete":
         if (action.task) {
-          setTasks((prev) => [...prev, action.task!]);
+          setTasks((prev) => [...prev, action.task]);
           addToast(`Restored "${action.task.title}"`, "success");
         }
         break;
       case "task-update":
         if (action.previousState) {
           setTasks((prev) =>
-            prev.map((t) => (t.id === action.previousState?.id ? action.previousState! : t)),
+            prev.map((t) => (t.id === action.previousState.id ? action.previousState : t)),
           );
           addToast("Change undone", "info");
         }
@@ -110,7 +110,7 @@ export const useTaskController = ({
       case "task-move":
         if (action.previousState) {
           setTasks((prev) =>
-            prev.map((t) => (t.id === action.previousState?.id ? action.previousState! : t)),
+            prev.map((t) => (t.id === action.previousState.id ? action.previousState : t)),
           );
           addToast("Move undone", "info");
         }
@@ -253,9 +253,7 @@ export const useTaskController = ({
           const nextOccurrence = recurringService.calculateNextOccurrence(updatedTask.recurring);
           setTasks((prev) =>
             prev.map((t) =>
-              t.id === updatedTask.id
-                ? { ...t, recurring: { ...t.recurring!, nextOccurrence } }
-                : t,
+              t.id === updatedTask.id ? { ...t, recurring: { ...t.recurring, nextOccurrence } } : t,
             ),
           );
         }

@@ -19,7 +19,7 @@ describe("useGlobalKeyboardShortcuts", () => {
     setIsSidebarCollapsed: mockSetIsSidebarCollapsed,
     setIsTaskModalOpen: mockSetIsTaskModalOpen,
     setEditingTask: mockSetEditingTask,
-    searchInputRef: mockSearchInputRef as any,
+    searchInputRef: mockSearchInputRef as unknown as React.RefObject<HTMLInputElement>,
     tasks: [],
     projects: [],
     addToast: mockAddToast,

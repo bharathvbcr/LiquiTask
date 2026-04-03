@@ -107,7 +107,9 @@ export const useProjectController = ({
       ];
 
       const orderMap = new Map<string, number>();
-      reordered.forEach((p, idx) => orderMap.set(p.id, idx));
+      reordered.forEach((p, idx) => {
+        orderMap.set(p.id, idx);
+      });
 
       return prev.map((p) => {
         if (orderMap.has(p.id)) {

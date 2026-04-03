@@ -9,11 +9,26 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { BULK_TASK_TEMPLATE_JSON } from "../../src/utils/bulkTaskSchema";
-import type { ToastType } from "../../types";
+import type {
+  BoardColumn,
+  CustomFieldDefinition,
+  PriorityDefinition,
+  Project,
+  Task,
+  ToastType,
+} from "../../types";
+
+interface AppData {
+  projects: Project[];
+  tasks: Task[];
+  columns: BoardColumn[];
+  priorities: PriorityDefinition[];
+  customFields: CustomFieldDefinition[];
+}
 
 interface DataSettingsProps {
   downloadLink: string;
-  appData: any;
+  appData: AppData;
   addToast: (msg: string, type: ToastType) => void;
   importText: string;
   setImportText: (val: string) => void;
@@ -28,7 +43,7 @@ interface DataSettingsProps {
   bulkImportError: string;
   handleBulkImport: () => void;
   isBulkImporting: boolean;
-  onBulkCreateTasks?: (tasks: any[]) => void;
+  onBulkCreateTasks?: (tasks: Partial<Task>[]) => void;
   handleReset: () => void;
 }
 
@@ -70,7 +85,9 @@ export const DataSettings: React.FC<DataSettingsProps> = ({
           <button
             onClick={async () => {
               const { exportService } = await import("../../src/services/exportService");
-              const pm = new Map<string, string>(appData.projects.map((p: any) => [p.id, p.name]));
+              const pm = new Map<string, string>(
+                appData.projects.map((p: Project) => [p.id, p.name]),
+              );
               exportService.downloadCSV(appData.tasks, "liquitask-export.csv", pm);
               addToast("Exported to CSV", "success");
             }}

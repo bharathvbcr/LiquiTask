@@ -130,6 +130,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ tasks, priorities, onEditT
           <div className="w-64 shrink-0 font-bold text-xs text-slate-400 uppercase">Task</div>
           <div className="flex-1 flex">
             {daysInRange.map((day, idx) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: day order is stable
               <div
                 key={idx}
                 className="flex-1 text-center text-xs text-slate-500 border-l border-white/5"
@@ -182,8 +183,8 @@ export const GanttView: React.FC<GanttViewProps> = ({ tasks, priorities, onEditT
                         key={dep.id}
                         className="absolute top-0 left-0 w-0.5 bg-red-400 opacity-50"
                         style={{
-                          left: `${parseFloat(depStyle.left as string) + parseFloat(depStyle.width as string)}px`,
-                          width: `${parseFloat(style.left as string) - parseFloat(depStyle.left as string) - parseFloat(depStyle.width as string)}px`,
+                          left: `${parseFloat(String(depStyle.left)) + parseFloat(String(depStyle.width))}px`,
+                          width: `${parseFloat(String(style.left)) - parseFloat(String(depStyle.left)) - parseFloat(String(depStyle.width))}px`,
                           height: "2px",
                           top: "50%",
                         }}

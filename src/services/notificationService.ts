@@ -176,7 +176,9 @@ class NotificationService {
 
       if (newlyOverdue.length > 0) {
         this.notifyOverdue(newlyOverdue);
-        newlyOverdue.forEach((t) => this.notifiedOverdueIds.add(t.id));
+        newlyOverdue.forEach((t) => {
+          this.notifiedOverdueIds.add(t.id);
+        });
       }
     };
 

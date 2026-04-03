@@ -1,9 +1,7 @@
 import {
-  AlertCircle,
   Brain,
   CheckCircle2,
   Download,
-  FolderInput,
   GitBranch,
   Globe,
   Key,
@@ -29,12 +27,15 @@ interface AiSettingsProps {
   addToast: (msg: string, type: ToastType) => void;
   onOpenMergeModal?: () => void;
   onOpenReorganizeModal?: () => void;
+  onOpenSubtaskModal?: () => void;
+  onOpenProjectAssignmentModal?: () => void;
 }
 
 export const AiSettings: React.FC<AiSettingsProps> = ({
   addToast,
   onOpenMergeModal,
   onOpenReorganizeModal,
+  onOpenSubtaskModal,
 }) => {
   const [config, setConfig] = useState<AIConfig>({
     provider: "gemini",
@@ -71,8 +72,8 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
 
   const [autoOrganize, setAutoOrganize] = useState<AutoOrganizeConfig>(defaultAutoOrganize);
 
-  const [isTesting, setIsTesting] = useState(false);
-  const [testResult, setTestResult] = useState<"success" | "error" | null>(null);
+  const [_isTesting, setIsTesting] = useState(false);
+  const [_testResult, setTestResult] = useState<"success" | "error" | null>(null);
 
   const [isPulling, setIsPulling] = useState(false);
   const [pullProgress, setPullProgress] = useState(0);
@@ -103,8 +104,8 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
         if (models.length > 0 && !config.ollamaModel) {
           setConfig((prev) => ({ ...prev, ollamaModel: models[0] }));
         }
-      } catch (e: any) {
-        if (e.name === "AbortError") {
+      } catch (e) {
+        if ((e as Error).name === "AbortError") {
           setModelFetchError("Request timed out");
         } else {
           console.warn("Could not fetch Ollama models:", e);
@@ -174,7 +175,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
     addToast("AI configuration saved successfully", "success");
   };
 
-  const handleTestConnection = async () => {
+  const _handleTestConnection = async () => {
     setIsTesting(true);
     setTestResult(null);
     try {
@@ -234,8 +235,8 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
       addToast(`Successfully pulled ${config.ollamaModel}`, "success");
       setTestResult("success");
       fetchModels(sanitizedConfig.ollamaBaseUrl);
-    } catch (e: any) {
-      if (e.name === "AbortError") {
+    } catch (e) {
+      if ((e as Error).name === "AbortError") {
         addToast("Pull cancelled", "info");
       } else {
         addToast((e as Error).message || "Failed to pull model", "error");
@@ -277,8 +278,8 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
           <label className="text-sm font-medium text-slate-300 mb-3 block">Active Provider</label>
           <div className="grid grid-cols-2 gap-3">
             <button
-              onClick={() => setConfig({ ...config, provider: "gemini" })}
-              className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${config.provider === "gemini" ? "bg-cyan-500/20 border-cyan-500 text-cyan-300" : "bg-black/20 border-white/10 text-slate-400 hover:border-white/20"}`}
+              onClick={() => setConfig({ ...config, provider: 'gemini' })}
+              className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${config.provider === 'gemini' ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300' : 'bg-black/20 border-white/10 text-slate-400 hover:border-white/20'}`}
             >
               <Globe size={18} />
               <div className="text-left">
@@ -287,8 +288,8 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
               </div>
             </button>
             <button
-              onClick={() => setConfig({ ...config, provider: "ollama" })}
-              className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${config.provider === "ollama" ? "bg-amber-500/20 border-amber-500 text-amber-300" : "bg-black/20 border-white/10 text-slate-400 hover:border-white/20"}`}
+              onClick={() => setConfig({ ...config, provider: 'ollama' })}
+              className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${config.provider === 'ollama' ? 'bg-amber-500/20 border-amber-500 text-amber-300' : 'bg-black/20 border-white/10 text-slate-400 hover:border-white/20'}`}
             >
               <Server size={18} />
               <div className="text-left">
@@ -299,7 +300,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
           </div>
         </div>
 
-        {config.provider === "gemini" && (
+        {config.provider === 'gemini' && (
           <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-4 animate-in fade-in slide-in-from-top-2">
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
@@ -308,7 +309,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
               <input
                 type="password"
                 value={config.geminiApiKey}
-                onChange={(e) => setConfig({ ...config, geminiApiKey: e.target.value })}
+                onChange={e => setConfig({ ...config, geminiApiKey: e.target.value })}
                 placeholder="AIzaSy..."
                 className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500"
               />
@@ -320,13 +321,13 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
               <input
                 type="text"
                 value={config.geminiModel}
-                onChange={(e) => setConfig({ ...config, geminiModel: e.target.value })}
+                onChange={e => setConfig({ ...config, geminiModel: e.target.value })}
                 placeholder="e.g. gemini-3.1-flash-lite"
                 className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500"
               />
             </div>
             <p className="text-xs text-slate-500">
-              Get your API key from{" "}
+              Get your API key from{' '}
               <a
                 href="https://aistudio.google.com/"
                 target="_blank"
@@ -340,7 +341,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
           </div>
         )}
 
-        {config.provider === "ollama" && (
+        {config.provider === 'ollama' && (
           <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-4 animate-in fade-in slide-in-from-top-2">
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
@@ -349,7 +350,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
               <input
                 type="text"
                 value={config.ollamaBaseUrl}
-                onChange={(e) => setConfig({ ...config, ollamaBaseUrl: e.target.value })}
+                onChange={e => setConfig({ ...config, ollamaBaseUrl: e.target.value })}
                 onBlur={handleOllamaUrlBlur}
                 placeholder="http://localhost:11434"
                 className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-500"
@@ -361,22 +362,22 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
                   <Server size={16} /> Model Name
                 </label>
                 <button
-                  onClick={() => fetchModels(config.ollamaBaseUrl || "http://localhost:11434")}
+                  onClick={() => fetchModels(config.ollamaBaseUrl || 'http://localhost:11434')}
                   disabled={isLoadingModels}
                   className="text-slate-400 hover:text-white transition-colors"
                   title="Refresh downloaded models"
                 >
-                  <RefreshCw size={14} className={isLoadingModels ? "animate-spin" : ""} />
+                  <RefreshCw size={14} className={isLoadingModels ? 'animate-spin' : ''} />
                 </button>
               </div>
               <div className="flex gap-2">
                 {availableModels.length > 0 ? (
                   <select
                     value={config.ollamaModel}
-                    onChange={(e) => setConfig({ ...config, ollamaModel: e.target.value })}
+                    onChange={e => setConfig({ ...config, ollamaModel: e.target.value })}
                     className="flex-1 bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-amber-500 appearance-none"
                   >
-                    {availableModels.map((model) => (
+                    {availableModels.map(model => (
                       <option key={model} value={model}>
                         {model}
                       </option>
@@ -391,7 +392,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
                   <input
                     type="text"
                     value={config.ollamaModel}
-                    onChange={(e) => setConfig({ ...config, ollamaModel: e.target.value })}
+                    onChange={e => setConfig({ ...config, ollamaModel: e.target.value })}
                     placeholder="llama3, mistral, etc."
                     className="flex-1 bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-500"
                   />
@@ -444,7 +445,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
               Ensure Ollama is running locally. You can download models using the "Pull" button or
               via CLI (
               <code className="bg-white/5 px-1 rounded">
-                ollama pull {config.ollamaModel || "llama3.2"}
+                ollama pull {config.ollamaModel || 'llama3.2'}
               </code>
               ).
             </p>
@@ -470,7 +471,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
               label="Auto-Detect Duplicates"
               description="Scan for duplicate tasks when creating"
               checked={aiManagement.autoDetectDuplicates}
-              onChange={(v) => setAiManagement((prev) => ({ ...prev, autoDetectDuplicates: v }))}
+              onChange={v => setAiManagement(prev => ({ ...prev, autoDetectDuplicates: v }))}
             />
 
             <ToggleRow
@@ -478,7 +479,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
               label="Auto-Suggest Priorities"
               description="AI adjusts priorities based on context"
               checked={aiManagement.autoSuggestPriorities}
-              onChange={(v) => setAiManagement((prev) => ({ ...prev, autoSuggestPriorities: v }))}
+              onChange={v => setAiManagement(prev => ({ ...prev, autoSuggestPriorities: v }))}
             />
 
             <ToggleRow
@@ -486,7 +487,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
               label="Auto-Suggest Tags"
               description="AI recommends relevant tags for tasks"
               checked={aiManagement.autoSuggestTags}
-              onChange={(v) => setAiManagement((prev) => ({ ...prev, autoSuggestTags: v }))}
+              onChange={v => setAiManagement(prev => ({ ...prev, autoSuggestTags: v }))}
             />
 
             <ToggleRow
@@ -494,7 +495,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
               label="Cleanup on Create"
               description="Run redundancy check after task creation"
               checked={aiManagement.cleanupOnCreate}
-              onChange={(v) => setAiManagement((prev) => ({ ...prev, cleanupOnCreate: v }))}
+              onChange={v => setAiManagement(prev => ({ ...prev, cleanupOnCreate: v }))}
             />
 
             <div className="flex items-center justify-between">
@@ -509,10 +510,10 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
               </div>
               <select
                 value={aiManagement.insightsFrequency}
-                onChange={(e) =>
-                  setAiManagement((prev) => ({
+                onChange={e =>
+                  setAiManagement(prev => ({
                     ...prev,
-                    insightsFrequency: e.target.value as "daily" | "weekly" | "manual",
+                    insightsFrequency: e.target.value as 'daily' | 'weekly' | 'manual',
                   }))
                 }
                 className="bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500 appearance-none"
@@ -543,148 +544,24 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
                 Smart Reorganize
               </button>
             </div>
+            <button
+              onClick={onOpenSubtaskModal}
+              disabled={!onOpenSubtaskModal || isPulling}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-green-500/10 hover:bg-green-500/20 text-green-400 hover:text-green-300 rounded-xl text-sm font-bold transition-all border border-green-500/20 disabled:opacity-50"
+            >
+              <GitBranch size={16} />
+              Convert to Subtasks
+            </button>
           </div>
-        </div>
-
-        <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-4 animate-in fade-in slide-in-from-top-2">
-          <div className="flex items-center gap-2 mb-2">
-            <Sparkles size={18} className="text-purple-400" />
-            <h4 className="text-sm font-bold text-white">AI Auto-Organize</h4>
-          </div>
-          <p className="text-xs text-slate-400">
-            Automatically group, merge, tag, and categorize tasks using AI.
-          </p>
-
-          <div className="space-y-3">
-            <ToggleRow
-              icon={Sparkles}
-              label="Enable Auto-Organize"
-              description="Allow AI to automatically organize tasks"
-              checked={autoOrganize.enabled}
-              onChange={(v) => setAutoOrganize((prev) => ({ ...prev, enabled: v }))}
-            />
-
-            <ToggleRow
-              icon={Merge}
-              label="Deduplication"
-              description="Detect and merge duplicate tasks"
-              checked={autoOrganize.operations.deduplication}
-              onChange={(v) =>
-                setAutoOrganize((prev) => ({
-                  ...prev,
-                  operations: { ...prev.operations, deduplication: v },
-                }))
-              }
-            />
-
-            <ToggleRow
-              icon={Brain}
-              label="Task Clustering"
-              description="Group tasks by theme and auto-tag"
-              checked={autoOrganize.operations.clustering}
-              onChange={(v) =>
-                setAutoOrganize((prev) => ({
-                  ...prev,
-                  operations: { ...prev.operations, clustering: v },
-                }))
-              }
-            />
-
-            <ToggleRow
-              icon={Tags}
-              label="Auto-Tagging"
-              description="AI suggests relevant tags for tasks"
-              checked={autoOrganize.operations.autoTagging}
-              onChange={(v) =>
-                setAutoOrganize((prev) => ({
-                  ...prev,
-                  operations: { ...prev.operations, autoTagging: v },
-                }))
-              }
-            />
-
-            <ToggleRow
-              icon={GitBranch}
-              label="Hierarchy Detection"
-              description="Find parent-child task relationships"
-              checked={autoOrganize.operations.hierarchyDetection}
-              onChange={(v) =>
-                setAutoOrganize((prev) => ({
-                  ...prev,
-                  operations: { ...prev.operations, hierarchyDetection: v },
-                }))
-              }
-            />
-
-            <ToggleRow
-              icon={FolderInput}
-              label="Project Assignment"
-              description="Suggest better project assignments"
-              checked={autoOrganize.operations.projectAssignment}
-              onChange={(v) =>
-                setAutoOrganize((prev) => ({
-                  ...prev,
-                  operations: { ...prev.operations, projectAssignment: v },
-                }))
-              }
-            />
-
-            <ToggleRow
-              icon={Trash2}
-              label="Tag Consolidation"
-              description="Merge similar or duplicate tags"
-              checked={autoOrganize.operations.tagConsolidation}
-              onChange={(v) =>
-                setAutoOrganize((prev) => ({
-                  ...prev,
-                  operations: { ...prev.operations, tagConsolidation: v },
-                }))
-              }
-            />
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Settings2 size={16} className="text-slate-400" />
-                <div>
-                  <div className="text-sm font-medium text-slate-200">Schedule</div>
-                  <div className="text-[10px] text-slate-500">When to run auto-organize</div>
-                </div>
-              </div>
-              <select
-                value={autoOrganize.schedule}
-                onChange={(e) =>
-                  setAutoOrganize((prev) => ({
-                    ...prev,
-                    schedule: e.target.value as AutoOrganizeConfig["schedule"],
-                  }))
-                }
-                className="bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500 appearance-none"
-              >
-                <option value="manual">Manual Only</option>
-                <option value="onCreate">On Task Create</option>
-                <option value="hourly">Hourly</option>
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex gap-3">
           <button
-            onClick={handleTestConnection}
-            disabled={isTesting || isPulling}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-xl text-sm font-bold transition-all border border-white/10 disabled:opacity-50"
+            onClick={onOpenProjectAssignmentModal}
+            disabled={!onOpenProjectAssignmentModal || isPulling}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 hover:text-blue-300 rounded-xl text-sm font-bold transition-all border border-blue-500/20 disabled:opacity-50"
           >
-            {isTesting ? (
-              <Loader2 size={18} className="animate-spin" />
-            ) : testResult === "success" ? (
-              <CheckCircle2 size={18} className="text-emerald-500" />
-            ) : testResult === "error" ? (
-              <AlertCircle size={18} className="text-red-500" />
-            ) : null}
-            {isTesting ? "Testing..." : "Test Connection"}
+            <Globe size={16} />
+            Smart Project Assignment
           </button>
+        </div>
           <button
             onClick={handleSave}
             disabled={isPulling}
@@ -699,8 +576,8 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
           Your AI credentials and settings are stored locally on this device and never shared.
         </div>
       </div>
-    </div>
-  );
+  </div>
+  )
 };
 
 interface ToggleRowProps {

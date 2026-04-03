@@ -173,6 +173,7 @@ export const AutomationRuleEditor: React.FC<AutomationRuleEditorProps> = ({
 
             <div className="space-y-3">
               {actions.map((action, index) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: action order is stable
                 <div key={index} className="bg-black/20 border border-white/10 rounded-lg p-4">
                   <div className="flex items-start justify-between mb-3">
                     <select
@@ -202,7 +203,6 @@ export const AutomationRuleEditor: React.FC<AutomationRuleEditorProps> = ({
                       <Trash2 size={16} aria-hidden="true" />
                     </button>
                   </div>
-
                   {action.type === "setField" && (
                     <div className="space-y-2">
                       <input
@@ -221,7 +221,6 @@ export const AutomationRuleEditor: React.FC<AutomationRuleEditorProps> = ({
                       />
                     </div>
                   )}
-
                   {(action.type === "addTag" || action.type === "removeTag") && (
                     <input
                       type="text"
@@ -231,7 +230,6 @@ export const AutomationRuleEditor: React.FC<AutomationRuleEditorProps> = ({
                       className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-red-500/50 outline-none"
                     />
                   )}
-
                   {action.type === "moveToColumn" && (
                     <select
                       value={(action.value as string) || ""}
@@ -248,7 +246,6 @@ export const AutomationRuleEditor: React.FC<AutomationRuleEditorProps> = ({
                       ))}
                     </select>
                   )}
-
                   {action.type === "setPriority" && (
                     <select
                       value={(action.value as string) || ""}
@@ -265,7 +262,6 @@ export const AutomationRuleEditor: React.FC<AutomationRuleEditorProps> = ({
                       ))}
                     </select>
                   )}
-
                   {action.type === "notify" && (
                     <input
                       type="text"

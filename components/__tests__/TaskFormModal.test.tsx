@@ -20,7 +20,7 @@ describe("TaskFormModal Features", () => {
     columns: [
       { id: "col1", title: "Todo" },
       { id: "col2", title: "Done" },
-    ] as any,
+    ],
   };
 
   const mockTask: Task = {

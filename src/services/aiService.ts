@@ -2,6 +2,7 @@ import type {
   AICategorySuggestion,
   AIConfig,
   AIContext,
+  AIInsight,
   AISuggestion,
   AITaskSchema,
   AITestResult,
@@ -19,6 +20,8 @@ import { sanitizeUrl } from "../utils/validation";
 import storageService from "./storageService";
 
 const DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite";
+
+type AIRefineResponse = Record<string, unknown>;
 
 export interface AIProvider {
   extractTasks(input: string, context: AIContext): Promise<AITaskSchema[]>;
@@ -169,22 +172,23 @@ Today's Date: ${new Date().toISOString()}.`;
         };
       }
       return { ok: false, stage: "inference", message: "Gemini returned an empty response" };
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
       if (
-        e.message?.includes("API_KEY_INVALID") ||
-        e.message?.includes("401") ||
-        e.message?.includes("403")
+        message.includes("API_KEY_INVALID") ||
+        message.includes("401") ||
+        message.includes("403")
       ) {
         return { ok: false, stage: "service", message: "Invalid Gemini API Key" };
       }
-      if (e.message?.includes("404") || e.message?.includes("not found")) {
+      if (message.includes("404") || message.includes("not found")) {
         return {
           ok: false,
           stage: "model",
           message: `Gemini model "${this.config.geminiModel}" not found`,
         };
       }
-      return { ok: false, stage: "inference", message: e.message || "Unknown Gemini error" };
+      return { ok: false, stage: "inference", message: message || "Unknown Gemini error" };
     }
   }
 }
@@ -208,7 +212,7 @@ class OllamaProvider implements AIProvider {
     return `Ollama server unreachable at ${this.getBaseUrl()}. Ensure Ollama is running and the URL is correct.`;
   }
 
-  private async request(systemInstruction: string, userMessage: string): Promise<any> {
+  private async request(systemInstruction: string, userMessage: string): Promise<unknown> {
     const baseUrl = this.getBaseUrl();
     const model = this.getModelName();
     if (!model) throw new Error("Ollama model name is not configured.");
@@ -268,8 +272,11 @@ Today's Date: ${new Date().toISOString()}`;
       const raw = await this.request(systemInstruction, userMessage);
       const rawArray = Array.isArray(raw) ? raw : [raw];
       return rawArray;
-    } catch (e: any) {
-      if (e.name === "TypeError" || e.message?.includes("Failed to fetch")) {
+    } catch (e: unknown) {
+      if (
+        e instanceof Error &&
+        (e.name === "TypeError" || e.message?.includes("Failed to fetch"))
+      ) {
         throw new Error(this.buildUnreachableMessage());
       }
       throw e;
@@ -290,8 +297,11 @@ Today's Date: ${new Date().toISOString()}`;
 
     try {
       return await this.request(systemInstruction, userMessage);
-    } catch (e: any) {
-      if (e.name === "TypeError" || e.message?.includes("Failed to fetch")) {
+    } catch (e: unknown) {
+      if (
+        e instanceof Error &&
+        (e.name === "TypeError" || e.message?.includes("Failed to fetch"))
+      ) {
         throw new Error(this.buildUnreachableMessage());
       }
       return {};
@@ -309,8 +319,11 @@ Today's Date: ${new Date().toISOString()}`;
         "You are a task analysis assistant. Return ONLY valid JSON matching the requested schema.",
         prompt,
       );
-    } catch (e: any) {
-      if (e.name === "TypeError" || e.message?.includes("Failed to fetch")) {
+    } catch (e: unknown) {
+      if (
+        e instanceof Error &&
+        (e.name === "TypeError" || e.message?.includes("Failed to fetch"))
+      ) {
         throw new Error(this.buildUnreachableMessage());
       }
       return null;
@@ -324,10 +337,13 @@ Today's Date: ${new Date().toISOString()}`;
       if (!response.ok)
         throw new Error(`Ollama returned ${response.status}: ${response.statusText}`);
       const data = await response.json();
-      return Array.isArray(data.models) ? data.models.map((m: any) => m.name) : [];
-    } catch (e: any) {
-      if (e.name === "AbortError") throw e;
-      if (e.name === "TypeError" || e.message?.includes("Failed to fetch")) {
+      return Array.isArray(data.models) ? data.models.map((m: { name: string }) => m.name) : [];
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === "AbortError") throw e;
+      if (
+        e instanceof Error &&
+        (e.name === "TypeError" || e.message?.includes("Failed to fetch"))
+      ) {
         throw new Error(this.buildUnreachableMessage());
       }
       throw e;
@@ -398,7 +414,9 @@ Today's Date: ${new Date().toISOString()}`;
       }
 
       const tagsData = await healthResponse.json();
-      const models = Array.isArray(tagsData.models) ? tagsData.models.map((m: any) => m.name) : [];
+      const models = Array.isArray(tagsData.models)
+        ? tagsData.models.map((m: { name: string }) => m.name)
+        : [];
       const modelExists = models.some((m: string) => m === model || m.startsWith(`${model}:`));
       if (!modelExists) {
         return {
@@ -415,18 +433,23 @@ Today's Date: ${new Date().toISOString()}`;
           stage: "inference",
           message: `Successfully connected to Ollama (${model})`,
         };
-      } catch (e: any) {
-        return { ok: false, stage: "inference", message: e.message || "Inference failed" };
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : String(e);
+        return { ok: false, stage: "inference", message: message || "Inference failed" };
       }
-    } catch (e: any) {
-      if (e.name === "TypeError" || e.message?.includes("Failed to fetch")) {
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      if (
+        e instanceof Error &&
+        (e.name === "TypeError" || e.message?.includes("Failed to fetch"))
+      ) {
         return {
           ok: false,
           stage: "service",
           message: `Cannot reach Ollama at ${baseUrl}. Ensure Ollama is running and the URL is correct.`,
         };
       }
-      return { ok: false, stage: "service", message: e.message || "Unknown Ollama error" };
+      return { ok: false, stage: "service", message: message || "Unknown Ollama error" };
     }
   }
 }
@@ -497,7 +520,7 @@ class AiService {
     return provider.analyzeTasks(prompt, tasks, context, schema || {});
   }
 
-  async parseTaskFromText(inputText: string, activeProjectContext?: Project): Promise<any> {
+  async parseTaskFromText(inputText: string, activeProjectContext?: Project): Promise<unknown> {
     const priorities = storageService.get<PriorityDefinition[]>(STORAGE_KEYS.PRIORITIES, []);
     const projects = storageService.get<Project[]>(STORAGE_KEYS.PROJECTS, []);
     const context: AIContext = {
@@ -528,7 +551,7 @@ class AiService {
     title: string,
     description: string,
     context: { projects: Project[]; priorities: PriorityDefinition[] },
-  ): Promise<any> {
+  ): Promise<Partial<AITaskSchema>> {
     const draft = { title, summary: description };
     const aiContext: AIContext = {
       activeProjectId: "",
@@ -579,8 +602,9 @@ Project: ${context.projects.find((p) => p.id === pair.task2.projectId)?.name || 
 Return JSON: {"confidence": 0.0-1.0, "reasons": ["reason1", "reason2"]}`;
 
         const refined = await provider.refineTask(prompt, {}, context);
-        const confidence = (refined as any).confidence ?? 0.5;
-        const reasons = (refined as any).reasons ?? ["AI analysis"];
+        const aiResponse = refined as AIRefineResponse;
+        const confidence = (aiResponse.confidence as number) ?? 0.5;
+        const reasons = (aiResponse.reasons as string[]) ?? ["AI analysis"];
 
         results.push({ task1: pair.task1, task2: pair.task2, confidence, reasons });
       } catch {
@@ -615,11 +639,13 @@ Tasks:\n${taskDetails}`;
 
     try {
       const refined = await provider.refineTask(prompt, {}, context);
+      const aiResponse = refined as AIRefineResponse;
       return {
-        keepTaskId: (refined as any).keepTaskId ?? group.tasks[0].id,
-        archiveTaskIds: (refined as any).archiveTaskIds ?? group.tasks.slice(1).map((t) => t.id),
-        mergedFields: (refined as any).mergedFields ?? {},
-        reasoning: (refined as any).reasoning ?? "AI merge suggestion",
+        keepTaskId: (aiResponse.keepTaskId as string) ?? group.tasks[0].id,
+        archiveTaskIds:
+          (aiResponse.archiveTaskIds as string[]) ?? group.tasks.slice(1).map((t) => t.id),
+        mergedFields: (aiResponse.mergedFields as Partial<Task>) ?? {},
+        reasoning: (aiResponse.reasoning as string) ?? "AI merge suggestion",
       };
     } catch (e) {
       console.error("Merge suggestion failed:", e);
@@ -648,13 +674,13 @@ Tasks:\n${taskDetails}`;
       try {
         const refined = await provider.refineTask(prompt, {}, context);
         const suggestions = Array.isArray(refined) ? refined : [refined];
-        suggestions.forEach((s: any) => {
+        suggestions.forEach((s: AIRefineResponse) => {
           results.push({
-            taskId: s.taskId,
-            suggestedTags: s.suggestedTags ?? [],
-            suggestedPriority: s.suggestedPriority,
-            confidence: s.confidence ?? 0.6,
-            reasoning: s.reasoning ?? "AI categorization",
+            taskId: s.taskId as string,
+            suggestedTags: (s.suggestedTags as string[]) ?? [],
+            suggestedPriority: s.suggestedPriority as string | undefined,
+            confidence: (s.confidence as number) ?? 0.6,
+            reasoning: (s.reasoning as string) ?? "AI categorization",
           });
         });
       } catch (e) {
@@ -678,12 +704,12 @@ Tasks:\n${taskDetails}`;
     try {
       const refined = await provider.refineTask(prompt, {}, context);
       const clusters = Array.isArray(refined) ? refined : [];
-      return clusters.map((c: any, i: number) => ({
+      return clusters.map((c: AIRefineResponse, i: number) => ({
         id: `cluster-ai-${Date.now()}-${i}`,
-        taskIds: c.taskIds ?? [],
-        theme: c.theme ?? "Uncategorized cluster",
-        suggestedTags: c.suggestedTags ?? [],
-        confidence: c.confidence ?? 0.6,
+        taskIds: (c.taskIds as string[]) ?? [],
+        theme: (c.theme as string) ?? "Uncategorized cluster",
+        suggestedTags: (c.suggestedTags as string[]) ?? [],
+        confidence: (c.confidence as number) ?? 0.6,
       }));
     } catch (e) {
       console.error("Task clustering failed:", e);
@@ -711,14 +737,14 @@ Tasks:\n${taskDetails}`;
     try {
       const refined = await provider.refineTask(prompt, {}, context);
       const suggestions = Array.isArray(refined) ? refined : [];
-      return suggestions.map((s: any, i: number) => ({
+      return suggestions.map((s: AIRefineResponse, i: number) => ({
         id: `priority-ai-${Date.now()}-${i}`,
         type: "priority" as const,
-        taskId: s.taskId,
+        taskId: s.taskId as string,
         suggestedValue: s.suggestedValue,
         currentValue: s.currentValue,
-        confidence: s.confidence ?? 0.6,
-        reasoning: s.reasoning ?? "AI priority suggestion",
+        confidence: (s.confidence as number) ?? 0.6,
+        reasoning: (s.reasoning as string) ?? "AI priority suggestion",
       }));
     } catch (e) {
       console.error("Priority suggestion failed:", e);
@@ -742,7 +768,7 @@ Tasks:\n${taskDetails}`;
 
     const workloadInfo = allTasks
       .filter((t) => t.dueDate && !t.completedAt)
-      .map((t) => `"${t.title}" due: ${new Date(t.dueDate!).toLocaleDateString()}`)
+      .map((t) => `"${t.title}" due: ${new Date(t.dueDate).toLocaleDateString()}`)
       .join("\n");
 
     const prompt = `Suggest optimal due date for this task considering workload. Return JSON:
@@ -752,21 +778,22 @@ Current Workload:\n${workloadInfo}\n\nTask: "${task.title}" - ${task.summary}\nC
 
     try {
       const refined = await provider.refineTask(prompt, {}, context);
+      const aiResponse = refined as AIRefineResponse;
       return {
         taskId: task.id,
-        suggestedDueDate: (refined as any).suggestedDueDate
-          ? new Date((refined as any).suggestedDueDate)
+        suggestedDueDate: (aiResponse.suggestedDueDate as string | undefined)
+          ? new Date(aiResponse.suggestedDueDate as string)
           : undefined,
-        suggestedTimeEstimate: (refined as any).suggestedTimeEstimate,
-        conflicts: (refined as any).conflicts ?? [],
-        reasoning: (refined as any).reasoning ?? "AI schedule suggestion",
+        suggestedTimeEstimate: aiResponse.suggestedTimeEstimate as number | undefined,
+        conflicts: (aiResponse.conflicts as string[]) ?? [],
+        reasoning: (aiResponse.reasoning as string) ?? "AI schedule suggestion",
       };
     } catch {
       return { taskId: task.id, conflicts: [], reasoning: "Schedule suggestion unavailable" };
     }
   }
 
-  async generateInsights(allTasks: Task[], context: AIContext): Promise<any[]> {
+  async generateInsights(allTasks: Task[], context: AIContext): Promise<AIInsight[]> {
     const provider = this.getProvider();
     if (!provider) throw new Error("AI provider not configured");
 
@@ -788,21 +815,23 @@ Current Workload:\n${workloadInfo}\n\nTask: "${task.title}" - ${task.summary}\nC
     try {
       const refined = await provider.refineTask(prompt, {}, context);
       const insights = Array.isArray(refined) ? refined : [];
-      return insights.map((insight: any, i: number) => ({
-        id: `insight-ai-${Date.now()}-${i}`,
-        type: insight.type ?? "recommendation",
-        title: insight.title ?? "AI Insight",
-        description: insight.description ?? "No description",
-        data: insight.data ?? {},
-        timestamp: new Date(),
-      }));
+      return insights.map(
+        (insight: AIRefineResponse, i: number): AIInsight => ({
+          id: `insight-ai-${Date.now()}-${i}`,
+          type: (insight.type as AIInsight["type"]) ?? "recommendation",
+          title: (insight.title as string) ?? "AI Insight",
+          description: (insight.description as string) ?? "No description",
+          data: (insight.data as Record<string, unknown>) ?? {},
+          timestamp: new Date(),
+        }),
+      );
     } catch {
       return this.generateHeuristicInsights(stats);
     }
   }
 
-  private generateHeuristicInsights(stats: Record<string, number>): any[] {
-    const insights: any[] = [];
+  private generateHeuristicInsights(stats: Record<string, number>): AIInsight[] {
+    const insights: AIInsight[] = [];
     if (stats.overdueTasks > 0) {
       insights.push({
         id: `insight-overdue-${Date.now()}`,
@@ -836,7 +865,7 @@ Current Workload:\n${workloadInfo}\n\nTask: "${task.title}" - ${task.summary}\nC
   async parseNaturalQuery(
     query: string,
     context: AIContext,
-  ): Promise<{ filterGroup: any; explanation: string }> {
+  ): Promise<{ filterGroup: Record<string, unknown>; explanation: string }> {
     const provider = this.getProvider();
     if (!provider) throw new Error("AI provider not configured");
 
@@ -848,9 +877,13 @@ Query: "${query}"\nToday's Date: ${new Date().toISOString()}`;
 
     try {
       const refined = await provider.refineTask(prompt, {}, context);
+      const aiResponse = refined as AIRefineResponse;
       return {
-        filterGroup: (refined as any).filterGroup ?? { operator: "AND", rules: [] },
-        explanation: (refined as any).explanation ?? query,
+        filterGroup: (aiResponse.filterGroup as Record<string, unknown>) ?? {
+          operator: "AND",
+          rules: [],
+        },
+        explanation: (aiResponse.explanation as string) ?? query,
       };
     } catch {
       return {
@@ -872,14 +905,15 @@ Query: "${query}"\nToday's Date: ${new Date().toISOString()}`;
 
     try {
       const refined = await provider.refineTask(prompt, {}, context);
+      const aiResponse = refined as AIRefineResponse;
       return {
         id: `assign-${Date.now()}`,
         type: "assignment",
         taskId: task.id,
-        suggestedValue: (refined as any).suggestedValue ?? task.assignee,
+        suggestedValue: (aiResponse.suggestedValue as unknown) ?? task.assignee,
         currentValue: task.assignee,
-        confidence: (refined as any).confidence ?? 0.5,
-        reasoning: (refined as any).reasoning ?? "AI assignment suggestion",
+        confidence: (aiResponse.confidence as number) ?? 0.5,
+        reasoning: (aiResponse.reasoning as string) ?? "AI assignment suggestion",
       };
     } catch {
       return {
@@ -905,7 +939,8 @@ Query: "${query}"\nToday's Date: ${new Date().toISOString()}`;
 
     try {
       const refined = await provider.refineTask(prompt, {}, context);
-      return (refined as any).shouldTrigger ?? false;
+      const aiResponse = refined as AIRefineResponse;
+      return (aiResponse.shouldTrigger as boolean) ?? false;
     } catch {
       return false;
     }
@@ -916,7 +951,7 @@ Query: "${query}"\nToday's Date: ${new Date().toISOString()}`;
     context: AIContext,
   ): Promise<{
     name: string;
-    taskData: any;
+    taskData: Record<string, unknown>;
     subtasks: string[];
     tags: string[];
     variables: string[];
@@ -929,12 +964,13 @@ Query: "${query}"\nToday's Date: ${new Date().toISOString()}`;
 
     try {
       const refined = await provider.refineTask(prompt, {}, context);
+      const aiResponse = refined as AIRefineResponse;
       return {
-        name: (refined as any).name ?? "AI Generated Template",
-        taskData: (refined as any).taskData ?? {},
-        subtasks: (refined as any).subtasks ?? [],
-        tags: (refined as any).tags ?? [],
-        variables: (refined as any).variables ?? [],
+        name: (aiResponse.name as string) ?? "AI Generated Template",
+        taskData: (aiResponse.taskData as Record<string, unknown>) ?? {},
+        subtasks: (aiResponse.subtasks as string[]) ?? [],
+        tags: (aiResponse.tags as string[]) ?? [],
+        variables: (aiResponse.variables as string[]) ?? [],
       };
     } catch (e) {
       console.error("Template generation failed:", e);

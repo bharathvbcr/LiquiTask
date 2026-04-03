@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { Mock } from "vitest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { aiService } from "../../src/services/aiService";
 import { TaskFormModal } from "../TaskFormModal";
@@ -36,7 +37,7 @@ describe("TaskFormModal AI Integration", () => {
   });
 
   it("handles Refine Draft action", async () => {
-    (aiService.refineTaskDraft as any).mockResolvedValue({
+    (aiService.refineTaskDraft as Mock).mockResolvedValue({
       title: "AI Refined Title",
       summary: "AI Refined Summary",
     });
@@ -60,7 +61,7 @@ describe("TaskFormModal AI Integration", () => {
   });
 
   it("handles Extract Tasks action", async () => {
-    (aiService.extractTasksFromText as any).mockResolvedValue([
+    (aiService.extractTasksFromText as Mock).mockResolvedValue([
       { title: "Task 1", summary: "Summary 1", priority: "high", tags: [] },
       { title: "Task 2", summary: "Summary 2", priority: "high", tags: [] },
     ]);
@@ -94,7 +95,7 @@ describe("TaskFormModal AI Integration", () => {
   });
 
   it("handles AI Breakdown for subtasks", async () => {
-    (aiService.generateSubtasks as any).mockResolvedValue(["Subtask A", "Subtask B"]);
+    (aiService.generateSubtasks as Mock).mockResolvedValue(["Subtask A", "Subtask B"]);
 
     render(<TaskFormModal {...mockProps} />);
 
@@ -112,7 +113,7 @@ describe("TaskFormModal AI Integration", () => {
   });
 
   it("handles Polish description", async () => {
-    (aiService.refineTaskDraft as any).mockResolvedValue({
+    (aiService.refineTaskDraft as Mock).mockResolvedValue({
       summary: "Polished description",
     });
 

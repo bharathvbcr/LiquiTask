@@ -131,8 +131,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
     ref: (node: HTMLElement | null) => {
       triggerRef.current = node;
       // Preserve any existing ref
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const existingRef = (children as any).ref;
+      const existingRef = (children.props as Record<string, unknown>).ref;
       if (typeof existingRef === "function") {
         existingRef(node);
       } else if (existingRef) {

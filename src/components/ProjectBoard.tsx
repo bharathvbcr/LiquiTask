@@ -137,7 +137,7 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = (props) => {
   useEffect(() => {
     const board = boardRef.current;
     if (!board) return;
-    const handleKeyDown = (e: KeyboardEvent) => keyboardHandlers.onKeyDown(e as any);
+    const handleKeyDown = (e: KeyboardEvent) => keyboardHandlers.onKeyDown(e);
     board.addEventListener("keydown", handleKeyDown);
     board.setAttribute("tabIndex", "0");
     return () => board.removeEventListener("keydown", handleKeyDown);

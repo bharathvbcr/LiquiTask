@@ -21,7 +21,7 @@ describe("TaskCard Features", () => {
     onEditTask: mockOnEditTask,
     onUpdateTask: mockOnUpdateTask,
     onDeleteTask: mockOnDeleteTask,
-    priorities: [{ id: "high", label: "High Priority", color: "#ff0000" }] as any,
+    priorities: [{ id: "high", label: "High Priority", color: "#ff0000" }],
     allTasks: [],
   };
 

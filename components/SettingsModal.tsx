@@ -1,10 +1,10 @@
-import { Database, Flag, Kanban, Keyboard, Settings, Sparkles } from 'lucide-react';
-import type React from 'react';
-import { useCallback, useEffect, useState } from 'react';
-import logo from '../src/assets/logo.png';
-import { useKeybinding } from '../src/context/KeybindingContext';
-import storageService from '../src/services/storageService';
-import { generateTemplateBlob, validateBulkTasks } from '../src/utils/bulkTaskSchema';
+import { Database, Flag, Kanban, Keyboard, Settings, Sparkles } from "lucide-react";
+import type React from "react";
+import { useCallback, useEffect, useState } from "react";
+import logo from "../src/assets/logo.png";
+import { useKeybinding } from "../src/context/KeybindingContext";
+import storageService from "../src/services/storageService";
+import { generateTemplateBlob, validateBulkTasks } from "../src/utils/bulkTaskSchema";
 import type {
   BoardColumn,
   CustomFieldDefinition,
@@ -14,14 +14,14 @@ import type {
   ProjectType,
   Task,
   ToastType,
-} from '../types';
-import { ModalWrapper } from './ModalWrapper';
-import { AiSettings } from './settings/AiSettings';
-import { DataSettings } from './settings/DataSettings';
+} from "../types";
+import { ModalWrapper } from "./ModalWrapper";
+import { AiSettings } from "./settings/AiSettings";
+import { DataSettings } from "./settings/DataSettings";
 // Sub-components
-import { GeneralSettings } from './settings/GeneralSettings';
-import { PrioritySettings } from './settings/PrioritySettings';
-import { WorkflowSettings } from './settings/WorkflowSettings';
+import { GeneralSettings } from "./settings/GeneralSettings";
+import { PrioritySettings } from "./settings/PrioritySettings";
+import { WorkflowSettings } from "./settings/WorkflowSettings";
 
 interface ImportedData {
   projects?: Project[];
@@ -52,6 +52,7 @@ interface SettingsModalProps {
   addToast: (m: string, t: ToastType) => void;
   onOpenMergeModal?: () => void;
   onOpenReorganizeModal?: () => void;
+  onOpenSubtaskModal?: () => void;
   onBulkCreateTasks?: (tasks: Partial<Task>[]) => void;
   showSubWorkspaceTasks: boolean;
   onUpdateShowSubWorkspaceTasks?: (s: boolean) => void;
@@ -66,7 +67,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onUpdatePriorities,
   onUpdateCustomFields,
   onUpdateProjectTypes: _onUpdateProjectTypes,
-  grouping = 'none',
+  grouping = "none",
   onUpdateGrouping,
   addToast,
   onBulkCreateTasks,
@@ -74,24 +75,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onUpdateShowSubWorkspaceTasks,
   onOpenMergeModal,
   onOpenReorganizeModal,
+  onOpenSubtaskModal,
 }) => {
-  const [activeTab, setActiveTab] = useState('general');
+  const [activeTab, setActiveTab] = useState("general");
   const [localGrouping, setLocalGrouping] = useState<GroupingOption>(grouping);
   const [localColumns, setLocalColumns] = useState<BoardColumn[]>([]);
   const [localPriorities, setLocalPriorities] = useState<PriorityDefinition[]>(
-    appData.priorities || []
+    appData.priorities || [],
   );
 
   useEffect(() => {
     setLocalPriorities(appData.priorities || []);
   }, [appData.priorities]);
   const [localCustomFields, _setLocalCustomFields] = useState<CustomFieldDefinition[]>([]);
-  const [importText, setImportText] = useState('');
-  const [importError, setImportError] = useState('');
+  const [importText, setImportText] = useState("");
+  const [importError, setImportError] = useState("");
   const [isImporting, setIsImporting] = useState(false);
-  const [downloadLink, _setDownloadLink] = useState('');
-  const [bulkTasksJson, setBulkTasksJson] = useState('');
-  const [bulkImportError, setBulkImportError] = useState('');
+  const [downloadLink, _setDownloadLink] = useState("");
+  const [bulkTasksJson, setBulkTasksJson] = useState("");
+  const [bulkImportError, setBulkImportError] = useState("");
   const [isBulkImporting, setIsBulkImporting] = useState(false);
   const [showTemplateRef, setShowTemplateRef] = useState(false);
 
@@ -102,7 +104,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     onUpdateColumns(localColumns);
     onUpdatePriorities(localPriorities);
     onUpdateCustomFields(localCustomFields);
-    addToast('Settings saved', 'success');
+    addToast("Settings saved", "success");
   }, [
     localGrouping,
     localColumns,
@@ -115,21 +117,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     addToast,
   ]);
 
-  const updateItem = (
-    list: any[],
+  const updateItem = <T extends Record<string, unknown>>(
+    list: T[],
     index: number,
-    field: string,
-    value: any,
-    setter: (l: any[]) => void
+    field: keyof T,
+    value: T[keyof T],
+    setter: (l: T[]) => void,
   ) => {
     const newList = [...list];
     newList[index] = { ...newList[index], [field]: value };
     setter(newList);
   };
 
-  const deleteItem = (list: any[], index: number, setter: (l: any[]) => void, min: number = 0) => {
+  const deleteItem = <T,>(list: T[], index: number, setter: (l: T[]) => void, min: number = 0) => {
     if (list.length <= min) {
-      addToast(`Min ${min} items required`, 'error');
+      addToast(`Min ${min} items required`, "error");
       return;
     }
     const newList = [...list];
@@ -140,12 +142,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleImport = () => {
     try {
       setIsImporting(true);
-      setImportError('');
+      setImportError("");
       const data = JSON.parse(importText);
-      if (!data || typeof data !== 'object') throw new Error('Invalid JSON');
+      if (!data || typeof data !== "object") throw new Error("Invalid JSON");
       onImportData(data);
-      addToast('Imported', 'success');
-      setImportText('');
+      addToast("Imported", "success");
+      setImportText("");
       onClose();
     } catch (e) {
       setImportError((e as Error).message);
@@ -158,16 +160,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     if (!onBulkCreateTasks) return;
     try {
       setIsBulkImporting(true);
-      setBulkImportError('');
+      setBulkImportError("");
       const parsed = JSON.parse(bulkTasksJson);
       const val = validateBulkTasks(bulkTasksJson);
       if (!val.valid) {
-        setBulkImportError(val.error || 'Failed');
+        setBulkImportError(val.error || "Failed");
         return;
       }
       onBulkCreateTasks(parsed.tasks);
-      addToast(`Imported ${parsed.tasks.length} tasks`, 'success');
-      setBulkTasksJson('');
+      addToast(`Imported ${parsed.tasks.length} tasks`, "success");
+      setBulkTasksJson("");
       onClose();
     } catch (e) {
       setBulkImportError((e as Error).message);
@@ -177,12 +179,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const tabs = [
-    { id: 'general', icon: <Settings size={16} />, label: 'General' },
-    { id: 'workflow', icon: <Kanban size={16} />, label: 'Workflow' },
-    { id: 'priorities', icon: <Flag size={16} />, label: 'Priorities' },
-    { id: 'data', icon: <Database size={16} />, label: 'Data' },
-    { id: 'shortcuts', icon: <Keyboard size={16} />, label: 'Shortcuts' },
-    { id: 'ai', icon: <Sparkles size={16} />, label: 'AI Settings' },
+    { id: "general", icon: <Settings size={16} />, label: "General" },
+    { id: "workflow", icon: <Kanban size={16} />, label: "Workflow" },
+    { id: "priorities", icon: <Flag size={16} />, label: "Priorities" },
+    { id: "data", icon: <Database size={16} />, label: "Data" },
+    { id: "shortcuts", icon: <Keyboard size={16} />, label: "Shortcuts" },
+    { id: "ai", icon: <Sparkles size={16} />, label: "AI Settings" },
   ];
 
   return (
@@ -196,11 +198,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     >
       <div className="flex h-[600px] overflow-hidden rounded-2xl border border-white/5 bg-black/10">
         <div className="w-64 shrink-0 bg-black/20 border-r border-white/5 p-4 flex flex-col gap-2">
-          {tabs.map(tab => (
+          {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all ${activeTab === tab.id ? 'bg-red-500/10 text-red-400' : 'text-slate-400 hover:bg-white/5'}`}
+              className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all ${activeTab === tab.id ? "bg-red-500/10 text-red-400" : "text-slate-400 hover:bg-white/5"}`}
             >
               {tab.icon}
               <span>{tab.label}</span>
@@ -208,7 +210,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           ))}
         </div>
         <div className="min-w-0 flex-1 p-8 overflow-y-auto custom-scrollbar">
-          {activeTab === 'general' && (
+          {activeTab === "general" && (
             <GeneralSettings
               localGrouping={localGrouping}
               setLocalGrouping={setLocalGrouping}
@@ -218,7 +220,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               saveAll={saveAll}
             />
           )}
-          {activeTab === 'workflow' && (
+          {activeTab === "workflow" && (
             <WorkflowSettings
               localColumns={localColumns}
               updateItem={updateItem}
@@ -227,17 +229,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               saveAll={saveAll}
             />
           )}
-          {activeTab === 'priorities' && (
+          {activeTab === "priorities" && (
             <PrioritySettings
               priorities={appData.priorities}
-              onUpdatePriorities={p => {
+              onUpdatePriorities={(p) => {
                 setLocalPriorities(p);
                 onUpdatePriorities(p);
               }}
               addToast={addToast}
             />
           )}
-          {activeTab === 'data' && (
+          {activeTab === "data" && (
             <DataSettings
               downloadLink={downloadLink}
               appData={appData}
@@ -252,9 +254,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               handleDownloadTemplate={() => {
                 const b = generateTemplateBlob();
                 const u = URL.createObjectURL(b);
-                const a = document.createElement('a');
+                const a = document.createElement("a");
                 a.href = u;
-                a.download = 'template.json';
+                a.download = "template.json";
                 a.click();
               }}
               setBulkTasksJson={setBulkTasksJson}
@@ -264,14 +266,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               isBulkImporting={isBulkImporting}
               onBulkCreateTasks={onBulkCreateTasks}
               handleReset={() => {
-                if (confirm('Reset all?')) {
+                if (confirm("Reset all?")) {
                   storageService.clear();
                   window.location.reload();
                 }
               }}
             />
           )}
-          {activeTab === 'shortcuts' && (
+          {activeTab === "shortcuts" && (
             <div className="space-y-4">
               <button onClick={resetKeybindings} className="text-xs text-red-400 mb-4">
                 Reset Defaults
@@ -281,14 +283,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   key={id}
                   className="flex justify-between items-center p-3 bg-white/5 rounded-xl"
                 >
-                  <span className="text-sm text-white capitalize">{id.replace(/[-:]/g, ' ')}</span>
+                  <span className="text-sm text-white capitalize">{id.replace(/[-:]/g, " ")}</span>
                   <input
                     type="text"
-                    value={(keys as string[]).join(', ')}
-                    onChange={e =>
+                    value={(keys as string[]).join(", ")}
+                    onChange={(e) =>
                       updateKeybinding(
                         id,
-                        e.target.value.split(',').map(k => k.trim())
+                        e.target.value.split(",").map((k) => k.trim()),
                       )
                     }
                     className="bg-black/20 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-300 w-48 text-right"
@@ -297,11 +299,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               ))}
             </div>
           )}
-          {activeTab === 'ai' && (
+          {activeTab === "ai" && (
             <AiSettings
               addToast={addToast}
               onOpenMergeModal={onOpenMergeModal}
               onOpenReorganizeModal={onOpenReorganizeModal}
+              onOpenSubtaskModal={onOpenSubtaskModal}
             />
           )}
         </div>

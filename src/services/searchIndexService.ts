@@ -90,7 +90,9 @@ export class SearchIndexService {
       const lowerQuery = query.toLowerCase().trim();
       this.index.jobIdIndex.forEach((taskIds, jobId) => {
         if (jobId.includes(lowerQuery)) {
-          taskIds.forEach((id) => results.add(id));
+          taskIds.forEach((id) => {
+            results.add(id);
+          });
         }
       });
       return Array.from(results);
@@ -101,14 +103,24 @@ export class SearchIndexService {
       const matches = new Set<string>();
 
       // Search in all indexes
-      this.index.titleIndex.get(word)?.forEach((id) => matches.add(id));
-      this.index.tagIndex.get(word)?.forEach((id) => matches.add(id));
-      this.index.assigneeIndex.get(word)?.forEach((id) => matches.add(id));
-      this.index.summaryIndex.get(word)?.forEach((id) => matches.add(id));
+      this.index.titleIndex.get(word)?.forEach((id) => {
+        matches.add(id);
+      });
+      this.index.tagIndex.get(word)?.forEach((id) => {
+        matches.add(id);
+      });
+      this.index.assigneeIndex.get(word)?.forEach((id) => {
+        matches.add(id);
+      });
+      this.index.summaryIndex.get(word)?.forEach((id) => {
+        matches.add(id);
+      });
 
       // Exact jobId match
       if (this.index.jobIdIndex.has(word)) {
-        this.index.jobIdIndex.get(word)?.forEach((id) => matches.add(id));
+        this.index.jobIdIndex.get(word)?.forEach((id) => {
+          matches.add(id);
+        });
       }
 
       // Partial jobId match (search for word in jobId)
@@ -117,7 +129,9 @@ export class SearchIndexService {
         // We compare normalized versions
         const normalizedJobId = jobId.replace(/[^\w]/g, "");
         if (jobId.includes(word) || normalizedJobId.includes(word)) {
-          taskIds.forEach((id) => matches.add(id));
+          taskIds.forEach((id) => {
+            matches.add(id);
+          });
         }
       });
 
@@ -125,11 +139,11 @@ export class SearchIndexService {
     });
 
     // Intersect result sets (AND logic - all words must match)
-    return Array.from(
-      resultSets.reduce((acc, set) => {
-        return new Set([...acc].filter((id) => set.has(id)));
-      }),
-    );
+    let intersection = resultSets[0] ?? new Set<string>();
+    for (let i = 1; i < resultSets.length; i++) {
+      intersection = new Set([...intersection].filter((id) => resultSets[i].has(id)));
+    }
+    return Array.from(intersection);
   }
 
   /**
@@ -143,14 +157,18 @@ export class SearchIndexService {
       // Search in title index
       this.index.titleIndex.forEach((taskIds, word) => {
         if (regex.test(word)) {
-          taskIds.forEach((id) => matches.add(id));
+          taskIds.forEach((id) => {
+            matches.add(id);
+          });
         }
       });
 
       // Search in jobId index
       this.index.jobIdIndex.forEach((taskIds, jobId) => {
         if (regex.test(jobId)) {
-          taskIds.forEach((id) => matches.add(id));
+          taskIds.forEach((id) => {
+            matches.add(id);
+          });
         }
       });
 

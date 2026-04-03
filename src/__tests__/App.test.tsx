@@ -7,7 +7,7 @@ import storageService from "../services/storageService";
 
 // Mock AppHeader to avoid lazy loading issues in integration tests
 vi.mock("../components/AppHeader", () => ({
-  AppHeader: ({ onOpenTaskModal }: any) => (
+  AppHeader: ({ onOpenTaskModal }: { onOpenTaskModal: () => void }) => (
     <header>
       <button onClick={onOpenTaskModal}>New Task</button>
       <button>Gantt</button>
@@ -25,7 +25,7 @@ vi.mock("../components/ProjectBoard", () => ({
 }));
 
 vi.mock("../../components/TaskFormModal", () => ({
-  TaskFormModal: ({ isOpen }: any) =>
+  TaskFormModal: ({ isOpen }: { isOpen: boolean }) =>
     isOpen ? (
       <div>
         Task Form Modal <input placeholder="e.g., Update Q3 Financials" />
@@ -34,7 +34,7 @@ vi.mock("../../components/TaskFormModal", () => ({
 }));
 
 vi.mock("../../components/SettingsModal", () => ({
-  SettingsModal: ({ isOpen }: any) => (isOpen ? <div>Settings Modal</div> : null),
+  SettingsModal: ({ isOpen }: { isOpen: boolean }) => (isOpen ? <div>Settings Modal</div> : null),
 }));
 
 // Mock heavy services and lazy components

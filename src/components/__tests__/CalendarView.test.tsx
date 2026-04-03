@@ -5,10 +5,10 @@ import { CalendarView } from "../CalendarView";
 
 // Mock dnd-kit
 vi.mock("@dnd-kit/core", () => ({
-  DndContext: ({ children }: any) => <div>{children}</div>,
+  DndContext: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   useDraggable: () => ({ attributes: {}, listeners: {}, setNodeRef: () => {} }),
   useDroppable: () => ({ setNodeRef: () => {}, isOver: false }),
-  DragOverlay: ({ children }: any) => <div>{children}</div>,
+  DragOverlay: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   PointerSensor: vi.fn(),
   TouchSensor: vi.fn(),
   useSensor: vi.fn(),
@@ -30,7 +30,7 @@ describe("CalendarView", () => {
     } as Task,
   ];
 
-  const mockPriorities = [{ id: "high", label: "High", color: "red" }] as any;
+  const mockPriorities = [{ id: "high", label: "High", color: "red" }];
 
   const baseProps = {
     tasks: mockTasks,

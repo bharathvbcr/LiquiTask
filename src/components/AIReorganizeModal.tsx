@@ -2,7 +2,7 @@ import { Brain, CheckCircle2, FolderOpen, Loader2, Sparkles } from "lucide-react
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 import { ModalWrapper } from "../../components/ModalWrapper";
-import type { Project, TaskCluster } from "../../types";
+import type { PriorityDefinition, Project, Task, TaskCluster } from "../../types";
 import { STORAGE_KEYS } from "../constants";
 import { aiService } from "../services/aiService";
 import storageService from "../services/storageService";
@@ -10,7 +10,7 @@ import storageService from "../services/storageService";
 interface AIReorganizeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  allTasks: any[];
+  allTasks: Task[];
   onCreateProject: (project: Partial<Project>) => void;
   onMoveTask: (taskId: string, projectId: string) => void;
   addToast: (msg: string, type: "success" | "error" | "info" | "warning") => void;
@@ -39,7 +39,7 @@ export const AIReorganizeModal: React.FC<AIReorganizeModalProps> = ({
     try {
       const activeProjectId = storageService.get<string>(STORAGE_KEYS.ACTIVE_PROJECT, "");
       const projects = storageService.get<Project[]>(STORAGE_KEYS.PROJECTS, []);
-      const priorities = storageService.get<any[]>(STORAGE_KEYS.PRIORITIES, []);
+      const priorities = storageService.get<PriorityDefinition[]>(STORAGE_KEYS.PRIORITIES, []);
 
       const context = {
         activeProjectId,

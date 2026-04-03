@@ -22,6 +22,7 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
     >
       <div className="space-y-2">
         {KEYBOARD_SHORTCUTS.map((shortcut, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: shortcuts list is static
           <div
             key={i}
             className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-white/5 transition-colors"

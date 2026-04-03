@@ -69,7 +69,9 @@ class TaskCleanupService {
               reasons: result.reasons,
             });
 
-            tasksInGroup.forEach((t) => processedTaskIds.add(t.id));
+            tasksInGroup.forEach((t) => {
+              processedTaskIds.add(t.id);
+            });
           }
         }
       }
@@ -236,13 +238,13 @@ class TaskCleanupService {
     suggestion: MergeSuggestion,
     onArchiveTask: (taskId: string) => void,
   ): Promise<void> {
-    const { keepTaskId, archiveTaskIds, mergedFields } = suggestion;
+    const { keepTaskId: _keepTaskId, archiveTaskIds, mergedFields: _mergedFields } = suggestion;
 
     for (const taskId of archiveTaskIds) {
       onArchiveTask(taskId);
     }
 
-    console.log(`Merge complete: kept ${keepTaskId}, archived ${archiveTaskIds.join(", ")}`);
+    console.log(`Merge complete: kept ${_keepTaskId}, archived ${archiveTaskIds.join(", ")}`);
   }
 
   async analyzeRedundancy(allTasks: Task[]): Promise<RedundancyAnalysis[]> {
@@ -443,7 +445,9 @@ class TaskCleanupService {
         const commonTags = new Set<string>();
         clusterTasks.forEach((id) => {
           const t = allTasks.find((task) => task.id === id);
-          t?.tags.forEach((tag) => commonTags.add(tag));
+          t?.tags.forEach((tag) => {
+            commonTags.add(tag);
+          });
         });
 
         clusters.push({

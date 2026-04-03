@@ -14,7 +14,7 @@ vi.mock("../../src/components/GanttView", () => ({
   default: () => <div data-testid="gantt-view">Gantt View</div>,
 }));
 vi.mock("../../src/components/ViewTransition", () => ({
-  ViewTransition: ({ children }: any) => <div>{children}</div>,
+  ViewTransition: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 vi.mock("./TaskCard", () => ({
   TaskCard: ({ task }: { task: Task }) => <div>{task.title}</div>,
@@ -53,11 +53,11 @@ describe("Dashboard", () => {
     { id: "high", label: "High", level: 1, color: "red" },
     { id: "medium", label: "Medium", level: 2, color: "yellow" },
     { id: "low", label: "Low", level: 3, color: "blue" },
-  ] as any;
+  ];
 
   const baseProps = {
     tasks: mockTasks,
-    projects: [{ id: "p1", name: "Project 1" }] as any,
+    projects: [{ id: "p1", name: "Project 1" }],
     priorities: mockPriorities,
     onEditTask: vi.fn(),
     onUpdateTask: vi.fn(),

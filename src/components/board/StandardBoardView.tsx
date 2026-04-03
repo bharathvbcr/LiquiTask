@@ -62,7 +62,7 @@ const StandardBoardView: React.FC<StandardBoardViewProps> = ({
   columnIds,
   columns,
   priorities,
-  tasks,
+  tasks: _tasks,
   allTasks,
   highlightedZone,
   focusedColumnIndex,

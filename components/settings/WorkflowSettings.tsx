@@ -4,9 +4,15 @@ import type { BoardColumn } from "../../types";
 
 interface WorkflowSettingsProps {
   localColumns: BoardColumn[];
-  updateItem: (list: any[], idx: number, field: string, val: any, setter: any) => void;
+  updateItem: <T extends Record<string, unknown>>(
+    list: T[],
+    idx: number,
+    field: keyof T,
+    val: T[keyof T],
+    setter: (val: T[]) => void,
+  ) => void;
   setLocalColumns: (val: BoardColumn[]) => void;
-  deleteItem: (list: any[], idx: number, setter: any, min?: number) => void;
+  deleteItem: <T>(list: T[], idx: number, setter: (val: T[]) => void, min?: number) => void;
   saveAll: () => void;
 }
 
@@ -42,7 +48,7 @@ export const WorkflowSettings: React.FC<WorkflowSettingsProps> = ({
         <div className="space-y-2">
           {localColumns.map((col, idx) => (
             <div
-              key={idx}
+              key={col.id}
               className="flex items-center gap-2 p-2 bg-white/5 rounded-xl border border-white/5"
             >
               <input

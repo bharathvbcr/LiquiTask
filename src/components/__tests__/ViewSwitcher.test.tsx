@@ -4,7 +4,7 @@ import { ViewSwitcher } from "../ViewSwitcher";
 
 // Mock Tooltip
 vi.mock("../Tooltip", () => ({
-  Tooltip: ({ children }: any) => <div>{children}</div>,
+  Tooltip: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
 describe("ViewSwitcher", () => {

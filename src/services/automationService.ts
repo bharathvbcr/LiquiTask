@@ -139,8 +139,7 @@ export class AutomationService {
         switch (action.type) {
           case "setField":
             if (action.field) {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              (updates as any)[action.field] = action.value;
+              (updates as Record<string, unknown>)[action.field] = action.value;
             }
             break;
           case "addTag":
@@ -180,7 +179,9 @@ export class AutomationService {
 
     if (notifications.length > 0 && notify) {
       const deduped = Array.from(new Set(notifications.map((n) => n.trim()).filter(Boolean)));
-      deduped.forEach((message) => notify(message));
+      deduped.forEach((message) => {
+        notify(message);
+      });
     }
 
     return Object.keys(updates).length > 0 ? updates : null;

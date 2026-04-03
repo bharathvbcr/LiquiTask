@@ -46,7 +46,7 @@ let recurringOptions: {
   onUpdateTask: (taskId: string, updates: Partial<Task>) => void;
 } | null = null;
 
-let mockServiceInstance: any = null;
+let mockServiceInstance: unknown = null;
 
 vi.mock("../../services/storageService", () => ({
   default: mockStorageService,

@@ -460,6 +460,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             const isTodayDate = isToday(date);
 
             return (
+              // biome-ignore lint/suspicious/noArrayIndexKey: calendar grid cells are position-based
               <DroppableDayCell
                 key={i}
                 date={date}

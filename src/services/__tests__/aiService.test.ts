@@ -1,3 +1,4 @@
+import type { Mock } from "vitest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AIConfig, AIContext } from "../../../types";
 import { aiService } from "../aiService";
@@ -72,7 +73,7 @@ describe("AiService", () => {
 
   describe("extractTasksFromText", () => {
     it("throws error if provider is not configured", async () => {
-      (storageService.get as any).mockReturnValue(null);
+      (storageService.get as Mock).mockReturnValue(null);
       await expect(aiService.extractTasksFromText("test", mockContext)).rejects.toThrow(
         "AI provider is not configured",
       );
@@ -84,7 +85,7 @@ describe("AiService", () => {
         geminiApiKey: "test-key",
         geminiModel: "gemini-3.1-flash-lite",
       };
-      (storageService.get as any).mockReturnValue(config);
+      (storageService.get as Mock).mockReturnValue(config);
 
       mockGenerateContent.mockResolvedValueOnce({
         response: {
@@ -110,9 +111,9 @@ describe("AiService", () => {
 
     it("extracts tasks using Ollama provider", async () => {
       const config: AIConfig = { provider: "ollama", ollamaModel: "llama3" };
-      (storageService.get as any).mockReturnValue(config);
+      (storageService.get as Mock).mockReturnValue(config);
 
-      (global.fetch as any).mockResolvedValue({
+      (global.fetch as Mock).mockResolvedValue({
         ok: true,
         json: () =>
           Promise.resolve({
@@ -140,9 +141,9 @@ describe("AiService", () => {
 
     it("sends Ollama generation requests without a client timeout signal", async () => {
       const config: AIConfig = { provider: "ollama", ollamaModel: "llama3" };
-      (storageService.get as any).mockReturnValue(config);
+      (storageService.get as Mock).mockReturnValue(config);
 
-      (global.fetch as any).mockResolvedValue({
+      (global.fetch as Mock).mockResolvedValue({
         ok: true,
         json: () =>
           Promise.resolve({
@@ -175,9 +176,9 @@ describe("AiService", () => {
         ollamaBaseUrl: "http://invalid:11434",
         ollamaModel: "llama3",
       };
-      (storageService.get as any).mockReturnValue(config);
+      (storageService.get as Mock).mockReturnValue(config);
 
-      (global.fetch as any).mockRejectedValue(new TypeError("Failed to fetch"));
+      (global.fetch as Mock).mockRejectedValue(new TypeError("Failed to fetch"));
 
       await expect(aiService.extractTasksFromText("test", mockContext)).rejects.toThrow(
         "Ollama server unreachable at http://invalid:11434",
@@ -192,7 +193,7 @@ describe("AiService", () => {
         geminiApiKey: "test-key",
         geminiModel: "gemini-3.1-flash-lite",
       };
-      (storageService.get as any).mockReturnValue(config);
+      (storageService.get as Mock).mockReturnValue(config);
 
       mockGenerateContent.mockResolvedValueOnce({
         response: { text: () => "ok" },
@@ -205,7 +206,7 @@ describe("AiService", () => {
 
     it("returns config error when Ollama model name is blank", async () => {
       const config: AIConfig = { provider: "ollama", ollamaModel: "   " };
-      (storageService.get as any).mockReturnValue(config);
+      (storageService.get as Mock).mockReturnValue(config);
 
       const result = await aiService.testProviderConnection();
       expect(result.ok).toBe(false);
@@ -215,16 +216,16 @@ describe("AiService", () => {
 
     it("successfully tests Ollama connection with inference", async () => {
       const config: AIConfig = { provider: "ollama", ollamaModel: "llama3" };
-      (storageService.get as any).mockReturnValue(config);
+      (storageService.get as Mock).mockReturnValue(config);
 
       // Mock /api/tags
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ models: [{ name: "llama3" }] }),
       });
 
       // Mock /api/chat (inference test)
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: true,
         json: () =>
           Promise.resolve({
@@ -245,9 +246,9 @@ describe("AiService", () => {
         provider: "ollama",
         ollamaModel: "missing-model",
       };
-      (storageService.get as any).mockReturnValue(config);
+      (storageService.get as Mock).mockReturnValue(config);
 
-      (global.fetch as any).mockResolvedValue({
+      (global.fetch as Mock).mockResolvedValue({
         ok: true,
         json: () => Promise.resolve({ models: [{ name: "llama3" }] }),
       });
@@ -264,9 +265,9 @@ describe("AiService", () => {
         ollamaBaseUrl: "http://invalid:11434",
         ollamaModel: "llama3",
       };
-      (storageService.get as any).mockReturnValue(config);
+      (storageService.get as Mock).mockReturnValue(config);
 
-      (global.fetch as any).mockRejectedValue(new TypeError("Failed to fetch"));
+      (global.fetch as Mock).mockRejectedValue(new TypeError("Failed to fetch"));
 
       const result = await aiService.testProviderConnection();
       expect(result.ok).toBe(false);
@@ -276,14 +277,14 @@ describe("AiService", () => {
 
     it("uses the same no-time-limit request path during Ollama model testing", async () => {
       const config: AIConfig = { provider: "ollama", ollamaModel: "llama3" };
-      (storageService.get as any).mockReturnValue(config);
+      (storageService.get as Mock).mockReturnValue(config);
 
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ models: [{ name: "llama3" }] }),
       });
 
-      (global.fetch as any).mockResolvedValueOnce({
+      (global.fetch as Mock).mockResolvedValueOnce({
         ok: true,
         json: () =>
           Promise.resolve({

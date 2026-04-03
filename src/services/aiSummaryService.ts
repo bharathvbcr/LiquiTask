@@ -65,7 +65,7 @@ class AISummaryService {
     );
     const newTasksThisPeriod = allTasks.filter((t) => new Date(t.createdAt) >= periodStart);
     const completedThisPeriod = completedTasks.filter(
-      (t) => t.completedAt && new Date(t.completedAt!) >= periodStart,
+      (t) => t.completedAt && new Date(t.completedAt) >= periodStart,
     );
 
     const avgCompletionTime =

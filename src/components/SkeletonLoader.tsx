@@ -97,6 +97,8 @@ const SkeletonList: React.FC<{ count?: number }> = ({ count = 5 }) => (
   <div className="space-y-3">
     {Array.from({ length: count }).map((_, i) => (
       <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 skeleton-shimmer">
+        {" "}
+        {/* biome-ignore lint/suspicious/noArrayIndexKey: skeleton items are identical */}
         <div className="w-8 h-8 rounded-full bg-white/10 skeleton-shimmer"></div>
         <div className="flex-1 space-y-2">
           <div className="h-4 w-3/4 bg-white/10 rounded skeleton-shimmer"></div>
@@ -112,6 +114,7 @@ export const SkeletonLoader: React.FC<SkeletonLoaderProps> = ({ type = "card", c
     return (
       <div className="flex gap-6">
         {Array.from({ length: count }).map((_, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: skeleton columns are identical
           <SkeletonColumn key={i} />
         ))}
       </div>
@@ -137,6 +140,7 @@ export const SkeletonLoader: React.FC<SkeletonLoaderProps> = ({ type = "card", c
   return (
     <div className="space-y-4">
       {Array.from({ length: count }).map((_, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: skeleton cards are identical
         <SkeletonCard key={i} />
       ))}
     </div>

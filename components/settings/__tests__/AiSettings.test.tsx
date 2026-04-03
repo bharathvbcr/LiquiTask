@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { Mock } from "vitest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { aiService } from "../../../src/services/aiService";
 import storageService from "../../../src/services/storageService";
@@ -25,7 +26,7 @@ describe("AiSettings Component", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (storageService.get as any).mockReturnValue(null);
+    (storageService.get as Mock).mockReturnValue(null);
   });
 
   it("renders provider selection", () => {
@@ -64,7 +65,7 @@ describe("AiSettings Component", () => {
   });
 
   it("handles connection test success with structured result", async () => {
-    (aiService.testProviderConnection as any).mockResolvedValue({
+    (aiService.testProviderConnection as Mock).mockResolvedValue({
       ok: true,
       stage: "inference",
       message: "Custom success message",
@@ -80,7 +81,7 @@ describe("AiSettings Component", () => {
   });
 
   it("handles connection test failure with descriptive message", async () => {
-    (aiService.testProviderConnection as any).mockResolvedValue({
+    (aiService.testProviderConnection as Mock).mockResolvedValue({
       ok: false,
       stage: "service",
       message: "Specific error detail",

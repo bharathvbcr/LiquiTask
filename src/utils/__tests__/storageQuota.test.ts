@@ -114,8 +114,7 @@ describe("storageQuota", () => {
       if (originalLength) {
         Object.defineProperty(localStorageMock, "length", originalLength);
       } else {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        delete (localStorageMock as any).length;
+        delete (localStorageMock as Record<string, unknown>).length;
       }
     });
   });

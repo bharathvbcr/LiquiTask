@@ -204,11 +204,11 @@ export const BulkAIOperationsModal: React.FC<BulkAIOperationsModalProps> = ({
       const result = await op.run();
       setOperationResults((prev) => ({ ...prev, [op.id]: result }));
       addToast(result.message, "success");
-    } catch (e: any) {
-      addToast(e.message || `${op.name} failed`, "error");
+    } catch (e) {
+      addToast((e as Error).message || `${op.name} failed`, "error");
       setOperationResults((prev) => ({
         ...prev,
-        [op.id]: { success: 0, skipped: 0, message: `Failed: ${e.message}` },
+        [op.id]: { success: 0, skipped: 0, message: `Failed: ${(e as Error).message}` },
       }));
     } finally {
       setRunningOperation(null);

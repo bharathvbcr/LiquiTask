@@ -204,7 +204,7 @@ interface PriorityRowProps {
 
 const PriorityRow: React.FC<PriorityRowProps> = ({
   priority,
-  index,
+  index: _index,
   isEditing,
   isIconPickerOpen,
   isFirst,

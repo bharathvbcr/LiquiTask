@@ -31,7 +31,7 @@ describe("GanttView", () => {
   const mockPriorities = [
     { id: "high", label: "High", color: "red" },
     { id: "medium", label: "Medium", color: "yellow" },
-  ] as any;
+  ];
 
   const baseProps = {
     tasks: mockTasks,

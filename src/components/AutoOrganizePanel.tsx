@@ -146,9 +146,9 @@ export const AutoOrganizePanel: React.FC<AutoOrganizePanelProps> = ({
         `Auto-organize complete: ${result.autoApplied} applied, ${result.pendingReview} pending review`,
         "success",
       );
-    } catch (e: any) {
+    } catch (e) {
       setProgress(null);
-      addToast(e.message || "Auto-organize failed", "error");
+      addToast((e as Error).message || "Auto-organize failed", "error");
     } finally {
       setIsRunning(false);
     }

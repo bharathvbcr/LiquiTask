@@ -153,7 +153,7 @@ describe("AutomationService", () => {
     service.addRule(rule);
 
     const updates = service.processTaskEvent("onUpdate", { newTask: mockTask }, [mockTask]);
-    expect((updates as any).assignee).toBe("Bob");
+    expect((updates as Record<string, unknown>).assignee).toBe("Bob");
   });
 
   it("should handle notify action", () => {

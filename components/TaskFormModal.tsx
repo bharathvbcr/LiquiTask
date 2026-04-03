@@ -284,7 +284,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
           priority: formData.priority,
           dueDate: formData.dueDate ? new Date(formData.dueDate) : undefined,
           subtitle: formData.subtitle,
-        } as any,
+        } as Partial<AITaskSchema>,
         context,
       );
 
@@ -363,7 +363,9 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
     if (onBulkCreateTasks) {
       onBulkCreateTasks(newTasks);
     } else {
-      newTasks.forEach((t) => onSubmit(t));
+      newTasks.forEach((t) => {
+        onSubmit(t);
+      });
     }
     onClose();
   };
@@ -834,6 +836,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                   <>
                     <div className="max-h-48 overflow-y-auto space-y-2 custom-scrollbar pr-2">
                       {extractedTasks.map((et, i) => (
+                        // biome-ignore lint/suspicious/noArrayIndexKey: AI extracted tasks have no stable id
                         <div
                           key={i}
                           className="bg-black/40 border border-white/10 rounded-lg p-3 group"
@@ -1190,7 +1193,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                         if (refined.summary)
                           setFormData((f) => ({
                             ...f,
-                            summary: refined.summary!,
+                            summary: refined.summary,
                           }));
                       } catch (e) {
                         setAiError((e as Error).message);
@@ -1319,6 +1322,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                   if (!target) return null;
                   return (
                     <div
+                      // biome-ignore lint/suspicious/noArrayIndexKey: link order is stable
                       key={idx}
                       className="flex items-center justify-between p-3 rounded-xl bg-[#0a0a0a] border border-white/10 group hover:border-white/20 hover:bg-white/5 transition-all"
                     >
@@ -1390,7 +1394,12 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                   type="text"
                   value={newSubtask}
                   onChange={(e) => setNewSubtask(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddSubtask())}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddSubtask();
+                    }
+                  }}
                   placeholder="Add a subtask..."
                   className="flex-1 liquid-input rounded-xl px-4 py-2.5 text-sm"
                   aria-label="New subtask title"
@@ -1458,7 +1467,12 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                     type="text"
                     value={newLinkName}
                     onChange={(e) => setNewLinkName(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddLink())}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddLink();
+                      }
+                    }}
                     placeholder="Link Name (Optional)"
                     className="w-1/3 liquid-input rounded-xl px-4 py-2.5 text-sm"
                     aria-label="Link name (optional)"
@@ -1467,7 +1481,12 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                     type="text"
                     value={newLinkUrl}
                     onChange={(e) => setNewLinkUrl(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddLink())}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddLink();
+                      }
+                    }}
                     placeholder="https://..."
                     className="flex-1 liquid-input rounded-xl px-4 py-2.5 text-sm"
                     aria-label="Link URL"

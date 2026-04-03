@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { notificationService } from "../notificationService";
 
@@ -6,8 +5,8 @@ import { notificationService } from "../notificationService";
 class MockNotificationClass {
   static lastInstance: MockNotificationClass | null = null;
   onclick: (() => void) | null = null;
-  static requestPermission = vi.fn(() => Promise.resolve("granted"));
-  static permission = "granted";
+  static requestPermission = vi.fn<() => Promise<NotificationPermission>>();
+  static permission: NotificationPermission = "granted";
   constructor(_title: string, _options?: NotificationOptions) {
     MockNotificationClass.lastInstance = this;
   }
@@ -15,16 +14,23 @@ class MockNotificationClass {
 
 const MockNotification = vi.fn(
   (title: string, options?: NotificationOptions) => new MockNotificationClass(title, options),
-) as any;
-MockNotification.requestPermission = MockNotificationClass.requestPermission;
-MockNotification.permission = MockNotificationClass.permission;
-Object.defineProperty(MockNotification, "lastInstance", {
-  get: () => MockNotificationClass.lastInstance,
+) as unknown as jest.MockedFunction<typeof Notification> & {
+  lastInstance: MockNotificationClass | null;
+};
+Object.assign(MockNotification, {
+  requestPermission: MockNotificationClass.requestPermission,
+  permission: MockNotificationClass.permission,
+  lastInstance: MockNotificationClass.lastInstance,
 });
 
 const mockElectronAPI = {
   showNotification: vi.fn(),
 };
+
+interface NotificationServiceInternal {
+  hasPermission: boolean;
+  notifiedOverdueIds: Set<string>;
+}
 
 describe("notificationService", () => {
   beforeEach(() => {
@@ -32,31 +38,34 @@ describe("notificationService", () => {
     MockNotificationClass.lastInstance = null;
 
     // Reset global mocks
-    (global as any).Notification = MockNotification;
-    (global as any).window = {
-      ...global.window,
+    Object.defineProperty(global, "Notification", { value: MockNotification, writable: true });
+    const mockWindow = {
       electronAPI: undefined,
       __electronAPI: undefined,
     };
+    Object.defineProperty(global, "window", {
+      value: { ...globalThis, ...mockWindow },
+      writable: true,
+    });
   });
 
   afterEach(() => {
     notificationService.stopPeriodicCheck();
-    (notificationService as any).notifiedOverdueIds.clear();
+    (notificationService as unknown as NotificationServiceInternal).notifiedOverdueIds.clear();
   });
 
   describe("requestPermission", () => {
     it("should request permission in browser", async () => {
-      MockNotification.requestPermission.mockResolvedValue("granted");
+      MockNotificationClass.requestPermission.mockResolvedValue("granted");
 
       const result = await notificationService.requestPermission();
 
       expect(result).toBe(true);
-      expect(MockNotification.requestPermission).toHaveBeenCalled();
+      expect(MockNotificationClass.requestPermission).toHaveBeenCalled();
     });
 
     it("should return false if permission denied", async () => {
-      MockNotification.requestPermission.mockResolvedValue("denied");
+      MockNotificationClass.requestPermission.mockResolvedValue("denied");
 
       const result = await notificationService.requestPermission();
 
@@ -64,20 +73,22 @@ describe("notificationService", () => {
     });
 
     it("should return true for Electron without requesting browser permission", async () => {
-      (notificationService as any).hasPermission = false;
-      (global as any).window.electronAPI = mockElectronAPI;
-      (global as any).window.__electronAPI = {};
+      (notificationService as unknown as NotificationServiceInternal).hasPermission = false;
+      Object.defineProperty(global, "window", {
+        value: { ...globalThis, electronAPI: mockElectronAPI, __electronAPI: {} },
+        writable: true,
+      });
 
       const result = await notificationService.requestPermission();
 
       expect(result).toBe(true);
-      expect(MockNotification.requestPermission).not.toHaveBeenCalled();
+      expect(MockNotificationClass.requestPermission).not.toHaveBeenCalled();
     });
   });
 
   describe("show", () => {
     it("should show notification in browser", () => {
-      (notificationService as any).hasPermission = true;
+      (notificationService as unknown as NotificationServiceInternal).hasPermission = true;
 
       notificationService.show({
         title: "Test Title",
@@ -93,7 +104,7 @@ describe("notificationService", () => {
     });
 
     it("should not show notification without permission", () => {
-      (notificationService as any).hasPermission = false;
+      (notificationService as unknown as NotificationServiceInternal).hasPermission = false;
       const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
       notificationService.show({
@@ -108,7 +119,7 @@ describe("notificationService", () => {
     });
 
     it("should attach onClick handler", () => {
-      (notificationService as any).hasPermission = true;
+      (notificationService as unknown as NotificationServiceInternal).hasPermission = true;
       const onClick = vi.fn();
 
       notificationService.show({
@@ -121,9 +132,11 @@ describe("notificationService", () => {
     });
 
     it("should show notification in Electron", () => {
-      (global as any).window.electronAPI = mockElectronAPI;
-      (global as any).window.__electronAPI = {};
-      (notificationService as any).hasPermission = true;
+      Object.defineProperty(global, "window", {
+        value: { ...globalThis, electronAPI: mockElectronAPI, __electronAPI: {} },
+        writable: true,
+      });
+      (notificationService as unknown as NotificationServiceInternal).hasPermission = true;
       mockElectronAPI.showNotification.mockClear();
 
       notificationService.show({
@@ -150,7 +163,7 @@ describe("notificationService", () => {
     });
 
     it("should schedule reminder 1 hour before due date", () => {
-      (notificationService as any).hasPermission = true;
+      (notificationService as unknown as NotificationServiceInternal).hasPermission = true;
       const showSpy = vi.spyOn(notificationService, "show");
 
       const dueDate = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours from now
@@ -166,7 +179,7 @@ describe("notificationService", () => {
     });
 
     it("should not schedule if already past due", () => {
-      (notificationService as any).hasPermission = true;
+      (notificationService as unknown as NotificationServiceInternal).hasPermission = true;
       const showSpy = vi.spyOn(notificationService, "show");
 
       const dueDate = new Date(Date.now() - 1000); // 1 second ago
@@ -178,7 +191,7 @@ describe("notificationService", () => {
     });
 
     it("should schedule due notification if more than 1 hour away", () => {
-      (notificationService as any).hasPermission = true;
+      (notificationService as unknown as NotificationServiceInternal).hasPermission = true;
       const showSpy = vi.spyOn(notificationService, "show");
 
       const dueDate = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours from now
@@ -216,7 +229,6 @@ describe("notificationService", () => {
 
       expect(result.overdue).toHaveLength(1);
       expect(result.overdue[0].id).toBe("task-1");
-      // task-2 is due in 1 second, which is less than 1 hour, so it should be in dueSoon
       expect(result.dueSoon.length).toBeGreaterThanOrEqual(0);
     });
 
@@ -226,7 +238,7 @@ describe("notificationService", () => {
         {
           id: "task-1",
           title: "Due Soon Task",
-          dueDate: new Date(now.getTime() + 30 * 60 * 1000), // 30 minutes
+          dueDate: new Date(now.getTime() + 30 * 60 * 1000),
           status: "Pending",
         },
       ];
@@ -244,7 +256,7 @@ describe("notificationService", () => {
           id: "task-1",
           title: "Completed Overdue",
           dueDate: new Date(now.getTime() - 1000),
-          status: "Done", // The implementation checks for 'Done', not 'Completed'
+          status: "Done",
         },
         {
           id: "task-2",
@@ -278,7 +290,7 @@ describe("notificationService", () => {
 
   describe("notifyOverdue", () => {
     it("should notify single overdue task", () => {
-      (notificationService as any).hasPermission = true;
+      (notificationService as unknown as NotificationServiceInternal).hasPermission = true;
       const showSpy = vi.spyOn(notificationService, "show");
 
       notificationService.notifyOverdue([{ title: "Overdue Task" }]);
@@ -290,7 +302,7 @@ describe("notificationService", () => {
     });
 
     it("should notify multiple overdue tasks", () => {
-      (notificationService as any).hasPermission = true;
+      (notificationService as unknown as NotificationServiceInternal).hasPermission = true;
       const showSpy = vi.spyOn(notificationService, "show");
 
       notificationService.notifyOverdue([
@@ -306,7 +318,7 @@ describe("notificationService", () => {
     });
 
     it("should not notify if no overdue tasks", () => {
-      (notificationService as any).hasPermission = true;
+      (notificationService as unknown as NotificationServiceInternal).hasPermission = true;
       const showSpy = vi.spyOn(notificationService, "show");
 
       notificationService.notifyOverdue([]);
@@ -325,7 +337,7 @@ describe("notificationService", () => {
     });
 
     it("should check for overdue tasks periodically", () => {
-      (notificationService as any).hasPermission = true;
+      (notificationService as unknown as NotificationServiceInternal).hasPermission = true;
       const checkOverdueSpy = vi.spyOn(notificationService, "checkOverdueTasks");
 
       const getTasks = () => [
@@ -339,16 +351,14 @@ describe("notificationService", () => {
 
       notificationService.startPeriodicCheck(getTasks, 1000);
 
-      // Initial check
       expect(checkOverdueSpy).toHaveBeenCalled();
 
-      // After interval
       vi.advanceTimersByTime(1000);
       expect(checkOverdueSpy).toHaveBeenCalledTimes(2);
     });
 
     it("should only notify for newly overdue tasks", () => {
-      (notificationService as any).hasPermission = true;
+      (notificationService as unknown as NotificationServiceInternal).hasPermission = true;
       const notifySpy = vi.spyOn(notificationService, "notifyOverdue");
 
       const getTasks = () => [
@@ -362,10 +372,8 @@ describe("notificationService", () => {
 
       notificationService.startPeriodicCheck(getTasks, 1000);
 
-      // First check - should notify
       expect(notifySpy).toHaveBeenCalledTimes(1);
 
-      // Second check - should not notify again
       vi.advanceTimersByTime(1000);
       expect(notifySpy).toHaveBeenCalledTimes(1);
     });
@@ -376,7 +384,6 @@ describe("notificationService", () => {
       notificationService.startPeriodicCheck(getTasks, 1000);
       notificationService.stopPeriodicCheck();
 
-      // Should not throw or continue checking
       expect(() => {
         vi.advanceTimersByTime(5000);
       }).not.toThrow();
@@ -385,11 +392,17 @@ describe("notificationService", () => {
 
   describe("clearOverdueNotification", () => {
     it("should clear notification tracking for task", () => {
-      (notificationService as any).notifiedOverdueIds.add("task-1");
+      (notificationService as unknown as NotificationServiceInternal).notifiedOverdueIds.add(
+        "task-1",
+      );
 
       notificationService.clearOverdueNotification("task-1");
 
-      expect((notificationService as any).notifiedOverdueIds.has("task-1")).toBe(false);
+      expect(
+        (notificationService as unknown as NotificationServiceInternal).notifiedOverdueIds.has(
+          "task-1",
+        ),
+      ).toBe(false);
     });
   });
 });

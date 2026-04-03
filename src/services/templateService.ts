@@ -111,10 +111,9 @@ export class TemplateService {
     }
 
     if (typeof data === "object" && data !== null) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const result: any = {};
+      const result: Record<string, unknown> = {};
       for (const key in data) {
-        result[key] = this.replaceVariables(data[key], variables);
+        result[key] = this.replaceVariables((data as Record<string, unknown>)[key], variables);
       }
       return result;
     }

@@ -1,4 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
+import type { Mock } from "vitest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as KeybindingContext from "../../context/KeybindingContext";
 import { useKeyboardNav } from "../useKeyboardNav";
@@ -14,8 +15,7 @@ describe("useKeyboardNav", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (KeybindingContext.useKeybinding as any).mockReturnValue({
+    (KeybindingContext.useKeybinding as Mock).mockReturnValue({
       matches: mockMatches,
     });
   });
@@ -34,8 +34,7 @@ describe("useKeyboardNav", () => {
         key: "ArrowDown",
         preventDefault: vi.fn(),
         target: document.createElement("div"),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any);
+      } as unknown as React.KeyboardEvent);
     });
 
     expect(result.current.focusedId).toBe("1");
@@ -45,8 +44,7 @@ describe("useKeyboardNav", () => {
         key: "ArrowDown",
         preventDefault: vi.fn(),
         target: document.createElement("div"),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any);
+      } as unknown as React.KeyboardEvent);
     });
 
     expect(result.current.focusedId).toBe("2");
@@ -66,8 +64,7 @@ describe("useKeyboardNav", () => {
         key: "ArrowUp",
         preventDefault: vi.fn(),
         target: document.createElement("div"),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any);
+      } as unknown as React.KeyboardEvent);
     });
 
     expect(result.current.focusedId).toBe("2");
@@ -87,8 +84,7 @@ describe("useKeyboardNav", () => {
         key: "Enter",
         preventDefault: vi.fn(),
         target: document.createElement("div"),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any);
+      } as unknown as React.KeyboardEvent);
     });
 
     expect(onOpen).toHaveBeenCalledWith("1");
@@ -109,8 +105,7 @@ describe("useKeyboardNav", () => {
         shiftKey: true,
         preventDefault: vi.fn(),
         target: document.createElement("div"),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any);
+      } as unknown as React.KeyboardEvent);
     });
 
     expect(onDelete).toHaveBeenCalledWith("2");
@@ -126,8 +121,7 @@ describe("useKeyboardNav", () => {
         key: "j",
         preventDefault: vi.fn(),
         target: input,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any);
+      } as unknown as React.KeyboardEvent);
     });
 
     expect(result.current.focusedId).toBeNull();

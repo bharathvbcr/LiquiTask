@@ -1,6 +1,7 @@
+// biome-ignore lint/style/noNonNullAssertion: test assertions require non-null access
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { FilterState } from "../../../types";
+import type { FilterState, SavedView } from "../../../types";
 import { useSavedViews } from "../useSavedViews";
 
 // Mock localStorage
@@ -81,7 +82,7 @@ describe("useSavedViews", () => {
         tags: "urgent",
       };
 
-      let newView;
+      let newView: SavedView | null;
       act(() => {
         newView = result.current.createView("New View", filters, "priority");
       });
@@ -110,7 +111,7 @@ describe("useSavedViews", () => {
 
       const viewCount = result.current.views.length;
 
-      let newView;
+      let newView: SavedView | null;
       act(() => {
         newView = result.current.createView("Should Fail", {
           assignee: "",
@@ -128,7 +129,7 @@ describe("useSavedViews", () => {
     it("should trim view name", () => {
       const { result } = renderHook(() => useSavedViews());
 
-      let newView;
+      let newView: SavedView | null;
       act(() => {
         newView = result.current.createView("  Trimmed View  ", {
           assignee: "",
@@ -147,7 +148,7 @@ describe("useSavedViews", () => {
     it("should update an existing view", () => {
       const { result } = renderHook(() => useSavedViews());
 
-      let viewId;
+      let viewId: string | undefined;
       act(() => {
         const view = result.current.createView("Original", {
           assignee: "",
@@ -161,6 +162,7 @@ describe("useSavedViews", () => {
 
       act(() => {
         result.current.updateView(viewId!, {
+          // biome-ignore lint/style/noNonNullAssertion: test setup
           name: "Updated",
           filters: {
             assignee: "John",
@@ -182,7 +184,7 @@ describe("useSavedViews", () => {
     it("should delete a view", () => {
       const { result } = renderHook(() => useSavedViews());
 
-      let viewId;
+      let viewId: string | undefined;
       act(() => {
         const view = result.current.createView("To Delete", {
           assignee: "",
@@ -207,7 +209,7 @@ describe("useSavedViews", () => {
     it("should clear active view if deleted view was active", () => {
       const { result } = renderHook(() => useSavedViews());
 
-      let viewId;
+      let viewId: string | undefined;
       act(() => {
         const view = result.current.createView("Active View", {
           assignee: "",
@@ -237,7 +239,7 @@ describe("useSavedViews", () => {
     it("should set view as active", () => {
       const { result } = renderHook(() => useSavedViews());
 
-      let viewId;
+      let viewId: string | undefined;
       act(() => {
         const view = result.current.createView("View to Apply", {
           assignee: "",
@@ -260,7 +262,7 @@ describe("useSavedViews", () => {
     it("should return undefined for non-existent view", () => {
       const { result } = renderHook(() => useSavedViews());
 
-      let view;
+      let view: SavedView | undefined;
       act(() => {
         view = result.current.applyView("non-existent");
       });
@@ -273,7 +275,7 @@ describe("useSavedViews", () => {
     it("should clear active view", () => {
       const { result } = renderHook(() => useSavedViews());
 
-      let viewId;
+      let viewId: string | undefined;
       act(() => {
         const view = result.current.createView("View", {
           assignee: "",
@@ -303,7 +305,7 @@ describe("useSavedViews", () => {
     it("should set a view as default", () => {
       const { result } = renderHook(() => useSavedViews());
 
-      let viewId;
+      let viewId: string | undefined;
       act(() => {
         const view = result.current.createView("Default View", {
           assignee: "",
@@ -327,7 +329,7 @@ describe("useSavedViews", () => {
     it("should unset default when setting to null", () => {
       const { result } = renderHook(() => useSavedViews());
 
-      let viewId;
+      let viewId: string | undefined;
       act(() => {
         const view = result.current.createView("View", {
           assignee: "",
@@ -368,7 +370,7 @@ describe("useSavedViews", () => {
     it("should rename a view", () => {
       const { result } = renderHook(() => useSavedViews());
 
-      let viewId;
+      let viewId: string | undefined;
       act(() => {
         const view = result.current.createView("Original Name", {
           assignee: "",
@@ -391,7 +393,7 @@ describe("useSavedViews", () => {
     it("should trim renamed view name", () => {
       const { result } = renderHook(() => useSavedViews());
 
-      let viewId;
+      let viewId: string | undefined;
       act(() => {
         const view = result.current.createView("Original", {
           assignee: "",
@@ -416,7 +418,7 @@ describe("useSavedViews", () => {
     it("should duplicate a view", () => {
       const { result } = renderHook(() => useSavedViews());
 
-      let originalId;
+      let originalId: string | undefined;
       act(() => {
         const view = result.current.createView(
           "Original",
@@ -434,7 +436,7 @@ describe("useSavedViews", () => {
 
       const initialCount = result.current.views.length;
 
-      let duplicated;
+      let duplicated: SavedView | null;
       act(() => {
         duplicated = result.current.duplicateView(originalId!);
       });
@@ -450,7 +452,7 @@ describe("useSavedViews", () => {
       const { result } = renderHook(() => useSavedViews());
 
       // Create 20 views
-      let viewId;
+      let viewId: string | undefined;
       act(() => {
         for (let i = 0; i < 19; i++) {
           result.current.createView(`View ${i}`, {
@@ -471,7 +473,7 @@ describe("useSavedViews", () => {
         viewId = view?.id;
       });
 
-      let duplicated;
+      let duplicated: SavedView | null;
       act(() => {
         duplicated = result.current.duplicateView(viewId!);
       });
@@ -482,7 +484,7 @@ describe("useSavedViews", () => {
     it("should return null for non-existent view", () => {
       const { result } = renderHook(() => useSavedViews());
 
-      let duplicated;
+      let duplicated: SavedView | null;
       act(() => {
         duplicated = result.current.duplicateView("non-existent");
       });
