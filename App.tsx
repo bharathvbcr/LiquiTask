@@ -1309,18 +1309,6 @@ const App: React.FC = () => {
         </Suspense>
       )}
 
-      {isAiHealthDashboardOpen && (
-        <Suspense fallback={<ModalLoadingFallback />}>
-          <AIHealthDashboard
-            isOpen={isAiHealthDashboardOpen}
-            onClose={() => setIsAiHealthDashboardOpen(false)}
-            allTasks={tasks}
-            projects={projects}
-            addToast={addToast}
-          />
-        </Suspense>
-      )}
-
       {isAiInsightsOpen && (
         <Suspense fallback={<ModalLoadingFallback />}>
           <AIInsightsPanel

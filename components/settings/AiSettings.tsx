@@ -36,6 +36,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
   onOpenMergeModal,
   onOpenReorganizeModal,
   onOpenSubtaskModal,
+  onOpenProjectAssignmentModal,
 }) => {
   const [config, setConfig] = useState<AIConfig>({
     provider: "gemini",
@@ -278,8 +279,8 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
           <label className="text-sm font-medium text-slate-300 mb-3 block">Active Provider</label>
           <div className="grid grid-cols-2 gap-3">
             <button
-              onClick={() => setConfig({ ...config, provider: 'gemini' })}
-              className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${config.provider === 'gemini' ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300' : 'bg-black/20 border-white/10 text-slate-400 hover:border-white/20'}`}
+              onClick={() => setConfig({ ...config, provider: "gemini" })}
+              className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${config.provider === "gemini" ? "bg-cyan-500/20 border-cyan-500 text-cyan-300" : "bg-black/20 border-white/10 text-slate-400 hover:border-white/20"}`}
             >
               <Globe size={18} />
               <div className="text-left">
@@ -288,8 +289,8 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
               </div>
             </button>
             <button
-              onClick={() => setConfig({ ...config, provider: 'ollama' })}
-              className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${config.provider === 'ollama' ? 'bg-amber-500/20 border-amber-500 text-amber-300' : 'bg-black/20 border-white/10 text-slate-400 hover:border-white/20'}`}
+              onClick={() => setConfig({ ...config, provider: "ollama" })}
+              className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${config.provider === "ollama" ? "bg-amber-500/20 border-amber-500 text-amber-300" : "bg-black/20 border-white/10 text-slate-400 hover:border-white/20"}`}
             >
               <Server size={18} />
               <div className="text-left">
@@ -300,7 +301,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
           </div>
         </div>
 
-        {config.provider === 'gemini' && (
+        {config.provider === "gemini" && (
           <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-4 animate-in fade-in slide-in-from-top-2">
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
@@ -309,7 +310,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
               <input
                 type="password"
                 value={config.geminiApiKey}
-                onChange={e => setConfig({ ...config, geminiApiKey: e.target.value })}
+                onChange={(e) => setConfig({ ...config, geminiApiKey: e.target.value })}
                 placeholder="AIzaSy..."
                 className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500"
               />
@@ -321,13 +322,13 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
               <input
                 type="text"
                 value={config.geminiModel}
-                onChange={e => setConfig({ ...config, geminiModel: e.target.value })}
+                onChange={(e) => setConfig({ ...config, geminiModel: e.target.value })}
                 placeholder="e.g. gemini-3.1-flash-lite"
                 className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500"
               />
             </div>
             <p className="text-xs text-slate-500">
-              Get your API key from{' '}
+              Get your API key from{" "}
               <a
                 href="https://aistudio.google.com/"
                 target="_blank"
@@ -341,7 +342,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
           </div>
         )}
 
-        {config.provider === 'ollama' && (
+        {config.provider === "ollama" && (
           <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-4 animate-in fade-in slide-in-from-top-2">
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
@@ -350,7 +351,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
               <input
                 type="text"
                 value={config.ollamaBaseUrl}
-                onChange={e => setConfig({ ...config, ollamaBaseUrl: e.target.value })}
+                onChange={(e) => setConfig({ ...config, ollamaBaseUrl: e.target.value })}
                 onBlur={handleOllamaUrlBlur}
                 placeholder="http://localhost:11434"
                 className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-500"
@@ -362,22 +363,22 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
                   <Server size={16} /> Model Name
                 </label>
                 <button
-                  onClick={() => fetchModels(config.ollamaBaseUrl || 'http://localhost:11434')}
+                  onClick={() => fetchModels(config.ollamaBaseUrl || "http://localhost:11434")}
                   disabled={isLoadingModels}
                   className="text-slate-400 hover:text-white transition-colors"
                   title="Refresh downloaded models"
                 >
-                  <RefreshCw size={14} className={isLoadingModels ? 'animate-spin' : ''} />
+                  <RefreshCw size={14} className={isLoadingModels ? "animate-spin" : ""} />
                 </button>
               </div>
               <div className="flex gap-2">
                 {availableModels.length > 0 ? (
                   <select
                     value={config.ollamaModel}
-                    onChange={e => setConfig({ ...config, ollamaModel: e.target.value })}
+                    onChange={(e) => setConfig({ ...config, ollamaModel: e.target.value })}
                     className="flex-1 bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-amber-500 appearance-none"
                   >
-                    {availableModels.map(model => (
+                    {availableModels.map((model) => (
                       <option key={model} value={model}>
                         {model}
                       </option>
@@ -392,7 +393,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
                   <input
                     type="text"
                     value={config.ollamaModel}
-                    onChange={e => setConfig({ ...config, ollamaModel: e.target.value })}
+                    onChange={(e) => setConfig({ ...config, ollamaModel: e.target.value })}
                     placeholder="llama3, mistral, etc."
                     className="flex-1 bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-500"
                   />
@@ -445,7 +446,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
               Ensure Ollama is running locally. You can download models using the "Pull" button or
               via CLI (
               <code className="bg-white/5 px-1 rounded">
-                ollama pull {config.ollamaModel || 'llama3.2'}
+                ollama pull {config.ollamaModel || "llama3.2"}
               </code>
               ).
             </p>
@@ -471,7 +472,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
               label="Auto-Detect Duplicates"
               description="Scan for duplicate tasks when creating"
               checked={aiManagement.autoDetectDuplicates}
-              onChange={v => setAiManagement(prev => ({ ...prev, autoDetectDuplicates: v }))}
+              onChange={(v) => setAiManagement((prev) => ({ ...prev, autoDetectDuplicates: v }))}
             />
 
             <ToggleRow
@@ -479,7 +480,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
               label="Auto-Suggest Priorities"
               description="AI adjusts priorities based on context"
               checked={aiManagement.autoSuggestPriorities}
-              onChange={v => setAiManagement(prev => ({ ...prev, autoSuggestPriorities: v }))}
+              onChange={(v) => setAiManagement((prev) => ({ ...prev, autoSuggestPriorities: v }))}
             />
 
             <ToggleRow
@@ -487,7 +488,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
               label="Auto-Suggest Tags"
               description="AI recommends relevant tags for tasks"
               checked={aiManagement.autoSuggestTags}
-              onChange={v => setAiManagement(prev => ({ ...prev, autoSuggestTags: v }))}
+              onChange={(v) => setAiManagement((prev) => ({ ...prev, autoSuggestTags: v }))}
             />
 
             <ToggleRow
@@ -495,7 +496,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
               label="Cleanup on Create"
               description="Run redundancy check after task creation"
               checked={aiManagement.cleanupOnCreate}
-              onChange={v => setAiManagement(prev => ({ ...prev, cleanupOnCreate: v }))}
+              onChange={(v) => setAiManagement((prev) => ({ ...prev, cleanupOnCreate: v }))}
             />
 
             <div className="flex items-center justify-between">
@@ -510,10 +511,10 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
               </div>
               <select
                 value={aiManagement.insightsFrequency}
-                onChange={e =>
-                  setAiManagement(prev => ({
+                onChange={(e) =>
+                  setAiManagement((prev) => ({
                     ...prev,
-                    insightsFrequency: e.target.value as 'daily' | 'weekly' | 'manual',
+                    insightsFrequency: e.target.value as "daily" | "weekly" | "manual",
                   }))
                 }
                 className="bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500 appearance-none"
@@ -562,22 +563,21 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
             Smart Project Assignment
           </button>
         </div>
-          <button
-            onClick={handleSave}
-            disabled={isPulling}
-            className="flex-1 px-4 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-slate-950 rounded-xl text-sm font-bold shadow-lg shadow-cyan-500/20 transition-all disabled:opacity-50"
-          >
-            Save Configuration
-          </button>
-        </div>
-
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-medium">
-          <CheckCircle2 size={12} />
-          Your AI credentials and settings are stored locally on this device and never shared.
-        </div>
+        <button
+          onClick={handleSave}
+          disabled={isPulling}
+          className="flex-1 px-4 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-slate-950 rounded-xl text-sm font-bold shadow-lg shadow-cyan-500/20 transition-all disabled:opacity-50"
+        >
+          Save Configuration
+        </button>
       </div>
-  </div>
-  )
+
+      <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-medium">
+        <CheckCircle2 size={12} />
+        Your AI credentials and settings are stored locally on this device and never shared.
+      </div>
+    </div>
+  );
 };
 
 interface ToggleRowProps {

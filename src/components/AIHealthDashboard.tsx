@@ -9,28 +9,27 @@ import {
   Sparkles,
   TrendingDown,
   TrendingUp,
-  X,
-} from 'lucide-react';
-import type React from 'react';
-import { useCallback, useEffect, useState } from 'react';
-import type { AIContext, AIInsight, Project, Task } from '../../types';
-import { aiService } from '../services/aiService';
-import storageService from '../services/storageService';
-import { STORAGE_KEYS } from '../constants';
-import { ModalWrapper } from './ModalWrapper';
+} from "lucide-react";
+import type React from "react";
+import { useCallback, useEffect, useState } from "react";
+import { ModalWrapper } from "../../components/ModalWrapper";
+import type { AIContext, AIInsight, PriorityDefinition, Project, Task } from "../../types";
+import { STORAGE_KEYS } from "../constants";
+import { aiService } from "../services/aiService";
+import storageService from "../services/storageService";
 
 interface AIHealthDashboardProps {
   isOpen: boolean;
   onClose: () => void;
   allTasks: Task[];
   projects: Project[];
-  addToast: (msg: string, type: 'success' | 'error' | 'info' | 'warning') => void;
+  addToast: (msg: string, type: "success" | "error" | "info" | "warning") => void;
 }
 
 interface HealthMetric {
   label: string;
   value: string | number;
-  trend: 'up' | 'down' | 'stable';
+  trend: "up" | "down" | "stable";
   color: string;
   icon: React.ReactNode;
 }
@@ -49,8 +48,8 @@ export const AIHealthDashboard: React.FC<AIHealthDashboardProps> = ({
   const loadHealthData = useCallback(async () => {
     setLoading(true);
     try {
-      const activeProjectId = storageService.get<string>(STORAGE_KEYS.ACTIVE_PROJECT, '');
-      const priorities = storageService.get<any[]>(STORAGE_KEYS.PRIORITIES, []);
+      const activeProjectId = storageService.get<string>(STORAGE_KEYS.ACTIVE_PROJECT, "");
+      const priorities = storageService.get<PriorityDefinition[]>(STORAGE_KEYS.PRIORITIES, []);
 
       const context: AIContext = {
         activeProjectId,
@@ -64,17 +63,93 @@ export const AIHealthDashboard: React.FC<AIHealthDashboardProps> = ({
       // Calculate health metrics
       const now = new Date();
       const totalTasks = allTasks.length;
-      const completedTasks = allTasks.filter(t => t.completed).length;
-      const overdueTasks = allTasks.filter(
-        t => t.dueDate && new Date(t.dueDate) < now && !t.completed
+      const completedTasks = allTasks.filter(
+        (t) => t.completedAt !== undefined && t.completedAt !== null,
       ).length;
-      const dueSoonTasks = allTasks.filter(t => {
-        if (!t.dueDate || t.completed) return false;
+      const overdueTasks = allTasks.filter(
+        (t) =>
+          t.dueDate &&
+          new Date(t.dueDate) < now &&
+          (t.completedAt === undefined || t.completedAt === null),
+      ).length;
+      const dueSoonTasks = allTasks.filter((t) => {
+        if (!t.dueDate || (t.completedAt !== undefined && t.completedAt !== null)) return false;
         const dueDate = new Date(t.dueDate);
         const diff = (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
         return diff >= 0 && diff <= 3;
       }).length;
-      const staleTasks = allTasks.filter(t => {
+      const staleTasks = allTasks.filter((t) => {
+        if (!t.updatedAt) return false;
+        const daysSinceUpdate =
+          (now.getTime() - new Date(t.updatedAt).getTime()) / (1000 * 60 * 60 * 24);
+        return daysSinceUpdate > 30 && (t.completedAt === undefined || t.completedAt === null);
+      }).length;
+      const staleTasks = allTasks.filter((t) => {
+        if (!t.updatedAt) return false;
+        const daysSinceUpdate =
+          (now.getTime() - new Date(t.updatedAt).getTime()) / (1000 * 60 * 60 * 24);
+        return daysSinceUpdate > 30 && (t.completedAt === undefined || t.completedAt === null);
+      }).length;
+      const staleTasks = allTasks.filter((t) => {
+        if (!t.updatedAt) return false;
+        const daysSinceUpdate =
+          (now.getTime() - new Date(t.updatedAt).getTime()) / (1000 * 60 * 60 * 24);
+        return daysSinceUpdate > 30 && (t.completedAt === undefined || t.completedAt === null);
+      }).length;
+      const staleTasks = allTasks.filter((t) => {
+        if (!t.updatedAt) return false;
+        const daysSinceUpdate =
+          (now.getTime() - new Date(t.updatedAt).getTime()) / (1000 * 60 * 60 * 24);
+        return daysSinceUpdate > 30 && (t.completedAt === undefined || t.completedAt === null);
+      }).length;
+      const staleTasks = allTasks.filter((t) => {
+        if (!t.updatedAt) return false;
+        const daysSinceUpdate =
+          (now.getTime() - new Date(t.updatedAt).getTime()) / (1000 * 60 * 60 * 24);
+        return daysSinceUpdate > 30 && (t.completedAt === undefined || t.completedAt === null);
+      }).length;
+      const staleTasks = allTasks.filter((t) => {
+        if (!t.updatedAt) return false;
+        const daysSinceUpdate =
+          (now.getTime() - new Date(t.updatedAt).getTime()) / (1000 * 60 * 60 * 24);
+        return daysSinceUpdate > 30 && (t.completedAt === undefined || t.completedAt === null);
+      }).length;
+      const staleTasks = allTasks.filter((t) => {
+        if (!t.updatedAt) return false;
+        const daysSinceUpdate =
+          (now.getTime() - new Date(t.updatedAt).getTime()) / (1000 * 60 * 60 * 24);
+        return daysSinceUpdate > 30 && (t.completedAt === undefined || t.completedAt === null);
+      }).length;
+      const staleTasks = allTasks.filter((t) => {
+        if (!t.updatedAt) return false;
+        const daysSinceUpdate =
+          (now.getTime() - new Date(t.updatedAt).getTime()) / (1000 * 60 * 60 * 24);
+        return daysSinceUpdate > 30 && (t.completedAt === undefined || t.completedAt === null);
+      }).length;
+      const staleTasks = allTasks.filter((t) => {
+        if (!t.updatedAt) return false;
+        const daysSinceUpdate =
+          (now.getTime() - new Date(t.updatedAt).getTime()) / (1000 * 60 * 60 * 24);
+        return daysSinceUpdate > 30 && (t.completedAt === undefined || t.completedAt === null);
+      }).length;
+      const staleTasks = allTasks.filter((t) => {
+        if (!t.updatedAt) return false;
+        const daysSinceUpdate =
+          (now.getTime() - new Date(t.updatedAt).getTime()) / (1000 * 60 * 60 * 24);
+        return daysSinceUpdate > 30 && (t.completedAt === undefined || t.completedAt === null);
+      }).length;
+      const staleTasks = allTasks.filter((t) => {
+        if (!t.updatedAt) return false;
+        const daysSinceUpdate =
+          (now.getTime() - new Date(t.updatedAt).getTime()) / (1000 * 60 * 60 * 24);
+        return daysSinceUpdate > 30 && (t.completedAt === undefined || t.completedAt === null);
+      }).length;
+      const staleTasks = allTasks.filter((t) => {
+        if (!t.updatedAt) return false;
+        const daysSinceUpdate = (now.getTime() - t.updatedAt.getTime()) / (1000 * 60 * 60 * 24);
+        return daysSinceUpdate >= 30;
+      }).length;
+      const staleTasks = allTasks.filter((t) => {
         if (!t.updatedAt) return false;
         const daysSinceUpdate =
           (now.getTime() - new Date(t.updatedAt).getTime()) / (1000 * 60 * 60 * 24);
@@ -85,51 +160,51 @@ export const AIHealthDashboard: React.FC<AIHealthDashboardProps> = ({
 
       setMetrics([
         {
-          label: 'Completion Rate',
+          label: "Completion Rate",
           value: `${completionRate}%`,
-          trend: completionRate >= 50 ? 'up' : 'down',
-          color: completionRate >= 50 ? 'text-green-400' : 'text-red-400',
+          trend: completionRate >= 50 ? "up" : "down",
+          color: completionRate >= 50 ? "text-green-400" : "text-red-400",
           icon: <CheckCircle2 size={20} />,
         },
         {
-          label: 'Overdue Tasks',
+          label: "Overdue Tasks",
           value: overdueTasks,
-          trend: overdueTasks > 0 ? 'down' : 'stable',
-          color: overdueTasks > 0 ? 'text-red-400' : 'text-green-400',
+          trend: overdueTasks > 0 ? "down" : "stable",
+          color: overdueTasks > 0 ? "text-red-400" : "text-green-400",
           icon: <AlertTriangle size={20} />,
         },
         {
-          label: 'Due in 3 Days',
+          label: "Due in 3 Days",
           value: dueSoonTasks,
-          trend: dueSoonTasks > 0 ? 'down' : 'stable',
-          color: dueSoonTasks > 0 ? 'text-amber-400' : 'text-green-400',
+          trend: dueSoonTasks > 0 ? "down" : "stable",
+          color: dueSoonTasks > 0 ? "text-amber-400" : "text-green-400",
           icon: <Calendar size={20} />,
         },
         {
-          label: 'Stale Tasks (30+ days)',
+          label: "Stale Tasks (30+ days)",
           value: staleTasks,
-          trend: staleTasks > 0 ? 'down' : 'stable',
-          color: staleTasks > 0 ? 'text-orange-400' : 'text-green-400',
+          trend: staleTasks > 0 ? "down" : "stable",
+          color: staleTasks > 0 ? "text-orange-400" : "text-green-400",
           icon: <Clock size={20} />,
         },
         {
-          label: 'Total Tasks',
+          label: "Total Tasks",
           value: totalTasks,
-          trend: 'up',
-          color: 'text-blue-400',
+          trend: "up",
+          color: "text-blue-400",
           icon: <BarChart3 size={20} />,
         },
         {
-          label: 'Projects',
+          label: "Projects",
           value: projects?.length || 0,
-          trend: 'stable',
-          color: 'text-purple-400',
+          trend: "stable",
+          color: "text-purple-400",
           icon: <Sparkles size={20} />,
         },
       ]);
     } catch (error) {
-      console.error('Failed to load health data:', error);
-      addToast('Failed to load health dashboard', 'error');
+      console.error("Failed to load health data:", error);
+      addToast("Failed to load health dashboard", "error");
     } finally {
       setLoading(false);
     }
@@ -169,13 +244,13 @@ export const AIHealthDashboard: React.FC<AIHealthDashboardProps> = ({
 
         {/* Metrics Grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {metrics.map(metric => (
+          {metrics.map((metric) => (
             <div key={metric.label} className="bg-white/5 border border-white/10 rounded-xl p-4">
               <div className="flex items-center justify-between mb-2">
                 <div className={`p-2 rounded-lg bg-white/5 ${metric.color}`}>{metric.icon}</div>
-                {metric.trend === 'up' ? (
+                {metric.trend === "up" ? (
                   <TrendingUp size={16} className="text-green-400" />
-                ) : metric.trend === 'down' ? (
+                ) : metric.trend === "down" ? (
                   <TrendingDown size={16} className="text-red-400" />
                 ) : null}
               </div>
@@ -193,25 +268,25 @@ export const AIHealthDashboard: React.FC<AIHealthDashboardProps> = ({
               AI Insights
             </h4>
             <div className="space-y-3 max-h-64 overflow-y-auto">
-              {insights.map(insight => (
+              {insights.map((insight) => (
                 <div
                   key={insight.id}
                   className={`p-4 rounded-xl border ${
-                    insight.type === 'warning'
-                      ? 'bg-amber-500/10 border-amber-500/20'
-                      : insight.type === 'success'
-                        ? 'bg-green-500/10 border-green-500/20'
-                        : 'bg-blue-500/10 border-blue-500/20'
+                    insight.type === "warning"
+                      ? "bg-amber-500/10 border-amber-500/20"
+                      : insight.type === "success"
+                        ? "bg-green-500/10 border-green-500/20"
+                        : "bg-blue-500/10 border-blue-500/20"
                   }`}
                 >
                   <div className="flex items-start gap-3">
                     <div
                       className={`p-1.5 rounded-lg ${
-                        insight.type === 'warning'
-                          ? 'bg-amber-500/20 text-amber-400'
-                          : insight.type === 'success'
-                            ? 'bg-green-500/20 text-green-400'
-                            : 'bg-blue-500/20 text-blue-400'
+                        insight.type === "warning"
+                          ? "bg-amber-500/20 text-amber-400"
+                          : insight.type === "success"
+                            ? "bg-green-500/20 text-green-400"
+                            : "bg-blue-500/20 text-blue-400"
                       }`}
                     >
                       <Brain size={14} />
