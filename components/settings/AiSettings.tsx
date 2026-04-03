@@ -14,14 +14,14 @@ import {
   Tags,
   Trash2,
   Zap,
-} from 'lucide-react';
-import type React from 'react';
-import { useCallback, useEffect, useState } from 'react';
-import { STORAGE_KEYS } from '../../src/constants';
-import { aiService } from '../../src/services/aiService';
-import storageService from '../../src/services/storageService';
-import { sanitizeUrl } from '../../src/utils/validation';
-import type { AIConfig, ToastType } from '../../types';
+} from "lucide-react";
+import type React from "react";
+import { useCallback, useEffect, useState } from "react";
+import { STORAGE_KEYS } from "../../src/constants";
+import { aiService } from "../../src/services/aiService";
+import storageService from "../../src/services/storageService";
+import { sanitizeUrl } from "../../src/utils/validation";
+import type { AIConfig, ToastType } from "../../types";
 
 interface AiSettingsProps {
   addToast: (msg: string, type: ToastType) => void;
@@ -29,11 +29,11 @@ interface AiSettingsProps {
 
 export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
   const [config, setConfig] = useState<AIConfig>({
-    provider: 'gemini',
-    geminiApiKey: '',
-    geminiModel: 'gemini-3.1-flash-lite',
-    ollamaBaseUrl: 'http://localhost:11434',
-    ollamaModel: '',
+    provider: "gemini",
+    geminiApiKey: "",
+    geminiModel: "gemini-3.1-flash-lite",
+    ollamaBaseUrl: "http://localhost:11434",
+    ollamaModel: "",
   });
 
   const [aiManagement, setAiManagement] = useState({
@@ -41,15 +41,15 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
     autoSuggestPriorities: false,
     autoSuggestTags: false,
     cleanupOnCreate: false,
-    insightsFrequency: 'manual' as 'daily' | 'weekly' | 'manual',
+    insightsFrequency: "manual" as "daily" | "weekly" | "manual",
   });
 
   const [isTesting, setIsTesting] = useState(false);
-  const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
+  const [testResult, setTestResult] = useState<"success" | "error" | null>(null);
 
   const [isPulling, setIsPulling] = useState(false);
   const [pullProgress, setPullProgress] = useState(0);
-  const [pullStatus, setPullStatus] = useState('');
+  const [pullStatus, setPullStatus] = useState("");
   const [pullController, setPullController] = useState<AbortController | null>(null);
 
   const [availableModels, setAvailableModels] = useState<string[]>([]);
@@ -77,18 +77,18 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
         setAvailableModels(models);
 
         if (models.length > 0 && !config.ollamaModel) {
-          setConfig(prev => ({ ...prev, ollamaModel: models[0] }));
+          setConfig((prev) => ({ ...prev, ollamaModel: models[0] }));
         }
       } catch (e: any) {
-        if (e.name === 'AbortError') {
-          setModelFetchError('Request timed out');
+        if (e.name === "AbortError") {
+          setModelFetchError("Request timed out");
         } else {
-          console.warn('Could not fetch Ollama models:', e);
+          console.warn("Could not fetch Ollama models:", e);
           if (retryCount < 1) {
             setTimeout(() => fetchModels(baseUrl, retryCount + 1), 1000);
             return;
           }
-          setModelFetchError(e.message || 'Could not reach Ollama');
+          setModelFetchError(e.message || "Could not reach Ollama");
         }
         setAvailableModels([]);
       } finally {
@@ -96,7 +96,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
         setIsLoadingModels(false);
       }
     },
-    [config]
+    [config],
   );
 
   // Load saved config on mount (only once)
@@ -126,8 +126,8 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
   }, []);
 
   useEffect(() => {
-    if (config.provider === 'ollama') {
-      fetchModels(config.ollamaBaseUrl || 'http://localhost:11434');
+    if (config.provider === "ollama") {
+      fetchModels(config.ollamaBaseUrl || "http://localhost:11434");
     }
   }, [config.provider, config.ollamaBaseUrl, fetchModels]);
 
@@ -143,7 +143,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
     };
     storageService.set(STORAGE_KEYS.AI_CONFIG, sanitizedConfig);
     setConfig(sanitizedConfig);
-    addToast('AI configuration saved successfully', 'success');
+    addToast("AI configuration saved successfully", "success");
   };
 
   const handleTestConnection = async () => {
@@ -159,16 +159,16 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
 
       const result = await aiService.testProviderConnection();
 
-      setTestResult(result.ok ? 'success' : 'error');
+      setTestResult(result.ok ? "success" : "error");
       if (result.ok) {
-        addToast(result.message, 'success');
-        if (config.provider === 'ollama') fetchModels(sanitizedConfig.ollamaBaseUrl);
+        addToast(result.message, "success");
+        if (config.provider === "ollama") fetchModels(sanitizedConfig.ollamaBaseUrl);
       } else {
-        addToast(result.message, 'error');
+        addToast(result.message, "error");
       }
     } catch (e) {
-      setTestResult('error');
-      addToast((e as Error).message || 'Connection test failed', 'error');
+      setTestResult("error");
+      addToast((e as Error).message || "Connection test failed", "error");
     } finally {
       setIsTesting(false);
     }
@@ -176,7 +176,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
 
   const handlePullModel = async () => {
     if (!config.ollamaModel) {
-      addToast('Please enter a model name to pull', 'error');
+      addToast("Please enter a model name to pull", "error");
       return;
     }
 
@@ -184,7 +184,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
     setPullController(controller);
     setIsPulling(true);
     setPullProgress(0);
-    setPullStatus('Starting pull...');
+    setPullStatus("Starting pull...");
 
     try {
       const sanitizedConfig = {
@@ -200,22 +200,22 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
           setPullStatus(status);
           if (percentage !== undefined) setPullProgress(percentage);
         },
-        controller.signal
+        controller.signal,
       );
 
-      addToast(`Successfully pulled ${config.ollamaModel}`, 'success');
-      setTestResult('success');
+      addToast(`Successfully pulled ${config.ollamaModel}`, "success");
+      setTestResult("success");
       fetchModels(sanitizedConfig.ollamaBaseUrl);
     } catch (e: any) {
-      if (e.name === 'AbortError') {
-        addToast('Pull cancelled', 'info');
+      if (e.name === "AbortError") {
+        addToast("Pull cancelled", "info");
       } else {
-        addToast((e as Error).message || 'Failed to pull model', 'error');
+        addToast((e as Error).message || "Failed to pull model", "error");
       }
     } finally {
       setIsPulling(false);
       setPullProgress(0);
-      setPullStatus('');
+      setPullStatus("");
       setPullController(null);
     }
   };
@@ -228,11 +228,11 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
     setIsCleaning(true);
     setCleanResult(0);
     try {
-      const allTasks = storageService.get<any[]>('tasks', []);
+      const allTasks = storageService.get<any[]>("tasks", []);
       const seen = new Map<string, any>();
       const duplicates: string[] = [];
       for (const task of allTasks) {
-        const key = (task.title || '').toLowerCase().trim();
+        const key = (task.title || "").toLowerCase().trim();
         if (key && seen.has(key)) {
           duplicates.push(task.id);
         } else if (key) {
@@ -240,15 +240,15 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
         }
       }
       if (duplicates.length === 0) {
-        addToast('No duplicate tasks found', 'info');
+        addToast("No duplicate tasks found", "info");
       } else {
         const filtered = allTasks.filter((t: any) => !duplicates.includes(t.id));
-        storageService.set('tasks', filtered);
+        storageService.set("tasks", filtered);
         setCleanResult(duplicates.length);
-        addToast(`Removed ${duplicates.length} duplicate task(s)`, 'success');
+        addToast(`Removed ${duplicates.length} duplicate task(s)`, "success");
       }
     } catch (e: any) {
-      addToast(e.message || 'Cleanup failed', 'error');
+      addToast(e.message || "Cleanup failed", "error");
     } finally {
       setIsCleaning(false);
     }
@@ -279,8 +279,8 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
           <label className="text-sm font-medium text-slate-300 mb-3 block">Active Provider</label>
           <div className="grid grid-cols-2 gap-3">
             <button
-              onClick={() => setConfig({ ...config, provider: 'gemini' })}
-              className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${config.provider === 'gemini' ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300' : 'bg-black/20 border-white/10 text-slate-400 hover:border-white/20'}`}
+              onClick={() => setConfig({ ...config, provider: "gemini" })}
+              className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${config.provider === "gemini" ? "bg-cyan-500/20 border-cyan-500 text-cyan-300" : "bg-black/20 border-white/10 text-slate-400 hover:border-white/20"}`}
             >
               <Globe size={18} />
               <div className="text-left">
@@ -289,8 +289,8 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
               </div>
             </button>
             <button
-              onClick={() => setConfig({ ...config, provider: 'ollama' })}
-              className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${config.provider === 'ollama' ? 'bg-amber-500/20 border-amber-500 text-amber-300' : 'bg-black/20 border-white/10 text-slate-400 hover:border-white/20'}`}
+              onClick={() => setConfig({ ...config, provider: "ollama" })}
+              className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${config.provider === "ollama" ? "bg-amber-500/20 border-amber-500 text-amber-300" : "bg-black/20 border-white/10 text-slate-400 hover:border-white/20"}`}
             >
               <Server size={18} />
               <div className="text-left">
@@ -301,7 +301,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
           </div>
         </div>
 
-        {config.provider === 'gemini' && (
+        {config.provider === "gemini" && (
           <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-4 animate-in fade-in slide-in-from-top-2">
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
@@ -310,7 +310,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
               <input
                 type="password"
                 value={config.geminiApiKey}
-                onChange={e => setConfig({ ...config, geminiApiKey: e.target.value })}
+                onChange={(e) => setConfig({ ...config, geminiApiKey: e.target.value })}
                 placeholder="AIzaSy..."
                 className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500"
               />
@@ -322,13 +322,13 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
               <input
                 type="text"
                 value={config.geminiModel}
-                onChange={e => setConfig({ ...config, geminiModel: e.target.value })}
+                onChange={(e) => setConfig({ ...config, geminiModel: e.target.value })}
                 placeholder="e.g. gemini-3.1-flash-lite"
                 className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500"
               />
             </div>
             <p className="text-xs text-slate-500">
-              Get your API key from{' '}
+              Get your API key from{" "}
               <a
                 href="https://aistudio.google.com/"
                 target="_blank"
@@ -342,7 +342,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
           </div>
         )}
 
-        {config.provider === 'ollama' && (
+        {config.provider === "ollama" && (
           <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-4 animate-in fade-in slide-in-from-top-2">
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
@@ -351,7 +351,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
               <input
                 type="text"
                 value={config.ollamaBaseUrl}
-                onChange={e => setConfig({ ...config, ollamaBaseUrl: e.target.value })}
+                onChange={(e) => setConfig({ ...config, ollamaBaseUrl: e.target.value })}
                 onBlur={handleOllamaUrlBlur}
                 placeholder="http://localhost:11434"
                 className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-500"
@@ -363,22 +363,22 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
                   <Server size={16} /> Model Name
                 </label>
                 <button
-                  onClick={() => fetchModels(config.ollamaBaseUrl || 'http://localhost:11434')}
+                  onClick={() => fetchModels(config.ollamaBaseUrl || "http://localhost:11434")}
                   disabled={isLoadingModels}
                   className="text-slate-400 hover:text-white transition-colors"
                   title="Refresh downloaded models"
                 >
-                  <RefreshCw size={14} className={isLoadingModels ? 'animate-spin' : ''} />
+                  <RefreshCw size={14} className={isLoadingModels ? "animate-spin" : ""} />
                 </button>
               </div>
               <div className="flex gap-2">
                 {availableModels.length > 0 ? (
                   <select
                     value={config.ollamaModel}
-                    onChange={e => setConfig({ ...config, ollamaModel: e.target.value })}
+                    onChange={(e) => setConfig({ ...config, ollamaModel: e.target.value })}
                     className="flex-1 bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-amber-500 appearance-none"
                   >
-                    {availableModels.map(model => (
+                    {availableModels.map((model) => (
                       <option key={model} value={model}>
                         {model}
                       </option>
@@ -393,7 +393,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
                   <input
                     type="text"
                     value={config.ollamaModel}
-                    onChange={e => setConfig({ ...config, ollamaModel: e.target.value })}
+                    onChange={(e) => setConfig({ ...config, ollamaModel: e.target.value })}
                     placeholder="llama3, mistral, etc."
                     className="flex-1 bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-500"
                   />
@@ -446,7 +446,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
               Ensure Ollama is running locally. You can download models using the "Pull" button or
               via CLI (
               <code className="bg-white/5 px-1 rounded">
-                ollama pull {config.ollamaModel || 'llama3.2'}
+                ollama pull {config.ollamaModel || "llama3.2"}
               </code>
               ).
             </p>
@@ -472,7 +472,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
               label="Auto-Detect Duplicates"
               description="Scan for duplicate tasks when creating"
               checked={aiManagement.autoDetectDuplicates}
-              onChange={v => setAiManagement(prev => ({ ...prev, autoDetectDuplicates: v }))}
+              onChange={(v) => setAiManagement((prev) => ({ ...prev, autoDetectDuplicates: v }))}
             />
 
             <ToggleRow
@@ -480,7 +480,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
               label="Auto-Suggest Priorities"
               description="AI adjusts priorities based on context"
               checked={aiManagement.autoSuggestPriorities}
-              onChange={v => setAiManagement(prev => ({ ...prev, autoSuggestPriorities: v }))}
+              onChange={(v) => setAiManagement((prev) => ({ ...prev, autoSuggestPriorities: v }))}
             />
 
             <ToggleRow
@@ -488,7 +488,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
               label="Auto-Suggest Tags"
               description="AI recommends relevant tags for tasks"
               checked={aiManagement.autoSuggestTags}
-              onChange={v => setAiManagement(prev => ({ ...prev, autoSuggestTags: v }))}
+              onChange={(v) => setAiManagement((prev) => ({ ...prev, autoSuggestTags: v }))}
             />
 
             <ToggleRow
@@ -496,7 +496,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
               label="Cleanup on Create"
               description="Run redundancy check after task creation"
               checked={aiManagement.cleanupOnCreate}
-              onChange={v => setAiManagement(prev => ({ ...prev, cleanupOnCreate: v }))}
+              onChange={(v) => setAiManagement((prev) => ({ ...prev, cleanupOnCreate: v }))}
             />
 
             <div className="flex items-center justify-between">
@@ -533,11 +533,11 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
               className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 rounded-xl text-sm font-bold transition-all border border-red-500/20 disabled:opacity-50"
             >
               {isCleaning ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
-              {isCleaning ? 'Cleaning...' : 'Cleanup Tasks Now'}
+              {isCleaning ? "Cleaning..." : "Cleanup Tasks Now"}
             </button>
             {cleanResult > 0 && (
               <p className="text-xs text-slate-400 mt-2 text-center">
-                Cleaned {cleanResult} redundant task{cleanResult > 1 ? 's' : ''}
+                Cleaned {cleanResult} redundant task{cleanResult > 1 ? "s" : ""}
               </p>
             )}
           </div>
@@ -551,12 +551,12 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
           >
             {isTesting ? (
               <Loader2 size={18} className="animate-spin" />
-            ) : testResult === 'success' ? (
+            ) : testResult === "success" ? (
               <CheckCircle2 size={18} className="text-emerald-500" />
-            ) : testResult === 'error' ? (
+            ) : testResult === "error" ? (
               <AlertCircle size={18} className="text-red-500" />
             ) : null}
-            {isTesting ? 'Testing...' : 'Test Connection'}
+            {isTesting ? "Testing..." : "Test Connection"}
           </button>
           <button
             onClick={handleSave}
@@ -642,5 +642,4 @@ const ToggleRow: React.FC<ToggleRowProps> = ({
       </div>
     </button>
   );
-};
 };

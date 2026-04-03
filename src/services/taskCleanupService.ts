@@ -1,4 +1,5 @@
 import type {
+  AICategorySuggestion,
   AIContext,
   DuplicateGroup,
   MergeSuggestion,
@@ -25,7 +26,7 @@ class TaskCleanupService {
   async detectDuplicates(allTasks: Task[], threshold: number = 0.75): Promise<DuplicateGroup[]> {
     if (allTasks.length < 2) return [];
 
-    const activeProjectId = storageService.get<string>(STORAGE_KEYS.ACTIVE_PROJECT_ID, "");
+    const activeProjectId = storageService.get<string>(STORAGE_KEYS.ACTIVE_PROJECT, "");
     const projects = storageService.get<Project[]>(STORAGE_KEYS.PROJECTS, []);
     const priorities = storageService.get<PriorityDefinition[]>(STORAGE_KEYS.PRIORITIES, []);
 
@@ -169,7 +170,7 @@ class TaskCleanupService {
       throw new Error("Need at least 2 tasks to suggest a merge");
     }
 
-    const activeProjectId = storageService.get<string>(STORAGE_KEYS.ACTIVE_PROJECT_ID, "");
+    const activeProjectId = storageService.get<string>(STORAGE_KEYS.ACTIVE_PROJECT, "");
     const projects = storageService.get<Project[]>(STORAGE_KEYS.PROJECTS, []);
     const priorities = storageService.get<PriorityDefinition[]>(STORAGE_KEYS.PRIORITIES, []);
 
@@ -325,7 +326,7 @@ class TaskCleanupService {
   }
 
   async categorizeTasks(allTasks: Task[]): Promise<AICategorySuggestion[]> {
-    const activeProjectId = storageService.get<string>(STORAGE_KEYS.ACTIVE_PROJECT_ID, "");
+    const activeProjectId = storageService.get<string>(STORAGE_KEYS.ACTIVE_PROJECT, "");
     const projects = storageService.get<Project[]>(STORAGE_KEYS.PROJECTS, []);
     const priorities = storageService.get<PriorityDefinition[]>(STORAGE_KEYS.PRIORITIES, []);
 
@@ -396,7 +397,7 @@ class TaskCleanupService {
   }
 
   async clusterTasks(allTasks: Task[]): Promise<TaskCluster[]> {
-    const activeProjectId = storageService.get<string>(STORAGE_KEYS.ACTIVE_PROJECT_ID, "");
+    const activeProjectId = storageService.get<string>(STORAGE_KEYS.ACTIVE_PROJECT, "");
     const projects = storageService.get<Project[]>(STORAGE_KEYS.PROJECTS, []);
     const priorities = storageService.get<PriorityDefinition[]>(STORAGE_KEYS.PRIORITIES, []);
 

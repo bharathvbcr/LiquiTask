@@ -107,7 +107,7 @@ class AISummaryService {
 
     const projects = storageService.get<Project[]>(STORAGE_KEYS.PROJECTS, []);
     const priorities = storageService.get<PriorityDefinition[]>(STORAGE_KEYS.PRIORITIES, []);
-    const activeProjectId = storageService.get<string>(STORAGE_KEYS.ACTIVE_PROJECT_ID, "");
+    const activeProjectId = storageService.get<string>(STORAGE_KEYS.ACTIVE_PROJECT, "");
     const context: AIContext = { activeProjectId, projects, priorities };
 
     let insights: AIInsight[] = [];

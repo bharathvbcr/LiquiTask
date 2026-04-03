@@ -1,6 +1,6 @@
 export type TaskStatus = string;
 
-export type GroupingOption = 'none' | 'priority';
+export type GroupingOption = "none" | "priority";
 
 export interface PriorityDefinition {
   id: string;
@@ -11,9 +11,9 @@ export interface PriorityDefinition {
 }
 
 export enum Priority {
-  High = 'high',
-  Medium = 'medium',
-  Low = 'low',
+  High = "high",
+  Medium = "medium",
+  Low = "low",
 }
 
 export interface Subtask {
@@ -26,7 +26,7 @@ export interface Attachment {
   id: string;
   name: string;
   url: string;
-  type: 'file' | 'link';
+  type: "file" | "link";
 }
 
 export interface ProjectType {
@@ -45,7 +45,7 @@ export interface Project {
   order?: number;
 }
 
-export type CustomFieldType = 'text' | 'number' | 'dropdown' | 'url' | 'formula';
+export type CustomFieldType = "text" | "number" | "dropdown" | "url" | "formula";
 
 export interface CustomFieldDefinition {
   id: string;
@@ -55,7 +55,7 @@ export interface CustomFieldDefinition {
   formula?: string; // For formula fields (e.g. "{{dueDate}} - {{today}}")
 }
 
-export type LinkType = 'blocks' | 'blocked-by' | 'relates-to' | 'duplicates';
+export type LinkType = "blocks" | "blocked-by" | "relates-to" | "duplicates";
 
 export interface TaskLink {
   targetTaskId: string;
@@ -65,7 +65,7 @@ export interface TaskLink {
 // Recurring task configuration
 export interface RecurringConfig {
   enabled: boolean;
-  frequency: 'daily' | 'weekly' | 'monthly' | 'custom';
+  frequency: "daily" | "weekly" | "monthly" | "custom";
   interval: number; // e.g., every 2 weeks
   daysOfWeek?: number[]; // 0-6 for weekly
   dayOfMonth?: number; // 1-31 for monthly
@@ -78,7 +78,7 @@ export interface ErrorLog {
   message: string;
 }
 
-export type ActivityType = 'create' | 'update' | 'move' | 'comment' | 'delete';
+export type ActivityType = "create" | "update" | "move" | "comment" | "delete";
 
 export interface ActivityItem {
   id: string;
@@ -133,7 +133,7 @@ export interface ColumnData {
   tasks: Task[];
 }
 
-export type ToastType = 'success' | 'error' | 'info';
+export type ToastType = "success" | "error" | "info";
 
 export interface ToastMessage {
   id: string;
@@ -143,7 +143,7 @@ export interface ToastMessage {
 
 export interface FilterState {
   assignee: string;
-  dateRange: 'due' | 'created' | null;
+  dateRange: "due" | "created" | null;
   startDate: string;
   endDate: string;
   tags: string;
@@ -159,9 +159,9 @@ export interface SavedView {
   filters: FilterState;
   // Advanced query builder state
   advancedFilter?: unknown; // Actually FilterGroup from src/types/queryTypes
-  grouping: 'none' | 'priority';
+  grouping: "none" | "priority";
   sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
+  sortOrder?: "asc" | "desc";
   createdAt: Date;
   isDefault?: boolean;
 }
@@ -195,16 +195,16 @@ export interface MergeSuggestion {
 
 export interface RedundancyAnalysis {
   taskId: string;
-  type: 'subset' | 'completed-overlap' | 'stale' | 'blocked-completed';
+  type: "subset" | "completed-overlap" | "stale" | "blocked-completed";
   relatedTaskId?: string;
   confidence: number;
   reasoning: string;
-  suggestedAction: 'archive' | 'convert-to-subtask' | 'update' | 'delete';
+  suggestedAction: "archive" | "convert-to-subtask" | "update" | "delete";
 }
 
 export interface AISuggestion {
   id: string;
-  type: 'priority' | 'tag' | 'project' | 'due-date' | 'subtask' | 'assignment';
+  type: "priority" | "tag" | "project" | "due-date" | "subtask" | "assignment";
   taskId: string;
   suggestedValue: unknown;
   currentValue: unknown;
@@ -231,7 +231,7 @@ export interface AIScheduleSuggestion {
 
 export interface AIInsight {
   id: string;
-  type: 'productivity' | 'bottleneck' | 'estimate-accuracy' | 'pattern' | 'recommendation';
+  type: "productivity" | "bottleneck" | "estimate-accuracy" | "pattern" | "recommendation";
   title: string;
   description: string;
   data?: Record<string, unknown>;
@@ -257,7 +257,75 @@ export interface TaskCluster {
 }
 
 // AI Provider configuration (extended)
-export type AIProviderId = 'gemini' | 'ollama';
+export type AIProviderId = "gemini" | "ollama";
+
+export interface AutoOrganizeConfig {
+  enabled: boolean;
+  autoApplyThreshold: number;
+  suggestThreshold: number;
+  schedule: "manual" | "onCreate" | "hourly" | "daily" | "weekly";
+  lastRunAt?: Date;
+  operations: {
+    clustering: boolean;
+    deduplication: boolean;
+    autoTagging: boolean;
+    hierarchyDetection: boolean;
+    projectAssignment: boolean;
+    tagConsolidation: boolean;
+  };
+  excludedProjectIds: string[];
+  maxTasksPerBatch: number;
+}
+
+export interface HierarchySuggestion {
+  id: string;
+  type: "parent-child" | "dependency-chain" | "subtask-promotion";
+  parentTaskId: string;
+  childTaskIds: string[];
+  confidence: number;
+  reasoning: string;
+}
+
+export interface ProjectAssignment {
+  taskId: string;
+  currentProjectId: string;
+  suggestedProjectId: string;
+  confidence: number;
+  reasoning: string;
+}
+
+export interface TagConsolidationSuggestion {
+  id: string;
+  tags: string[];
+  suggestedTag: string;
+  affectedTaskIds: string[];
+  confidence: number;
+  reasoning: string;
+}
+
+export interface AutoOrganizeResult {
+  id: string;
+  timestamp: Date;
+  duration: number;
+  tasksAnalyzed: number;
+  changes: AutoOrganizeChange[];
+  autoApplied: number;
+  pendingReview: number;
+}
+
+export interface AutoOrganizeChange {
+  id: string;
+  type: "merge" | "tag" | "cluster" | "hierarchy" | "project-move" | "tag-consolidate";
+  taskId: string;
+  relatedTaskIds?: string[];
+  before: Record<string, unknown>;
+  after: Record<string, unknown>;
+  confidence: number;
+  reasoning: string;
+  status: "auto-applied" | "pending-review" | "rejected";
+  clusterId?: string;
+  clusterTheme?: string;
+}
 
 export interface AIConfig {
   provider: AIProviderId;
@@ -270,7 +338,8 @@ export interface AIConfig {
   autoSuggestPriorities?: boolean;
   autoSuggestTags?: boolean;
   cleanupOnCreate?: boolean;
-  insightsFrequency?: 'daily' | 'weekly' | 'manual';
+  insightsFrequency?: "daily" | "weekly" | "manual";
+  autoOrganize?: AutoOrganizeConfig;
 }
 
 export interface AITaskSchema {
@@ -292,7 +361,7 @@ export interface AIContext {
 
 export interface AITestResult {
   ok: boolean;
-  stage: 'config' | 'service' | 'model' | 'inference';
+  stage: "config" | "service" | "model" | "inference";
   message: string;
 }
 
@@ -329,7 +398,7 @@ export interface MigratableAppData {
   tasks?: Task[];
   activeProjectId?: string;
   sidebarCollapsed?: boolean;
-  grouping?: 'none' | 'priority';
+  grouping?: "none" | "priority";
   version?: string;
   savedViews?: SavedView[];
   // Allow additional fields for forward compatibility

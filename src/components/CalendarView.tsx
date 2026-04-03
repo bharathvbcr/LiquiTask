@@ -29,7 +29,7 @@ import {
 import type React from "react";
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import type { PriorityDefinition, Task } from "../../types";
+import type { AIContext, PriorityDefinition, Project, Task } from "../../types";
 
 interface CalendarViewProps {
   tasks: Task[];
@@ -181,11 +181,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     setShowAiSuggestions(true);
     try {
       const { aiService } = await import("../services/aiService");
-      const { AIContext, Project, PriorityDefinition } = await import("../../types");
       const storageService = (await import("../services/storageService")).default;
       const { STORAGE_KEYS } = await import("../constants");
       const projects = storageService.get<Project[]>(STORAGE_KEYS.PROJECTS, []);
       const priorities = storageService.get<PriorityDefinition[]>(STORAGE_KEYS.PRIORITIES, []);
+      const activeProjectId = storageService.get<string>(STORAGE_KEYS.ACTIVE_PROJECT, "");
       const context: AIContext = { activeProjectId: "", projects, priorities };
       const tasksWithoutDueDate = tasks.filter((t) => !t.dueDate && !t.completedAt);
       const suggestions: Record<string, string[]> = {};

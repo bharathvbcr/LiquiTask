@@ -57,7 +57,7 @@ export const BulkAIOperationsModal: React.FC<BulkAIOperationsModalProps> = ({
   const getContext = (): AIContext => {
     const projects = storageService.get<Project[]>(STORAGE_KEYS.PROJECTS, []);
     const priorities = storageService.get<PriorityDefinition[]>(STORAGE_KEYS.PRIORITIES, []);
-    const activeProjectId = storageService.get<string>(STORAGE_KEYS.ACTIVE_PROJECT_ID, "");
+    const activeProjectId = storageService.get<string>(STORAGE_KEYS.ACTIVE_PROJECT, "");
     return { activeProjectId, projects, priorities };
   };
 

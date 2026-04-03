@@ -1,4 +1,6 @@
-import type { Task, TaskTemplate } from "../../types";
+import type { AIContext, PriorityDefinition, Project, Task, TaskTemplate } from "../../types";
+import { STORAGE_KEYS } from "../constants";
+import storageService from "./storageService";
 
 export class TemplateService {
   private templates: TaskTemplate[] = [];
@@ -140,12 +142,9 @@ export class TemplateService {
 
   async generateTemplateFromDescription(description: string): Promise<TaskTemplate> {
     const { aiService } = await import("./aiService");
-    const storageService = (await import("./storageService")).default;
-    const { STORAGE_KEYS } = await import("../constants");
-    const { AIContext, Project, PriorityDefinition } = await import("../../types");
     const projects = storageService.get<Project[]>(STORAGE_KEYS.PROJECTS, []);
     const priorities = storageService.get<PriorityDefinition[]>(STORAGE_KEYS.PRIORITIES, []);
-    const activeProjectId = storageService.get<string>(STORAGE_KEYS.ACTIVE_PROJECT_ID, "");
+    const activeProjectId = storageService.get<string>(STORAGE_KEYS.ACTIVE_PROJECT, "");
     const context: AIContext = { activeProjectId, projects, priorities };
     try {
       const result = await aiService.generateTemplate(description, context);

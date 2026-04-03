@@ -8,13 +8,13 @@ import {
   RefreshCw,
   TrendingUp,
   X,
-} from 'lucide-react';
-import type React from 'react';
-import { useCallback, useEffect, useState } from 'react';
-import type { AIContext, AIInsight, PriorityDefinition, Project, Task } from '../../types';
-import { STORAGE_KEYS } from '../constants';
-import { aiService } from '../services/aiService';
-import storageService from '../services/storageService';
+} from "lucide-react";
+import type React from "react";
+import { useCallback, useEffect, useState } from "react";
+import type { AIContext, AIInsight, PriorityDefinition, Project, Task } from "../../types";
+import { STORAGE_KEYS } from "../constants";
+import { aiService } from "../services/aiService";
+import storageService from "../services/storageService";
 
 interface AIInsightsPanelProps {
   allTasks: Task[];
@@ -25,17 +25,17 @@ interface AIInsightsPanelProps {
 const iconMap = {
   productivity: TrendingUp,
   bottleneck: AlertTriangle,
-  'estimate-accuracy': Clock,
+  "estimate-accuracy": Clock,
   pattern: BarChart3,
   recommendation: Lightbulb,
 };
 
 const colorMap = {
-  productivity: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
-  bottleneck: 'text-red-400 bg-red-500/10 border-red-500/20',
-  'estimate-accuracy': 'text-amber-400 bg-amber-500/10 border-amber-500/20',
-  pattern: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
-  recommendation: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20',
+  productivity: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
+  bottleneck: "text-red-400 bg-red-500/10 border-red-500/20",
+  "estimate-accuracy": "text-amber-400 bg-amber-500/10 border-amber-500/20",
+  pattern: "text-blue-400 bg-blue-500/10 border-blue-500/20",
+  recommendation: "text-cyan-400 bg-cyan-500/10 border-cyan-500/20",
 };
 
 export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ allTasks, isOpen, onClose }) => {
@@ -50,13 +50,13 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ allTasks, isOp
     try {
       const projects = storageService.get<Project[]>(STORAGE_KEYS.PROJECTS, []);
       const priorities = storageService.get<PriorityDefinition[]>(STORAGE_KEYS.PRIORITIES, []);
-      const activeProjectId = storageService.get<string>(STORAGE_KEYS.ACTIVE_PROJECT_ID, '');
+      const activeProjectId = storageService.get<string>(STORAGE_KEYS.ACTIVE_PROJECT, "");
 
       const context: AIContext = { activeProjectId, projects, priorities };
       const generated = await aiService.generateInsights(allTasks, context);
       setInsights(generated);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to generate insights');
+      setError(e instanceof Error ? e.message : "Failed to generate insights");
     } finally {
       setIsLoading(false);
     }
@@ -90,7 +90,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ allTasks, isOp
               className="p-2 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition-colors disabled:opacity-50"
               title="Refresh insights"
             >
-              <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
+              <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
             </button>
             <button
               onClick={onClose}
@@ -114,10 +114,10 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ allTasks, isOp
             </div>
           ) : (
             <div className="space-y-4">
-              {insights.map(insight => (
+              {insights.map((insight) => (
                 <div
                   key={insight.id}
-                  className={`p-4 rounded-xl border ${INSIGHT_COLORS[insight.type] || INSIGHT_COLORS.info}`}
+                  className={`p-4 rounded-xl border ${colorMap[insight.type as keyof typeof colorMap] || colorMap.recommendation}`}
                 >
                   <div className="flex items-start justify-between mb-2">
                     <h3 className="font-semibold text-sm">{insight.title}</h3>
@@ -126,12 +126,6 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ allTasks, isOp
                     </span>
                   </div>
                   <p className="text-sm text-slate-300 leading-relaxed">{insight.description}</p>
-                  {insight.actionable && (
-                    <div className="mt-3 flex items-center gap-2 text-xs text-cyan-400">
-                      <Lightbulb size={14} />
-                      <span>Actionable insight</span>
-                    </div>
-                  )}
                 </div>
               ))}
             </div>

@@ -68,6 +68,13 @@ interface TaskFormModalProps {
   availableTasks?: Task[]; // For linking
   columns?: BoardColumn[]; // For status selection
   allProjects?: Project[]; // Added for AI project suggestion
+  aiSettings?: {
+    autoDetectDuplicates: boolean;
+    autoSuggestPriorities: boolean;
+    autoSuggestTags: boolean;
+    cleanupOnCreate: boolean;
+  };
+  addToast?: (msg: string, type: ToastType) => void;
 }
 
 export const TaskFormModal: React.FC<TaskFormModalProps> = ({
@@ -82,6 +89,13 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   availableTasks = EMPTY_TASKS,
   columns = EMPTY_COLUMNS,
   allProjects = [],
+  aiSettings = {
+    autoDetectDuplicates: false,
+    autoSuggestPriorities: false,
+    autoSuggestTags: false,
+    cleanupOnCreate: false,
+  },
+  addToast = () => {},
 }) => {
   const [activeTab, setActiveTab] = useState<'details' | 'activity'>('details');
   const [formData, setFormData] = useState({
@@ -470,7 +484,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
     setLinks(links.filter(l => l.targetTaskId !== targetId));
   };
 
-  const submitTask = useCallback(() => {
+  const submitTask = useCallback(async () => {
     // Validation
     const newErrors: Record<string, string> = {};
     if (!formData.title.trim()) {
@@ -488,7 +502,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
       parsedDate = new Date(y, m - 1, d);
     }
 
-    onSubmit({
+    const taskData = {
       ...initialData,
       ...formData,
       projectId: localProjectId,
@@ -499,7 +513,113 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
       attachments: attachments,
       customFieldValues: customValues,
       links: links,
-    });
+    };
+
+    // AI Processing
+    const isNewTask = !initialData;
+
+    if (isNewTask) {
+      // Auto-suggest priority
+      if (aiSettings.autoSuggestPriorities) {
+        try {
+          const context: AIContext = {
+            activeProjectId: localProjectId,
+            projects: allProjects,
+            priorities: priorities,
+          };
+          const suggestions = await aiService.suggestPriorities([taskData], context);
+          if (suggestions.length > 0 && suggestions[0].confidence > 0.6) {
+            const suggestedPriorityId = suggestions[0].suggestedValue;
+            const priorityDef = priorities.find(p => p.id === suggestedPriorityId);
+            if (priorityDef) {
+              taskData.priority = suggestedPriorityId;
+              addToast(`AI suggested priority: ${priorityDef.label}`, 'info');
+            }
+          }
+        } catch (e) {
+          console.warn('AI priority suggestion failed:', e);
+        }
+      }
+
+      // Auto-suggest tags
+      if (aiSettings.autoSuggestTags) {
+        try {
+          const context: AIContext = {
+            activeProjectId: localProjectId,
+            projects: allProjects,
+            priorities: priorities,
+          };
+          const metadata = await aiService.suggestMetadata(
+            formData.title,
+            formData.summary || '',
+            context
+          );
+          if (metadata.tags && metadata.tags.length > 0) {
+            taskData.tags = [...(taskData.tags || []), ...metadata.tags];
+            addToast(`AI suggested tags: ${metadata.tags.join(', ')}`, 'info');
+          }
+        } catch (e) {
+          console.warn('AI tag suggestion failed:', e);
+        }
+      }
+
+      // Auto-detect duplicates (show warning, don't block)
+      if (aiSettings.autoDetectDuplicates && availableTasks.length > 0) {
+        try {
+          const context: AIContext = {
+            activeProjectId: localProjectId,
+            projects: allProjects,
+            priorities: priorities,
+          };
+          const duplicates = await aiService.detectDuplicates(
+            [
+              { title: formData.title, summary: formData.summary, tags: formData.tags },
+              ...availableTasks.map(t => ({
+                title: t.title,
+                summary: t.summary,
+                tags: t.tags,
+                id: t.id,
+              })),
+            ],
+            context
+          );
+
+          if (duplicates.length > 0 && duplicates[0].confidence > 0.7) {
+            const duplicate = availableTasks.find(t => t.id === duplicates[0].task2?.id);
+            if (duplicate) {
+              setDuplicateWarning({
+                task: duplicate,
+                confidence: duplicates[0].confidence,
+              });
+            }
+          }
+        } catch (e) {
+          console.warn('AI duplicate detection failed:', e);
+        }
+      }
+
+      // Cleanup on create (check for redundancy)
+      if (aiSettings.cleanupOnCreate) {
+        try {
+          const context: AIContext = {
+            activeProjectId: localProjectId,
+            projects: allProjects,
+            priorities: priorities,
+          };
+          const redundancy = await aiService.analyzeRedundancy(
+            [...availableTasks, taskData],
+            context
+          );
+          if (redundancy && redundancy.confidence > 0.7) {
+            addToast(`Potential redundancy detected: ${redundancy.reasoning}`, 'warning');
+          }
+        } catch (e) {
+          console.warn('AI redundancy check failed:', e);
+        }
+      }
+    }
+
+    onSubmit(taskData);
     onClose();
   }, [
     formData,
@@ -511,6 +631,11 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
     links,
     onSubmit,
     onClose,
+    aiSettings,
+    priorities,
+    allProjects,
+    availableTasks,
+    addToast,
   ]);
 
   const handleSubmit = (e: React.FormEvent) => {
