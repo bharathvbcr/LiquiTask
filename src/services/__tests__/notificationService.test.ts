@@ -3,16 +3,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { notificationService } from '../notificationService';
 
 // Mock Notification API
-class MockNotification {
-  static lastInstance: MockNotification | null = null;
+class MockNotificationClass {
+  static lastInstance: MockNotificationClass | null = null;
   onclick: (() => void) | null = null;
   static requestPermission = vi.fn(() => Promise.resolve('granted'));
   static permission = 'granted';
   constructor(_title: string, _options?: NotificationOptions) {
-    MockNotification.lastInstance = this;
-    // no-op
+    MockNotificationClass.lastInstance = this;
   }
 }
+
+const MockNotification = vi.fn(function (title: string, options?: NotificationOptions) {
+  return new MockNotificationClass(title, options);
+}) as any;
+MockNotification.requestPermission = MockNotificationClass.requestPermission;
+MockNotification.permission = MockNotificationClass.permission;
+Object.defineProperty(MockNotification, 'lastInstance', {
+  get: () => MockNotificationClass.lastInstance,
+});
 
 const mockElectronAPI = {
   showNotification: vi.fn(),
@@ -21,7 +29,7 @@ const mockElectronAPI = {
 describe('notificationService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    MockNotification.lastInstance = null;
+    MockNotificationClass.lastInstance = null;
 
     // Reset global mocks
     (global as any).Notification = MockNotification;

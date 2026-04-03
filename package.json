@@ -86,19 +86,6 @@
         }
       ]
     },
-    "linux": {
-      "icon": "build/icon.png",
-      "target": [
-        "AppImage",
-        "deb"
-      ]
-    },
-    "mac": {
-      "icon": "build/icon.png",
-      "target": [
-        "dmg"
-      ]
-    },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
