@@ -185,7 +185,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       const { STORAGE_KEYS } = await import("../constants");
       const projects = storageService.get<Project[]>(STORAGE_KEYS.PROJECTS, []);
       const priorities = storageService.get<PriorityDefinition[]>(STORAGE_KEYS.PRIORITIES, []);
-      const activeProjectId = storageService.get<string>(STORAGE_KEYS.ACTIVE_PROJECT, "");
+      const _activeProjectId = storageService.get<string>(STORAGE_KEYS.ACTIVE_PROJECT, "");
       const context: AIContext = { activeProjectId: "", projects, priorities };
       const tasksWithoutDueDate = tasks.filter((t) => !t.dueDate && !t.completedAt);
       const suggestions: Record<string, string[]> = {};

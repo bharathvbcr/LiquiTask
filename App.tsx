@@ -119,6 +119,12 @@ const AIMergeDuplicatesModal = lazy(() =>
     default: module.AIMergeDuplicatesModal,
   }))
 );
+
+const AIReorganizeModal = lazy(() =>
+  import('./src/components/AIReorganizeModal').then(module => ({
+    default: module.AIReorganizeModal,
+  }))
+);
 const MobileNavDrawer = lazy(() =>
   import('./src/components/MobileNavDrawer').then(module => ({
     default: module.MobileNavDrawer,
@@ -253,6 +259,7 @@ const App: React.FC = () => {
   const [isNaturalLanguageSearch, setIsNaturalLanguageSearch] = useState(false);
   const [isBulkAIOperationsOpen, setIsBulkAIOperationsOpen] = useState(false);
   const [isAiMergeModalOpen, setIsAiMergeModalOpen] = useState(false);
+  const [isAiReorganizeModalOpen, setIsAiReorganizeModalOpen] = useState(false);
   const [isAutoOrganizeOpen, setIsAutoOrganizeOpen] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
@@ -550,6 +557,7 @@ const App: React.FC = () => {
       isAiInsightsOpen ||
       isBulkAIOperationsOpen ||
       isAiMergeModalOpen ||
+      isAiReorganizeModalOpen ||
       isAutoOrganizeOpen,
   });
 
@@ -1129,6 +1137,7 @@ const App: React.FC = () => {
             showSubWorkspaceTasks={showSubWorkspaceTasks}
             onUpdateShowSubWorkspaceTasks={setShowSubWorkspaceTasks}
             onOpenMergeModal={() => setIsAiMergeModalOpen(true)}
+            onOpenReorganizeModal={() => setIsAiReorganizeModalOpen(true)}
           />
         </Suspense>
       )}
@@ -1164,6 +1173,19 @@ const App: React.FC = () => {
             allTasks={tasks}
             onUpdateTask={handleUpdateTask}
             onArchiveTask={handleArchiveTask}
+            addToast={addToast}
+          />
+        </Suspense>
+      )}
+
+      {isAiReorganizeModalOpen && (
+        <Suspense fallback={<ModalLoadingFallback />}>
+          <AIReorganizeModal
+            isOpen={isAiReorganizeModalOpen}
+            onClose={() => setIsAiReorganizeModalOpen(false)}
+            allTasks={tasks}
+            onCreateProject={handleCreateProject}
+            onMoveTask={(taskId, projectId) => handleUpdateTask(taskId, { projectId })}
             addToast={addToast}
           />
         </Suspense>

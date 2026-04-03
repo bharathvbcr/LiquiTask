@@ -28,9 +28,14 @@ import type { AIConfig, AutoOrganizeConfig, ToastType } from "../../types";
 interface AiSettingsProps {
   addToast: (msg: string, type: ToastType) => void;
   onOpenMergeModal?: () => void;
+  onOpenReorganizeModal?: () => void;
 }
 
-export const AiSettings: React.FC<AiSettingsProps> = ({ addToast, onOpenMergeModal }) => {
+export const AiSettings: React.FC<AiSettingsProps> = ({
+  addToast,
+  onOpenMergeModal,
+  onOpenReorganizeModal,
+}) => {
   const [config, setConfig] = useState<AIConfig>({
     provider: "gemini",
     geminiApiKey: "",
@@ -145,7 +150,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast, onOpenMergeMod
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [config, fetchModels]);
 
   useEffect(() => {
     if (config.provider === "ollama") {
@@ -520,14 +525,24 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast, onOpenMergeMod
           </div>
 
           <div className="pt-3 border-t border-white/10">
-            <button
-              onClick={onOpenMergeModal}
-              disabled={!onOpenMergeModal || isPulling}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 hover:text-cyan-300 rounded-xl text-sm font-bold transition-all border border-cyan-500/20 disabled:opacity-50"
-            >
-              <Merge size={16} />
-              Smart Merge Duplicates
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={onOpenMergeModal}
+                disabled={!onOpenMergeModal || isPulling}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 hover:text-cyan-300 rounded-xl text-sm font-bold transition-all border border-cyan-500/20 disabled:opacity-50"
+              >
+                <Merge size={16} />
+                Smart Merge Duplicates
+              </button>
+              <button
+                onClick={onOpenReorganizeModal}
+                disabled={!onOpenReorganizeModal || isPulling}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 hover:text-purple-300 rounded-xl text-sm font-bold transition-all border border-purple-500/20 disabled:opacity-50"
+              >
+                <Sparkles size={16} />
+                Smart Reorganize
+              </button>
+            </div>
           </div>
         </div>
 

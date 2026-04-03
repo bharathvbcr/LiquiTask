@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
-import type { AutoOrganizeChange, AutoOrganizeConfig, AutoOrganizeResult, Task } from "../../types";
+import type { AutoOrganizeConfig, AutoOrganizeResult, Task } from "../../types";
 import { aiService } from "../services/aiService";
 import { autoOrganizeService } from "../services/autoOrganizeService";
 

@@ -51,6 +51,7 @@ interface SettingsModalProps {
   onUpdateGrouping: (g: GroupingOption) => void;
   addToast: (m: string, t: ToastType) => void;
   onOpenMergeModal?: () => void;
+  onOpenReorganizeModal?: () => void;
   onBulkCreateTasks?: (tasks: Partial<Task>[]) => void;
   showSubWorkspaceTasks: boolean;
   onUpdateShowSubWorkspaceTasks?: (s: boolean) => void;
@@ -72,6 +73,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   showSubWorkspaceTasks = false,
   onUpdateShowSubWorkspaceTasks,
   onOpenMergeModal,
+  onOpenReorganizeModal,
 }) => {
   const [activeTab, setActiveTab] = useState('general');
   const [localGrouping, setLocalGrouping] = useState<GroupingOption>(grouping);
@@ -82,7 +84,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   useEffect(() => {
     setLocalPriorities(appData.priorities || []);
-  }, [appData.priorities, isOpen]);
+  }, [appData.priorities]);
   const [localCustomFields, _setLocalCustomFields] = useState<CustomFieldDefinition[]>([]);
   const [importText, setImportText] = useState('');
   const [importError, setImportError] = useState('');
@@ -296,7 +298,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           )}
           {activeTab === 'ai' && (
-            <AiSettings addToast={addToast} onOpenMergeModal={onOpenMergeModal} />
+            <AiSettings
+              addToast={addToast}
+              onOpenMergeModal={onOpenMergeModal}
+              onOpenReorganizeModal={onOpenReorganizeModal}
+            />
           )}
         </div>
       </div>

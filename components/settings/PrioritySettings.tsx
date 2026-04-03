@@ -9,49 +9,48 @@ import {
   Clock,
   Flag,
   Flame,
-  GripVertical,
   Minus,
   Plus,
   Shield,
   Star,
   Trash2,
-  X,
   Zap,
-} from 'lucide-react';
-import React, { useState } from 'react';
-import type { PriorityDefinition } from '../../types';
+} from "lucide-react";
+import type React from "react";
+import { useState } from "react";
+import type { PriorityDefinition } from "../../types";
 
 const AVAILABLE_ICONS = [
-  { key: 'flame', icon: Flame, label: 'Flame' },
-  { key: 'clock', icon: Clock, label: 'Clock' },
-  { key: 'arrow-up', icon: ArrowUp, label: 'Arrow Up' },
-  { key: 'arrow-down', icon: ArrowDown, label: 'Arrow Down' },
-  { key: 'zap', icon: Zap, label: 'Zap' },
-  { key: 'star', icon: Star, label: 'Star' },
-  { key: 'shield', icon: Shield, label: 'Shield' },
-  { key: 'flag', icon: Flag, label: 'Flag' },
-  { key: 'alert-triangle', icon: AlertTriangle, label: 'Warning' },
-  { key: 'alert-circle', icon: AlertCircle, label: 'Info' },
-  { key: 'minus', icon: Minus, label: 'Minus' },
+  { key: "flame", icon: Flame, label: "Flame" },
+  { key: "clock", icon: Clock, label: "Clock" },
+  { key: "arrow-up", icon: ArrowUp, label: "Arrow Up" },
+  { key: "arrow-down", icon: ArrowDown, label: "Arrow Down" },
+  { key: "zap", icon: Zap, label: "Zap" },
+  { key: "star", icon: Star, label: "Star" },
+  { key: "shield", icon: Shield, label: "Shield" },
+  { key: "flag", icon: Flag, label: "Flag" },
+  { key: "alert-triangle", icon: AlertTriangle, label: "Warning" },
+  { key: "alert-circle", icon: AlertCircle, label: "Info" },
+  { key: "minus", icon: Minus, label: "Minus" },
 ];
 
 const PRESET_COLORS = [
-  '#ef4444',
-  '#f97316',
-  '#eab308',
-  '#22c55e',
-  '#10b981',
-  '#06b6d4',
-  '#3b82f6',
-  '#8b5cf6',
-  '#ec4899',
-  '#64748b',
+  "#ef4444",
+  "#f97316",
+  "#eab308",
+  "#22c55e",
+  "#10b981",
+  "#06b6d4",
+  "#3b82f6",
+  "#8b5cf6",
+  "#ec4899",
+  "#64748b",
 ];
 
 interface PrioritySettingsProps {
   priorities: PriorityDefinition[];
   onUpdatePriorities: (priorities: PriorityDefinition[]) => void;
-  addToast: (message: string, type: 'success' | 'error' | 'info') => void;
+  addToast: (message: string, type: "success" | "error" | "info") => void;
 }
 
 export const PrioritySettings: React.FC<PrioritySettingsProps> = ({
@@ -60,7 +59,7 @@ export const PrioritySettings: React.FC<PrioritySettingsProps> = ({
   addToast,
 }) => {
   const [localPriorities, setLocalPriorities] = useState<PriorityDefinition[]>(
-    priorities.length > 0 ? priorities : getDefaultPriorities()
+    priorities.length > 0 ? priorities : getDefaultPriorities(),
   );
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showIconPicker, setShowIconPicker] = useState<string | null>(null);
@@ -68,25 +67,25 @@ export const PrioritySettings: React.FC<PrioritySettingsProps> = ({
   const handleAddPriority = () => {
     const newPriority: PriorityDefinition = {
       id: `priority_${Date.now()}`,
-      label: 'New Priority',
-      color: '#64748b',
+      label: "New Priority",
+      color: "#64748b",
       level: localPriorities.length + 1,
-      icon: 'flag',
+      icon: "flag",
     };
     setLocalPriorities([...localPriorities, newPriority]);
     setEditingId(newPriority.id);
   };
 
   const handleUpdatePriority = (id: string, updates: Partial<PriorityDefinition>) => {
-    setLocalPriorities(localPriorities.map(p => (p.id === id ? { ...p, ...updates } : p)));
+    setLocalPriorities(localPriorities.map((p) => (p.id === id ? { ...p, ...updates } : p)));
   };
 
   const handleDeletePriority = (id: string) => {
     if (localPriorities.length <= 1) {
-      addToast('At least one priority is required', 'error');
+      addToast("At least one priority is required", "error");
       return;
     }
-    setLocalPriorities(localPriorities.filter(p => p.id !== id));
+    setLocalPriorities(localPriorities.filter((p) => p.id !== id));
     if (editingId === id) setEditingId(null);
   };
 
@@ -105,19 +104,21 @@ export const PrioritySettings: React.FC<PrioritySettingsProps> = ({
   };
 
   const handleSave = () => {
-    const valid = localPriorities.filter(p => p.label.trim() && /^#[0-9A-Fa-f]{6}$/.test(p.color));
+    const valid = localPriorities.filter(
+      (p) => p.label.trim() && /^#[0-9A-Fa-f]{6}$/.test(p.color),
+    );
     if (valid.length === 0) {
-      addToast('At least one valid priority is required', 'error');
+      addToast("At least one valid priority is required", "error");
       return;
     }
     onUpdatePriorities(valid.map((p, i) => ({ ...p, level: i + 1 })));
-    addToast(`Saved ${valid.length} prioritie${valid.length > 1 ? 's' : ''}`, 'success');
+    addToast(`Saved ${valid.length} prioritie${valid.length > 1 ? "s" : ""}`, "success");
   };
 
   const handleReset = () => {
     setLocalPriorities(getDefaultPriorities());
     setEditingId(null);
-    addToast('Reset to default priorities', 'info');
+    addToast("Reset to default priorities", "info");
   };
 
   return (
@@ -159,7 +160,7 @@ export const PrioritySettings: React.FC<PrioritySettingsProps> = ({
             isLast={index === localPriorities.length - 1}
             onEdit={() => setEditingId(editingId === priority.id ? null : priority.id)}
             onSave={() => setEditingId(null)}
-            onUpdate={updates => handleUpdatePriority(priority.id, updates)}
+            onUpdate={(updates) => handleUpdatePriority(priority.id, updates)}
             onDelete={() => handleDeletePriority(priority.id)}
             onMoveUp={() => handleMoveUp(index)}
             onMoveDown={() => handleMoveDown(index)}
@@ -172,7 +173,7 @@ export const PrioritySettings: React.FC<PrioritySettingsProps> = ({
 
       <div className="flex items-center justify-between pt-4 border-t border-white/10">
         <p className="text-xs text-slate-500">
-          {localPriorities.length} priorit{localPriorities.length === 1 ? 'y' : 'ies'} defined
+          {localPriorities.length} priorit{localPriorities.length === 1 ? "y" : "ies"} defined
         </p>
         <button
           onClick={handleSave}
@@ -216,12 +217,12 @@ const PriorityRow: React.FC<PriorityRowProps> = ({
   onMoveDown,
   onToggleIconPicker,
 }) => {
-  const IconComponent = AVAILABLE_ICONS.find(i => i.key === priority.icon)?.icon || Flag;
+  const IconComponent = AVAILABLE_ICONS.find((i) => i.key === priority.icon)?.icon || Flag;
 
   return (
     <div
       className="group relative bg-white/5 border border-white/10 rounded-xl overflow-hidden hover:border-white/20 transition-all"
-      style={{ borderLeftWidth: '3px', borderLeftColor: priority.color }}
+      style={{ borderLeftWidth: "3px", borderLeftColor: priority.color }}
     >
       <div className="flex items-center gap-3 p-4">
         <div className="flex flex-col gap-0.5 text-slate-600">
@@ -259,7 +260,7 @@ const PriorityRow: React.FC<PriorityRowProps> = ({
               <input
                 type="text"
                 value={priority.label}
-                onChange={e => onUpdate({ label: e.target.value })}
+                onChange={(e) => onUpdate({ label: e.target.value })}
                 className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:border-red-500/50 focus:outline-none"
                 placeholder="Priority name"
               />
@@ -277,16 +278,16 @@ const PriorityRow: React.FC<PriorityRowProps> = ({
                 <input
                   type="color"
                   value={priority.color}
-                  onChange={e => onUpdate({ color: e.target.value })}
+                  onChange={(e) => onUpdate({ color: e.target.value })}
                   className="w-8 h-8 rounded cursor-pointer bg-transparent border-0"
                 />
                 <div className="flex gap-1 flex-wrap">
-                  {PRESET_COLORS.map(color => (
+                  {PRESET_COLORS.map((color) => (
                     <button
                       key={color}
                       onClick={() => onUpdate({ color })}
                       className={`w-5 h-5 rounded-full border-2 transition-transform hover:scale-110 ${
-                        priority.color === color ? 'border-white scale-110' : 'border-transparent'
+                        priority.color === color ? "border-white scale-110" : "border-transparent"
                       }`}
                       style={{ backgroundColor: color }}
                       title={color}
@@ -320,7 +321,7 @@ const PriorityRow: React.FC<PriorityRowProps> = ({
                 </button>
                 {isIconPickerOpen && (
                   <IconPicker
-                    onSelect={icon => {
+                    onSelect={(icon) => {
                       onUpdate({ icon });
                       onToggleIconPicker();
                     }}
@@ -328,7 +329,7 @@ const PriorityRow: React.FC<PriorityRowProps> = ({
                 )}
               </div>
             ) : (
-              <span className="text-xs text-slate-400">{priority.icon || 'flag'}</span>
+              <span className="text-xs text-slate-400">{priority.icon || "flag"}</span>
             )}
           </div>
         </div>
@@ -386,8 +387,8 @@ const IconPicker: React.FC<IconPickerProps> = ({ onSelect }) => (
 
 function getDefaultPriorities(): PriorityDefinition[] {
   return [
-    { id: 'high', label: 'High', color: '#ef4444', level: 1, icon: 'flame' },
-    { id: 'medium', label: 'Medium', color: '#eab308', level: 2, icon: 'clock' },
-    { id: 'low', label: 'Low', color: '#10b981', level: 3, icon: 'arrow-down' },
+    { id: "high", label: "High", color: "#ef4444", level: 1, icon: "flame" },
+    { id: "medium", label: "Medium", color: "#eab308", level: 2, icon: "clock" },
+    { id: "low", label: "Low", color: "#10b981", level: 3, icon: "arrow-down" },
   ];
 }

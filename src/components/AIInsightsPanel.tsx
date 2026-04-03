@@ -22,7 +22,7 @@ interface AIInsightsPanelProps {
   onClose: () => void;
 }
 
-const iconMap = {
+const _iconMap = {
   productivity: TrendingUp,
   bottleneck: AlertTriangle,
   "estimate-accuracy": Clock,

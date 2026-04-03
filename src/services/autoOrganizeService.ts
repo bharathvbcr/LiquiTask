@@ -119,7 +119,7 @@ class AutoOrganizeService {
         .filter((w) => w.length > 2);
       for (const word of words) {
         if (!titleIndex.has(word)) titleIndex.set(word, []);
-        titleIndex.get(word)!.push(task.id);
+        titleIndex.get(word)?.push(task.id);
       }
     }
 

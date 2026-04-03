@@ -139,7 +139,7 @@ class AISummaryService {
         );
       if (completedThisPeriod.length > 0)
         recommendations.push(
-          "Great progress! You completed " + completedThisPeriod.length + " task(s) this period.",
+          `Great progress! You completed ${completedThisPeriod.length} task(s) this period.`,
         );
       if (recommendations.length === 0)
         recommendations.push("All tasks are on track. Keep up the good work!");

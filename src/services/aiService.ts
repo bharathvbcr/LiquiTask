@@ -55,25 +55,6 @@ class GeminiProvider implements AIProvider {
     return { genAI: new GoogleGenerativeAI(this.config.geminiApiKey), SchemaType };
   }
 
-  private getSchema(): any {
-    return {
-      type: 4,
-      items: {
-        type: 3,
-        properties: {
-          title: { type: 5 },
-          summary: { type: 5 },
-          priority: { type: 5 },
-          dueDate: { type: 5 },
-          tags: { type: 4, items: { type: 5 } },
-          timeEstimate: { type: 2 },
-          subtasks: { type: 4, items: { type: 5 } },
-        },
-        required: ["title", "summary", "priority", "tags", "timeEstimate"],
-      },
-    };
-  }
-
   async extractTasks(input: string, context: AIContext): Promise<AITaskSchema[]> {
     const { genAI } = await this.getGenAI();
     const modelName = this.config.geminiModel || DEFAULT_GEMINI_MODEL;

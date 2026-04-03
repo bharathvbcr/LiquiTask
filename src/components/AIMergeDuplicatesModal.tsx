@@ -1,4 +1,4 @@
-import { AlertTriangle, Brain, CheckCircle2, Eye, Loader2, Merge, Trash2, X } from "lucide-react";
+import { AlertTriangle, Brain, CheckCircle2, Loader2, Merge } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 import { ModalWrapper } from "../../components/ModalWrapper";
@@ -276,7 +276,7 @@ const DuplicateGroupCard: React.FC<DuplicateGroupCardProps> = ({
       )}
 
       <div className="space-y-2">
-        {group.tasks.map((task, index) => (
+        {group.tasks.map((task, _index) => (
           <div key={task.id} className="flex items-center gap-3 p-2 bg-slate-800/50 rounded-lg">
             <div
               className={`w-2 h-2 rounded-full ${

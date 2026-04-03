@@ -29,14 +29,14 @@ import {
   User,
   Wand2,
   X,
-} from 'lucide-react';
-import type React from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { Input } from '../src/components/common/Input';
-import { aiService } from '../src/services/aiService';
-import { getSafeExternalUrl } from '../src/utils/safeUrl';
+} from "lucide-react";
+import type React from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { Input } from "../src/components/common/Input";
+import { aiService } from "../src/services/aiService";
+import { getSafeExternalUrl } from "../src/utils/safeUrl";
 import type {
   AIContext,
   AITaskSchema,
@@ -48,8 +48,8 @@ import type {
   Subtask,
   Task,
   TaskLink,
-} from '../types';
-import { ModalWrapper } from './ModalWrapper';
+} from "../types";
+import { ModalWrapper } from "./ModalWrapper";
 
 const EMPTY_PRIORITIES: PriorityDefinition[] = [];
 const EMPTY_CUSTOM_FIELDS: CustomFieldDefinition[] = [];
@@ -97,43 +97,43 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   },
   addToast = () => {},
 }) => {
-  const [activeTab, setActiveTab] = useState<'details' | 'activity'>('details');
+  const [activeTab, setActiveTab] = useState<"details" | "activity">("details");
   const [formData, setFormData] = useState({
-    title: '',
-    subtitle: '',
-    summary: '',
-    assignee: '',
-    priority: '',
-    dueDate: '',
-    status: '',
+    title: "",
+    subtitle: "",
+    summary: "",
+    assignee: "",
+    priority: "",
+    dueDate: "",
+    status: "",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
-  const [newSubtask, setNewSubtask] = useState('');
+  const [newSubtask, setNewSubtask] = useState("");
 
   const [attachments, setAttachments] = useState<Attachment[]>([]);
-  const [newLinkUrl, setNewLinkUrl] = useState('');
-  const [newLinkName, setNewLinkName] = useState('');
+  const [newLinkUrl, setNewLinkUrl] = useState("");
+  const [newLinkName, setNewLinkName] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [viewMode, setViewMode] = useState<'write' | 'preview'>('write');
+  const [viewMode, setViewMode] = useState<"write" | "preview">("write");
 
   // Custom Fields State
   const [customValues, setCustomValues] = useState<Record<string, string | number>>({});
 
   // Links State
   const [links, setLinks] = useState<TaskLink[]>([]);
-  const [newLinkTarget, setNewLinkTarget] = useState<string>('');
-  const [newLinkType, setNewLinkType] = useState<string>('relates-to');
+  const [newLinkTarget, setNewLinkTarget] = useState<string>("");
+  const [newLinkType, setNewLinkType] = useState<string>("relates-to");
 
   // AI State
-  const [aiInput, setAiInput] = useState('');
+  const [aiInput, setAiInput] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [isBreakingDown, setIsBreakingDown] = useState(false);
-  const [aiError, setAiError] = useState('');
+  const [aiError, setAiError] = useState("");
   const [localProjectId, setLocalProjectId] = useState(projectId);
   const [extractedTasks, setExtractedTasks] = useState<AITaskSchema[] | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
@@ -153,24 +153,24 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
 
   useEffect(() => {
     // Determine default priority ID
-    const defaultPrio = priorities.length > 0 ? priorities[0].id : '';
-    const defaultStatus = columns.length > 0 ? columns[0].id : 'Pending';
+    const defaultPrio = priorities.length > 0 ? priorities[0].id : "";
+    const defaultStatus = columns.length > 0 ? columns[0].id : "Pending";
 
     if (initialData) {
-      let dateStr = '';
+      let dateStr = "";
       if (initialData.dueDate) {
         const d = new Date(initialData.dueDate);
         const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
         dateStr = `${year}-${month}-${day}`;
       }
 
       setFormData({
         title: initialData.title,
-        subtitle: initialData.subtitle ?? '',
-        summary: initialData.summary ?? '',
-        assignee: initialData.assignee ?? '',
+        subtitle: initialData.subtitle ?? "",
+        summary: initialData.summary ?? "",
+        assignee: initialData.assignee ?? "",
         priority: initialData.priority || defaultPrio,
         dueDate: dateStr,
         status: initialData.status || defaultStatus,
@@ -182,12 +182,12 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
       setLinks(initialData.links || []);
     } else {
       setFormData({
-        title: '',
-        subtitle: 'General',
-        summary: '',
-        assignee: '',
+        title: "",
+        subtitle: "General",
+        summary: "",
+        assignee: "",
         priority: defaultPrio,
-        dueDate: '',
+        dueDate: "",
         status: defaultStatus,
       });
       setSubtasks([]);
@@ -197,9 +197,9 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
     }
     setErrors({});
     if (isOpen) {
-      setActiveTab('details');
-      setAiInput('');
-      setAiError('');
+      setActiveTab("details");
+      setAiInput("");
+      setAiError("");
       setExtractedTasks(null);
     }
   }, [initialData, isOpen, priorities, columns]);
@@ -213,26 +213,26 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
       completed: false,
     };
     setSubtasks([...subtasks, item]);
-    setNewSubtask('');
+    setNewSubtask("");
   };
 
   const handleUpdateSubtask = (id: string, title: string) => {
-    setSubtasks(subtasks.map(s => (s.id === id ? { ...s, title } : s)));
+    setSubtasks(subtasks.map((s) => (s.id === id ? { ...s, title } : s)));
   };
 
   const handleRemoveSubtask = (id: string) => {
-    setSubtasks(subtasks.filter(s => s.id !== id));
+    setSubtasks(subtasks.filter((s) => s.id !== id));
   };
 
   const toggleSubtask = (id: string) => {
-    setSubtasks(subtasks.map(s => (s.id === id ? { ...s, completed: !s.completed } : s)));
+    setSubtasks(subtasks.map((s) => (s.id === id ? { ...s, completed: !s.completed } : s)));
   };
 
   // AI Handlers
   const handleSuggestMetadata = async () => {
     if (!formData.title.trim()) return;
     setIsSuggesting(true);
-    setAiError('');
+    setAiError("");
     try {
       const context: AIContext = {
         activeProjectId: localProjectId,
@@ -240,22 +240,22 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
         priorities,
       };
       const suggestion = await aiService.refineTaskDraft(
-        'Suggest metadata like priority and tags based on the title and summary.',
+        "Suggest metadata like priority and tags based on the title and summary.",
         { title: formData.title, summary: formData.summary },
-        context
+        context,
       );
 
       if (suggestion.priority) {
         const matched = priorities.find(
-          p =>
+          (p) =>
             p.id.toLowerCase() === suggestion.priority?.toLowerCase() ||
-            p.label.toLowerCase() === suggestion.priority?.toLowerCase()
+            p.label.toLowerCase() === suggestion.priority?.toLowerCase(),
         );
-        if (matched) setFormData(f => ({ ...f, priority: matched.id }));
+        if (matched) setFormData((f) => ({ ...f, priority: matched.id }));
       }
 
       if (suggestion.tags && suggestion.tags.length > 0) {
-        setFormData(f => ({ ...f, subtitle: suggestion.tags?.[0] }));
+        setFormData((f) => ({ ...f, subtitle: suggestion.tags?.[0] }));
       }
     } catch (e) {
       setAiError((e as Error).message);
@@ -266,10 +266,10 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
 
   const handleAiRefine = async (customPrompt?: string) => {
     const prompt =
-      customPrompt || aiInput || 'Refine this task draft to be clearer and more professional.';
+      customPrompt || aiInput || "Refine this task draft to be clearer and more professional.";
     if (!formData.title.trim()) return;
     setIsGenerating(true);
-    setAiError('');
+    setAiError("");
     try {
       const context: AIContext = {
         activeProjectId: localProjectId,
@@ -285,16 +285,16 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
           dueDate: formData.dueDate ? new Date(formData.dueDate) : undefined,
           subtitle: formData.subtitle,
         } as any,
-        context
+        context,
       );
 
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         title: refined.title || prev.title,
         summary: refined.summary || prev.summary,
         priority: refined.priority || prev.priority,
         subtitle: refined.tags && refined.tags.length > 0 ? refined.tags[0] : prev.subtitle,
-        dueDate: refined.dueDate ? refined.dueDate.split('T')[0] : prev.dueDate,
+        dueDate: refined.dueDate ? refined.dueDate.split("T")[0] : prev.dueDate,
       }));
 
       if (refined.subtasks && refined.subtasks.length > 0) {
@@ -303,9 +303,9 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
           title: st,
           completed: false,
         }));
-        setSubtasks(prev => [...prev, ...newSubtasks]);
+        setSubtasks((prev) => [...prev, ...newSubtasks]);
       }
-      setAiInput('');
+      setAiInput("");
     } catch (e) {
       setAiError((e as Error).message);
     } finally {
@@ -316,7 +316,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   const handleExtractTasks = async () => {
     if (!aiInput.trim()) return;
     setIsExtracting(true);
-    setAiError('');
+    setAiError("");
     setExtractedTasks(null);
     try {
       const context: AIContext = {
@@ -335,7 +335,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
 
   const handleCreateExtractedTasks = () => {
     if (!extractedTasks) return;
-    const newTasks = extractedTasks.map(et => {
+    const newTasks = extractedTasks.map((et) => {
       let parsedDate: Date | undefined;
       if (et.dueDate) {
         parsedDate = new Date(et.dueDate);
@@ -345,10 +345,10 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
         title: et.title,
         summary: et.summary,
         priority: et.priority,
-        subtitle: et.tags && et.tags.length > 0 ? et.tags[0] : 'General',
+        subtitle: et.tags && et.tags.length > 0 ? et.tags[0] : "General",
         dueDate: parsedDate,
         projectId: localProjectId,
-        status: columns[0]?.id || 'Pending',
+        status: columns[0]?.id || "Pending",
         subtasks:
           et.subtasks?.map((st, i) => ({
             id: `st-${Date.now()}-${i}`,
@@ -363,7 +363,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
     if (onBulkCreateTasks) {
       onBulkCreateTasks(newTasks);
     } else {
-      newTasks.forEach(t => onSubmit(t));
+      newTasks.forEach((t) => onSubmit(t));
     }
     onClose();
   };
@@ -380,7 +380,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
       }));
       setSubtasks([...subtasks, ...newItems]);
     } catch (e) {
-      console.error('AI Breakdown error:', e);
+      console.error("AI Breakdown error:", e);
     } finally {
       setIsBreakingDown(false);
     }
@@ -388,7 +388,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
 
   const handleSmartAutofill = () => {
     const projectTasks = availableTasks.filter(
-      t => t.projectId === localProjectId && t.completedAt
+      (t) => t.projectId === localProjectId && t.completedAt,
     );
     if (projectTasks.length < 2) return;
 
@@ -396,8 +396,8 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
     const priorityCounts: Record<string, number> = {};
     const assigneeCounts: Record<string, number> = {};
 
-    projectTasks.forEach(t => {
-      t.tags.forEach(tag => {
+    projectTasks.forEach((t) => {
+      t.tags.forEach((tag) => {
         tagCounts[tag] = (tagCounts[tag] || 0) + 1;
       });
       if (t.priority) priorityCounts[t.priority] = (priorityCounts[t.priority] || 0) + 1;
@@ -408,8 +408,8 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
       .sort((a, b) => b[1] - a[1])
       .slice(0, 3)
       .map(([tag]) => tag);
-    const topPriority = Object.entries(priorityCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || '';
-    const topAssignee = Object.entries(assigneeCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+    const topPriority = Object.entries(priorityCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
+    const topAssignee = Object.entries(assigneeCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
 
     setAutoFillSuggestions({
       tags: topTags,
@@ -421,13 +421,13 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   const applyAutoFill = () => {
     if (!autoFillSuggestions) return;
     if (autoFillSuggestions.tags.length > 0) {
-      setFormData(f => ({ ...f, subtitle: autoFillSuggestions.tags[0] }));
+      setFormData((f) => ({ ...f, subtitle: autoFillSuggestions.tags[0] }));
     }
     if (autoFillSuggestions.priority) {
-      setFormData(f => ({ ...f, priority: autoFillSuggestions.priority }));
+      setFormData((f) => ({ ...f, priority: autoFillSuggestions.priority }));
     }
     if (autoFillSuggestions.assignee) {
-      setFormData(f => ({ ...f, assignee: autoFillSuggestions.assignee }));
+      setFormData((f) => ({ ...f, assignee: autoFillSuggestions.assignee }));
     }
     setAutoFillSuggestions(null);
   };
@@ -441,11 +441,11 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
       id: `att-${Date.now()}`,
       name: newLinkName.trim() || safeUrl,
       url: safeUrl,
-      type: 'link',
+      type: "link",
     };
     setAttachments([...attachments, item]);
-    setNewLinkUrl('');
-    setNewLinkName('');
+    setNewLinkUrl("");
+    setNewLinkName("");
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -456,39 +456,39 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
         id: `att-${Date.now()}`,
         name: file.name,
         url: objectUrl,
-        type: 'file',
+        type: "file",
       };
       setAttachments([...attachments, item]);
     }
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleRemoveAttachment = (id: string) => {
-    setAttachments(attachments.filter(a => a.id !== id));
+    setAttachments(attachments.filter((a) => a.id !== id));
   };
 
   // Task Link Handlers
   const handleAddTaskLink = () => {
     if (!newLinkTarget) return;
-    if (links.some(l => l.targetTaskId === newLinkTarget)) return;
+    if (links.some((l) => l.targetTaskId === newLinkTarget)) return;
 
     const newLink: TaskLink = {
       targetTaskId: newLinkTarget,
-      type: newLinkType as TaskLink['type'],
+      type: newLinkType as TaskLink["type"],
     };
     setLinks([...links, newLink]);
-    setNewLinkTarget('');
+    setNewLinkTarget("");
   };
 
   const handleRemoveTaskLink = (targetId: string) => {
-    setLinks(links.filter(l => l.targetTaskId !== targetId));
+    setLinks(links.filter((l) => l.targetTaskId !== targetId));
   };
 
   const submitTask = useCallback(async () => {
     // Validation
     const newErrors: Record<string, string> = {};
     if (!formData.title.trim()) {
-      newErrors.title = 'Task title is required';
+      newErrors.title = "Task title is required";
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -498,7 +498,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
 
     let parsedDate: Date | undefined;
     if (formData.dueDate) {
-      const [y, m, d] = formData.dueDate.split('-').map(Number);
+      const [y, m, d] = formData.dueDate.split("-").map(Number);
       parsedDate = new Date(y, m - 1, d);
     }
 
@@ -506,7 +506,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
       ...initialData,
       ...formData,
       projectId: localProjectId,
-      status: formData.status || 'Pending',
+      status: formData.status || "Pending",
       createdAt: initialData ? initialData.createdAt : new Date(),
       dueDate: parsedDate,
       subtasks: subtasks,
@@ -530,14 +530,14 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
           const suggestions = await aiService.suggestPriorities([taskData], context);
           if (suggestions.length > 0 && suggestions[0].confidence > 0.6) {
             const suggestedPriorityId = suggestions[0].suggestedValue;
-            const priorityDef = priorities.find(p => p.id === suggestedPriorityId);
+            const priorityDef = priorities.find((p) => p.id === suggestedPriorityId);
             if (priorityDef) {
               taskData.priority = suggestedPriorityId;
-              addToast(`AI suggested priority: ${priorityDef.label}`, 'info');
+              addToast(`AI suggested priority: ${priorityDef.label}`, "info");
             }
           }
         } catch (e) {
-          console.warn('AI priority suggestion failed:', e);
+          console.warn("AI priority suggestion failed:", e);
         }
       }
 
@@ -551,15 +551,15 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
           };
           const metadata = await aiService.suggestMetadata(
             formData.title,
-            formData.summary || '',
-            context
+            formData.summary || "",
+            context,
           );
           if (metadata.tags && metadata.tags.length > 0) {
             taskData.tags = [...(taskData.tags || []), ...metadata.tags];
-            addToast(`AI suggested tags: ${metadata.tags.join(', ')}`, 'info');
+            addToast(`AI suggested tags: ${metadata.tags.join(", ")}`, "info");
           }
         } catch (e) {
-          console.warn('AI tag suggestion failed:', e);
+          console.warn("AI tag suggestion failed:", e);
         }
       }
 
@@ -574,18 +574,18 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
           const duplicates = await aiService.detectDuplicates(
             [
               { title: formData.title, summary: formData.summary, tags: formData.tags },
-              ...availableTasks.map(t => ({
+              ...availableTasks.map((t) => ({
                 title: t.title,
                 summary: t.summary,
                 tags: t.tags,
                 id: t.id,
               })),
             ],
-            context
+            context,
           );
 
           if (duplicates.length > 0 && duplicates[0].confidence > 0.7) {
-            const duplicate = availableTasks.find(t => t.id === duplicates[0].task2?.id);
+            const duplicate = availableTasks.find((t) => t.id === duplicates[0].task2?.id);
             if (duplicate) {
               setDuplicateWarning({
                 task: duplicate,
@@ -594,7 +594,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
             }
           }
         } catch (e) {
-          console.warn('AI duplicate detection failed:', e);
+          console.warn("AI duplicate detection failed:", e);
         }
       }
 
@@ -608,13 +608,13 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
           };
           const redundancy = await aiService.analyzeRedundancy(
             [...availableTasks, taskData],
-            context
+            context,
           );
           if (redundancy && redundancy.confidence > 0.7) {
-            addToast(`Potential redundancy detected: ${redundancy.reasoning}`, 'warning');
+            addToast(`Potential redundancy detected: ${redundancy.reasoning}`, "warning");
           }
         } catch (e) {
-          console.warn('AI redundancy check failed:', e);
+          console.warn("AI redundancy check failed:", e);
         }
       }
     }
@@ -647,22 +647,22 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
         e.preventDefault();
         submitTask();
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, submitTask]);
 
   const getLinkIcon = (type: string) => {
     switch (type) {
-      case 'blocked-by':
+      case "blocked-by":
         return <Lock size={12} />;
-      case 'blocks':
+      case "blocks":
         return <Shield size={12} />;
-      case 'duplicates':
+      case "duplicates":
         return <Copy size={12} />;
       default:
         return <ArrowRightLeft size={12} />;
@@ -671,19 +671,19 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
 
   const quickPrompts = [
     {
-      label: 'Summarize',
+      label: "Summarize",
       icon: <AlignLeft size={10} />,
-      prompt: 'Summarize this task clearly.',
+      prompt: "Summarize this task clearly.",
     },
     {
-      label: 'Technical',
+      label: "Technical",
       icon: <Layers size={10} />,
-      prompt: 'Refine this into a technical task with implementation steps.',
+      prompt: "Refine this into a technical task with implementation steps.",
     },
     {
-      label: 'Formal',
+      label: "Formal",
       icon: <User size={10} />,
-      prompt: 'Rewrite this description in a formal, professional tone.',
+      prompt: "Rewrite this description in a formal, professional tone.",
     },
   ];
 
@@ -691,26 +691,26 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
     <ModalWrapper
       isOpen={isOpen}
       onClose={onClose}
-      title={initialData ? 'Edit Task' : 'New Task'}
+      title={initialData ? "Edit Task" : "New Task"}
       icon={<Layers size={20} />}
       size="2xl"
     >
       <div className="flex gap-4 mb-6 border-b border-white/10">
         <button
-          onClick={() => setActiveTab('details')}
-          className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'details' ? 'border-red-500 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
+          onClick={() => setActiveTab("details")}
+          className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === "details" ? "border-red-500 text-white" : "border-transparent text-slate-500 hover:text-slate-300"}`}
         >
           <Edit2 size={14} /> Details
         </button>
         <button
-          onClick={() => setActiveTab('activity')}
-          className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'activity' ? 'border-red-500 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'}`}
+          onClick={() => setActiveTab("activity")}
+          className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === "activity" ? "border-red-500 text-white" : "border-transparent text-slate-500 hover:text-slate-300"}`}
         >
           <History size={14} /> Activity
         </button>
       </div>
 
-      {activeTab === 'details' && (
+      {activeTab === "details" && (
         <div className="flex flex-col gap-6">
           {/* AI Quick Add */}
           <div className="bg-cyan-500/10 border border-cyan-500/20 rounded-xl p-4 space-y-3">
@@ -720,17 +720,17 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
             <div className="flex flex-col gap-2">
               <textarea
                 value={aiInput}
-                onChange={e => setAiInput(e.target.value)}
+                onChange={(e) => setAiInput(e.target.value)}
                 placeholder={
                   initialData
-                    ? 'How should AI refine this task?'
-                    : 'Paste meeting notes or describe tasks...'
+                    ? "How should AI refine this task?"
+                    : "Paste meeting notes or describe tasks..."
                 }
                 className="w-full bg-black/40 border border-cyan-500/20 rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50 min-h-[80px] resize-none"
               />
 
               <div className="flex flex-wrap gap-2 mb-1">
-                {quickPrompts.map(qp => (
+                {quickPrompts.map((qp) => (
                   <button
                     key={qp.label}
                     type="button"
@@ -795,22 +795,22 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                     disabled={!!autoFillSuggestions}
                     className="px-3 py-1 bg-cyan-600/20 hover:bg-cyan-600/30 disabled:opacity-50 text-cyan-400 rounded-md text-[10px] font-bold transition-colors"
                   >
-                    {autoFillSuggestions ? 'Suggestions Ready' : 'Analyze'}
+                    {autoFillSuggestions ? "Suggestions Ready" : "Analyze"}
                   </button>
                 </div>
                 {autoFillSuggestions && (
                   <div className="mt-2 space-y-1.5 animate-in fade-in slide-in-from-top-1">
                     <div className="flex items-center gap-2 text-[10px] text-slate-400">
-                      <Tag size={10} /> Suggested tags:{' '}
-                      {autoFillSuggestions.tags.join(', ') || 'None'}
+                      <Tag size={10} /> Suggested tags:{" "}
+                      {autoFillSuggestions.tags.join(", ") || "None"}
                     </div>
                     <div className="flex items-center gap-2 text-[10px] text-slate-400">
-                      <Flag size={10} /> Suggested priority:{' '}
-                      {autoFillSuggestions.priority || 'None'}
+                      <Flag size={10} /> Suggested priority:{" "}
+                      {autoFillSuggestions.priority || "None"}
                     </div>
                     <div className="flex items-center gap-2 text-[10px] text-slate-400">
-                      <User size={10} /> Suggested assignee:{' '}
-                      {autoFillSuggestions.assignee || 'None'}
+                      <User size={10} /> Suggested assignee:{" "}
+                      {autoFillSuggestions.assignee || "None"}
                     </div>
                     <button
                       type="button"
@@ -897,24 +897,24 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                 required
                 autoFocus
                 value={formData.title}
-                onChange={e => {
+                onChange={(e) => {
                   const newTitle = e.target.value;
                   setFormData({ ...formData, title: newTitle });
-                  if (errors.title) setErrors({ ...errors, title: '' });
+                  if (errors.title) setErrors({ ...errors, title: "" });
                   if (newTitle.trim().length > 3 && !initialData) {
                     const normalize = (t: string) =>
                       t
                         .toLowerCase()
-                        .replace(/[^\w\s]/g, '')
+                        .replace(/[^\w\s]/g, "")
                         .trim();
                     const n1 = normalize(newTitle);
-                    const similar = availableTasks.find(t => {
+                    const similar = availableTasks.find((t) => {
                       const n2 = normalize(t.title);
                       if (n1 === n2) return true;
                       if (n1.includes(n2) || n2.includes(n1)) return true;
                       const w1 = new Set(n1.split(/\s+/));
                       const w2 = new Set(n2.split(/\s+/));
-                      const inter = new Set([...w1].filter(w => w2.has(w)));
+                      const inter = new Set([...w1].filter((w) => w2.has(w)));
                       const union = new Set([...w1, ...w2]);
                       return union.size > 0 && inter.size / union.size > 0.6;
                     });
@@ -957,12 +957,12 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                 <div className="relative">
                   <select
                     value={localProjectId}
-                    onChange={e => setLocalProjectId(e.target.value)}
+                    onChange={(e) => setLocalProjectId(e.target.value)}
                     className="w-full liquid-input rounded-xl px-4 py-3 text-sm appearance-none cursor-pointer"
                     aria-label="Task project"
                     title="Select task project"
                   >
-                    {allProjects.map(p => (
+                    {allProjects.map((p) => (
                       <option key={p.id} value={p.id} className="bg-navy-900 text-slate-200">
                         {p.name}
                       </option>
@@ -995,12 +995,12 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                 <div className="relative">
                   <select
                     value={formData.priority}
-                    onChange={e => setFormData({ ...formData, priority: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
                     className="w-full liquid-input rounded-xl px-4 py-3 text-sm appearance-none cursor-pointer"
                     aria-label="Task priority"
                     title="Select task priority"
                   >
-                    {priorities.map(p => (
+                    {priorities.map((p) => (
                       <option key={p.id} value={p.id} className="bg-navy-900 text-slate-200">
                         {p.label}
                       </option>
@@ -1034,12 +1034,12 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                 <div className="relative">
                   <select
                     value={formData.status}
-                    onChange={e => setFormData({ ...formData, status: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                     className="w-full liquid-input rounded-xl px-4 py-3 text-sm appearance-none cursor-pointer"
                     aria-label="Task status"
                     title="Select task status"
                   >
-                    {columns.map(col => (
+                    {columns.map((col) => (
                       <option key={col.id} value={col.id} className="bg-navy-900 text-slate-200">
                         {col.title}
                       </option>
@@ -1072,7 +1072,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                 <input
                   type="text"
                   value={formData.subtitle}
-                  onChange={e => setFormData({ ...formData, subtitle: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
                   placeholder="e.g., Marketing"
                   className="w-full liquid-input rounded-xl px-4 py-3 text-sm"
                 />
@@ -1085,7 +1085,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                 <input
                   type="text"
                   value={formData.assignee}
-                  onChange={e => setFormData({ ...formData, assignee: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, assignee: e.target.value })}
                   placeholder="e.g., Sarah Smith"
                   className="w-full liquid-input rounded-xl px-4 py-3 text-sm"
                 />
@@ -1098,7 +1098,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                 <input
                   type="date"
                   value={formData.dueDate}
-                  onChange={e => setFormData({ ...formData, dueDate: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
                   className="w-full liquid-input rounded-xl px-4 py-3 text-sm [color-scheme:dark]"
                   aria-label="Task due date"
                   title="Select task due date"
@@ -1113,13 +1113,13 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                   Custom Fields
                 </label>
                 <div className="grid grid-cols-2 gap-6">
-                  {customFields.map(field => (
+                  {customFields.map((field) => (
                     <div key={field.id} className="space-y-2">
                       <label className="text-xs text-slate-500 font-semibold">{field.label}</label>
-                      {field.type === 'dropdown' ? (
+                      {field.type === "dropdown" ? (
                         <select
-                          value={customValues[field.id] || ''}
-                          onChange={e =>
+                          value={customValues[field.id] || ""}
+                          onChange={(e) =>
                             setCustomValues({
                               ...customValues,
                               [field.id]: e.target.value,
@@ -1130,7 +1130,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                           title={`Select ${field.label}`}
                         >
                           <option value="">Select...</option>
-                          {field.options?.map(opt => (
+                          {field.options?.map((opt) => (
                             <option key={opt} value={opt} className="bg-navy-900">
                               {opt}
                             </option>
@@ -1138,9 +1138,9 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                         </select>
                       ) : (
                         <input
-                          type={field.type === 'number' ? 'number' : 'text'}
-                          value={customValues[field.id] || ''}
-                          onChange={e =>
+                          type={field.type === "number" ? "number" : "text"}
+                          value={customValues[field.id] || ""}
+                          onChange={(e) =>
                             setCustomValues({
                               ...customValues,
                               [field.id]: e.target.value,
@@ -1148,10 +1148,10 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                           }
                           className="w-full liquid-input rounded-xl px-4 py-3 text-sm"
                           placeholder={
-                            field.type === 'url'
-                              ? 'https://...'
-                              : field.type === 'number'
-                                ? 'Enter number...'
+                            field.type === "url"
+                              ? "https://..."
+                              : field.type === "number"
+                                ? "Enter number..."
                                 : `Enter ${field.label.toLowerCase()}...`
                           }
                           aria-label={field.label}
@@ -1183,12 +1183,12 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                           priorities,
                         };
                         const refined = await aiService.refineTaskDraft(
-                          'Polish this task description to be professional and clear. Maintain markdown formatting.',
+                          "Polish this task description to be professional and clear. Maintain markdown formatting.",
                           { title: formData.title, summary: formData.summary },
-                          context
+                          context,
                         );
                         if (refined.summary)
-                          setFormData(f => ({
+                          setFormData((f) => ({
                             ...f,
                             summary: refined.summary!,
                           }));
@@ -1211,26 +1211,26 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                   <div className="flex bg-white/5 rounded-lg p-0.5 border border-white/5">
                     <button
                       type="button"
-                      onClick={() => setViewMode('write')}
-                      className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${viewMode === 'write' ? 'bg-red-500/20 text-red-300 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                      onClick={() => setViewMode("write")}
+                      className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${viewMode === "write" ? "bg-red-500/20 text-red-300 shadow-sm" : "text-slate-500 hover:text-slate-300"}`}
                     >
                       <Edit2 size={10} /> Write
                     </button>
                     <button
                       type="button"
-                      onClick={() => setViewMode('preview')}
-                      className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${viewMode === 'preview' ? 'bg-red-500/20 text-red-300 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                      onClick={() => setViewMode("preview")}
+                      className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${viewMode === "preview" ? "bg-red-500/20 text-red-300 shadow-sm" : "text-slate-500 hover:text-slate-300"}`}
                     >
                       <Eye size={10} /> Preview
                     </button>
                   </div>
                 </div>
               </div>
-              {viewMode === 'write' ? (
+              {viewMode === "write" ? (
                 <textarea
                   required
                   value={formData.summary}
-                  onChange={e => setFormData({ ...formData, summary: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
                   placeholder="Describe the task details. Supports Markdown (e.g., **bold**, - list)..."
                   className="w-full h-32 liquid-input rounded-xl px-4 py-3 text-sm resize-none font-mono"
                 />
@@ -1267,7 +1267,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
               <div className="flex gap-2">
                 <select
                   value={newLinkType}
-                  onChange={e => setNewLinkType(e.target.value)}
+                  onChange={(e) => setNewLinkType(e.target.value)}
                   className="w-1/3 liquid-input rounded-xl px-4 py-2.5 text-xs appearance-none"
                   aria-label="Link type"
                   title="Select link type"
@@ -1287,7 +1287,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                 </select>
                 <select
                   value={newLinkTarget}
-                  onChange={e => setNewLinkTarget(e.target.value)}
+                  onChange={(e) => setNewLinkTarget(e.target.value)}
                   className="flex-1 liquid-input rounded-xl px-4 py-2.5 text-xs appearance-none"
                   aria-label="Select task to link"
                   title="Select task to link"
@@ -1296,8 +1296,8 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                     Select Task...
                   </option>
                   {availableTasks
-                    .filter(t => t.id !== initialData?.id)
-                    .map(t => (
+                    .filter((t) => t.id !== initialData?.id)
+                    .map((t) => (
                       <option key={t.id} value={t.id} className="bg-navy-900">
                         [{t.jobId}] {t.title}
                       </option>
@@ -1315,7 +1315,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
               </div>
               <div className="space-y-2 mt-2">
                 {links.map((link, idx) => {
-                  const target = availableTasks.find(t => t.id === link.targetTaskId);
+                  const target = availableTasks.find((t) => t.id === link.targetTaskId);
                   if (!target) return null;
                   return (
                     <div
@@ -1326,17 +1326,17 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                         <span
                           className={`px-2 py-1.5 rounded-lg uppercase font-bold text-[10px] tracking-wide border flex items-center gap-1.5
                                         ${
-                                          link.type === 'blocked-by'
-                                            ? 'bg-red-500/10 text-red-400 border-red-500/20'
-                                            : link.type === 'blocks'
-                                              ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                                              : link.type === 'duplicates'
-                                                ? 'bg-purple-500/10 text-purple-400 border-purple-500/20'
-                                                : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                          link.type === "blocked-by"
+                                            ? "bg-red-500/10 text-red-400 border-red-500/20"
+                                            : link.type === "blocks"
+                                              ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                                              : link.type === "duplicates"
+                                                ? "bg-purple-500/10 text-purple-400 border-purple-500/20"
+                                                : "bg-blue-500/10 text-blue-400 border-blue-500/20"
                                         }`}
                         >
                           {getLinkIcon(link.type)}
-                          {link.type.replace('-', ' ')}
+                          {link.type.replace("-", " ")}
                         </span>
                         <div className="flex flex-col">
                           <span className="text-xs font-mono text-slate-500">{target.jobId}</span>
@@ -1389,8 +1389,8 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                 <input
                   type="text"
                   value={newSubtask}
-                  onChange={e => setNewSubtask(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddSubtask())}
+                  onChange={(e) => setNewSubtask(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddSubtask())}
                   placeholder="Add a subtask..."
                   className="flex-1 liquid-input rounded-xl px-4 py-2.5 text-sm"
                   aria-label="New subtask title"
@@ -1406,7 +1406,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                 </button>
               </div>
               <div className="max-h-32 overflow-y-auto space-y-2 custom-scrollbar pr-2">
-                {subtasks.map(subtask => (
+                {subtasks.map((subtask) => (
                   <div
                     key={subtask.id}
                     className="flex items-center gap-3 p-3 rounded-xl bg-black/20 border border-white/5 group hover:border-white/10 transition-colors"
@@ -1414,22 +1414,22 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                     <button
                       type="button"
                       onClick={() => toggleSubtask(subtask.id)}
-                      className={`flex-shrink-0 w-5 h-5 rounded border flex items-center justify-center transition-all ${subtask.completed ? 'bg-emerald-500/20 border-emerald-500 text-emerald-500' : 'border-slate-600 text-transparent hover:border-slate-400'}`}
+                      className={`flex-shrink-0 w-5 h-5 rounded border flex items-center justify-center transition-all ${subtask.completed ? "bg-emerald-500/20 border-emerald-500 text-emerald-500" : "border-slate-600 text-transparent hover:border-slate-400"}`}
                       aria-label={
                         subtask.completed
                           ? `Mark subtask "${subtask.title}" as incomplete`
                           : `Mark subtask "${subtask.title}" as complete`
                       }
-                      title={subtask.completed ? 'Mark as incomplete' : 'Mark as complete'}
+                      title={subtask.completed ? "Mark as incomplete" : "Mark as complete"}
                     >
                       <Check size={12} aria-hidden="true" />
                     </button>
                     <input
                       type="text"
                       value={subtask.title}
-                      onChange={e => handleUpdateSubtask(subtask.id, e.target.value)}
-                      className={`flex-1 bg-transparent border-none outline-none text-sm font-medium focus:text-white transition-colors ${subtask.completed ? 'text-slate-500 line-through decoration-slate-600' : 'text-slate-300'}`}
-                      onKeyDown={e => e.key === 'Enter' && e.preventDefault()}
+                      onChange={(e) => handleUpdateSubtask(subtask.id, e.target.value)}
+                      className={`flex-1 bg-transparent border-none outline-none text-sm font-medium focus:text-white transition-colors ${subtask.completed ? "text-slate-500 line-through decoration-slate-600" : "text-slate-300"}`}
+                      onKeyDown={(e) => e.key === "Enter" && e.preventDefault()}
                       aria-label={`Edit subtask ${subtask.id}`}
                       placeholder="Subtask title"
                     />
@@ -1457,8 +1457,8 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                   <input
                     type="text"
                     value={newLinkName}
-                    onChange={e => setNewLinkName(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddLink())}
+                    onChange={(e) => setNewLinkName(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddLink())}
                     placeholder="Link Name (Optional)"
                     className="w-1/3 liquid-input rounded-xl px-4 py-2.5 text-sm"
                     aria-label="Link name (optional)"
@@ -1466,8 +1466,8 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                   <input
                     type="text"
                     value={newLinkUrl}
-                    onChange={e => setNewLinkUrl(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddLink())}
+                    onChange={(e) => setNewLinkUrl(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddLink())}
                     placeholder="https://..."
                     className="flex-1 liquid-input rounded-xl px-4 py-2.5 text-sm"
                     aria-label="Link URL"
@@ -1500,26 +1500,26 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                 </div>
               </div>
               <div className="max-h-32 overflow-y-auto space-y-2 custom-scrollbar pr-2">
-                {attachments.map(att => (
+                {attachments.map((att) => (
                   <div
                     key={att.id}
                     className="flex items-center gap-3 p-2.5 rounded-xl bg-black/20 border border-white/5 group hover:border-white/10 transition-colors"
                   >
                     <div className="p-1.5 rounded-lg bg-white/5 text-slate-400">
-                      {att.type === 'file' ? <Paperclip size={14} /> : <LinkIcon size={14} />}
+                      {att.type === "file" ? <Paperclip size={14} /> : <LinkIcon size={14} />}
                     </div>
 
                     {(() => {
-                      const safeUrl = att.type === 'file' ? att.url : getSafeExternalUrl(att.url);
+                      const safeUrl = att.type === "file" ? att.url : getSafeExternalUrl(att.url);
                       const isSafe = Boolean(safeUrl);
                       return (
                         <a
-                          href={safeUrl ?? '#'}
+                          href={safeUrl ?? "#"}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className={`flex-1 text-sm font-medium truncate underline decoration-blue-500/30 hover:decoration-blue-400 ${isSafe ? 'text-blue-400 hover:text-blue-300' : 'text-slate-500 cursor-not-allowed decoration-slate-500/30'}`}
-                          onClick={e => !isSafe && e.preventDefault()}
-                          title={safeUrl ?? 'Unsafe URL blocked'}
+                          className={`flex-1 text-sm font-medium truncate underline decoration-blue-500/30 hover:decoration-blue-400 ${isSafe ? "text-blue-400 hover:text-blue-300" : "text-slate-500 cursor-not-allowed decoration-slate-500/30"}`}
+                          onClick={(e) => !isSafe && e.preventDefault()}
+                          title={safeUrl ?? "Unsafe URL blocked"}
                         >
                           {att.name}
                         </a>
@@ -1551,14 +1551,14 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                 type="submit"
                 className="bg-gradient-to-r from-red-600 to-red-800 hover:from-red-500 hover:to-red-700 text-white px-8 py-2.5 rounded-xl text-sm font-bold shadow-glow-red transition-all duration-300 transform hover:scale-105"
               >
-                {initialData ? 'Update Task' : 'Create Task'}
+                {initialData ? "Update Task" : "Create Task"}
               </button>
             </div>
           </form>
         </div>
       )}
 
-      {activeTab === 'activity' && (
+      {activeTab === "activity" && (
         <div className="flex flex-col h-full min-h-[400px]">
           <div className="space-y-4 p-1">
             {initialData?.activity
@@ -1569,13 +1569,13 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                   <div className="flex flex-col items-center">
                     <div
                       className={`w-2 h-2 rounded-full mt-2 ${
-                        item.type === 'create'
-                          ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'
-                          : item.type === 'move'
-                            ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]'
-                            : item.type === 'delete'
-                              ? 'bg-red-500'
-                              : 'bg-slate-500'
+                        item.type === "create"
+                          ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"
+                          : item.type === "move"
+                            ? "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"
+                            : item.type === "delete"
+                              ? "bg-red-500"
+                              : "bg-slate-500"
                       }`}
                     />
                     {idx !== (initialData.activity?.length || 0) - 1 && (
