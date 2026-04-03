@@ -99,29 +99,31 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
     [config]
   );
 
+  // Load saved config on mount (only once)
   useEffect(() => {
     const savedConfig = storageService.get<AIConfig | null>(STORAGE_KEYS.AI_CONFIG, null);
     if (savedConfig) {
-      setConfig({ ...config, ...savedConfig });
+      setConfig((prev) => ({ ...prev, ...savedConfig }));
       setAiManagement({
         autoDetectDuplicates: savedConfig.autoDetectDuplicates ?? false,
         autoSuggestPriorities: savedConfig.autoSuggestPriorities ?? false,
         autoSuggestTags: savedConfig.autoSuggestTags ?? false,
         cleanupOnCreate: savedConfig.cleanupOnCreate ?? false,
-        insightsFrequency: savedConfig.insightsFrequency ?? 'manual',
+        insightsFrequency: savedConfig.insightsFrequency ?? "manual",
       });
-      if (savedConfig.provider === 'ollama' && savedConfig.ollamaBaseUrl) {
+      if (savedConfig.provider === "ollama" && savedConfig.ollamaBaseUrl) {
         fetchModels(savedConfig.ollamaBaseUrl);
       }
     } else {
-      const oldKey = storageService.get<string>(STORAGE_KEYS.GEMINI_API_KEY, '');
+      const oldKey = storageService.get<string>(STORAGE_KEYS.GEMINI_API_KEY, "");
       if (oldKey) {
         const migrated = { ...config, geminiApiKey: oldKey };
         setConfig(migrated);
         storageService.set(STORAGE_KEYS.AI_CONFIG, migrated);
       }
     }
-  }, [config, fetchModels]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (config.provider === 'ollama') {
@@ -470,7 +472,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
               label="Auto-Detect Duplicates"
               description="Scan for duplicate tasks when creating"
               checked={aiManagement.autoDetectDuplicates}
-              onChange={v => setAiManagement({ ...aiManagement, autoDetectDuplicates: v })}
+              onChange={v => setAiManagement(prev => ({ ...prev, autoDetectDuplicates: v }))}
             />
 
             <ToggleRow
@@ -478,7 +480,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
               label="Auto-Suggest Priorities"
               description="AI adjusts priorities based on context"
               checked={aiManagement.autoSuggestPriorities}
-              onChange={v => setAiManagement({ ...aiManagement, autoSuggestPriorities: v })}
+              onChange={v => setAiManagement(prev => ({ ...prev, autoSuggestPriorities: v }))}
             />
 
             <ToggleRow
@@ -486,7 +488,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
               label="Auto-Suggest Tags"
               description="AI recommends relevant tags for tasks"
               checked={aiManagement.autoSuggestTags}
-              onChange={v => setAiManagement({ ...aiManagement, autoSuggestTags: v })}
+              onChange={v => setAiManagement(prev => ({ ...prev, autoSuggestTags: v }))}
             />
 
             <ToggleRow
@@ -494,7 +496,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
               label="Cleanup on Create"
               description="Run redundancy check after task creation"
               checked={aiManagement.cleanupOnCreate}
-              onChange={v => setAiManagement({ ...aiManagement, cleanupOnCreate: v })}
+              onChange={v => setAiManagement(prev => ({ ...prev, cleanupOnCreate: v }))}
             />
 
             <div className="flex items-center justify-between">
@@ -509,11 +511,11 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
               </div>
               <select
                 value={aiManagement.insightsFrequency}
-                onChange={e =>
-                  setAiManagement({
-                    ...aiManagement,
-                    insightsFrequency: e.target.value as 'daily' | 'weekly' | 'manual',
-                  })
+                onChange={(e) =>
+                  setAiManagement((prev) => ({
+                    ...prev,
+                    insightsFrequency: e.target.value as "daily" | "weekly" | "manual",
+                  }))
                 }
                 className="bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500 appearance-none"
               >
@@ -580,6 +582,7 @@ interface ToggleRowProps {
   description: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
+  disabled?: boolean;
 }
 
 const ToggleRow: React.FC<ToggleRowProps> = ({
@@ -588,24 +591,56 @@ const ToggleRow: React.FC<ToggleRowProps> = ({
   description,
   checked,
   onChange,
-}) => (
-  <div
-    className="flex items-center justify-between cursor-pointer group"
-    onClick={() => onChange(!checked)}
-  >
-    <div className="flex items-center gap-3">
-      <Icon size={16} className="text-slate-400 group-hover:text-cyan-400 transition-colors" />
-      <div>
-        <div className="text-sm font-medium text-slate-200">{label}</div>
-        <div className="text-[10px] text-slate-500">{description}</div>
-      </div>
-    </div>
-    <div
-      className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${checked ? 'bg-cyan-500' : 'bg-white/10'}`}
+  disabled = false,
+}) => {
+  const handleToggle = useCallback(() => {
+    if (!disabled) onChange(!checked);
+  }, [checked, onChange, disabled]);
+
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      aria-disabled={disabled}
+      disabled={disabled}
+      className={`flex items-center justify-between w-full cursor-pointer group py-2 rounded-lg transition-opacity ${
+        disabled ? "opacity-50 cursor-not-allowed pointer-events-none" : ""
+      } focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
+      onClick={handleToggle}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          e.stopPropagation();
+          handleToggle();
+        }
+      }}
     >
+      <div className="flex items-center gap-3 pointer-events-none">
+        <Icon
+          size={16}
+          className={`transition-colors ${
+            checked ? "text-cyan-400" : "text-slate-400 group-hover:text-slate-300"
+          }`}
+        />
+        <div className="text-left">
+          <div className="text-sm font-medium text-slate-200">{label}</div>
+          <div className="text-[10px] text-slate-500">{description}</div>
+        </div>
+      </div>
       <div
-        className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-transform duration-200 ${checked ? 'translate-x-5' : 'translate-x-0'}`}
-      />
-    </div>
-  </div>
-);
+        className={`relative w-11 h-6 rounded-full transition-colors duration-200 flex-shrink-0 ${
+          checked ? "bg-cyan-500" : "bg-white/10 group-hover:bg-white/15"
+        }`}
+      >
+        <div
+          className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-all duration-200 ${
+            checked ? "translate-x-5" : "translate-x-0"
+          } group-hover:scale-105 active:scale-95`}
+        />
+      </div>
+    </button>
+  );
+};
+};
