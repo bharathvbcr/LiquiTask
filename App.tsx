@@ -144,12 +144,6 @@ const AIHealthDashboard = lazy(() =>
   }))
 );
 
-const AIHealthDashboard = lazy(() =>
-  import('./src/components/AIHealthDashboard').then(module => ({
-    default: module.AIHealthDashboard,
-  }))
-);
-
 const AISubtaskSuggestionsModal = lazy(() =>
   import('./src/components/AISubtaskSuggestionsModal').then(module => ({
     default: module.AISubtaskSuggestionsModal,
