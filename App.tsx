@@ -1,28 +1,28 @@
-import { Loader2, Sparkles } from "lucide-react";
-import type React from "react";
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { TitleBar } from "./components/TitleBar";
-import { Toast } from "./components/Toast";
-import logo from "./src/assets/logo.png";
+import { Loader2, Sparkles } from 'lucide-react';
+import type React from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { TitleBar } from './components/TitleBar';
+import { Toast } from './components/Toast';
+import logo from './src/assets/logo.png';
 // Power User Features
-import type { CommandAction } from "./src/components/CommandPalette";
-import { ViewTransition } from "./src/components/ViewTransition";
-import { STORAGE_KEYS } from "./src/constants";
-import { useConfirmation } from "./src/contexts/ConfirmationContext";
-import { useAiKeyboardShortcuts } from "./src/hooks/useAiKeyboardShortcuts";
-import { useAppInitialization } from "./src/hooks/useAppInitialization";
-import { useGlobalKeyboardShortcuts } from "./src/hooks/useGlobalKeyboardShortcuts";
-import { useProjectController } from "./src/hooks/useProjectController";
-import useSavedViews from "./src/hooks/useSavedViews";
-import { useSearchHistory } from "./src/hooks/useSearchHistory";
+import type { CommandAction } from './src/components/CommandPalette';
+import { ViewTransition } from './src/components/ViewTransition';
+import { STORAGE_KEYS } from './src/constants';
+import { useConfirmation } from './src/contexts/ConfirmationContext';
+import { useAiKeyboardShortcuts } from './src/hooks/useAiKeyboardShortcuts';
+import { useAppInitialization } from './src/hooks/useAppInitialization';
+import { useGlobalKeyboardShortcuts } from './src/hooks/useGlobalKeyboardShortcuts';
+import { useProjectController } from './src/hooks/useProjectController';
+import useSavedViews from './src/hooks/useSavedViews';
+import { useSearchHistory } from './src/hooks/useSearchHistory';
 // Hooks
-import { useTaskController } from "./src/hooks/useTaskController";
-import { getRuntimeState } from "./src/runtime/runtimeEnvironment";
-import { indexedDBService } from "./src/services/indexedDBService";
-import storageService from "./src/services/storageService";
-import type { FilterGroup } from "./src/types/queryTypes";
-import { debounce } from "./src/utils/debounce";
-import { filterTasksBySearch } from "./src/utils/taskSearch";
+import { useTaskController } from './src/hooks/useTaskController';
+import { getRuntimeState } from './src/runtime/runtimeEnvironment';
+import { indexedDBService } from './src/services/indexedDBService';
+import storageService from './src/services/storageService';
+import type { FilterGroup } from './src/types/queryTypes';
+import { debounce } from './src/utils/debounce';
+import { filterTasksBySearch } from './src/utils/taskSearch';
 import type {
   AIContext,
   BoardColumn,
@@ -35,123 +35,135 @@ import type {
   Task,
   ToastMessage,
   ToastType,
-} from "./types";
+} from './types';
 
 // Initial fallbacks
 const defaultColumns: BoardColumn[] = [
-  { id: "Pending", title: "Pending", color: "#64748b", wipLimit: 0 },
-  { id: "InProgress", title: "In Progress", color: "#3b82f6", wipLimit: 10 },
+  { id: 'Pending', title: 'Pending', color: '#64748b', wipLimit: 0 },
+  { id: 'InProgress', title: 'In Progress', color: '#3b82f6', wipLimit: 10 },
   {
-    id: "Completed",
-    title: "Completed",
-    color: "#10b981",
+    id: 'Completed',
+    title: 'Completed',
+    color: '#10b981',
     isCompleted: true,
     wipLimit: 0,
   },
-  { id: "Delivered", title: "Delivered", color: "#a855f7", wipLimit: 0 },
+  { id: 'Delivered', title: 'Delivered', color: '#a855f7', wipLimit: 0 },
 ];
 
 const defaultProjectTypes: ProjectType[] = [
-  { id: "folder", label: "General", icon: "folder" },
-  { id: "dev", label: "Development", icon: "code" },
-  { id: "marketing", label: "Marketing", icon: "megaphone" },
-  { id: "mobile", label: "Mobile App", icon: "smartphone" },
-  { id: "inventory", label: "Inventory", icon: "box" },
+  { id: 'folder', label: 'General', icon: 'folder' },
+  { id: 'dev', label: 'Development', icon: 'code' },
+  { id: 'marketing', label: 'Marketing', icon: 'megaphone' },
+  { id: 'mobile', label: 'Mobile App', icon: 'smartphone' },
+  { id: 'inventory', label: 'Inventory', icon: 'box' },
 ];
 
 const defaultPriorities: PriorityDefinition[] = [
-  { id: "high", label: "High", color: "#ef4444", level: 1, icon: "flame" },
-  { id: "medium", label: "Medium", color: "#eab308", level: 2, icon: "clock" },
-  { id: "low", label: "Low", color: "#10b981", level: 3, icon: "arrow-down" },
+  { id: 'high', label: 'High', color: '#ef4444', level: 1, icon: 'flame' },
+  { id: 'medium', label: 'Medium', color: '#eab308', level: 2, icon: 'clock' },
+  { id: 'low', label: 'Low', color: '#10b981', level: 3, icon: 'arrow-down' },
 ];
 
 // Lazy Components
 const TaskFormModal = lazy(() =>
-  import("./components/TaskFormModal").then((module) => ({
+  import('./components/TaskFormModal').then(module => ({
     default: module.TaskFormModal,
-  })),
+  }))
 );
 const ProjectModal = lazy(() =>
-  import("./components/ProjectModal").then((module) => ({
+  import('./components/ProjectModal').then(module => ({
     default: module.ProjectModal,
-  })),
+  }))
 );
 const SettingsModal = lazy(() =>
-  import("./components/SettingsModal").then((module) => ({
+  import('./components/SettingsModal').then(module => ({
     default: module.SettingsModal,
-  })),
+  }))
 );
 const Sidebar = lazy(() =>
-  import("./components/Sidebar").then((module) => ({
+  import('./components/Sidebar').then(module => ({
     default: module.Sidebar,
-  })),
+  }))
 );
 const Dashboard = lazy(() =>
-  import("./components/Dashboard").then((module) => ({
+  import('./components/Dashboard').then(module => ({
     default: module.Dashboard,
-  })),
+  }))
 );
-const GanttView = lazy(() => import("./src/components/GanttView"));
-const ProjectBoard = lazy(() => import("./src/components/ProjectBoard"));
+const GanttView = lazy(() => import('./src/components/GanttView'));
+const ProjectBoard = lazy(() => import('./src/components/ProjectBoard'));
 const CommandPalette = lazy(() =>
-  import("./src/components/CommandPalette").then((module) => ({
+  import('./src/components/CommandPalette').then(module => ({
     default: module.CommandPalette,
-  })),
+  }))
 );
 const AppHeader = lazy(() =>
-  import("./src/components/AppHeader").then((module) => ({
+  import('./src/components/AppHeader').then(module => ({
     default: module.AppHeader,
-  })),
+  }))
 );
 const AIInsightsPanel = lazy(() =>
-  import("./src/components/AIInsightsPanel").then((module) => ({
+  import('./src/components/AIInsightsPanel').then(module => ({
     default: module.AIInsightsPanel,
-  })),
+  }))
 );
 const BulkAIOperationsModal = lazy(() =>
-  import("./src/components/BulkAIOperationsModal").then((module) => ({
+  import('./src/components/BulkAIOperationsModal').then(module => ({
     default: module.BulkAIOperationsModal,
-  })),
+  }))
 );
 
 const AIMergeDuplicatesModal = lazy(() =>
-  import("./src/components/AIMergeDuplicatesModal").then((module) => ({
+  import('./src/components/AIMergeDuplicatesModal').then(module => ({
     default: module.AIMergeDuplicatesModal,
-  })),
+  }))
 );
 
 const AIReorganizeModal = lazy(() =>
-  import("./src/components/AIReorganizeModal").then((module) => ({
+  import('./src/components/AIReorganizeModal').then(module => ({
     default: module.AIReorganizeModal,
-  }}
-));
+  }))
+);
 
 const AISubtaskSuggestionsModal = lazy(() =>
-  import("./src/components/AISubtaskSuggestionsModal").then((module) => ({
+  import('./src/components/AISubtaskSuggestionsModal').then(module => ({
     default: module.AISubtaskSuggestionsModal,
-  }}
-));
+  }))
+);
 
 const AIProjectAssignmentModal = lazy(() =>
-  import("./src/components/AIProjectAssignmentModal").then((module) => ({
+  import('./src/components/AIProjectAssignmentModal').then(module => ({
     default: module.AIProjectAssignmentModal,
-  }}
-));
+  }))
+);
+
+const AIHealthDashboard = lazy(() =>
+  import('./src/components/AIHealthDashboard').then(module => ({
+    default: module.AIHealthDashboard,
+  }))
+);
+
+const AIHealthDashboard = lazy(() =>
+  import('./src/components/AIHealthDashboard').then(module => ({
+    default: module.AIHealthDashboard,
+  }))
+);
 
 const AISubtaskSuggestionsModal = lazy(() =>
-  import("./src/components/AISubtaskSuggestionsModal").then((module) => ({
+  import('./src/components/AISubtaskSuggestionsModal').then(module => ({
     default: module.AISubtaskSuggestionsModal,
-  })),
+  }))
 );
 const MobileNavDrawer = lazy(() =>
-  import("./src/components/MobileNavDrawer").then((module) => ({
+  import('./src/components/MobileNavDrawer').then(module => ({
     default: module.MobileNavDrawer,
-  })),
+  }))
 );
 const AutoOrganizePanel = lazy(() =>
-  import("./src/components/AutoOrganizePanel").then((module) => ({
+  import('./src/components/AutoOrganizePanel').then(module => ({
     default: module.AutoOrganizePanel,
-  })),
+  }))
 );
 
 const SIDEBAR_EXPANDED_WIDTH = 320;
@@ -203,7 +215,7 @@ type NotificationPayload = {
 };
 
 type NotificationServiceHandle = {
-  requestPermission: () => Promise<"granted" | "denied" | "default" | boolean>;
+  requestPermission: () => Promise<'granted' | 'denied' | 'default' | boolean>;
   show: (payload: NotificationPayload) => Promise<void> | void;
 };
 
@@ -224,7 +236,7 @@ type AutomationServiceHandle = {
   processTaskEvent: (
     event: string,
     context: { previousTask?: Task; newTask: Task },
-    allTasks: Task[],
+    allTasks: Task[]
   ) => Partial<Task> | null;
   loadRules: (rules: unknown) => void;
 };
@@ -240,7 +252,7 @@ type ActivityServiceHandle = {
     details: string,
     field?: string,
     oldValue?: unknown,
-    newValue?: unknown,
+    newValue?: unknown
   ) => unknown;
 };
 
@@ -254,15 +266,15 @@ const App: React.FC = () => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [columns, setColumns] = useState<BoardColumn[]>(defaultColumns);
   const [customFields, setCustomFields] = useState<CustomFieldDefinition[]>([]);
-  const [activeProjectId, setActiveProjectId] = useState<string>("");
+  const [activeProjectId, setActiveProjectId] = useState<string>('');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
-  const [boardGrouping, setBoardGrouping] = useState<GroupingOption>("none");
+  const [boardGrouping, setBoardGrouping] = useState<GroupingOption>('none');
   const [isCompactView, setIsCompactView] = useState<boolean>(false);
   const [showSubWorkspaceTasks, setShowSubWorkspaceTasks] = useState<boolean>(false);
   const [isHeaderExpanded, setIsHeaderExpanded] = useState<boolean>(false);
-  const [currentView, setCurrentView] = useState<"project" | "dashboard" | "gantt">("project");
-  const [viewMode, setViewMode] = useState<"board" | "gantt" | "stats" | "calendar">("board");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [currentView, setCurrentView] = useState<'project' | 'dashboard' | 'gantt'>('project');
+  const [viewMode, setViewMode] = useState<'board' | 'gantt' | 'stats' | 'calendar'>('board');
+  const [searchQuery, setSearchQuery] = useState('');
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -280,6 +292,7 @@ const App: React.FC = () => {
   const [isAiReorganizeModalOpen, setIsAiReorganizeModalOpen] = useState(false);
   const [isAiSubtaskModalOpen, setIsAiSubtaskModalOpen] = useState(false);
   const [isAiProjectAssignmentModalOpen, setIsAiProjectAssignmentModalOpen] = useState(false);
+  const [isAiHealthDashboardOpen, setIsAiHealthDashboardOpen] = useState(false);
   const [isAutoOrganizeOpen, setIsAutoOrganizeOpen] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
@@ -316,20 +329,20 @@ const App: React.FC = () => {
     }>
   >([]);
   const [filters, setFilters] = useState<FilterState>({
-    assignee: "",
+    assignee: '',
     dateRange: null,
-    startDate: "",
-    endDate: "",
-    tags: "",
+    startDate: '',
+    endDate: '',
+    tags: '',
   });
   const [activeFilterGroup, setActiveFilterGroup] = useState<FilterGroup>({
-    id: "root",
-    operator: "AND",
+    id: 'root',
+    operator: 'AND',
     rules: [],
   });
   const [notificationPermission, setNotificationPermission] = useState<
-    "granted" | "denied" | "default"
-  >("default");
+    'granted' | 'denied' | 'default'
+  >('default');
   const [commandUsageHistory, setCommandUsageHistory] = useState<Record<string, number>>({});
   // Refs for services
   const notificationServiceRef = useRef<NotificationServiceHandle | null>(null);
@@ -341,13 +354,13 @@ const App: React.FC = () => {
   const advancedFilterExecutorRef = useRef<AdvancedFilterExecutor | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const addToast = useCallback((message: string, type: ToastType = "info") => {
+  const addToast = useCallback((message: string, type: ToastType = 'info') => {
     const id = Date.now().toString();
-    setToasts((prev) => [...prev, { id, message, type }]);
+    setToasts(prev => [...prev, { id, message, type }]);
   }, []);
 
   const removeToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+    setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
   // Controllers
@@ -446,14 +459,14 @@ const App: React.FC = () => {
   const getAllSubWorkspaceIds = useCallback(
     (projectId: string): string[] => {
       const subWorkspaceIds: string[] = [];
-      const directChildren = projects.filter((p) => p.parentId === projectId);
+      const directChildren = projects.filter(p => p.parentId === projectId);
       for (const child of directChildren) {
         subWorkspaceIds.push(child.id);
         subWorkspaceIds.push(...getAllSubWorkspaceIds(child.id));
       }
       return subWorkspaceIds;
     },
-    [projects],
+    [projects]
   );
 
   const filteredTasks = useMemo(() => {
@@ -462,8 +475,8 @@ const App: React.FC = () => {
       result = filterTasksBySearch(tasks, searchQuery, searchIndexServiceRef.current);
     }
     if (filters.assignee)
-      result = result.filter((t) =>
-        t.assignee.toLowerCase().includes(filters.assignee.toLowerCase()),
+      result = result.filter(t =>
+        t.assignee.toLowerCase().includes(filters.assignee.toLowerCase())
       );
     if (activeFilterGroup.rules.length > 0) {
       result = advancedFilterExecutorRef.current
@@ -476,9 +489,9 @@ const App: React.FC = () => {
   const currentProjectTasks = useMemo(() => {
     if (showSubWorkspaceTasks) {
       const allProjectIds = [activeProjectId, ...getAllSubWorkspaceIds(activeProjectId)];
-      return filteredTasks.filter((t) => allProjectIds.includes(t.projectId));
+      return filteredTasks.filter(t => allProjectIds.includes(t.projectId));
     }
-    return filteredTasks.filter((t) => t.projectId === activeProjectId);
+    return filteredTasks.filter(t => t.projectId === activeProjectId);
   }, [filteredTasks, activeProjectId, showSubWorkspaceTasks, getAllSubWorkspaceIds]);
 
   // AI Handlers
@@ -489,7 +502,7 @@ const App: React.FC = () => {
   const handleNaturalLanguageSearch = useCallback(
     async (query: string) => {
       try {
-        const { aiService } = await import("./src/services/aiService");
+        const { aiService } = await import('./src/services/aiService');
         const context: AIContext = {
           activeProjectId,
           projects,
@@ -498,22 +511,22 @@ const App: React.FC = () => {
         const result = await aiService.parseNaturalQuery(query, context);
         if (result.filterGroup && result.filterGroup.rules.length > 0) {
           setActiveFilterGroup(result.filterGroup);
-          addToast(`AI Search: ${result.explanation}`, "info");
+          addToast(`AI Search: ${result.explanation}`, 'info');
         } else {
-          addToast("AI could not parse that query. Try standard search.", "info");
+          addToast('AI could not parse that query. Try standard search.', 'info');
         }
       } catch (e: unknown) {
-        addToast(e instanceof Error ? e.message : String(e), "error");
+        addToast(e instanceof Error ? e.message : String(e), 'error');
       }
     },
-    [activeProjectId, projects, priorities, addToast],
+    [activeProjectId, projects, priorities, addToast]
   );
 
   const handleAiPrioritize = useCallback(async () => {
     if (isAiPrioritizing) return;
     setIsAiPrioritizing(true);
     try {
-      const { aiService } = await import("./src/services/aiService");
+      const { aiService } = await import('./src/services/aiService');
       const context: AIContext = {
         activeProjectId,
         projects,
@@ -521,13 +534,13 @@ const App: React.FC = () => {
       };
       const suggestions = await aiService.suggestPriorities(currentProjectTasks, context);
       if (suggestions.length === 0) {
-        addToast("No priority suggestions available", "info");
+        addToast('No priority suggestions available', 'info');
         return;
       }
       let applied = 0;
       for (const suggestion of suggestions) {
         if (suggestion.confidence >= 0.7) {
-          const task = currentProjectTasks.find((t) => t.id === suggestion.taskId);
+          const task = currentProjectTasks.find(t => t.id === suggestion.taskId);
           if (task && task.priority !== suggestion.suggestedValue) {
             handleUpdateTask(suggestion.taskId, {
               priority: suggestion.suggestedValue as string,
@@ -537,12 +550,12 @@ const App: React.FC = () => {
         }
       }
       if (applied > 0) {
-        addToast(`AI applied ${applied} priority adjustment${applied > 1 ? "s" : ""}`, "success");
+        addToast(`AI applied ${applied} priority adjustment${applied > 1 ? 's' : ''}`, 'success');
       } else {
-        addToast("AI reviewed priorities - no changes needed", "info");
+        addToast('AI reviewed priorities - no changes needed', 'info');
       }
     } catch (e: unknown) {
-      addToast(e instanceof Error ? e.message : String(e), "error");
+      addToast(e instanceof Error ? e.message : String(e), 'error');
     } finally {
       setIsAiPrioritizing(false);
     }
@@ -558,13 +571,13 @@ const App: React.FC = () => {
 
   const handleUndoAiChanges = useCallback(() => {
     if (aiChangesUndoStack.length === 0) {
-      addToast("No AI changes to undo", "info");
+      addToast('No AI changes to undo', 'info');
       return;
     }
     const lastChange = aiChangesUndoStack[aiChangesUndoStack.length - 1];
     handleUpdateTask(lastChange.taskId, lastChange.previous as Partial<Task>);
-    setAiChangesUndoStack((prev) => prev.slice(0, -1));
-    addToast("Undid last AI change", "info");
+    setAiChangesUndoStack(prev => prev.slice(0, -1));
+    addToast('Undid last AI change', 'info');
   }, [aiChangesUndoStack, handleUpdateTask, addToast]);
 
   // AI Keyboard Shortcuts
@@ -595,23 +608,23 @@ const App: React.FC = () => {
       setBoardGrouping(view.grouping);
       setActiveFilterGroup(
         (view.advancedFilter as FilterGroup) || {
-          id: "root",
-          operator: "AND",
+          id: 'root',
+          operator: 'AND',
           rules: [],
-        },
+        }
       );
-      addToast(`View "${view.name}" applied`, "info");
+      addToast(`View "${view.name}" applied`, 'info');
     }
   };
 
   const handleCreateView = (name: string) => {
     createView(name, filters, boardGrouping, activeFilterGroup);
-    addToast(`View "${name}" saved`, "success");
+    addToast(`View "${name}" saved`, 'success');
   };
 
   const recordCommandUsage = useCallback((commandId: string) => {
     const now = Date.now();
-    setCommandUsageHistory((prev) => {
+    setCommandUsageHistory(prev => {
       const next = { ...prev, [commandId]: now };
       storageService.set(STORAGE_KEYS.COMMAND_HISTORY, next);
       return next;
@@ -621,9 +634,9 @@ const App: React.FC = () => {
   useEffect(() => {
     const storedHistory = storageService.get<Record<string, number>>(
       STORAGE_KEYS.COMMAND_HISTORY,
-      {},
+      {}
     );
-    if (storedHistory && typeof storedHistory === "object" && !Array.isArray(storedHistory)) {
+    if (storedHistory && typeof storedHistory === 'object' && !Array.isArray(storedHistory)) {
       setCommandUsageHistory(storedHistory as Record<string, number>);
     }
   }, []);
@@ -631,136 +644,181 @@ const App: React.FC = () => {
   const commandActions = useMemo(() => {
     const baseActions: CommandAction[] = [
       {
-        id: "action:new-task",
-        label: "Create New Task",
-        category: "action",
-        description: "Open task composer modal",
-        keywords: ["add", "new", "task", "todo"],
-        aliases: ["create", "new task", "quick task"],
+        id: 'action:new-task',
+        label: 'Create New Task',
+        category: 'action',
+        description: 'Open task composer modal',
+        keywords: ['add', 'new', 'task', 'todo'],
+        aliases: ['create', 'new task', 'quick task'],
         action: () => {
           setEditingTask(null);
           setIsTaskModalOpen(true);
         },
       },
       {
-        id: "action:undo",
-        label: "Undo Last Action",
-        category: "action",
-        description: "Undo the last task change",
-        keywords: ["undo", "revert", "back"],
-        aliases: ["reverse", "go back"],
+        id: 'action:undo',
+        label: 'Undo Last Action',
+        category: 'action',
+        description: 'Undo the last task change',
+        keywords: ['undo', 'revert', 'back'],
+        aliases: ['reverse', 'go back'],
         action: handleUndo,
       },
       {
-        id: "action:toggle-sidebar",
-        label: isSidebarCollapsed ? "Show Sidebar" : "Hide Sidebar",
-        category: "view",
-        description: `${isSidebarCollapsed ? "Reveal" : "Hide"} left workspace sidebar`,
-        keywords: ["sidebar", "view", "layout"],
-        aliases: ["toggle sidebar", "left panel"],
-        action: () => setIsSidebarCollapsed((prev) => !prev),
+        id: 'action:toggle-sidebar',
+        label: isSidebarCollapsed ? 'Show Sidebar' : 'Hide Sidebar',
+        category: 'view',
+        description: `${isSidebarCollapsed ? 'Reveal' : 'Hide'} left workspace sidebar`,
+        keywords: ['sidebar', 'view', 'layout'],
+        aliases: ['toggle sidebar', 'left panel'],
+        action: () => setIsSidebarCollapsed(prev => !prev),
       },
       {
-        id: "action:compact-view",
-        label: isCompactView ? "Expand Task Cards" : "Compact Task Cards",
-        category: "view",
-        description: "Toggle compact task card layout",
-        keywords: ["compact", "cards", "layout"],
-        aliases: ["compact mode", "dense mode"],
-        action: () => setIsCompactView((prev) => !prev),
+        id: 'action:compact-view',
+        label: isCompactView ? 'Expand Task Cards' : 'Compact Task Cards',
+        category: 'view',
+        description: 'Toggle compact task card layout',
+        keywords: ['compact', 'cards', 'layout'],
+        aliases: ['compact mode', 'dense mode'],
+        action: () => setIsCompactView(prev => !prev),
       },
       {
-        id: "action:toggle-filter",
-        label: isFilterOpen ? "Close Filter Panel" : "Open Filter Panel",
-        category: "view",
-        description: "Show or hide global project filters",
-        keywords: ["filter", "query", "panel"],
-        aliases: ["search filter", "advanced filter"],
-        action: () => setIsFilterOpen((prev) => !prev),
+        id: 'action:toggle-filter',
+        label: isFilterOpen ? 'Close Filter Panel' : 'Open Filter Panel',
+        category: 'view',
+        description: 'Show or hide global project filters',
+        keywords: ['filter', 'query', 'panel'],
+        aliases: ['search filter', 'advanced filter'],
+        action: () => setIsFilterOpen(prev => !prev),
       },
       {
-        id: "action:open-settings",
-        label: "Open Settings",
-        category: "action",
-        description: "Open settings and import/export tools",
-        keywords: ["settings", "preferences", "config"],
-        aliases: ["preferences", "options", "preferences panel"],
+        id: 'action:open-settings',
+        label: 'Open Settings',
+        category: 'action',
+        description: 'Open settings and import/export tools',
+        keywords: ['settings', 'preferences', 'config'],
+        aliases: ['preferences', 'options', 'preferences panel'],
         action: () => setIsSettingsModalOpen(true),
       },
       {
-        id: "action:bulk-ai-operations",
-        label: "Bulk AI Operations",
-        category: "action",
-        description: "Run batch AI operations: deduplicate, reprioritize, categorize",
-        keywords: ["ai", "bulk", "batch", "cleanup", "organize"],
-        aliases: ["ai cleanup", "ai organize", "ai batch"],
+        id: 'action:bulk-ai-operations',
+        label: 'Bulk AI Operations',
+        category: 'action',
+        description: 'Run batch AI operations: deduplicate, reprioritize, categorize',
+        keywords: ['ai', 'bulk', 'batch', 'cleanup', 'organize'],
+        aliases: ['ai cleanup', 'ai organize', 'ai batch'],
         action: () => setIsBulkAIOperationsOpen(true),
       },
       {
-        id: "action:auto-organize",
-        label: "AI Auto-Organize",
-        category: "action",
-        description: "Smart task grouping, merging, deduplication, and categorization",
-        keywords: ["ai", "organize", "group", "merge", "deduplicate", "cluster", "auto"],
-        aliases: ["ai organize", "auto organize", "smart organize", "ai cleanup"],
+        id: 'action:auto-organize',
+        label: 'AI Auto-Organize',
+        category: 'action',
+        description: 'Smart task grouping, merging, deduplication, and categorization',
+        keywords: ['ai', 'organize', 'group', 'merge', 'deduplicate', 'cluster', 'auto'],
+        aliases: ['ai organize', 'auto organize', 'smart organize', 'ai cleanup'],
         action: () => setIsAutoOrganizeOpen(true),
       },
       {
-        id: "view:project",
-        label: "Project View",
-        category: "view",
-        description: "Switch to project workspace canvas",
-        keywords: ["project", "board"],
-        aliases: ["workspace", "projects"],
-        action: () => setCurrentView("project"),
+        id: 'action:ai-health-dashboard',
+        label: 'AI Health Dashboard',
+        category: 'action',
+        description: 'View AI-generated task health metrics and insights',
+        keywords: ['ai', 'health', 'dashboard', 'insights', 'metrics', 'analytics'],
+        aliases: ['ai insights', 'health check', 'task health'],
+        action: () => setIsAiHealthDashboardOpen(true),
       },
       {
-        id: "view:dashboard",
-        label: "Dashboard View",
-        category: "view",
-        description: "Switch to executive summary dashboard",
-        keywords: ["dashboard", "analytics", "overview"],
-        aliases: ["insights", "metrics"],
-        action: () => setCurrentView("dashboard"),
+        id: 'action:ai-merge-duplicates',
+        label: 'Smart Merge Duplicates',
+        category: 'action',
+        description: 'Find and merge duplicate tasks with AI',
+        keywords: ['ai', 'merge', 'duplicates', 'cleanup'],
+        aliases: ['merge dupes', 'ai merge'],
+        action: () => setIsAiMergeModalOpen(true),
       },
       {
-        id: "view:gantt",
-        label: "Gantt View",
-        category: "view",
-        description: "Switch to Gantt timeline",
-        keywords: ["gantt", "timeline"],
-        aliases: ["gantt", "timeline"],
+        id: 'action:ai-reorganize',
+        label: 'Smart Reorganize',
+        category: 'action',
+        description: 'AI-powered task clustering and project creation',
+        keywords: ['ai', 'reorganize', 'cluster', 'group', 'projects'],
+        aliases: ['ai cluster', 'ai group'],
+        action: () => setIsAiReorganizeModalOpen(true),
+      },
+      {
+        id: 'action:ai-subtask-conversion',
+        label: 'Convert to Subtasks',
+        category: 'action',
+        description: 'AI suggests tasks that should be subtasks',
+        keywords: ['ai', 'subtask', 'convert', 'hierarchy'],
+        aliases: ['ai subtasks', 'make subtask'],
+        action: () => setIsAiSubtaskModalOpen(true),
+      },
+      {
+        id: 'action:ai-project-assignment',
+        label: 'Smart Project Assignment',
+        category: 'action',
+        description: 'AI suggests optimal project assignments for tasks',
+        keywords: ['ai', 'project', 'assignment', 'reassign'],
+        aliases: ['ai assign', 'project suggest'],
+        action: () => setIsAiProjectAssignmentModalOpen(true),
+      },
+      {
+        id: 'view:project',
+        label: 'Project View',
+        category: 'view',
+        description: 'Switch to project workspace canvas',
+        keywords: ['project', 'board'],
+        aliases: ['workspace', 'projects'],
+        action: () => setCurrentView('project'),
+      },
+      {
+        id: 'view:dashboard',
+        label: 'Dashboard View',
+        category: 'view',
+        description: 'Switch to executive summary dashboard',
+        keywords: ['dashboard', 'analytics', 'overview'],
+        aliases: ['insights', 'metrics'],
+        action: () => setCurrentView('dashboard'),
+      },
+      {
+        id: 'view:gantt',
+        label: 'Gantt View',
+        category: 'view',
+        description: 'Switch to Gantt timeline',
+        keywords: ['gantt', 'timeline'],
+        aliases: ['gantt', 'timeline'],
         action: () => {
-          setCurrentView("gantt");
-          setViewMode("gantt");
+          setCurrentView('gantt');
+          setViewMode('gantt');
         },
       },
       {
-        id: "viewmode:board",
-        label: "Board Mode",
-        category: "view",
-        description: "Show Kanban board layout",
-        keywords: ["mode", "board", "kanban"],
-        aliases: ["kanban", "cards"],
-        action: () => setViewMode("board"),
+        id: 'viewmode:board',
+        label: 'Board Mode',
+        category: 'view',
+        description: 'Show Kanban board layout',
+        keywords: ['mode', 'board', 'kanban'],
+        aliases: ['kanban', 'cards'],
+        action: () => setViewMode('board'),
       },
       {
-        id: "viewmode:stats",
-        label: "Stats Mode",
-        category: "view",
-        description: "Show statistics mode",
-        keywords: ["statistics", "mode", "report"],
-        aliases: ["analytics", "numbers"],
-        action: () => setViewMode("stats"),
+        id: 'viewmode:stats',
+        label: 'Stats Mode',
+        category: 'view',
+        description: 'Show statistics mode',
+        keywords: ['statistics', 'mode', 'report'],
+        aliases: ['analytics', 'numbers'],
+        action: () => setViewMode('stats'),
       },
       {
-        id: "viewmode:calendar",
-        label: "Calendar Mode",
-        category: "view",
-        description: "Show calendar mode",
-        keywords: ["calendar", "timeline", "due"],
-        aliases: ["schedule", "dates"],
-        action: () => setViewMode("calendar"),
+        id: 'viewmode:calendar',
+        label: 'Calendar Mode',
+        category: 'view',
+        description: 'Show calendar mode',
+        keywords: ['calendar', 'timeline', 'due'],
+        aliases: ['schedule', 'dates'],
+        action: () => setViewMode('calendar'),
       },
     ];
 
@@ -768,18 +826,18 @@ const App: React.FC = () => {
       .slice()
       .sort((a, b) => a.name.localeCompare(b.name))
       .slice(0, 12)
-      .map((project) => ({
+      .map(project => ({
         id: `project:${project.id}`,
         label: `Project: ${project.name}`,
-        category: "project",
+        category: 'project',
         description: `Switch to ${project.name}`,
-        keywords: ["project", project.name.toLowerCase(), project.id.toLowerCase()],
+        keywords: ['project', project.name.toLowerCase(), project.id.toLowerCase()],
         aliases: [project.name.toLowerCase()],
         action: () => {
           setActiveProjectId(project.id);
-          setCurrentView("project");
-          setViewMode("board");
-          addToast(`Switched to project "${project.name}"`, "info");
+          setCurrentView('project');
+          setViewMode('board');
+          addToast(`Switched to project "${project.name}"`, 'info');
         },
       }));
 
@@ -789,15 +847,15 @@ const App: React.FC = () => {
   // --- Debounced persistence ---
   const debouncedSaveColumns = useMemo(
     () => debounce((cols: BoardColumn[]) => storageService.set(STORAGE_KEYS.COLUMNS, cols), 500),
-    [],
+    []
   );
   const debouncedSaveProjects = useMemo(
     () => debounce((projs: Project[]) => storageService.set(STORAGE_KEYS.PROJECTS, projs), 500),
-    [],
+    []
   );
   const debouncedSaveTasks = useMemo(
     () => debounce((tsks: Task[]) => storageService.set(STORAGE_KEYS.TASKS, tsks), 500),
-    [],
+    []
   );
 
   useEffect(() => {
@@ -820,8 +878,8 @@ const App: React.FC = () => {
   }, [currentView, isLoaded]);
 
   // --- Derived Data ---
-  const activeProject: Project = projects.find((p) => p.id === activeProjectId) ||
-    projects[0] || { name: "No Project", id: "temp", type: "default" };
+  const activeProject: Project = projects.find(p => p.id === activeProjectId) ||
+    projects[0] || { name: 'No Project', id: 'temp', type: 'default' };
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
@@ -835,7 +893,7 @@ const App: React.FC = () => {
   const getTasksByContext = (statusId: string, priorityId?: string) => {
     return currentProjectTasks
       .filter(
-        (task) => task.status === statusId && (priorityId ? task.priority === priorityId : true),
+        task => task.status === statusId && (priorityId ? task.priority === priorityId : true)
       )
       .sort((a, b) => (a.order ?? a.createdAt.getTime()) - (b.order ?? b.createdAt.getTime()));
   };
@@ -852,16 +910,16 @@ const App: React.FC = () => {
     if (notificationServiceRef.current) {
       granted = await notificationServiceRef.current.requestPermission();
     } else {
-      const { notificationService } = await import("./src/services/notificationService");
+      const { notificationService } = await import('./src/services/notificationService');
       notificationServiceRef.current = notificationService;
       granted = await notificationService.requestPermission();
     }
 
-    setNotificationPermission(granted ? "granted" : "denied");
+    setNotificationPermission(granted ? 'granted' : 'denied');
     if (granted) {
       notificationServiceRef.current?.show({
-        title: "Notifications Enabled",
-        body: "You will now receive task reminders.",
+        title: 'Notifications Enabled',
+        body: 'You will now receive task reminders.',
       });
     }
   }, []);
@@ -883,7 +941,7 @@ const App: React.FC = () => {
 
   return (
     <div
-      className={`min-h-screen text-slate-200 font-sans overflow-x-auto scrollbar-hide ${runtimeState.hasCustomWindowControls ? "pt-14" : ""}`}
+      className={`min-h-screen text-slate-200 font-sans overflow-x-auto scrollbar-hide ${runtimeState.hasCustomWindowControls ? 'pt-14' : ''}`}
     >
       <a href="#main-content" className="skip-link">
         Skip to main content
@@ -898,16 +956,16 @@ const App: React.FC = () => {
           projectTypes={projectTypes}
           isCollapsed={isSidebarCollapsed}
           toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          onSelectProject={(id) => {
+          onSelectProject={id => {
             setActiveProjectId(id);
-            setCurrentView("project");
-            setViewMode("board");
+            setCurrentView('project');
+            setViewMode('board');
           }}
-          onAddProject={(pid) => {
+          onAddProject={pid => {
             setCreatingSubProjectFor(pid);
             setIsProjectModalOpen(true);
           }}
-          onDeleteProject={(id) =>
+          onDeleteProject={id =>
             handleDeleteProject(id, activeProjectId, setActiveProjectId, setTasks)
           }
           onOpenSettings={() => setIsSettingsModalOpen(true)}
@@ -925,10 +983,10 @@ const App: React.FC = () => {
           onClose={() => setIsMobileNavOpen(false)}
           projects={projects}
           activeProjectId={activeProjectId}
-          onSelectProject={(id) => {
+          onSelectProject={id => {
             setActiveProjectId(id);
-            setCurrentView("project");
-            setViewMode("board");
+            setCurrentView('project');
+            setViewMode('board');
           }}
           onOpenSettings={() => setIsSettingsModalOpen(true)}
           currentView={currentView}
@@ -946,7 +1004,7 @@ const App: React.FC = () => {
             currentProjectName={activeProject.name}
             parentProjectName={
               activeProject.parentId
-                ? projects.find((p) => p.id === activeProject.parentId)?.name
+                ? projects.find(p => p.id === activeProject.parentId)?.name
                 : undefined
             }
             currentProjectPinned={activeProject.pinned}
@@ -986,13 +1044,13 @@ const App: React.FC = () => {
             onAdvancedFilterChange={setActiveFilterGroup}
             onClearFilters={() => {
               setFilters({
-                assignee: "",
+                assignee: '',
                 dateRange: null,
-                startDate: "",
-                endDate: "",
-                tags: "",
+                startDate: '',
+                endDate: '',
+                tags: '',
               });
-              setActiveFilterGroup({ id: "root", operator: "AND", rules: [] });
+              setActiveFilterGroup({ id: 'root', operator: 'AND', rules: [] });
             }}
             onAiPrioritize={handleAiPrioritize}
             onAiInsights={handleAiInsights}
@@ -1013,7 +1071,7 @@ const App: React.FC = () => {
             className="h-full"
           >
             <Suspense fallback={<ViewLoadingFallback />}>
-              {currentView === "dashboard" ? (
+              {currentView === 'dashboard' ? (
                 <Dashboard
                   tasks={filteredTasks}
                   projects={projects}
@@ -1021,7 +1079,7 @@ const App: React.FC = () => {
                   columns={columns}
                   boardGrouping={boardGrouping}
                   activeProjectId={activeProjectId}
-                  onEditTask={(t) => {
+                  onEditTask={t => {
                     setEditingTask(t);
                     setIsTaskModalOpen(true);
                   }}
@@ -1031,17 +1089,17 @@ const App: React.FC = () => {
                   onUpdateColumns={handleUpdateColumns}
                   getTasksByContext={getTasksByContext}
                   isCompact={isCompactView}
-                  onCopyTask={(msg) => addToast(msg, "success")}
+                  onCopyTask={msg => addToast(msg, 'success')}
                   onMoveToWorkspace={handleMoveTaskToWorkspace}
                   onUpdateDueDate={handleUpdateTaskDueDate}
-                  onCreateTask={(d) => {
+                  onCreateTask={d => {
                     setEditingTask({
                       id: `temp-${Date.now()}`,
-                      jobId: "",
+                      jobId: '',
                       projectId: activeProjectId,
-                      title: "",
-                      priority: priorities[0]?.id || "medium",
-                      status: columns[0]?.id || "Pending",
+                      title: '',
+                      priority: priorities[0]?.id || 'medium',
+                      status: columns[0]?.id || 'Pending',
                       createdAt: new Date(),
                       dueDate: d,
                       subtasks: [],
@@ -1056,12 +1114,12 @@ const App: React.FC = () => {
                   onViewModeChange={setViewMode}
                   addToast={addToast}
                 />
-              ) : viewMode === "gantt" ? (
+              ) : viewMode === 'gantt' ? (
                 <GanttView
                   tasks={currentProjectTasks}
                   columns={columns}
                   priorities={priorities}
-                  onEditTask={(t) => {
+                  onEditTask={t => {
                     setEditingTask(t);
                     setIsTaskModalOpen(true);
                   }}
@@ -1076,7 +1134,7 @@ const App: React.FC = () => {
                   boardGrouping={boardGrouping}
                   onUpdateColumns={handleUpdateColumns}
                   onMoveTask={moveTask}
-                  onEditTask={(t) => {
+                  onEditTask={t => {
                     setEditingTask(t);
                     setIsTaskModalOpen(true);
                   }}
@@ -1085,10 +1143,10 @@ const App: React.FC = () => {
                   addToast={addToast}
                   getTasksByContext={getTasksByContext}
                   isCompact={isCompactView}
-                  onCopyTask={(msg) => addToast(msg, "success")}
+                  onCopyTask={msg => addToast(msg, 'success')}
                   projectName={activeProject.name}
                   projects={projects}
-                  onMoveBlocked={(msg) => addToast(msg, "error")}
+                  onMoveBlocked={msg => addToast(msg, 'error')}
                   onMoveToWorkspace={handleMoveTaskToWorkspace}
                   canMoveTask={canMoveTask}
                 />
@@ -1099,7 +1157,7 @@ const App: React.FC = () => {
       </main>
 
       <div className="fixed bottom-6 right-6 z-[60] flex flex-col items-end gap-2 pointer-events-none">
-        {toasts.map((toast) => (
+        {toasts.map(toast => (
           <Toast key={toast.id} toast={toast} onClose={removeToast} />
         ))}
       </div>
@@ -1109,7 +1167,7 @@ const App: React.FC = () => {
           <TaskFormModal
             isOpen={isTaskModalOpen}
             onClose={() => setIsTaskModalOpen(false)}
-            onSubmit={(data) => handleCreateOrUpdateTask(data, editingTask)}
+            onSubmit={data => handleCreateOrUpdateTask(data, editingTask)}
             onBulkCreateTasks={handleBulkCreateTasks}
             initialData={editingTask}
             projectId={activeProjectId}
@@ -1149,7 +1207,7 @@ const App: React.FC = () => {
               priorities,
               customFields,
             }}
-            onImportData={(d) => {
+            onImportData={d => {
               if (d.projects) setProjects(d.projects);
               if (d.tasks) setTasks(d.tasks);
             }}
@@ -1175,7 +1233,7 @@ const App: React.FC = () => {
           <CommandPalette
             isOpen={isCommandPaletteOpen}
             onClose={() => setIsCommandPaletteOpen(false)}
-            onCreateTask={(p) =>
+            onCreateTask={p =>
               handleCreateOrUpdateTask(
                 {
                   title: p.title,
@@ -1183,7 +1241,7 @@ const App: React.FC = () => {
                   dueDate: p.dueDate,
                   tags: p.tags,
                 },
-                null,
+                null
               )
             }
             actions={commandActions}
@@ -1240,6 +1298,30 @@ const App: React.FC = () => {
             allTasks={tasks}
             projects={projects}
             onUpdateTask={handleUpdateTask}
+            addToast={addToast}
+          />
+        </Suspense>
+      )}
+
+      {isAiHealthDashboardOpen && (
+        <Suspense fallback={<ModalLoadingFallback />}>
+          <AIHealthDashboard
+            isOpen={isAiHealthDashboardOpen}
+            onClose={() => setIsAiHealthDashboardOpen(false)}
+            allTasks={tasks}
+            projects={projects}
+            addToast={addToast}
+          />
+        </Suspense>
+      )}
+
+      {isAiHealthDashboardOpen && (
+        <Suspense fallback={<ModalLoadingFallback />}>
+          <AIHealthDashboard
+            isOpen={isAiHealthDashboardOpen}
+            onClose={() => setIsAiHealthDashboardOpen(false)}
+            allTasks={tasks}
+            projects={projects}
             addToast={addToast}
           />
         </Suspense>
