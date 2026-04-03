@@ -13,7 +13,6 @@ class MockNotification {
     // no-op
   }
 }
-}
 
 const mockElectronAPI = {
   showNotification: vi.fn(),
