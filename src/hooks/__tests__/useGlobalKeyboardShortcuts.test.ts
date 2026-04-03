@@ -1,10 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook } from '@testing-library/react';
-import { useGlobalKeyboardShortcuts } from '../useGlobalKeyboardShortcuts';
-import { KeybindingProvider } from '../../context/KeybindingContext';
-import React from 'react';
+import { renderHook } from "@testing-library/react";
+import React from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { KeybindingProvider } from "../../context/KeybindingContext";
+import { useGlobalKeyboardShortcuts } from "../useGlobalKeyboardShortcuts";
 
-describe('useGlobalKeyboardShortcuts', () => {
+describe("useGlobalKeyboardShortcuts", () => {
   const mockHandleUndo = vi.fn();
   const mockSetIsCommandPaletteOpen = vi.fn();
   const mockSetIsSidebarCollapsed = vi.fn();
@@ -30,55 +30,56 @@ describe('useGlobalKeyboardShortcuts', () => {
     vi.clearAllMocks();
   });
 
-  const wrapper = ({ children }: { children: React.ReactNode }) => (
-    React.createElement(KeybindingProvider, null, children)
-  );
+  const wrapper = ({ children }: { children: React.ReactNode }) =>
+    React.createElement(KeybindingProvider, null, children);
 
-  it('should register and unregister event listener', () => {
-    const addSpy = vi.spyOn(window, 'addEventListener');
-    const removeSpy = vi.spyOn(window, 'removeEventListener');
-    
-    const { unmount } = renderHook(() => useGlobalKeyboardShortcuts(props), { wrapper });
-    
-    expect(addSpy).toHaveBeenCalledWith('keydown', expect.any(Function));
+  it("should register and unregister event listener", () => {
+    const addSpy = vi.spyOn(window, "addEventListener");
+    const removeSpy = vi.spyOn(window, "removeEventListener");
+
+    const { unmount } = renderHook(() => useGlobalKeyboardShortcuts(props), {
+      wrapper,
+    });
+
+    expect(addSpy).toHaveBeenCalledWith("keydown", expect.any(Function));
     unmount();
-    expect(removeSpy).toHaveBeenCalledWith('keydown', expect.any(Function));
+    expect(removeSpy).toHaveBeenCalledWith("keydown", expect.any(Function));
   });
 
-  it('should trigger command palette on shortcut', () => {
+  it("should trigger command palette on shortcut", () => {
     renderHook(() => useGlobalKeyboardShortcuts(props), { wrapper });
-    
-    const event = new KeyboardEvent('keydown', { key: 'k', metaKey: true });
+
+    const event = new KeyboardEvent("keydown", { key: "k", metaKey: true });
     window.dispatchEvent(event);
-    
+
     expect(mockSetIsCommandPaletteOpen).toHaveBeenCalled();
   });
 
-  it('should trigger undo on shortcut', () => {
+  it("should trigger undo on shortcut", () => {
     renderHook(() => useGlobalKeyboardShortcuts(props), { wrapper });
-    
-    const event = new KeyboardEvent('keydown', { key: 'z', metaKey: true });
+
+    const event = new KeyboardEvent("keydown", { key: "z", metaKey: true });
     window.dispatchEvent(event);
-    
+
     expect(mockHandleUndo).toHaveBeenCalled();
   });
 
-  it('should trigger task creation on shortcut', () => {
+  it("should trigger task creation on shortcut", () => {
     renderHook(() => useGlobalKeyboardShortcuts(props), { wrapper });
-    
-    const event = new KeyboardEvent('keydown', { key: 'c' });
+
+    const event = new KeyboardEvent("keydown", { key: "c" });
     window.dispatchEvent(event);
-    
+
     expect(mockSetEditingTask).toHaveBeenCalledWith(null);
     expect(mockSetIsTaskModalOpen).toHaveBeenCalledWith(true);
   });
 
-  it('should focus search input on shortcut', () => {
+  it("should focus search input on shortcut", () => {
     renderHook(() => useGlobalKeyboardShortcuts(props), { wrapper });
-    
-    const event = new KeyboardEvent('keydown', { key: '/' });
+
+    const event = new KeyboardEvent("keydown", { key: "/" });
     window.dispatchEvent(event);
-    
+
     expect(mockSearchInputRef.current.focus).toHaveBeenCalled();
   });
 });

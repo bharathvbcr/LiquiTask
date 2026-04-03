@@ -1,128 +1,131 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { TaskFormModal } from '../TaskFormModal';
-import { aiService } from '../../src/services/aiService';
-import React from 'react';
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { aiService } from "../../src/services/aiService";
+import { TaskFormModal } from "../TaskFormModal";
 
 // Mock aiService
-vi.mock('../../src/services/aiService', () => ({
+vi.mock("../../src/services/aiService", () => ({
   aiService: {
     refineTaskDraft: vi.fn(),
     extractTasksFromText: vi.fn(),
     generateSubtasks: vi.fn(),
-  }
+  },
 }));
 
-describe('TaskFormModal AI Integration', () => {
+describe("TaskFormModal AI Integration", () => {
   const mockOnSubmit = vi.fn();
   const mockOnClose = vi.fn();
   const mockProps = {
     isOpen: true,
     onClose: mockOnClose,
     onSubmit: mockOnSubmit,
-    projectId: 'p1',
-    priorities: [{ id: 'high', label: 'High', color: 'red', level: 1 }],
-    columns: [{ id: 'c1', title: 'Pending', color: 'gray' }],
-    allProjects: [{ id: 'p1', name: 'Project 1', type: 'default' }]
+    projectId: "p1",
+    priorities: [{ id: "high", label: "High", color: "red", level: 1 }],
+    columns: [{ id: "c1", title: "Pending", color: "gray" }],
+    allProjects: [{ id: "p1", name: "Project 1", type: "default" }],
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('renders AI Action section', () => {
+  it("renders AI Action section", () => {
     render(<TaskFormModal {...mockProps} />);
-    expect(screen.getByText('AI Assistant')).toBeDefined();
-    expect(screen.getByPlaceholderText('Paste meeting notes or describe tasks...')).toBeDefined();
+    expect(screen.getByText("AI Assistant")).toBeDefined();
+    expect(screen.getByPlaceholderText("Paste meeting notes or describe tasks...")).toBeDefined();
   });
 
-  it('handles Refine Draft action', async () => {
+  it("handles Refine Draft action", async () => {
     (aiService.refineTaskDraft as any).mockResolvedValue({
-      title: 'AI Refined Title',
-      summary: 'AI Refined Summary'
+      title: "AI Refined Title",
+      summary: "AI Refined Summary",
     });
 
     render(<TaskFormModal {...mockProps} />);
-    
-    const titleInput = screen.getByPlaceholderText('e.g., Update Q3 Financials');
-    fireEvent.change(titleInput, { target: { value: 'Old Title' } });
 
-    const aiInput = screen.getByPlaceholderText('Paste meeting notes or describe tasks...');
-    fireEvent.change(aiInput, { target: { value: 'Make it better' } });
+    const titleInput = screen.getByPlaceholderText("e.g., Update Q3 Financials");
+    fireEvent.change(titleInput, { target: { value: "Old Title" } });
 
-    const refineButton = screen.getByText('Refine Draft');
+    const aiInput = screen.getByPlaceholderText("Paste meeting notes or describe tasks...");
+    fireEvent.change(aiInput, { target: { value: "Make it better" } });
+
+    const refineButton = screen.getByText("Refine Draft");
     fireEvent.click(refineButton);
 
     await waitFor(() => {
       expect(aiService.refineTaskDraft).toHaveBeenCalled();
-      expect(screen.getByDisplayValue('AI Refined Title')).toBeDefined();
-      expect(screen.getByDisplayValue('AI Refined Summary')).toBeDefined();
+      expect(screen.getByDisplayValue("AI Refined Title")).toBeDefined();
+      expect(screen.getByDisplayValue("AI Refined Summary")).toBeDefined();
     });
   });
 
-  it('handles Extract Tasks action', async () => {
+  it("handles Extract Tasks action", async () => {
     (aiService.extractTasksFromText as any).mockResolvedValue([
-      { title: 'Task 1', summary: 'Summary 1', priority: 'high', tags: [] },
-      { title: 'Task 2', summary: 'Summary 2', priority: 'high', tags: [] }
+      { title: "Task 1", summary: "Summary 1", priority: "high", tags: [] },
+      { title: "Task 2", summary: "Summary 2", priority: "high", tags: [] },
     ]);
 
     render(<TaskFormModal {...mockProps} />);
-    
-    const aiInput = screen.getByPlaceholderText('Paste meeting notes or describe tasks...');
-    fireEvent.change(aiInput, { target: { value: 'Notes about task 1 and task 2' } });
 
-    const extractButton = screen.getByText('Extract Tasks');
+    const aiInput = screen.getByPlaceholderText("Paste meeting notes or describe tasks...");
+    fireEvent.change(aiInput, {
+      target: { value: "Notes about task 1 and task 2" },
+    });
+
+    const extractButton = screen.getByText("Extract Tasks");
     fireEvent.click(extractButton);
 
     await waitFor(() => {
-      expect(screen.getByText('Review Extracted Tasks (2)')).toBeDefined();
-      expect(screen.getByText('Task 1')).toBeDefined();
-      expect(screen.getByText('Task 2')).toBeDefined();
+      expect(screen.getByText("Review Extracted Tasks (2)")).toBeDefined();
+      expect(screen.getByText("Task 1")).toBeDefined();
+      expect(screen.getByText("Task 2")).toBeDefined();
     });
 
-    const createButton = screen.getByText('Create All 2 Tasks');
+    const createButton = screen.getByText("Create All 2 Tasks");
     fireEvent.click(createButton);
 
     expect(mockOnSubmit).toHaveBeenCalledTimes(2);
-    expect(mockOnSubmit).toHaveBeenCalledWith(expect.objectContaining({
-        projectId: 'p1'
-    }));
+    expect(mockOnSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: "p1",
+      }),
+    );
     expect(mockOnClose).toHaveBeenCalled();
   });
 
-  it('handles AI Breakdown for subtasks', async () => {
-    (aiService.generateSubtasks as any).mockResolvedValue(['Subtask A', 'Subtask B']);
+  it("handles AI Breakdown for subtasks", async () => {
+    (aiService.generateSubtasks as any).mockResolvedValue(["Subtask A", "Subtask B"]);
 
     render(<TaskFormModal {...mockProps} />);
-    
-    const titleInput = screen.getByPlaceholderText('e.g., Update Q3 Financials');
-    fireEvent.change(titleInput, { target: { value: 'Main Task' } });
 
-    const breakdownButton = screen.getByText('AI Breakdown');
+    const titleInput = screen.getByPlaceholderText("e.g., Update Q3 Financials");
+    fireEvent.change(titleInput, { target: { value: "Main Task" } });
+
+    const breakdownButton = screen.getByText("AI Breakdown");
     fireEvent.click(breakdownButton);
 
     await waitFor(() => {
       expect(aiService.generateSubtasks).toHaveBeenCalled();
-      expect(screen.getByDisplayValue('Subtask A')).toBeDefined();
-      expect(screen.getByDisplayValue('Subtask B')).toBeDefined();
+      expect(screen.getByDisplayValue("Subtask A")).toBeDefined();
+      expect(screen.getByDisplayValue("Subtask B")).toBeDefined();
     });
   });
 
-  it('handles Polish description', async () => {
-      (aiService.refineTaskDraft as any).mockResolvedValue({
-          summary: 'Polished description'
-      });
+  it("handles Polish description", async () => {
+    (aiService.refineTaskDraft as any).mockResolvedValue({
+      summary: "Polished description",
+    });
 
-      render(<TaskFormModal {...mockProps} />);
-      
-      const summaryArea = screen.getByPlaceholderText(/Describe the task details/);
-      fireEvent.change(summaryArea, { target: { value: 'rough draft' } });
+    render(<TaskFormModal {...mockProps} />);
 
-      const polishButton = screen.getByText('Polish');
-      fireEvent.click(polishButton);
+    const summaryArea = screen.getByPlaceholderText(/Describe the task details/);
+    fireEvent.change(summaryArea, { target: { value: "rough draft" } });
 
-      await waitFor(() => {
-          expect(screen.getByDisplayValue('Polished description')).toBeDefined();
-      });
+    const polishButton = screen.getByText("Polish");
+    fireEvent.click(polishButton);
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Polished description")).toBeDefined();
+    });
   });
 });

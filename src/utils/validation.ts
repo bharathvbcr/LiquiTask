@@ -1,5 +1,12 @@
-import { z } from 'zod';
-import { Task, Project, BoardColumn, ProjectType, PriorityDefinition, CustomFieldDefinition } from '../../types';
+import { z } from "zod";
+import type {
+  BoardColumn,
+  CustomFieldDefinition,
+  PriorityDefinition,
+  Project,
+  ProjectType,
+  Task,
+} from "../../types";
 
 // Validation schemas
 export const SubtaskSchema = z.object({
@@ -12,12 +19,12 @@ export const AttachmentSchema = z.object({
   id: z.string(),
   name: z.string(),
   url: z.string(),
-  type: z.enum(['file', 'link']),
+  type: z.enum(["file", "link"]),
 });
 
 export const TaskLinkSchema = z.object({
   targetTaskId: z.string(),
-  type: z.enum(['blocks', 'blocked-by', 'relates-to', 'duplicates']),
+  type: z.enum(["blocks", "blocked-by", "relates-to", "duplicates"]),
 });
 
 export const ErrorLogSchema = z.object({
@@ -25,21 +32,23 @@ export const ErrorLogSchema = z.object({
   message: z.string(),
 });
 
-export const RecurringConfigSchema = z.object({
-  enabled: z.boolean(),
-  frequency: z.enum(['daily', 'weekly', 'monthly', 'custom']),
-  interval: z.number(),
-  daysOfWeek: z.array(z.number()).optional(),
-  dayOfMonth: z.number().optional(),
-  endDate: z.date().optional(),
-  nextOccurrence: z.date().optional(),
-}).optional();
+export const RecurringConfigSchema = z
+  .object({
+    enabled: z.boolean(),
+    frequency: z.enum(["daily", "weekly", "monthly", "custom"]),
+    interval: z.number(),
+    daysOfWeek: z.array(z.number()).optional(),
+    dayOfMonth: z.number().optional(),
+    endDate: z.date().optional(),
+    nextOccurrence: z.date().optional(),
+  })
+  .optional();
 
 export const TaskSchema: z.ZodType<Task> = z.object({
   id: z.string(),
   jobId: z.string(),
   projectId: z.string(),
-  title: z.string().min(1, 'Title is required'),
+  title: z.string().min(1, "Title is required"),
   subtitle: z.string(),
   summary: z.string(),
   assignee: z.string(),
@@ -50,7 +59,9 @@ export const TaskSchema: z.ZodType<Task> = z.object({
   dueDate: z.date().optional(),
   subtasks: z.array(SubtaskSchema).default([]),
   attachments: z.array(AttachmentSchema).default([]),
-  customFieldValues: z.record(z.string(), z.union([z.string(), z.number()])).default({}) as z.ZodType<Record<string, string | number>>,
+  customFieldValues: z
+    .record(z.string(), z.union([z.string(), z.number()]))
+    .default({}) as z.ZodType<Record<string, string | number>>,
   links: z.array(TaskLinkSchema).default([]),
   tags: z.array(z.string()).default([]),
   timeEstimate: z.number().default(0),
@@ -62,7 +73,7 @@ export const TaskSchema: z.ZodType<Task> = z.object({
 
 export const ProjectSchema: z.ZodType<Project> = z.object({
   id: z.string(),
-  name: z.string().min(1, 'Project name is required'),
+  name: z.string().min(1, "Project name is required"),
   type: z.string(),
   parentId: z.string().optional(),
   pinned: z.boolean().optional(),
@@ -71,30 +82,30 @@ export const ProjectSchema: z.ZodType<Project> = z.object({
 
 export const BoardColumnSchema: z.ZodType<BoardColumn> = z.object({
   id: z.string(),
-  title: z.string().min(1, 'Column title is required'),
-  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Color must be a valid hex code'),
+  title: z.string().min(1, "Column title is required"),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Color must be a valid hex code"),
   isCompleted: z.boolean().optional(),
   wipLimit: z.number().min(0).optional(),
 });
 
 export const ProjectTypeSchema: z.ZodType<ProjectType> = z.object({
   id: z.string(),
-  label: z.string().min(1, 'Label is required'),
+  label: z.string().min(1, "Label is required"),
   icon: z.string(),
 });
 
 export const PriorityDefinitionSchema: z.ZodType<PriorityDefinition> = z.object({
   id: z.string(),
-  label: z.string().min(1, 'Label is required'),
-  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Color must be a valid hex code'),
+  label: z.string().min(1, "Label is required"),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Color must be a valid hex code"),
   level: z.number().int().positive(),
   icon: z.string().optional(),
 });
 
 export const CustomFieldDefinitionSchema: z.ZodType<CustomFieldDefinition> = z.object({
   id: z.string(),
-  label: z.string().min(1, 'Label is required'),
-  type: z.enum(['text', 'number', 'dropdown', 'url', 'formula']),
+  label: z.string().min(1, "Label is required"),
+  type: z.enum(["text", "number", "dropdown", "url", "formula"]),
   options: z.array(z.string()).optional(),
   formula: z.string().optional(),
 });
@@ -110,7 +121,7 @@ export const AppDataSchema = z.object({
   tasks: z.array(TaskSchema).optional(),
   activeProjectId: z.string().optional(),
   sidebarCollapsed: z.boolean().optional(),
-  grouping: z.enum(['none', 'priority']).optional(),
+  grouping: z.enum(["none", "priority"]).optional(),
   version: z.string().optional(), // For migration tracking
 });
 
@@ -120,22 +131,22 @@ export type ValidatedAppData = z.infer<typeof AppDataSchema>;
 function parseDate(value: unknown): Date | undefined {
   if (!value) return undefined;
   if (value instanceof Date) return value;
-  if (typeof value === 'string') {
+  if (typeof value === "string") {
     const parsed = new Date(value);
-    return isNaN(parsed.getTime()) ? undefined : parsed;
+    return Number.isNaN(parsed.getTime()) ? undefined : parsed;
   }
   return undefined;
 }
 
 // URL validation and sanitization
 export function sanitizeUrl(url: string): string {
-  if (!url) return '';
+  if (!url) return "";
   let sanitized = url.trim();
   // Remove trailing slashes
-  sanitized = sanitized.replace(/\/+$/, '');
+  sanitized = sanitized.replace(/\/+$/, "");
   // Add protocol if missing
   if (sanitized && !/^https?:\/\//i.test(sanitized)) {
-    sanitized = 'http://' + sanitized;
+    sanitized = `http://${sanitized}`;
   }
   return sanitized;
 }
@@ -158,16 +169,20 @@ export function validateAndTransformImportedData(data: unknown): ValidatedAppDat
     const dataRecord = data as Record<string, unknown> | null;
     if (!dataRecord) return null;
 
-    const rawTasks = Array.isArray(dataRecord.tasks) ? dataRecord.tasks as Record<string, unknown>[] : [];
+    const rawTasks = Array.isArray(dataRecord.tasks)
+      ? (dataRecord.tasks as Record<string, unknown>[])
+      : [];
 
     const transformed = {
       ...dataRecord,
       tasks: rawTasks.map((t) => {
         const recurring = t.recurring as Record<string, unknown> | undefined;
-        const errorLogs = Array.isArray(t.errorLogs) ? (t.errorLogs as Record<string, unknown>[]).map((log) => ({
-          timestamp: parseDate(log.timestamp) || new Date(),
-          message: (log.message as string) || '',
-        })) : undefined;
+        const errorLogs = Array.isArray(t.errorLogs)
+          ? (t.errorLogs as Record<string, unknown>[]).map((log) => ({
+              timestamp: parseDate(log.timestamp) || new Date(),
+              message: (log.message as string) || "",
+            }))
+          : undefined;
         return {
           ...t,
           createdAt: parseDate(t.createdAt) || new Date(),
@@ -175,11 +190,13 @@ export function validateAndTransformImportedData(data: unknown): ValidatedAppDat
           dueDate: parseDate(t.dueDate),
           completedAt: parseDate(t.completedAt),
           errorLogs: errorLogs,
-          recurring: recurring ? {
-            ...recurring,
-            endDate: parseDate(recurring.endDate),
-            nextOccurrence: parseDate(recurring.nextOccurrence),
-          } : undefined,
+          recurring: recurring
+            ? {
+                ...recurring,
+                endDate: parseDate(recurring.endDate),
+                nextOccurrence: parseDate(recurring.nextOccurrence),
+              }
+            : undefined,
         };
       }),
     };
@@ -190,13 +207,16 @@ export function validateAndTransformImportedData(data: unknown): ValidatedAppDat
   } catch (error) {
     if (error instanceof z.ZodError) {
       const issues = error.issues || (error as { errors?: z.ZodIssue[] }).errors || [];
-      console.error('Validation errors:', issues);
-      throw new Error(`Validation failed: ${issues.map((e) => {
-        const path = e.path ? e.path.join('.') : 'unknown';
-        return `${path}: ${e.message}`;
-      }).join(', ')}`);
+      console.error("Validation errors:", issues);
+      throw new Error(
+        `Validation failed: ${issues
+          .map((e) => {
+            const path = e.path ? e.path.join(".") : "unknown";
+            return `${path}: ${e.message}`;
+          })
+          .join(", ")}`,
+      );
     }
     throw error;
   }
 }
-

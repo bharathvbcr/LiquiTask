@@ -1,5 +1,5 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
+import { AlertTriangle, Home, RefreshCw } from "lucide-react";
+import { Component, type ErrorInfo, type ReactNode } from "react";
 
 interface Props {
   children: ReactNode;
@@ -30,14 +30,14 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
     (this as Component<Props, State>).setState({
       error,
       errorInfo,
     });
 
     // Log to error tracking service (e.g., Sentry) in production
-    if (process.env.NODE_ENV === 'production') {
+    if (process.env.NODE_ENV === "production") {
       // TODO: Add error tracking service integration
     }
   }
@@ -69,13 +69,17 @@ export class ErrorBoundary extends Component<Props, State> {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-white mb-1">Something went wrong</h1>
-                <p className="text-slate-400 text-sm">An unexpected error occurred in the application</p>
+                <p className="text-slate-400 text-sm">
+                  An unexpected error occurred in the application
+                </p>
               </div>
             </div>
 
-            {process.env.NODE_ENV === 'development' && this.state.error && (
+            {process.env.NODE_ENV === "development" && this.state.error && (
               <div className="mb-6 p-4 bg-black/40 rounded-xl border border-white/5">
-                <h2 className="text-sm font-bold text-red-400 mb-2 uppercase tracking-wide">Error Details</h2>
+                <h2 className="text-sm font-bold text-red-400 mb-2 uppercase tracking-wide">
+                  Error Details
+                </h2>
                 <pre className="text-xs text-slate-300 font-mono overflow-auto max-h-48">
                   {this.state.error.toString()}
                   {this.state.errorInfo?.componentStack}
@@ -102,7 +106,8 @@ export class ErrorBoundary extends Component<Props, State> {
 
             <div className="mt-6 pt-6 border-t border-white/5">
               <p className="text-xs text-slate-500">
-                If this problem persists, please check the browser console for more details or contact support.
+                If this problem persists, please check the browser console for more details or
+                contact support.
               </p>
             </div>
           </div>
@@ -113,4 +118,3 @@ export class ErrorBoundary extends Component<Props, State> {
     return this.props.children;
   }
 }
-

@@ -1,510 +1,513 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
-import { useSavedViews } from '../useSavedViews';
-import { FilterState } from '../../../types';
+import { act, renderHook } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { FilterState } from "../../../types";
+import { useSavedViews } from "../useSavedViews";
 
 // Mock localStorage
 const localStorageMock = {
-    store: {} as Record<string, string>,
-    getItem: vi.fn((key: string) => localStorageMock.store[key] || null),
-    setItem: vi.fn((key: string, value: string) => {
-        localStorageMock.store[key] = value;
-    }),
-    removeItem: vi.fn((key: string) => {
-        delete localStorageMock.store[key];
-    }),
-    clear: vi.fn(() => {
-        localStorageMock.store = {};
-    }),
-    length: 0,
-    key: vi.fn(),
+  store: {} as Record<string, string>,
+  getItem: vi.fn((key: string) => localStorageMock.store[key] || null),
+  setItem: vi.fn((key: string, value: string) => {
+    localStorageMock.store[key] = value;
+  }),
+  removeItem: vi.fn((key: string) => {
+    delete localStorageMock.store[key];
+  }),
+  clear: vi.fn(() => {
+    localStorageMock.store = {};
+  }),
+  length: 0,
+  key: vi.fn(),
 };
 
-Object.defineProperty(window, 'localStorage', {
-    value: localStorageMock,
-    writable: true,
+Object.defineProperty(window, "localStorage", {
+  value: localStorageMock,
+  writable: true,
 });
 
-describe('useSavedViews', () => {
-    beforeEach(() => {
-        localStorageMock.store = {};
-        localStorageMock.getItem.mockClear();
-        localStorageMock.setItem.mockClear();
-        vi.clearAllMocks();
-        vi.spyOn(console, 'warn').mockImplementation(() => {});
-        vi.spyOn(console, 'error').mockImplementation(() => {});
+describe("useSavedViews", () => {
+  beforeEach(() => {
+    localStorageMock.store = {};
+    localStorageMock.getItem.mockClear();
+    localStorageMock.setItem.mockClear();
+    vi.clearAllMocks();
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  describe("initialization", () => {
+    it("should initialize with default views", () => {
+      const { result } = renderHook(() => useSavedViews());
+
+      expect(result.current.views.length).toBeGreaterThan(0);
+      expect(result.current.views.some((v) => v.name === "My Tasks")).toBe(true);
     });
 
-    describe('initialization', () => {
-        it('should initialize with default views', () => {
-            const { result } = renderHook(() => useSavedViews());
+    it("should load views from localStorage", () => {
+      const savedViews = [
+        {
+          id: "view-1",
+          name: "Custom View",
+          filters: {
+            assignee: "John",
+            dateRange: null,
+            startDate: "",
+            endDate: "",
+            tags: "",
+          },
+          grouping: "none" as const,
+          createdAt: new Date().toISOString(),
+        },
+      ];
 
-            expect(result.current.views.length).toBeGreaterThan(0);
-            expect(result.current.views.some(v => v.name === 'My Tasks')).toBe(true);
-        });
+      localStorageMock.store.liquitask_saved_views = JSON.stringify(savedViews);
 
-        it('should load views from localStorage', () => {
-            const savedViews = [
-                {
-                    id: 'view-1',
-                    name: 'Custom View',
-                    filters: {
-                        assignee: 'John',
-                        dateRange: null,
-                        startDate: '',
-                        endDate: '',
-                        tags: '',
-                    },
-                    grouping: 'none' as const,
-                    createdAt: new Date().toISOString(),
-                },
-            ];
+      const { result } = renderHook(() => useSavedViews());
 
-            localStorageMock.store['liquitask_saved_views'] = JSON.stringify(savedViews);
+      expect(result.current.views.length).toBeGreaterThan(0);
+      expect(result.current.views.some((v) => v.name === "Custom View")).toBe(true);
+    });
+  });
 
-            const { result } = renderHook(() => useSavedViews());
+  describe("createView", () => {
+    it("should create a new view", () => {
+      const { result } = renderHook(() => useSavedViews());
 
-            expect(result.current.views.length).toBeGreaterThan(0);
-            expect(result.current.views.some(v => v.name === 'Custom View')).toBe(true);
-        });
+      const filters: FilterState = {
+        assignee: "John",
+        dateRange: "due",
+        startDate: "2024-01-01",
+        endDate: "2024-01-31",
+        tags: "urgent",
+      };
+
+      let newView;
+      act(() => {
+        newView = result.current.createView("New View", filters, "priority");
+      });
+
+      expect(newView).not.toBeNull();
+      expect(newView?.name).toBe("New View");
+      expect(newView?.grouping).toBe("priority");
+      expect(result.current.views.some((v) => v.id === newView?.id)).toBe(true);
     });
 
-    describe('createView', () => {
-        it('should create a new view', () => {
-            const { result } = renderHook(() => useSavedViews());
+    it("should not create view if max limit reached", () => {
+      const { result } = renderHook(() => useSavedViews());
 
-            const filters: FilterState = {
-                assignee: 'John',
-                dateRange: 'due',
-                startDate: '2024-01-01',
-                endDate: '2024-01-31',
-                tags: 'urgent',
-            };
+      // Create 20 views (max limit)
+      act(() => {
+        for (let i = 0; i < 20; i++) {
+          result.current.createView(`View ${i}`, {
+            assignee: "",
+            dateRange: null,
+            startDate: "",
+            endDate: "",
+            tags: "",
+          });
+        }
+      });
 
-            let newView;
-            act(() => {
-                newView = result.current.createView('New View', filters, 'priority');
-            });
+      const viewCount = result.current.views.length;
 
-            expect(newView).not.toBeNull();
-            expect(newView?.name).toBe('New View');
-            expect(newView?.grouping).toBe('priority');
-            expect(result.current.views.some(v => v.id === newView?.id)).toBe(true);
+      let newView;
+      act(() => {
+        newView = result.current.createView("Should Fail", {
+          assignee: "",
+          dateRange: null,
+          startDate: "",
+          endDate: "",
+          tags: "",
         });
+      });
 
-        it('should not create view if max limit reached', () => {
-            const { result } = renderHook(() => useSavedViews());
-
-            // Create 20 views (max limit)
-            act(() => {
-                for (let i = 0; i < 20; i++) {
-                    result.current.createView(`View ${i}`, {
-                        assignee: '',
-                        dateRange: null,
-                        startDate: '',
-                        endDate: '',
-                        tags: '',
-                    });
-                }
-            });
-
-            const viewCount = result.current.views.length;
-
-            let newView;
-            act(() => {
-                newView = result.current.createView('Should Fail', {
-                    assignee: '',
-                    dateRange: null,
-                    startDate: '',
-                    endDate: '',
-                    tags: '',
-                });
-            });
-
-            expect(newView).toBeNull();
-            expect(result.current.views.length).toBe(viewCount);
-        });
-
-        it('should trim view name', () => {
-            const { result } = renderHook(() => useSavedViews());
-
-            let newView;
-            act(() => {
-                newView = result.current.createView('  Trimmed View  ', {
-                    assignee: '',
-                    dateRange: null,
-                    startDate: '',
-                    endDate: '',
-                    tags: '',
-                });
-            });
-
-            expect(newView?.name).toBe('Trimmed View');
-        });
+      expect(newView).toBeNull();
+      expect(result.current.views.length).toBe(viewCount);
     });
 
-    describe('updateView', () => {
-        it('should update an existing view', () => {
-            const { result } = renderHook(() => useSavedViews());
+    it("should trim view name", () => {
+      const { result } = renderHook(() => useSavedViews());
 
-            let viewId;
-            act(() => {
-                const view = result.current.createView('Original', {
-                    assignee: '',
-                    dateRange: null,
-                    startDate: '',
-                    endDate: '',
-                    tags: '',
-                });
-                viewId = view?.id;
-            });
-
-            act(() => {
-                result.current.updateView(viewId!, {
-                    name: 'Updated',
-                    filters: {
-                        assignee: 'John',
-                        dateRange: null,
-                        startDate: '',
-                        endDate: '',
-                        tags: '',
-                    },
-                });
-            });
-
-            const updatedView = result.current.views.find(v => v.id === viewId);
-            expect(updatedView?.name).toBe('Updated');
-            expect(updatedView?.filters.assignee).toBe('John');
+      let newView;
+      act(() => {
+        newView = result.current.createView("  Trimmed View  ", {
+          assignee: "",
+          dateRange: null,
+          startDate: "",
+          endDate: "",
+          tags: "",
         });
+      });
+
+      expect(newView?.name).toBe("Trimmed View");
+    });
+  });
+
+  describe("updateView", () => {
+    it("should update an existing view", () => {
+      const { result } = renderHook(() => useSavedViews());
+
+      let viewId;
+      act(() => {
+        const view = result.current.createView("Original", {
+          assignee: "",
+          dateRange: null,
+          startDate: "",
+          endDate: "",
+          tags: "",
+        });
+        viewId = view?.id;
+      });
+
+      act(() => {
+        result.current.updateView(viewId!, {
+          name: "Updated",
+          filters: {
+            assignee: "John",
+            dateRange: null,
+            startDate: "",
+            endDate: "",
+            tags: "",
+          },
+        });
+      });
+
+      const updatedView = result.current.views.find((v) => v.id === viewId);
+      expect(updatedView?.name).toBe("Updated");
+      expect(updatedView?.filters.assignee).toBe("John");
+    });
+  });
+
+  describe("deleteView", () => {
+    it("should delete a view", () => {
+      const { result } = renderHook(() => useSavedViews());
+
+      let viewId;
+      act(() => {
+        const view = result.current.createView("To Delete", {
+          assignee: "",
+          dateRange: null,
+          startDate: "",
+          endDate: "",
+          tags: "",
+        });
+        viewId = view?.id;
+      });
+
+      const initialCount = result.current.views.length;
+
+      act(() => {
+        result.current.deleteView(viewId!);
+      });
+
+      expect(result.current.views.length).toBe(initialCount - 1);
+      expect(result.current.views.find((v) => v.id === viewId)).toBeUndefined();
     });
 
-    describe('deleteView', () => {
-        it('should delete a view', () => {
-            const { result } = renderHook(() => useSavedViews());
+    it("should clear active view if deleted view was active", () => {
+      const { result } = renderHook(() => useSavedViews());
 
-            let viewId;
-            act(() => {
-                const view = result.current.createView('To Delete', {
-                    assignee: '',
-                    dateRange: null,
-                    startDate: '',
-                    endDate: '',
-                    tags: '',
-                });
-                viewId = view?.id;
-            });
-
-            const initialCount = result.current.views.length;
-
-            act(() => {
-                result.current.deleteView(viewId!);
-            });
-
-            expect(result.current.views.length).toBe(initialCount - 1);
-            expect(result.current.views.find(v => v.id === viewId)).toBeUndefined();
+      let viewId;
+      act(() => {
+        const view = result.current.createView("Active View", {
+          assignee: "",
+          dateRange: null,
+          startDate: "",
+          endDate: "",
+          tags: "",
         });
+        viewId = view?.id;
+      });
 
-        it('should clear active view if deleted view was active', () => {
-            const { result } = renderHook(() => useSavedViews());
+      act(() => {
+        result.current.applyView(viewId!);
+      });
 
-            let viewId;
-            act(() => {
-                const view = result.current.createView('Active View', {
-                    assignee: '',
-                    dateRange: null,
-                    startDate: '',
-                    endDate: '',
-                    tags: '',
-                });
-                viewId = view?.id;
-            });
+      expect(result.current.activeViewId).toBe(viewId);
 
-            act(() => {
-                result.current.applyView(viewId!);
-            });
+      act(() => {
+        result.current.deleteView(viewId!);
+      });
 
-            expect(result.current.activeViewId).toBe(viewId);
+      expect(result.current.activeViewId).toBeNull();
+    });
+  });
 
-            act(() => {
-                result.current.deleteView(viewId!);
-            });
+  describe("applyView", () => {
+    it("should set view as active", () => {
+      const { result } = renderHook(() => useSavedViews());
 
-            expect(result.current.activeViewId).toBeNull();
+      let viewId;
+      act(() => {
+        const view = result.current.createView("View to Apply", {
+          assignee: "",
+          dateRange: null,
+          startDate: "",
+          endDate: "",
+          tags: "",
         });
+        viewId = view?.id;
+      });
+
+      act(() => {
+        result.current.applyView(viewId!);
+      });
+
+      expect(result.current.activeViewId).toBe(viewId);
+      expect(result.current.activeView?.id).toBe(viewId);
     });
 
-    describe('applyView', () => {
-        it('should set view as active', () => {
-            const { result } = renderHook(() => useSavedViews());
+    it("should return undefined for non-existent view", () => {
+      const { result } = renderHook(() => useSavedViews());
 
-            let viewId;
-            act(() => {
-                const view = result.current.createView('View to Apply', {
-                    assignee: '',
-                    dateRange: null,
-                    startDate: '',
-                    endDate: '',
-                    tags: '',
-                });
-                viewId = view?.id;
-            });
+      let view;
+      act(() => {
+        view = result.current.applyView("non-existent");
+      });
 
-            act(() => {
-                result.current.applyView(viewId!);
-            });
+      expect(view).toBeUndefined();
+    });
+  });
 
-            expect(result.current.activeViewId).toBe(viewId);
-            expect(result.current.activeView?.id).toBe(viewId);
+  describe("clearActiveView", () => {
+    it("should clear active view", () => {
+      const { result } = renderHook(() => useSavedViews());
+
+      let viewId;
+      act(() => {
+        const view = result.current.createView("View", {
+          assignee: "",
+          dateRange: null,
+          startDate: "",
+          endDate: "",
+          tags: "",
         });
+        viewId = view?.id;
+      });
 
-        it('should return undefined for non-existent view', () => {
-            const { result } = renderHook(() => useSavedViews());
+      act(() => {
+        result.current.applyView(viewId!);
+      });
 
-            let view;
-            act(() => {
-                view = result.current.applyView('non-existent');
-            });
+      expect(result.current.activeViewId).toBe(viewId);
 
-            expect(view).toBeUndefined();
+      act(() => {
+        result.current.clearActiveView();
+      });
+
+      expect(result.current.activeViewId).toBeNull();
+    });
+  });
+
+  describe("setDefaultView", () => {
+    it("should set a view as default", () => {
+      const { result } = renderHook(() => useSavedViews());
+
+      let viewId;
+      act(() => {
+        const view = result.current.createView("Default View", {
+          assignee: "",
+          dateRange: null,
+          startDate: "",
+          endDate: "",
+          tags: "",
         });
+        viewId = view?.id;
+      });
+
+      act(() => {
+        result.current.setDefaultView(viewId!);
+      });
+
+      const defaultView = result.current.getDefaultView();
+      expect(defaultView?.id).toBe(viewId);
+      expect(defaultView?.isDefault).toBe(true);
     });
 
-    describe('clearActiveView', () => {
-        it('should clear active view', () => {
-            const { result } = renderHook(() => useSavedViews());
+    it("should unset default when setting to null", () => {
+      const { result } = renderHook(() => useSavedViews());
 
-            let viewId;
-            act(() => {
-                const view = result.current.createView('View', {
-                    assignee: '',
-                    dateRange: null,
-                    startDate: '',
-                    endDate: '',
-                    tags: '',
-                });
-                viewId = view?.id;
-            });
-
-            act(() => {
-                result.current.applyView(viewId!);
-            });
-
-            expect(result.current.activeViewId).toBe(viewId);
-
-            act(() => {
-                result.current.clearActiveView();
-            });
-
-            expect(result.current.activeViewId).toBeNull();
+      let viewId;
+      act(() => {
+        const view = result.current.createView("View", {
+          assignee: "",
+          dateRange: null,
+          startDate: "",
+          endDate: "",
+          tags: "",
         });
+        viewId = view?.id;
+      });
+
+      act(() => {
+        result.current.setDefaultView(viewId!);
+      });
+
+      expect(result.current.getDefaultView()?.id).toBe(viewId);
+
+      act(() => {
+        result.current.setDefaultView(null);
+      });
+
+      expect(result.current.getDefaultView()).toBeUndefined();
+    });
+  });
+
+  describe("getDefaultView", () => {
+    it("should return default view", () => {
+      const { result } = renderHook(() => useSavedViews());
+
+      // Should have a default view from initialization
+      const defaultView = result.current.getDefaultView();
+      expect(defaultView).toBeDefined();
+      expect(defaultView?.isDefault).toBe(true);
+    });
+  });
+
+  describe("renameView", () => {
+    it("should rename a view", () => {
+      const { result } = renderHook(() => useSavedViews());
+
+      let viewId;
+      act(() => {
+        const view = result.current.createView("Original Name", {
+          assignee: "",
+          dateRange: null,
+          startDate: "",
+          endDate: "",
+          tags: "",
+        });
+        viewId = view?.id;
+      });
+
+      act(() => {
+        result.current.renameView(viewId!, "New Name");
+      });
+
+      const renamedView = result.current.views.find((v) => v.id === viewId);
+      expect(renamedView?.name).toBe("New Name");
     });
 
-    describe('setDefaultView', () => {
-        it('should set a view as default', () => {
-            const { result } = renderHook(() => useSavedViews());
+    it("should trim renamed view name", () => {
+      const { result } = renderHook(() => useSavedViews());
 
-            let viewId;
-            act(() => {
-                const view = result.current.createView('Default View', {
-                    assignee: '',
-                    dateRange: null,
-                    startDate: '',
-                    endDate: '',
-                    tags: '',
-                });
-                viewId = view?.id;
-            });
-
-            act(() => {
-                result.current.setDefaultView(viewId!);
-            });
-
-            const defaultView = result.current.getDefaultView();
-            expect(defaultView?.id).toBe(viewId);
-            expect(defaultView?.isDefault).toBe(true);
+      let viewId;
+      act(() => {
+        const view = result.current.createView("Original", {
+          assignee: "",
+          dateRange: null,
+          startDate: "",
+          endDate: "",
+          tags: "",
         });
+        viewId = view?.id;
+      });
 
-        it('should unset default when setting to null', () => {
-            const { result } = renderHook(() => useSavedViews());
+      act(() => {
+        result.current.renameView(viewId!, "  Trimmed  ");
+      });
 
-            let viewId;
-            act(() => {
-                const view = result.current.createView('View', {
-                    assignee: '',
-                    dateRange: null,
-                    startDate: '',
-                    endDate: '',
-                    tags: '',
-                });
-                viewId = view?.id;
-            });
+      const renamedView = result.current.views.find((v) => v.id === viewId);
+      expect(renamedView?.name).toBe("Trimmed");
+    });
+  });
 
-            act(() => {
-                result.current.setDefaultView(viewId!);
-            });
+  describe("duplicateView", () => {
+    it("should duplicate a view", () => {
+      const { result } = renderHook(() => useSavedViews());
 
-            expect(result.current.getDefaultView()?.id).toBe(viewId);
+      let originalId;
+      act(() => {
+        const view = result.current.createView(
+          "Original",
+          {
+            assignee: "John",
+            dateRange: "due",
+            startDate: "2024-01-01",
+            endDate: "2024-01-31",
+            tags: "urgent",
+          },
+          "priority",
+        );
+        originalId = view?.id;
+      });
 
-            act(() => {
-                result.current.setDefaultView(null);
-            });
+      const initialCount = result.current.views.length;
 
-            expect(result.current.getDefaultView()).toBeUndefined();
-        });
+      let duplicated;
+      act(() => {
+        duplicated = result.current.duplicateView(originalId!);
+      });
+
+      expect(duplicated).not.toBeNull();
+      expect(duplicated?.name).toBe("Original (Copy)");
+      expect(duplicated?.filters.assignee).toBe("John");
+      expect(duplicated?.grouping).toBe("priority");
+      expect(result.current.views.length).toBe(initialCount + 1);
     });
 
-    describe('getDefaultView', () => {
-        it('should return default view', () => {
-            const { result } = renderHook(() => useSavedViews());
+    it("should return null if max limit reached", () => {
+      const { result } = renderHook(() => useSavedViews());
 
-            // Should have a default view from initialization
-            const defaultView = result.current.getDefaultView();
-            expect(defaultView).toBeDefined();
-            expect(defaultView?.isDefault).toBe(true);
+      // Create 20 views
+      let viewId;
+      act(() => {
+        for (let i = 0; i < 19; i++) {
+          result.current.createView(`View ${i}`, {
+            assignee: "",
+            dateRange: null,
+            startDate: "",
+            endDate: "",
+            tags: "",
+          });
+        }
+        const view = result.current.createView("Last View", {
+          assignee: "",
+          dateRange: null,
+          startDate: "",
+          endDate: "",
+          tags: "",
         });
+        viewId = view?.id;
+      });
+
+      let duplicated;
+      act(() => {
+        duplicated = result.current.duplicateView(viewId!);
+      });
+
+      expect(duplicated).toBeNull();
     });
 
-    describe('renameView', () => {
-        it('should rename a view', () => {
-            const { result } = renderHook(() => useSavedViews());
+    it("should return null for non-existent view", () => {
+      const { result } = renderHook(() => useSavedViews());
 
-            let viewId;
-            act(() => {
-                const view = result.current.createView('Original Name', {
-                    assignee: '',
-                    dateRange: null,
-                    startDate: '',
-                    endDate: '',
-                    tags: '',
-                });
-                viewId = view?.id;
-            });
+      let duplicated;
+      act(() => {
+        duplicated = result.current.duplicateView("non-existent");
+      });
 
-            act(() => {
-                result.current.renameView(viewId!, 'New Name');
-            });
-
-            const renamedView = result.current.views.find(v => v.id === viewId);
-            expect(renamedView?.name).toBe('New Name');
-        });
-
-        it('should trim renamed view name', () => {
-            const { result } = renderHook(() => useSavedViews());
-
-            let viewId;
-            act(() => {
-                const view = result.current.createView('Original', {
-                    assignee: '',
-                    dateRange: null,
-                    startDate: '',
-                    endDate: '',
-                    tags: '',
-                });
-                viewId = view?.id;
-            });
-
-            act(() => {
-                result.current.renameView(viewId!, '  Trimmed  ');
-            });
-
-            const renamedView = result.current.views.find(v => v.id === viewId);
-            expect(renamedView?.name).toBe('Trimmed');
-        });
+      expect(duplicated).toBeNull();
     });
+  });
 
-    describe('duplicateView', () => {
-        it('should duplicate a view', () => {
-            const { result } = renderHook(() => useSavedViews());
+  describe("persistence", () => {
+    it("should persist views to localStorage", () => {
+      const { result } = renderHook(() => useSavedViews());
 
-            let originalId;
-            act(() => {
-                const view = result.current.createView('Original', {
-                    assignee: 'John',
-                    dateRange: 'due',
-                    startDate: '2024-01-01',
-                    endDate: '2024-01-31',
-                    tags: 'urgent',
-                }, 'priority');
-                originalId = view?.id;
-            });
-
-            const initialCount = result.current.views.length;
-
-            let duplicated;
-            act(() => {
-                duplicated = result.current.duplicateView(originalId!);
-            });
-
-            expect(duplicated).not.toBeNull();
-            expect(duplicated?.name).toBe('Original (Copy)');
-            expect(duplicated?.filters.assignee).toBe('John');
-            expect(duplicated?.grouping).toBe('priority');
-            expect(result.current.views.length).toBe(initialCount + 1);
+      act(() => {
+        result.current.createView("Persisted View", {
+          assignee: "",
+          dateRange: null,
+          startDate: "",
+          endDate: "",
+          tags: "",
         });
+      });
 
-        it('should return null if max limit reached', () => {
-            const { result } = renderHook(() => useSavedViews());
-
-            // Create 20 views
-            let viewId;
-            act(() => {
-                for (let i = 0; i < 19; i++) {
-                    result.current.createView(`View ${i}`, {
-                        assignee: '',
-                        dateRange: null,
-                        startDate: '',
-                        endDate: '',
-                        tags: '',
-                    });
-                }
-                const view = result.current.createView('Last View', {
-                    assignee: '',
-                    dateRange: null,
-                    startDate: '',
-                    endDate: '',
-                    tags: '',
-                });
-                viewId = view?.id;
-            });
-
-            let duplicated;
-            act(() => {
-                duplicated = result.current.duplicateView(viewId!);
-            });
-
-            expect(duplicated).toBeNull();
-        });
-
-        it('should return null for non-existent view', () => {
-            const { result } = renderHook(() => useSavedViews());
-
-            let duplicated;
-            act(() => {
-                duplicated = result.current.duplicateView('non-existent');
-            });
-
-            expect(duplicated).toBeNull();
-        });
+      expect(localStorageMock.setItem).toHaveBeenCalled();
+      const saved = JSON.parse(localStorageMock.store.liquitask_saved_views || "[]");
+      expect(saved.some((v: { name: string }) => v.name === "Persisted View")).toBe(true);
     });
-
-    describe('persistence', () => {
-        it('should persist views to localStorage', () => {
-            const { result } = renderHook(() => useSavedViews());
-
-            act(() => {
-                result.current.createView('Persisted View', {
-                    assignee: '',
-                    dateRange: null,
-                    startDate: '',
-                    endDate: '',
-                    tags: '',
-                });
-            });
-
-            expect(localStorageMock.setItem).toHaveBeenCalled();
-            const saved = JSON.parse(localStorageMock.store['liquitask_saved_views'] || '[]');
-            expect(saved.some((v: { name: string }) => v.name === 'Persisted View')).toBe(true);
-        });
-    });
+  });
 });
-

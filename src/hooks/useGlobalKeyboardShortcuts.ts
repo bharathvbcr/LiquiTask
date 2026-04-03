@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
-import { useKeybinding } from '../context/KeybindingContext';
-import { Task, Project, ToastType } from '../../types';
+import { useEffect } from "react";
+import type { Project, Task, ToastType } from "../../types";
+import { useKeybinding } from "../context/KeybindingContext";
 
 interface KeyboardShortcutsProps {
   handleUndo: () => void;
@@ -31,43 +31,55 @@ export const useGlobalKeyboardShortcuts = ({
 
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      const isInput = ['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName);
+      const isInput = ["INPUT", "TEXTAREA"].includes((e.target as HTMLElement).tagName);
 
-      if (matches('global:command-palette', e)) {
+      if (matches("global:command-palette", e)) {
         e.preventDefault();
-        setIsCommandPaletteOpen(prev => !prev);
+        setIsCommandPaletteOpen((prev) => !prev);
       }
-      if (matches('global:toggle-sidebar', e)) {
+      if (matches("global:toggle-sidebar", e)) {
         e.preventDefault();
-        setIsSidebarCollapsed(prev => !prev);
+        setIsSidebarCollapsed((prev) => !prev);
       }
-      if (matches('global:undo', e) && !isInput) {
+      if (matches("global:undo", e) && !isInput) {
         e.preventDefault();
         handleUndo();
       }
-      if (matches('global:export', e) && !isInput) {
+      if (matches("global:export", e) && !isInput) {
         e.preventDefault();
-        import('../services/exportService').then(({ exportService }) => {
-          const projectMap = new Map<string, string>(projects.map(p => [p.id, p.name]));
-          exportService.downloadCSV(tasks, 'liquitask-export.csv', projectMap);
-          addToast('Exported tasks to CSV', 'success');
+        import("../services/exportService").then(({ exportService }) => {
+          const projectMap = new Map<string, string>(projects.map((p) => [p.id, p.name]));
+          exportService.downloadCSV(tasks, "liquitask-export.csv", projectMap);
+          addToast("Exported tasks to CSV", "success");
         });
       }
-      if (matches('nav:back', e) && isCommandPaletteOpen) {
+      if (matches("nav:back", e) && isCommandPaletteOpen) {
         e.preventDefault();
         setIsCommandPaletteOpen(false);
       }
-      if (matches('global:create-task', e) && !isInput) {
+      if (matches("global:create-task", e) && !isInput) {
         e.preventDefault();
         setEditingTask(null);
         setIsTaskModalOpen(true);
       }
-      if (matches('global:search-focus', e) && !isInput) {
+      if (matches("global:search-focus", e) && !isInput) {
         e.preventDefault();
         searchInputRef.current?.focus();
       }
     };
-    window.addEventListener('keydown', handleGlobalKeyDown);
-    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [handleUndo, isCommandPaletteOpen, tasks, projects, addToast, matches, setIsCommandPaletteOpen, setIsSidebarCollapsed, setIsTaskModalOpen, setEditingTask, searchInputRef]);
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+  }, [
+    handleUndo,
+    isCommandPaletteOpen,
+    tasks,
+    projects,
+    addToast,
+    matches,
+    setIsCommandPaletteOpen,
+    setIsSidebarCollapsed,
+    setIsTaskModalOpen,
+    setEditingTask,
+    searchInputRef,
+  ]);
 };

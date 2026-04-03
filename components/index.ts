@@ -1,18 +1,16 @@
 // Barrel exports for components
 
-// Core components
-export { Sidebar } from './Sidebar';
-export { Dashboard } from './Dashboard';
-export { TaskCard, MemoizedTaskCard } from './TaskCard';
-export { TitleBar } from './TitleBar';
-export { Toast } from './Toast';
-
-// Modals
-export { TaskFormModal } from './TaskFormModal';
-export { ProjectModal } from './ProjectModal';
-export { SettingsModal } from './SettingsModal';
-export { ModalWrapper } from './ModalWrapper';
-export { ConfirmDialog } from './ConfirmDialog';
-
+export { ConfirmDialog } from "./ConfirmDialog";
+export { Dashboard } from "./Dashboard";
 // UI Elements
-export { LiquidButton } from './LiquidButton';
+export { LiquidButton } from "./LiquidButton";
+export { ModalWrapper } from "./ModalWrapper";
+export { ProjectModal } from "./ProjectModal";
+export { SettingsModal } from "./SettingsModal";
+// Core components
+export { Sidebar } from "./Sidebar";
+export { MemoizedTaskCard, TaskCard } from "./TaskCard";
+// Modals
+export { TaskFormModal } from "./TaskFormModal";
+export { TitleBar } from "./TitleBar";
+export { Toast } from "./Toast";

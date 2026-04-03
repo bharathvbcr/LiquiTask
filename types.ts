@@ -1,4 +1,3 @@
-
 export type TaskStatus = string;
 
 export type GroupingOption = 'none' | 'priority';
@@ -14,7 +13,7 @@ export interface PriorityDefinition {
 export enum Priority {
   High = 'high',
   Medium = 'medium',
-  Low = 'low'
+  Low = 'low',
 }
 
 export interface Subtask {
@@ -179,7 +178,85 @@ export interface TaskTemplate {
   variables?: string[]; // e.g., ['projectName', 'assignee']
 }
 
-// AI Provider configuration
+// AI Task Management & Cleanup Types
+export interface DuplicateGroup {
+  id: string;
+  tasks: Task[];
+  confidence: number; // 0-1
+  reasons: string[]; // AI-explained reasons
+}
+
+export interface MergeSuggestion {
+  keepTaskId: string;
+  archiveTaskIds: string[];
+  mergedFields: Partial<Task>;
+  reasoning: string;
+}
+
+export interface RedundancyAnalysis {
+  taskId: string;
+  type: 'subset' | 'completed-overlap' | 'stale' | 'blocked-completed';
+  relatedTaskId?: string;
+  confidence: number;
+  reasoning: string;
+  suggestedAction: 'archive' | 'convert-to-subtask' | 'update' | 'delete';
+}
+
+export interface AISuggestion {
+  id: string;
+  type: 'priority' | 'tag' | 'project' | 'due-date' | 'subtask' | 'assignment';
+  taskId: string;
+  suggestedValue: unknown;
+  currentValue: unknown;
+  confidence: number;
+  reasoning: string;
+}
+
+export interface AICategorySuggestion {
+  taskId: string;
+  suggestedProjectId?: string;
+  suggestedTags: string[];
+  suggestedPriority?: string;
+  confidence: number;
+  reasoning: string;
+}
+
+export interface AIScheduleSuggestion {
+  taskId: string;
+  suggestedDueDate?: Date;
+  suggestedTimeEstimate?: number;
+  conflicts: string[];
+  reasoning: string;
+}
+
+export interface AIInsight {
+  id: string;
+  type: 'productivity' | 'bottleneck' | 'estimate-accuracy' | 'pattern' | 'recommendation';
+  title: string;
+  description: string;
+  data?: Record<string, unknown>;
+  timestamp: Date;
+}
+
+export interface AIAutomationRule {
+  id: string;
+  naturalLanguage: string;
+  trigger: string;
+  conditions: string;
+  actions: string;
+  enabled: boolean;
+  createdAt: Date;
+}
+
+export interface TaskCluster {
+  id: string;
+  taskIds: string[];
+  theme: string;
+  suggestedTags: string[];
+  confidence: number;
+}
+
+// AI Provider configuration (extended)
 export type AIProviderId = 'gemini' | 'ollama';
 
 export interface AIConfig {
@@ -188,6 +265,12 @@ export interface AIConfig {
   geminiModel?: string;
   ollamaBaseUrl?: string;
   ollamaModel?: string;
+  // AI Management settings
+  autoDetectDuplicates?: boolean;
+  autoSuggestPriorities?: boolean;
+  autoSuggestTags?: boolean;
+  cleanupOnCreate?: boolean;
+  insightsFrequency?: 'daily' | 'weekly' | 'manual';
 }
 
 export interface AITaskSchema {
@@ -252,4 +335,3 @@ export interface MigratableAppData {
   // Allow additional fields for forward compatibility
   [key: string]: unknown;
 }
-

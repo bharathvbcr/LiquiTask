@@ -1,98 +1,81 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
-import React from 'react';
-import { ViewSwitcher } from '../ViewSwitcher';
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { ViewSwitcher } from "../ViewSwitcher";
 
 // Mock Tooltip
-vi.mock('../Tooltip', () => ({
-    Tooltip: ({ children }: any) => <div>{children}</div>
+vi.mock("../Tooltip", () => ({
+  Tooltip: ({ children }: any) => <div>{children}</div>,
 }));
 
-describe('ViewSwitcher', () => {
-    const mockOnChange = vi.fn();
+describe("ViewSwitcher", () => {
+  const mockOnChange = vi.fn();
 
-    it('renders Board and Gantt in project view', () => {
-        render(
-            <ViewSwitcher
-                currentView="project"
-                viewMode="board"
-                onViewModeChange={mockOnChange}
-            />
-        );
-        
-        expect(screen.getByText('Board')).toBeInTheDocument();
-        expect(screen.getByText('Gantt')).toBeInTheDocument();
-        expect(screen.queryByText('Stats')).not.toBeInTheDocument();
-    });
+  it("renders Board and Gantt in project view", () => {
+    render(<ViewSwitcher currentView="project" viewMode="board" onViewModeChange={mockOnChange} />);
 
-    it('renders all options in dashboard view', () => {
-        render(
-            <ViewSwitcher
-                currentView="dashboard"
-                viewMode="stats"
-                onViewModeChange={mockOnChange}
-            />
-        );
-        
-        expect(screen.getByText('Stats')).toBeInTheDocument();
-        expect(screen.getByText('Calendar')).toBeInTheDocument();
-        expect(screen.getByText('Board')).toBeInTheDocument();
-        expect(screen.getByText('Gantt')).toBeInTheDocument();
-    });
+    expect(screen.getByText("Board")).toBeInTheDocument();
+    expect(screen.getByText("Gantt")).toBeInTheDocument();
+    expect(screen.queryByText("Stats")).not.toBeInTheDocument();
+  });
 
-    it('calls onViewModeChange when a button is clicked', () => {
-        render(
-            <ViewSwitcher
-                currentView="project"
-                viewMode="board"
-                onViewModeChange={mockOnChange}
-            />
-        );
-        
-        fireEvent.click(screen.getByText('Gantt'));
-        expect(mockOnChange).toHaveBeenCalledWith('gantt');
-    });
+  it("renders all options in dashboard view", () => {
+    render(
+      <ViewSwitcher currentView="dashboard" viewMode="stats" onViewModeChange={mockOnChange} />,
+    );
 
-    it('renders only icons in compact mode', () => {
-        render(
-            <ViewSwitcher
-                currentView="project"
-                viewMode="board"
-                onViewModeChange={mockOnChange}
-                isCompact={true}
-            />
-        );
-        
-        expect(screen.queryByText('Board')).not.toBeInTheDocument();
-        expect(screen.queryByText('Gantt')).not.toBeInTheDocument();
-    });
+    expect(screen.getByText("Stats")).toBeInTheDocument();
+    expect(screen.getByText("Calendar")).toBeInTheDocument();
+    expect(screen.getByText("Board")).toBeInTheDocument();
+    expect(screen.getByText("Gantt")).toBeInTheDocument();
+  });
 
-    it('respects hideBoardAndGantt in project view', () => {
-        const { container } = render(
-            <ViewSwitcher
-                currentView="project"
-                viewMode="board"
-                onViewModeChange={mockOnChange}
-                hideBoardAndGantt={true}
-            />
-        );
-        
-        expect(container.firstChild).toBeNull();
-    });
+  it("calls onViewModeChange when a button is clicked", () => {
+    render(<ViewSwitcher currentView="project" viewMode="board" onViewModeChange={mockOnChange} />);
 
-    it('respects hideBoardAndGantt in dashboard view', () => {
-        render(
-            <ViewSwitcher
-                currentView="dashboard"
-                viewMode="stats"
-                onViewModeChange={mockOnChange}
-                hideBoardAndGantt={true}
-            />
-        );
-        
-        expect(screen.getByText('Stats')).toBeInTheDocument();
-        expect(screen.getByText('Calendar')).toBeInTheDocument();
-        expect(screen.queryByText('Board')).not.toBeInTheDocument();
-        expect(screen.queryByText('Gantt')).not.toBeInTheDocument();
-    });
+    fireEvent.click(screen.getByText("Gantt"));
+    expect(mockOnChange).toHaveBeenCalledWith("gantt");
+  });
+
+  it("renders only icons in compact mode", () => {
+    render(
+      <ViewSwitcher
+        currentView="project"
+        viewMode="board"
+        onViewModeChange={mockOnChange}
+        isCompact={true}
+      />,
+    );
+
+    expect(screen.queryByText("Board")).not.toBeInTheDocument();
+    expect(screen.queryByText("Gantt")).not.toBeInTheDocument();
+  });
+
+  it("respects hideBoardAndGantt in project view", () => {
+    const { container } = render(
+      <ViewSwitcher
+        currentView="project"
+        viewMode="board"
+        onViewModeChange={mockOnChange}
+        hideBoardAndGantt={true}
+      />,
+    );
+
+    expect(container.firstChild).toBeNull();
+  });
+
+  it("respects hideBoardAndGantt in dashboard view", () => {
+    render(
+      <ViewSwitcher
+        currentView="dashboard"
+        viewMode="stats"
+        onViewModeChange={mockOnChange}
+        hideBoardAndGantt={true}
+      />,
+    );
+
+    expect(screen.getByText("Stats")).toBeInTheDocument();
+    expect(screen.getByText("Calendar")).toBeInTheDocument();
+    expect(screen.queryByText("Board")).not.toBeInTheDocument();
+    expect(screen.queryByText("Gantt")).not.toBeInTheDocument();
+  });
 });

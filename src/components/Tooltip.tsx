@@ -1,17 +1,17 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
 interface TooltipProps {
   content: React.ReactNode;
   children: React.ReactElement;
   delay?: number;
-  position?: 'top' | 'bottom' | 'left' | 'right';
+  position?: "top" | "bottom" | "left" | "right";
 }
 
 export const Tooltip: React.FC<TooltipProps> = ({
   content,
   children,
   delay = 300,
-  position = 'top',
+  position = "top",
 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
@@ -38,62 +38,65 @@ export const Tooltip: React.FC<TooltipProps> = ({
   };
 
   /* eslint-disable-next-line react-hooks/exhaustive-deps */
-  const updatePosition = useCallback((retryCount = 0) => {
-    if (!triggerRef.current || !tooltipRef.current) return;
+  const updatePosition = useCallback(
+    (retryCount = 0) => {
+      if (!triggerRef.current || !tooltipRef.current) return;
 
-    const triggerRect = triggerRef.current.getBoundingClientRect();
-    const tooltipRect = tooltipRef.current.getBoundingClientRect();
+      const triggerRect = triggerRef.current.getBoundingClientRect();
+      const tooltipRect = tooltipRef.current.getBoundingClientRect();
 
-    // Fallback to offsetWidth/offsetHeight if getBoundingClientRect returns zero dimensions
-    const tooltipWidth = tooltipRect.width || tooltipRef.current.offsetWidth || 0;
-    const tooltipHeight = tooltipRect.height || tooltipRef.current.offsetHeight || 0;
+      // Fallback to offsetWidth/offsetHeight if getBoundingClientRect returns zero dimensions
+      const tooltipWidth = tooltipRect.width || tooltipRef.current.offsetWidth || 0;
+      const tooltipHeight = tooltipRect.height || tooltipRef.current.offsetHeight || 0;
 
-    // If tooltip doesn't have dimensions yet, retry after a short delay
-    if ((tooltipWidth === 0 || tooltipHeight === 0) && retryCount < 5) {
-      requestAnimationFrame(() => {
-        updatePosition(retryCount + 1);
-      });
-      return;
-    }
+      // If tooltip doesn't have dimensions yet, retry after a short delay
+      if ((tooltipWidth === 0 || tooltipHeight === 0) && retryCount < 5) {
+        requestAnimationFrame(() => {
+          updatePosition(retryCount + 1);
+        });
+        return;
+      }
 
-    const scrollX = window.scrollX || window.pageXOffset;
-    const scrollY = window.scrollY || window.pageYOffset;
+      const scrollX = window.scrollX || window.pageXOffset;
+      const scrollY = window.scrollY || window.pageYOffset;
 
-    let top = 0;
-    let left = 0;
+      let top = 0;
+      let left = 0;
 
-    switch (position) {
-      case 'top':
-        top = triggerRect.top + scrollY - tooltipHeight - 8;
-        left = triggerRect.left + scrollX + triggerRect.width / 2 - tooltipWidth / 2;
-        break;
-      case 'bottom':
-        top = triggerRect.bottom + scrollY + 8;
-        left = triggerRect.left + scrollX + triggerRect.width / 2 - tooltipWidth / 2;
-        break;
-      case 'left':
-        top = triggerRect.top + scrollY + triggerRect.height / 2 - tooltipHeight / 2;
-        left = triggerRect.left + scrollX - tooltipWidth - 8;
-        break;
-      case 'right':
-        top = triggerRect.top + scrollY + triggerRect.height / 2 - tooltipHeight / 2;
-        left = triggerRect.right + scrollX + 8;
-        break;
-    }
+      switch (position) {
+        case "top":
+          top = triggerRect.top + scrollY - tooltipHeight - 8;
+          left = triggerRect.left + scrollX + triggerRect.width / 2 - tooltipWidth / 2;
+          break;
+        case "bottom":
+          top = triggerRect.bottom + scrollY + 8;
+          left = triggerRect.left + scrollX + triggerRect.width / 2 - tooltipWidth / 2;
+          break;
+        case "left":
+          top = triggerRect.top + scrollY + triggerRect.height / 2 - tooltipHeight / 2;
+          left = triggerRect.left + scrollX - tooltipWidth - 8;
+          break;
+        case "right":
+          top = triggerRect.top + scrollY + triggerRect.height / 2 - tooltipHeight / 2;
+          left = triggerRect.right + scrollX + 8;
+          break;
+      }
 
-    // Keep tooltip within viewport
-    const padding = 8;
-    if (left < padding) left = padding;
-    if (left + tooltipWidth > window.innerWidth - padding) {
-      left = window.innerWidth - tooltipWidth - padding;
-    }
-    if (top < padding) top = padding;
-    if (top + tooltipHeight > window.innerHeight + scrollY - padding) {
-      top = window.innerHeight + scrollY - tooltipHeight - padding;
-    }
+      // Keep tooltip within viewport
+      const padding = 8;
+      if (left < padding) left = padding;
+      if (left + tooltipWidth > window.innerWidth - padding) {
+        left = window.innerWidth - tooltipWidth - padding;
+      }
+      if (top < padding) top = padding;
+      if (top + tooltipHeight > window.innerHeight + scrollY - padding) {
+        top = window.innerHeight + scrollY - tooltipHeight - padding;
+      }
 
-    setTooltipPosition({ top, left });
-  }, [position]);
+      setTooltipPosition({ top, left });
+    },
+    [position],
+  );
 
   useEffect(() => {
     if (isVisible && tooltipRef.current) {
@@ -107,11 +110,11 @@ export const Tooltip: React.FC<TooltipProps> = ({
       });
       const handleResize = () => updatePosition();
       const handleScroll = () => updatePosition();
-      window.addEventListener('resize', handleResize);
-      window.addEventListener('scroll', handleScroll, true);
+      window.addEventListener("resize", handleResize);
+      window.addEventListener("scroll", handleScroll, true);
       return () => {
-        window.removeEventListener('resize', handleResize);
-        window.removeEventListener('scroll', handleScroll, true);
+        window.removeEventListener("resize", handleResize);
+        window.removeEventListener("scroll", handleScroll, true);
       };
     }
   }, [isVisible, updatePosition]);
@@ -130,7 +133,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
       // Preserve any existing ref
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const existingRef = (children as any).ref;
-      if (typeof existingRef === 'function') {
+      if (typeof existingRef === "function") {
         existingRef(node);
       } else if (existingRef) {
         (existingRef as React.MutableRefObject<HTMLElement | null>).current = node;
@@ -156,14 +159,14 @@ export const Tooltip: React.FC<TooltipProps> = ({
 
   const getArrowPosition = () => {
     switch (position) {
-      case 'top':
-        return 'bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 rotate-45';
-      case 'bottom':
-        return 'top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 rotate-45';
-      case 'left':
-        return 'right-0 top-1/2 -translate-x-1/2 -translate-y-1/2 rotate-45';
-      case 'right':
-        return 'left-0 top-1/2 translate-x-1/2 -translate-y-1/2 rotate-45';
+      case "top":
+        return "bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 rotate-45";
+      case "bottom":
+        return "top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 rotate-45";
+      case "left":
+        return "right-0 top-1/2 -translate-x-1/2 -translate-y-1/2 rotate-45";
+      case "right":
+        return "left-0 top-1/2 translate-x-1/2 -translate-y-1/2 rotate-45";
     }
   };
 

@@ -3,7 +3,7 @@
  * Handles localStorage quota exceeded errors and provides fallback strategies
  */
 
-const STORAGE_QUOTA_KEY = 'liquitask-storage-quota-warning';
+const STORAGE_QUOTA_KEY = "liquitask-storage-quota-warning";
 
 export interface StorageQuotaInfo {
   used: number;
@@ -23,7 +23,7 @@ export function getStorageQuotaInfo(): StorageQuotaInfo | null {
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (key) {
-        const value = localStorage.getItem(key) || '';
+        const value = localStorage.getItem(key) || "";
         totalSize += key.length + value.length;
       }
     }
@@ -41,7 +41,7 @@ export function getStorageQuotaInfo(): StorageQuotaInfo | null {
       percentage: Math.min(100, percentage),
     };
   } catch (error) {
-    console.error('Failed to get storage quota info:', error);
+    console.error("Failed to get storage quota info:", error);
     return null;
   }
 }
@@ -67,11 +67,11 @@ export function trySaveToStorage(key: string, value: string): { success: boolean
       const now = Date.now();
 
       // Only warn once per hour
-      if (!lastWarning || now - parseInt(lastWarning) > 3600000) {
+      if (!lastWarning || now - parseInt(lastWarning, 10) > 3600000) {
         localStorage.setItem(STORAGE_QUOTA_KEY, now.toString());
         return {
           success: false,
-          error: 'Storage is nearly full (90%+). Please export and clear old data.',
+          error: "Storage is nearly full (90%+). Please export and clear old data.",
         };
       }
     }
@@ -79,15 +79,15 @@ export function trySaveToStorage(key: string, value: string): { success: boolean
     localStorage.setItem(key, value);
     return { success: true };
   } catch (error: unknown) {
-    if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+    if (error instanceof DOMException && error.name === "QuotaExceededError") {
       return {
         success: false,
-        error: 'Storage quota exceeded. Please export your data and clear storage.',
+        error: "Storage quota exceeded. Please export your data and clear storage.",
       };
     }
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown storage error',
+      error: error instanceof Error ? error.message : "Unknown storage error",
     };
   }
 }
@@ -99,23 +99,21 @@ export function trySaveToStorage(key: string, value: string): { success: boolean
 export function clearOldData(_olderThanDays = 30): number {
   let cleared = 0;
 
-
   try {
     // This is a placeholder - in a real app, you'd identify old data
     // For now, we'll just clear non-essential keys
-    const keysToCheck = ['liquitask-temp-', 'liquitask-cache-'];
+    const keysToCheck = ["liquitask-temp-", "liquitask-cache-"];
 
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const key = localStorage.key(i);
-      if (key && keysToCheck.some(prefix => key.startsWith(prefix))) {
+      if (key && keysToCheck.some((prefix) => key.startsWith(prefix))) {
         localStorage.removeItem(key);
         cleared++;
       }
     }
   } catch (error) {
-    console.error('Failed to clear old data:', error);
+    console.error("Failed to clear old data:", error);
   }
 
   return cleared;
 }
-

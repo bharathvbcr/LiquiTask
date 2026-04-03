@@ -1,6 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
+import type React from "react";
+import { useEffect, useRef, useState } from "react";
 
-export type TransitionType = 'fade' | 'slide-right' | 'slide-left' | 'slide-up' | 'slide-down' | 'scale';
+export type TransitionType =
+  | "fade"
+  | "slide-right"
+  | "slide-left"
+  | "slide-up"
+  | "slide-down"
+  | "scale";
 
 interface ViewTransitionProps {
   children: React.ReactNode;
@@ -13,9 +20,9 @@ interface ViewTransitionProps {
 export const ViewTransition: React.FC<ViewTransitionProps> = ({
   children,
   transitionKey,
-  type = 'fade',
+  type = "fade",
   duration = 400,
-  className = '',
+  className = "",
 }) => {
   const [displayChildren, setDisplayChildren] = useState(children);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -35,7 +42,7 @@ export const ViewTransition: React.FC<ViewTransitionProps> = ({
     // Only animate if the key actually changed
     if (previousKeyRef.current !== transitionKey) {
       setIsAnimating(true);
-      
+
       // Clear any existing timeout
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
@@ -47,7 +54,7 @@ export const ViewTransition: React.FC<ViewTransitionProps> = ({
       timeoutRef.current = setTimeout(() => {
         setDisplayChildren(children);
         previousKeyRef.current = transitionKey;
-        
+
         // Small delay before starting enter animation
         setTimeout(() => {
           setIsAnimating(false);
@@ -69,38 +76,38 @@ export const ViewTransition: React.FC<ViewTransitionProps> = ({
     if (isAnimating) {
       // Exit animation
       switch (type) {
-        case 'fade':
-          return 'animate-fade-out';
-        case 'slide-right':
-          return 'animate-slide-out-left';
-        case 'slide-left':
-          return 'animate-slide-out-right';
-        case 'slide-up':
-          return 'animate-slide-in-down';
-        case 'slide-down':
-          return 'animate-slide-in-up';
-        case 'scale':
-          return 'animate-scale-out';
+        case "fade":
+          return "animate-fade-out";
+        case "slide-right":
+          return "animate-slide-out-left";
+        case "slide-left":
+          return "animate-slide-out-right";
+        case "slide-up":
+          return "animate-slide-in-down";
+        case "slide-down":
+          return "animate-slide-in-up";
+        case "scale":
+          return "animate-scale-out";
         default:
-          return 'animate-fade-out';
+          return "animate-fade-out";
       }
     } else {
       // Enter animation (or initial render)
       switch (type) {
-        case 'fade':
-          return 'animate-fade-in';
-        case 'slide-right':
-          return 'animate-slide-in-right';
-        case 'slide-left':
-          return 'animate-slide-in-left';
-        case 'slide-up':
-          return 'animate-slide-in-up';
-        case 'slide-down':
-          return 'animate-slide-in-down';
-        case 'scale':
-          return 'animate-scale-in';
+        case "fade":
+          return "animate-fade-in";
+        case "slide-right":
+          return "animate-slide-in-right";
+        case "slide-left":
+          return "animate-slide-in-left";
+        case "slide-up":
+          return "animate-slide-in-up";
+        case "slide-down":
+          return "animate-slide-in-down";
+        case "scale":
+          return "animate-scale-in";
         default:
-          return 'animate-fade-in';
+          return "animate-fade-in";
       }
     }
   };
