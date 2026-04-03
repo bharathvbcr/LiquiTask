@@ -3,6 +3,8 @@ import {
   Brain,
   CheckCircle2,
   Download,
+  FolderInput,
+  GitBranch,
   Globe,
   Key,
   Loader2,
@@ -21,13 +23,14 @@ import { STORAGE_KEYS } from "../../src/constants";
 import { aiService } from "../../src/services/aiService";
 import storageService from "../../src/services/storageService";
 import { sanitizeUrl } from "../../src/utils/validation";
-import type { AIConfig, ToastType } from "../../types";
+import type { AIConfig, AutoOrganizeConfig, ToastType } from "../../types";
 
 interface AiSettingsProps {
   addToast: (msg: string, type: ToastType) => void;
+  onOpenMergeModal?: () => void;
 }
 
-export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
+export const AiSettings: React.FC<AiSettingsProps> = ({ addToast, onOpenMergeModal }) => {
   const [config, setConfig] = useState<AIConfig>({
     provider: "gemini",
     geminiApiKey: "",
@@ -44,6 +47,25 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
     insightsFrequency: "manual" as "daily" | "weekly" | "manual",
   });
 
+  const defaultAutoOrganize: AutoOrganizeConfig = {
+    enabled: false,
+    autoApplyThreshold: 0.85,
+    suggestThreshold: 0.7,
+    schedule: "manual",
+    operations: {
+      clustering: true,
+      deduplication: true,
+      autoTagging: true,
+      hierarchyDetection: true,
+      projectAssignment: true,
+      tagConsolidation: true,
+    },
+    excludedProjectIds: [],
+    maxTasksPerBatch: 100,
+  };
+
+  const [autoOrganize, setAutoOrganize] = useState<AutoOrganizeConfig>(defaultAutoOrganize);
+
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<"success" | "error" | null>(null);
 
@@ -55,9 +77,6 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [_modelFetchError, setModelFetchError] = useState<string | null>(null);
-
-  const [isCleaning, setIsCleaning] = useState(false);
-  const [cleanResult, setCleanResult] = useState(0);
 
   const fetchModels = useCallback(
     async (baseUrl: string, retryCount = 0) => {
@@ -111,6 +130,9 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
         cleanupOnCreate: savedConfig.cleanupOnCreate ?? false,
         insightsFrequency: savedConfig.insightsFrequency ?? "manual",
       });
+      if (savedConfig.autoOrganize) {
+        setAutoOrganize(savedConfig.autoOrganize);
+      }
       if (savedConfig.provider === "ollama" && savedConfig.ollamaBaseUrl) {
         fetchModels(savedConfig.ollamaBaseUrl);
       }
@@ -140,6 +162,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
       autoSuggestTags: aiManagement.autoSuggestTags,
       cleanupOnCreate: aiManagement.cleanupOnCreate,
       insightsFrequency: aiManagement.insightsFrequency,
+      autoOrganize,
     };
     storageService.set(STORAGE_KEYS.AI_CONFIG, sanitizedConfig);
     setConfig(sanitizedConfig);
@@ -222,36 +245,6 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
 
   const handleCancelPull = () => {
     pullController?.abort();
-  };
-
-  const handleCleanupTasks = async () => {
-    setIsCleaning(true);
-    setCleanResult(0);
-    try {
-      const allTasks = storageService.get<any[]>("tasks", []);
-      const seen = new Map<string, any>();
-      const duplicates: string[] = [];
-      for (const task of allTasks) {
-        const key = (task.title || "").toLowerCase().trim();
-        if (key && seen.has(key)) {
-          duplicates.push(task.id);
-        } else if (key) {
-          seen.set(key, task);
-        }
-      }
-      if (duplicates.length === 0) {
-        addToast("No duplicate tasks found", "info");
-      } else {
-        const filtered = allTasks.filter((t: any) => !duplicates.includes(t.id));
-        storageService.set("tasks", filtered);
-        setCleanResult(duplicates.length);
-        addToast(`Removed ${duplicates.length} duplicate task(s)`, "success");
-      }
-    } catch (e: any) {
-      addToast(e.message || "Cleanup failed", "error");
-    } finally {
-      setIsCleaning(false);
-    }
   };
 
   const handleOllamaUrlBlur = (e: React.FocusEvent<HTMLInputElement>) => {
@@ -528,18 +521,137 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
 
           <div className="pt-3 border-t border-white/10">
             <button
-              onClick={handleCleanupTasks}
-              disabled={isCleaning || isPulling}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 rounded-xl text-sm font-bold transition-all border border-red-500/20 disabled:opacity-50"
+              onClick={onOpenMergeModal}
+              disabled={!onOpenMergeModal || isPulling}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 hover:text-cyan-300 rounded-xl text-sm font-bold transition-all border border-cyan-500/20 disabled:opacity-50"
             >
-              {isCleaning ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
-              {isCleaning ? "Cleaning..." : "Cleanup Tasks Now"}
+              <Merge size={16} />
+              Smart Merge Duplicates
             </button>
-            {cleanResult > 0 && (
-              <p className="text-xs text-slate-400 mt-2 text-center">
-                Cleaned {cleanResult} redundant task{cleanResult > 1 ? "s" : ""}
-              </p>
-            )}
+          </div>
+        </div>
+
+        <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-4 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles size={18} className="text-purple-400" />
+            <h4 className="text-sm font-bold text-white">AI Auto-Organize</h4>
+          </div>
+          <p className="text-xs text-slate-400">
+            Automatically group, merge, tag, and categorize tasks using AI.
+          </p>
+
+          <div className="space-y-3">
+            <ToggleRow
+              icon={Sparkles}
+              label="Enable Auto-Organize"
+              description="Allow AI to automatically organize tasks"
+              checked={autoOrganize.enabled}
+              onChange={(v) => setAutoOrganize((prev) => ({ ...prev, enabled: v }))}
+            />
+
+            <ToggleRow
+              icon={Merge}
+              label="Deduplication"
+              description="Detect and merge duplicate tasks"
+              checked={autoOrganize.operations.deduplication}
+              onChange={(v) =>
+                setAutoOrganize((prev) => ({
+                  ...prev,
+                  operations: { ...prev.operations, deduplication: v },
+                }))
+              }
+            />
+
+            <ToggleRow
+              icon={Brain}
+              label="Task Clustering"
+              description="Group tasks by theme and auto-tag"
+              checked={autoOrganize.operations.clustering}
+              onChange={(v) =>
+                setAutoOrganize((prev) => ({
+                  ...prev,
+                  operations: { ...prev.operations, clustering: v },
+                }))
+              }
+            />
+
+            <ToggleRow
+              icon={Tags}
+              label="Auto-Tagging"
+              description="AI suggests relevant tags for tasks"
+              checked={autoOrganize.operations.autoTagging}
+              onChange={(v) =>
+                setAutoOrganize((prev) => ({
+                  ...prev,
+                  operations: { ...prev.operations, autoTagging: v },
+                }))
+              }
+            />
+
+            <ToggleRow
+              icon={GitBranch}
+              label="Hierarchy Detection"
+              description="Find parent-child task relationships"
+              checked={autoOrganize.operations.hierarchyDetection}
+              onChange={(v) =>
+                setAutoOrganize((prev) => ({
+                  ...prev,
+                  operations: { ...prev.operations, hierarchyDetection: v },
+                }))
+              }
+            />
+
+            <ToggleRow
+              icon={FolderInput}
+              label="Project Assignment"
+              description="Suggest better project assignments"
+              checked={autoOrganize.operations.projectAssignment}
+              onChange={(v) =>
+                setAutoOrganize((prev) => ({
+                  ...prev,
+                  operations: { ...prev.operations, projectAssignment: v },
+                }))
+              }
+            />
+
+            <ToggleRow
+              icon={Trash2}
+              label="Tag Consolidation"
+              description="Merge similar or duplicate tags"
+              checked={autoOrganize.operations.tagConsolidation}
+              onChange={(v) =>
+                setAutoOrganize((prev) => ({
+                  ...prev,
+                  operations: { ...prev.operations, tagConsolidation: v },
+                }))
+              }
+            />
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Settings2 size={16} className="text-slate-400" />
+                <div>
+                  <div className="text-sm font-medium text-slate-200">Schedule</div>
+                  <div className="text-[10px] text-slate-500">When to run auto-organize</div>
+                </div>
+              </div>
+              <select
+                value={autoOrganize.schedule}
+                onChange={(e) =>
+                  setAutoOrganize((prev) => ({
+                    ...prev,
+                    schedule: e.target.value as AutoOrganizeConfig["schedule"],
+                  }))
+                }
+                className="bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500 appearance-none"
+              >
+                <option value="manual">Manual Only</option>
+                <option value="onCreate">On Task Create</option>
+                <option value="hourly">Hourly</option>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+              </select>
+            </div>
           </div>
         </div>
 

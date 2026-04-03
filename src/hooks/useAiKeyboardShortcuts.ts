@@ -5,6 +5,7 @@ interface UseAiKeyboardShortcutsProps {
   onAiInsights?: () => void;
   onToggleNaturalLanguageSearch?: () => void;
   onBulkAIOperations?: () => void;
+  onAutoOrganize?: () => void;
   onUndoAiChanges?: () => void;
   isModalOpen: boolean;
 }
@@ -14,6 +15,7 @@ export const useAiKeyboardShortcuts = ({
   onAiInsights,
   onToggleNaturalLanguageSearch,
   onBulkAIOperations,
+  onAutoOrganize,
   onUndoAiChanges,
   isModalOpen,
 }: UseAiKeyboardShortcutsProps) => {
@@ -35,6 +37,9 @@ export const useAiKeyboardShortcuts = ({
       } else if (isCtrl && e.shiftKey && e.key === "B") {
         e.preventDefault();
         onBulkAIOperations?.();
+      } else if (isCtrl && e.shiftKey && e.key === "A") {
+        e.preventDefault();
+        onAutoOrganize?.();
       } else if (isCtrl && e.shiftKey && e.key === "Z") {
         e.preventDefault();
         onUndoAiChanges?.();
@@ -48,6 +53,7 @@ export const useAiKeyboardShortcuts = ({
     onAiInsights,
     onToggleNaturalLanguageSearch,
     onBulkAIOperations,
+    onAutoOrganize,
     onUndoAiChanges,
     isModalOpen,
   ]);

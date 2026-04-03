@@ -50,6 +50,7 @@ interface SettingsModalProps {
   grouping: GroupingOption;
   onUpdateGrouping: (g: GroupingOption) => void;
   addToast: (m: string, t: ToastType) => void;
+  onOpenMergeModal?: () => void;
   onBulkCreateTasks?: (tasks: Partial<Task>[]) => void;
   showSubWorkspaceTasks: boolean;
   onUpdateShowSubWorkspaceTasks?: (s: boolean) => void;
@@ -70,6 +71,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onBulkCreateTasks,
   showSubWorkspaceTasks = false,
   onUpdateShowSubWorkspaceTasks,
+  onOpenMergeModal,
 }) => {
   const [activeTab, setActiveTab] = useState('general');
   const [localGrouping, setLocalGrouping] = useState<GroupingOption>(grouping);
@@ -293,7 +295,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               ))}
             </div>
           )}
-          {activeTab === 'ai' && <AiSettings addToast={addToast} />}
+          {activeTab === 'ai' && (
+            <AiSettings addToast={addToast} onOpenMergeModal={onOpenMergeModal} />
+          )}
         </div>
       </div>
     </ModalWrapper>
