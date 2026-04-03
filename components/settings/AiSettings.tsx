@@ -56,6 +56,9 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [_modelFetchError, setModelFetchError] = useState<string | null>(null);
 
+  const [isCleaning, setIsCleaning] = useState(false);
+  const [cleanResult, setCleanResult] = useState(0);
+
   const fetchModels = useCallback(
     async (baseUrl: string, retryCount = 0) => {
       if (!baseUrl) return;
@@ -408,7 +411,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
                 </button>
               </div>
               {availableModels.length === 0 && !isLoadingModels && (
-                <p className="text-xs text-amber-500/70 mt-1 mt-2">
+                <p className="text-xs text-amber-500/70 mt-2">
                   Make sure Ollama is running to see available models.
                 </p>
               )}
@@ -570,42 +573,6 @@ export const AiSettings: React.FC<AiSettingsProps> = ({ addToast }) => {
     </div>
   );
 };
-
-interface ToggleRowProps {
-  icon: React.ComponentType<{ size: number; className?: string }>;
-  label: string;
-  description: string;
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-}
-
-const ToggleRow: React.FC<ToggleRowProps> = ({
-  icon: Icon,
-  label,
-  description,
-  checked,
-  onChange,
-}) => (
-  <div
-    className="flex items-center justify-between cursor-pointer group"
-    onClick={() => onChange(!checked)}
-  >
-    <div className="flex items-center gap-3">
-      <Icon size={16} className="text-slate-400 group-hover:text-cyan-400 transition-colors" />
-      <div>
-        <div className="text-sm font-medium text-slate-200">{label}</div>
-        <div className="text-[10px] text-slate-500">{description}</div>
-      </div>
-    </div>
-    <div
-      className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${checked ? 'bg-cyan-500' : 'bg-white/10'}`}
-    >
-      <div
-        className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-transform duration-200 ${checked ? 'translate-x-5' : 'translate-x-0'}`}
-      />
-    </div>
-  </div>
-);
 
 interface ToggleRowProps {
   icon: React.ComponentType<{ size: number; className?: string }>;

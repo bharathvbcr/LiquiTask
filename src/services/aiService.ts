@@ -122,8 +122,9 @@ export interface AIProvider {
   pullModel?(
     modelName: string,
     onProgress?: (status: string, percentage?: number) => void,
+    signal?: AbortSignal,
   ): Promise<void>;
-  listModels?(): Promise<string[]>;
+  listModels?(signal?: AbortSignal): Promise<string[]>;
 }
 
 class GeminiProvider implements AIProvider {
@@ -654,18 +655,19 @@ class AiService {
   async pullModel(
     modelName: string,
     onProgress?: (status: string, percentage?: number) => void,
+    signal?: AbortSignal,
   ): Promise<void> {
     const provider = this.getProvider();
     if (!provider || !provider.pullModel) {
       throw new Error("Current AI provider does not support model pulling.");
     }
-    await provider.pullModel(modelName, onProgress);
+    await provider.pullModel(modelName, onProgress, signal);
   }
 
-  async listModels(): Promise<string[]> {
+  async listModels(signal?: AbortSignal): Promise<string[]> {
     const provider = this.getProvider();
     if (provider?.listModels) {
-      return await provider.listModels();
+      return await provider.listModels(signal);
     }
     return [];
   }
