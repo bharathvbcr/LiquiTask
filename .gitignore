@@ -35,3 +35,4 @@ POWER_USER_AUDIT*.md
 test_output.txt
 .claude/
 .cursor/
+.worktrees/
