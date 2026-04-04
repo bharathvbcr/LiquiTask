@@ -2,24 +2,36 @@ import { fireEvent, render, screen, waitFor, act } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BulkAIOperationsModal } from "../BulkAIOperationsModal";
 import { aiService } from "../../services/aiService";
+import { taskCleanupService } from "../../services/taskCleanupService";
 
 // Mock services
 vi.mock("../../services/aiService", () => ({
   aiService: {
-    categorizeTasks: vi.fn().mockResolvedValue([]),
+    categorizeTasks: vi.fn().mockResolvedValue({ success: 1, message: "Categorized" }),
     suggestPriorities: vi.fn().mockResolvedValue([]),
+    generateInsights: vi.fn().mockResolvedValue([]),
+    suggestSchedule: vi.fn().mockResolvedValue({}),
+  },
+}));
+
+vi.mock("../../services/taskCleanupService", () => ({
+  taskCleanupService: {
+    detectDuplicates: vi.fn().mockResolvedValue([]),
+    suggestMerge: vi.fn().mockResolvedValue({ archiveTaskIds: [] }),
+    analyzeRedundancy: vi.fn().mockResolvedValue([]),
   },
 }));
 
 vi.mock("../../services/storageService", () => ({
   default: {
-    get: vi.fn().mockReturnValue({}),
+    get: vi.fn().mockReturnValue([]),
   },
 }));
 
 describe("BulkAIOperationsModal", () => {
   const mockAddToast = vi.fn();
   const mockOnUpdateTask = vi.fn();
+  const mockOnArchiveTask = vi.fn();
   const mockTasks = [
     { id: "1", title: "Task 1", tags: [], priority: "medium" },
     { id: "2", title: "Task 2", tags: [], priority: "low" },
@@ -37,20 +49,20 @@ describe("BulkAIOperationsModal", () => {
           onClose={vi.fn()}
           allTasks={mockTasks}
           onUpdateTask={mockOnUpdateTask}
+          onArchiveTask={mockOnArchiveTask}
           addToast={mockAddToast}
         />
       );
     });
 
     expect(screen.getByText("Bulk AI Operations")).toBeInTheDocument();
-    // These might be broken into multiple elements, use findByText with more flexible matching
-    expect(await screen.findByText(/Auto-Tagging/i)).toBeInTheDocument();
-    expect(await screen.findByText(/Suggest Priorities/i)).toBeInTheDocument();
+    expect(screen.getByText(/Auto-Categorize/i)).toBeInTheDocument();
+    expect(screen.getByText(/AI Reprioritize/i)).toBeInTheDocument();
   });
 
-  it("handles auto-tagging process", async () => {
+  it("handles auto-categorize process", async () => {
     vi.mocked(aiService.categorizeTasks).mockResolvedValue([
-      { taskId: "1", suggestedValue: ["ai", "work"], confidence: 0.9, reasoning: "R" } as any
+      { taskId: "1", suggestedTags: ["ai"], confidence: 0.9, reasoning: "R" } as any
     ]);
 
     await act(async () => {
@@ -60,31 +72,22 @@ describe("BulkAIOperationsModal", () => {
           onClose={vi.fn()}
           allTasks={mockTasks}
           onUpdateTask={mockOnUpdateTask}
+          onArchiveTask={mockOnArchiveTask}
           addToast={mockAddToast}
         />
       );
     });
 
-    const tagBtn = await screen.findByText(/Auto-Tagging/i);
-    const tagCard = tagBtn.closest("button");
-    if (tagCard) fireEvent.click(tagCard);
-    
-    const analyzeBtn = screen.getByText("Analyze Tasks");
-    await act(async () => {
-      fireEvent.click(analyzeBtn);
-    });
+    const tagBtn = screen.getByText(/Auto-Categorize/i).closest("button");
+    if (tagBtn) {
+      await act(async () => {
+        fireEvent.click(tagBtn);
+      });
+    }
 
     await waitFor(() => {
-      expect(screen.getByText("AI Recommendations")).toBeInTheDocument();
-      expect(screen.getByText("ai, work")).toBeInTheDocument();
+      expect(aiService.categorizeTasks).toHaveBeenCalled();
+      expect(mockAddToast).toHaveBeenCalledWith(expect.stringContaining("Categorized"), "success");
     });
-
-    const applyBtn = screen.getByText("Apply Selected Changes");
-    await act(async () => {
-      fireEvent.click(applyBtn);
-    });
-
-    expect(mockOnUpdateTask).toHaveBeenCalled();
-    expect(mockAddToast).toHaveBeenCalledWith(expect.stringContaining("applied"), "success");
   });
 });

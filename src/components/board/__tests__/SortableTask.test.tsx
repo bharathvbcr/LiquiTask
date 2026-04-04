@@ -3,8 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import { SortableTask } from "../SortableTask";
 import { DndContext } from "@dnd-kit/core";
 
-// Mock TaskCard with correct relative path
-vi.mock("../../TaskCard", () => ({
+// Mock TaskCard with correct relative path from THIS test file
+vi.mock("../../../../components/TaskCard", () => ({
   TaskCard: ({ task }: any) => <div data-testid="task-card">{task.title}</div>,
   default: ({ task }: any) => <div data-testid="task-card">{task.title}</div>,
 }));
@@ -36,6 +36,7 @@ describe("SortableTask", () => {
           onMoveTask={vi.fn()}
           priorities={mockPriorities}
           projects={[]}
+          allTasks={[]}
         />
       </DndContext>
     );

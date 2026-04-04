@@ -5,57 +5,73 @@ import { KeybindingProvider } from "../context/KeybindingContext";
 import { ConfirmationProvider } from "../contexts/ConfirmationContext";
 import storageService from "../services/storageService";
 
-// Mock services first - must be top level
-vi.mock("../src/services/storageService", () => ({
-  __esModule: true,
-  default: {
-    initialize: vi.fn().mockResolvedValue(undefined),
-    getAllData: vi.fn().mockReturnValue({ projects: [], tasks: [], activeProjectId: "p1" }),
-    get: vi.fn(),
-    set: vi.fn(),
-  },
+// Define mock functions first
+const { mockInitialize, mockGetAllData, mockGet, mockSet } = vi.hoisted(() => ({
+  mockInitialize: vi.fn().mockResolvedValue(undefined),
+  mockGetAllData: vi.fn(),
+  mockGet: vi.fn(),
+  mockSet: vi.fn(),
 }));
 
-// Mock components
-vi.mock("../src/components/AppHeader", () => ({
+// Mock services
+vi.mock("../services/storageService", () => ({
+  __esModule: true,
+  default: {
+    initialize: mockInitialize,
+    getAllData: mockGetAllData,
+    get: mockGet,
+    set: mockSet,
+  },
+  storageService: {
+    initialize: mockInitialize,
+    getAllData: mockGetAllData,
+    get: mockGet,
+    set: mockSet,
+  }
+}));
+
+// Mock components - paths MUST match EXACTLY as they appear in App.tsx imports relative to root
+// Since App.tsx is in root, it imports from './src/components/AppHeader'
+// In this test, we MUST use the same string
+vi.mock("./src/components/AppHeader", () => ({
   AppHeader: ({ onOpenTaskModal, onOpenCommandPalette, onOpenSettings }: any) => (
-    <header role="banner">
+    <div data-testid="app-header-mock">
       <button onClick={onOpenTaskModal}>New Task</button>
       <button onClick={onOpenCommandPalette}>Open Palette</button>
       <button onClick={onOpenSettings}>Open Settings</button>
-    </header>
+    </div>
   )
 }));
 
-vi.mock("../components/Sidebar", () => ({
+vi.mock("./components/Sidebar", () => ({
   Sidebar: ({ onSelectProject }: any) => (
-    <nav data-testid="sidebar">
+    <div data-testid="sidebar-mock">
       <button onClick={() => onSelectProject("p2")}>Switch Project</button>
       Sidebar Mock
-    </nav>
+    </div>
   )
 }));
 
-vi.mock("../components/ProjectBoard", () => ({
-  default: () => <div data-testid="project-board">Project Board</div>
+vi.mock("./src/components/ProjectBoard", () => ({
+  default: () => <div data-testid="project-board-mock">Project Board</div>
 }));
 
-vi.mock("../components/SettingsModal", () => ({
+vi.mock("./components/SettingsModal", () => ({
   SettingsModal: ({ isOpen }: { isOpen: boolean }) => 
-    isOpen ? <div data-testid="settings-modal">Settings Modal</div> : null
+    isOpen ? <div data-testid="settings-modal-mock">Settings Modal</div> : null
 }));
 
-vi.mock("../src/components/CommandPalette", () => ({
+vi.mock("./src/components/CommandPalette", () => ({
   default: ({ isOpen }: { isOpen: boolean }) => 
-    isOpen ? <div data-testid="command-palette">Command Palette</div> : null
+    isOpen ? <div data-testid="command-palette-mock">Command Palette</div> : null
 }));
 
-vi.mock("../src/components/TaskFormModal", () => ({
-  TaskFormModal: () => <div data-testid="task-modal">Task Modal</div>
+vi.mock("./components/TaskFormModal", () => ({
+  TaskFormModal: () => <div data-testid="task-modal-mock">Task Modal</div>
 }));
 
 // Mock runtime
-vi.mock("../src/runtime/runtimeEnvironment", () => ({
+vi.mock("./src/runtime/runtimeEnvironment", () => ({
   getRuntimeKind: () => "web",
   getRuntimeState: () => ({ kind: "web", hasCustomWindowControls: false }),
   getRuntimeWindowControls: () => null,
@@ -76,12 +92,13 @@ describe("App Integration", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.spyOn(storageService, "getAllData").mockReturnValue(mockData as any);
-    vi.spyOn(storageService, "get").mockImplementation(((key: string, def: any) => {
+    mockInitialize.mockResolvedValue(undefined);
+    mockGetAllData.mockReturnValue(mockData);
+    mockGet.mockImplementation((key: string, def: any) => {
       if (key.includes("activeProjectId")) return "p1";
       if (key.includes("projects")) return mockData.projects;
       return def;
-    }) as any);
+    });
   });
 
   const renderApp = async () => {
@@ -104,7 +121,7 @@ describe("App Integration", () => {
       expect(screen.queryByText(/Loading/i)).not.toBeInTheDocument();
     }, { timeout: 5000 });
     
-    expect(await screen.findByTestId("sidebar")).toBeInTheDocument();
+    expect(await screen.findByTestId("sidebar-mock")).toBeInTheDocument();
   });
 
   it("handles project switching", async () => {
@@ -116,7 +133,7 @@ describe("App Integration", () => {
       fireEvent.click(switchBtn);
     });
     
-    expect(storageService.set).toHaveBeenCalledWith(expect.stringContaining("activeProjectId"), "p2");
+    expect(mockSet).toHaveBeenCalledWith(expect.stringContaining("activeProjectId"), "p2");
   });
 
   it("opens settings modal", async () => {
@@ -128,6 +145,6 @@ describe("App Integration", () => {
       fireEvent.click(settingsBtn);
     });
 
-    expect(await screen.findByTestId("settings-modal")).toBeInTheDocument();
+    expect(await screen.findByTestId("settings-modal-mock")).toBeInTheDocument();
   });
 });

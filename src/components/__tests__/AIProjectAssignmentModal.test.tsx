@@ -10,6 +10,13 @@ vi.mock("../../services/aiService", () => ({
   },
 }));
 
+vi.mock("../../services/storageService", () => ({
+  __esModule: true,
+  default: {
+    get: vi.fn().mockReturnValue([]),
+  },
+}));
+
 describe("AIProjectAssignmentModal", () => {
   const mockAddToast = vi.fn();
   const mockOnUpdateTask = vi.fn();
@@ -43,10 +50,11 @@ describe("AIProjectAssignmentModal", () => {
       );
     });
 
-    expect(screen.getByText(/Smart Project Assignment/i)).toBeInTheDocument();
+    // Use exact name match for the modal title heading
+    expect(screen.getByRole('heading', { name: "Smart Project Assignment", level: 3 })).toBeInTheDocument();
     
     await waitFor(() => {
-      expect(screen.getByText(/Found 1 assignment suggestion/i)).toBeInTheDocument();
+      expect(screen.getByText(/Found 1 project assignment suggestion/i)).toBeInTheDocument();
       expect(screen.getByText("Belongs to P2")).toBeInTheDocument();
       expect(screen.getByText("Project 2")).toBeInTheDocument();
     });
@@ -70,14 +78,14 @@ describe("AIProjectAssignmentModal", () => {
       );
     });
 
-    await waitFor(() => screen.getByText(/Found 1 assignment suggestion/i));
+    await waitFor(() => screen.getByText(/Found 1 project/i));
 
     const approveBtn = screen.getByText("Approve");
     await act(async () => {
       fireEvent.click(approveBtn);
     });
 
-    const applyBtn = screen.getByText("Apply Selected Assignments");
+    const applyBtn = screen.getByRole('button', { name: /Apply Assignments/i });
     await act(async () => {
       fireEvent.click(applyBtn);
     });

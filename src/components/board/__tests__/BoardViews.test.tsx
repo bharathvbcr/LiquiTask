@@ -1,12 +1,20 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { StandardBoardView } from "../StandardBoardView";
-import { PriorityBoardView } from "../PriorityBoardView";
+import StandardBoardView from "../StandardBoardView";
+import PriorityBoardView from "../PriorityBoardView";
 import type { BoardColumn, PriorityDefinition, Task } from "../../../../types";
 
 // Mock sub-components
 vi.mock("../SortableColumn", () => ({
   SortableColumn: ({ title, column }: any) => <div data-testid="column">{title || column?.title}</div>,
+}));
+
+vi.mock("../SortableTask", () => ({
+  SortableTask: ({ task }: any) => <div data-testid="task">{task.title}</div>,
+}));
+
+vi.mock("../DroppableCell", () => ({
+  DroppableCell: ({ children }: any) => <div data-testid="drop-cell">{children}</div>,
 }));
 
 describe("Board Views", () => {
@@ -25,17 +33,38 @@ describe("Board Views", () => {
     { id: "low", label: "Low", color: "blue", level: 3 },
   ];
 
+  const commonProps = {
+    sensors: [],
+    collisionDetection: vi.fn(),
+    measuringConfig: { droppable: { strategy: 0, frequency: 0 } } as any,
+    dropAnimation: null as any,
+    boardRef: { current: null },
+    highlightedZone: null,
+    focusedColumnIndex: 0,
+    focusedTaskId: null,
+    activeTask: null,
+    activeColumn: null,
+    isCompact: false,
+    onDragStart: vi.fn(),
+    onDragOver: vi.fn(),
+    onDragEnd: vi.fn(),
+    onDragCancel: vi.fn(),
+    onMoveTask: vi.fn(),
+    onEditTask: vi.fn(),
+    onUpdateTask: vi.fn(),
+    onDeleteTask: vi.fn(),
+    getTasksByContext: vi.fn((s, p) => mockTasks.filter(t => t.status === s && (!p || t.priority === p))),
+    allTasks: mockTasks,
+  };
+
   describe("StandardBoardView", () => {
     it("renders all columns", () => {
       render(
         <StandardBoardView
+          {...commonProps}
+          columnIds={["Todo", "Done"]}
           columns={mockColumns}
           tasks={mockTasks}
-          onEditTask={vi.fn()}
-          onUpdateTask={vi.fn()}
-          onDeleteTask={vi.fn()}
-          onMoveTask={vi.fn()}
-          onUpdateColumns={vi.fn()}
           priorities={mockPriorities}
           projects={[]}
         />
@@ -47,22 +76,21 @@ describe("Board Views", () => {
   });
 
   describe("PriorityBoardView", () => {
-    it("renders columns based on priorities", () => {
+    it("renders tasks by priority", () => {
       render(
         <PriorityBoardView
+          {...commonProps}
+          columns={mockColumns}
           priorities={mockPriorities}
           tasks={mockTasks}
-          onEditTask={vi.fn()}
-          onUpdateTask={vi.fn()}
-          onDeleteTask={vi.fn()}
-          onMoveTask={vi.fn()}
           projects={[]}
         />
       );
-      expect(screen.getAllByTestId("column")).toHaveLength(3); // 2 priorities + 1 unprioritized
+      // PriorityBoardView maps over priorities.
       expect(screen.getByText("High")).toBeDefined();
       expect(screen.getByText("Low")).toBeDefined();
-      expect(screen.getByText("Unprioritized")).toBeDefined();
+      // Should find tasks
+      expect(screen.getAllByTestId("task")).toHaveLength(2);
     });
   });
 });

@@ -7,7 +7,7 @@ import { aiSummaryService } from "../../services/aiSummaryService";
 // Mock services
 vi.mock("../../services/aiService", () => ({
   aiService: {
-    generateInsights: vi.fn().mockResolvedValue([]),
+    generateInsights: vi.fn(),
   },
 }));
 
@@ -37,18 +37,29 @@ describe("AIHealthDashboard", () => {
   });
 
   it("renders loading state initially", async () => {
-    await act(async () => {
-      render(
-        <AIHealthDashboard
-          isOpen={true}
-          onClose={vi.fn()}
-          allTasks={mockTasks}
-          projects={[]}
-          addToast={mockAddToast}
-        />
-      );
+    // Create a pending promise
+    let resolveInsights: any;
+    const pendingPromise = new Promise((resolve) => {
+      resolveInsights = resolve;
     });
+    vi.mocked(aiService.generateInsights).mockReturnValue(pendingPromise as any);
+
+    render(
+      <AIHealthDashboard
+        isOpen={true}
+        onClose={vi.fn()}
+        allTasks={mockTasks}
+        projects={[]}
+        addToast={mockAddToast}
+      />
+    );
+    
     expect(screen.getByText(/AI is analyzing/i)).toBeInTheDocument();
+    
+    // Resolve to avoid memory leaks/cleanup issues
+    await act(async () => {
+      resolveInsights([]);
+    });
   });
 
   it("renders metrics and insights after loading", async () => {
@@ -76,6 +87,8 @@ describe("AIHealthDashboard", () => {
   });
 
   it("handles daily report export", async () => {
+    vi.mocked(aiService.generateInsights).mockResolvedValue([]);
+
     await act(async () => {
       render(
         <AIHealthDashboard

@@ -15,8 +15,8 @@ describe("AISubtaskSuggestionsModal", () => {
   const mockOnUpdateTask = vi.fn();
   const mockOnArchiveTask = vi.fn();
   const mockTasks = [
-    { id: "1", title: "Parent Task" },
-    { id: "2", title: "Child Task" },
+    { id: "1", title: "Parent Task", subtasks: [] },
+    { id: "2", title: "Child Task", subtasks: [] },
   ] as any;
 
   beforeEach(() => {
@@ -47,7 +47,8 @@ describe("AISubtaskSuggestionsModal", () => {
       );
     });
 
-    expect(screen.getByText(/Convert to Subtasks/i)).toBeInTheDocument();
+    // Use exact name match for the modal title
+    expect(screen.getByRole('heading', { name: "Convert to Subtasks", level: 3 })).toBeInTheDocument();
     
     await waitFor(() => {
       expect(screen.getByText(/Found 1 subtask conversion suggestion/i)).toBeInTheDocument();
@@ -80,7 +81,7 @@ describe("AISubtaskSuggestionsModal", () => {
       fireEvent.click(approveBtn);
     });
 
-    const applyBtn = screen.getByText("Convert to Subtasks");
+    const applyBtn = screen.getByRole('button', { name: "Convert to Subtasks" });
     await act(async () => {
       fireEvent.click(applyBtn);
     });

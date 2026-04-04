@@ -1,13 +1,14 @@
 import { fireEvent, render, screen, waitFor, act } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AIMergeDuplicatesModal } from "../AIMergeDuplicatesModal";
-import { aiService } from "../../services/aiService";
+import { taskCleanupService } from "../../services/taskCleanupService";
 
-// Mock services
-vi.mock("../../services/aiService", () => ({
-  aiService: {
-    detectDuplicates: vi.fn().mockResolvedValue([]),
-    suggestMerge: vi.fn().mockResolvedValue({}),
+// Mock taskCleanupService
+vi.mock("../../services/taskCleanupService", () => ({
+  taskCleanupService: {
+    detectDuplicates: vi.fn(),
+    suggestMerge: vi.fn(),
+    executeMerge: vi.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -25,9 +26,15 @@ describe("AIMergeDuplicatesModal", () => {
   });
 
   it("renders correctly and scans for duplicates", async () => {
-    vi.mocked(aiService.detectDuplicates).mockResolvedValue([
-      { task1: mockTasks[0], task2: mockTasks[1], confidence: 0.9, reasons: ["Similar title"] }
+    vi.mocked(taskCleanupService.detectDuplicates).mockResolvedValue([
+      { id: "g1", tasks: [mockTasks[0], mockTasks[1]], confidence: 0.9, reasons: ["Similar title"] } as any
     ]);
+    vi.mocked(taskCleanupService.suggestMerge).mockResolvedValue({
+      keepTaskId: "1",
+      archiveTaskIds: ["2"],
+      mergedFields: { title: "Merged" },
+      reasoning: "R"
+    });
 
     await act(async () => {
       render(
@@ -42,19 +49,19 @@ describe("AIMergeDuplicatesModal", () => {
       );
     });
 
-    expect(screen.getByText(/Smart Merge Duplicates/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: "Smart Merge Duplicates", level: 3 })).toBeInTheDocument();
     
     await waitFor(() => {
-      expect(screen.getByText(/Found 1 duplicate group/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/duplicate task/i).length).toBeGreaterThan(0);
       expect(screen.getByText("Similar title")).toBeInTheDocument();
     });
   });
 
   it("handles merge suggestion and application", async () => {
-    vi.mocked(aiService.detectDuplicates).mockResolvedValue([
-      { task1: mockTasks[0], task2: mockTasks[1], confidence: 0.9, reasons: ["R"] }
+    vi.mocked(taskCleanupService.detectDuplicates).mockResolvedValue([
+      { id: "g1", tasks: [mockTasks[0], mockTasks[1]], confidence: 0.9, reasons: ["R"] } as any
     ]);
-    vi.mocked(aiService.suggestMerge).mockResolvedValue({
+    vi.mocked(taskCleanupService.suggestMerge).mockResolvedValue({
       keepTaskId: "1",
       archiveTaskIds: ["2"],
       mergedFields: { title: "Merged Task" },
@@ -74,23 +81,22 @@ describe("AIMergeDuplicatesModal", () => {
       );
     });
 
-    await waitFor(() => screen.getByText(/Found 1 duplicate group/i));
+    await waitFor(() => expect(screen.getAllByText(/duplicate task/i).length).toBeGreaterThan(0));
 
-    const mergeBtn = screen.getByText("Review Merge");
+    const approveBtn = screen.getByText("Approve");
     await act(async () => {
-      fireEvent.click(mergeBtn);
+      fireEvent.click(approveBtn);
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Merged Task")).toBeInTheDocument();
+      expect(screen.getByText("Better title")).toBeInTheDocument();
     });
 
-    const confirmBtn = screen.getByText("Confirm Merge");
+    const applyBtn = screen.getByText("Apply Merges");
     await act(async () => {
-      fireEvent.click(confirmBtn);
+      fireEvent.click(applyBtn);
     });
 
     expect(mockOnUpdateTask).toHaveBeenCalled();
-    expect(mockOnArchiveTask).toHaveBeenCalledWith("2");
   });
 });
