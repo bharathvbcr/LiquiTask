@@ -178,6 +178,48 @@ ipcMain.handle('storageHas', async (_, key: string) => {
   return Object.prototype.hasOwnProperty.call(data, key);
 });
 
+// Workspace IPC Handlers
+ipcMain.handle('getWorkspacePaths', async () => {
+  const data = await readStorage();
+  return (data.workspacePaths as string[]) || [];
+});
+
+ipcMain.handle('setWorkspacePaths', async (_, paths: string[]) => {
+  const data = await readStorage();
+  data.workspacePaths = paths;
+  await writeStorage(data);
+});
+
+ipcMain.handle('readWorkspaceFile', async (_, filePath: string) => {
+  const data = await readStorage();
+  const paths = (data.workspacePaths as string[]) || [];
+  
+  // Security check: ensure filePath is within one of the authorized paths
+  const normalizedPath = path.normalize(filePath);
+  const isAuthorized = paths.some(p => normalizedPath.startsWith(path.normalize(p)));
+  
+  if (!isAuthorized) {
+    throw new Error(`Unauthorized access to file: ${filePath}`);
+  }
+  
+  return fs.readFile(normalizedPath, 'utf-8');
+});
+
+ipcMain.handle('writeWorkspaceFile', async (_, filePath: string, content: string) => {
+  const data = await readStorage();
+  const paths = (data.workspacePaths as string[]) || [];
+  
+  // Security check: ensure filePath is within one of the authorized paths
+  const normalizedPath = path.normalize(filePath);
+  const isAuthorized = paths.some(p => normalizedPath.startsWith(path.normalize(p)));
+  
+  if (!isAuthorized) {
+    throw new Error(`Unauthorized write access to file: ${filePath}`);
+  }
+  
+  await fs.writeFile(normalizedPath, content, 'utf-8');
+});
+
 ipcMain.on('showNotification', (_, options: { title: string; body: string; silent?: boolean }) => {
   if (!Notification.isSupported()) return;
   
