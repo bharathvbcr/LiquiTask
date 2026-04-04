@@ -32,8 +32,9 @@ import {
   Zap,
 } from "lucide-react";
 import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
-import logo from "../src/assets/logo.png";
+
 import type { Project, ProjectType } from "../types";
+import { Tooltip } from "./Tooltip";
 
 const EditProjectModal = React.lazy(() =>
   import("./EditProjectModal").then((module) => ({
@@ -54,7 +55,7 @@ interface SidebarProps {
   currentView: "project" | "dashboard" | "gantt";
   onChangeView: (view: "project" | "dashboard" | "gantt") => void;
   onTogglePin: (id: string) => void;
-  onEditProject: (id: string, newName: string, newIcon: string) => void;
+  onEditProject: (id: string, newName: string, newIcon: string, workspacePaths?: string[]) => void;
   onMoveProject?: (id: string, direction: "up" | "down") => void;
 }
 
@@ -326,17 +327,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div
             className={`absolute right-2 z-20 transition-[opacity,transform,max-width] duration-300 ease-out ${expandedContentClass} ${isMenuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
           >
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setActiveMenuId(isMenuOpen ? null : project.id);
-              }}
-              className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors"
-              aria-label={`More options for ${project.name}`}
-              title={`More options for ${project.name}`}
-            >
-              <MoreHorizontal size={14} aria-hidden="true" />
-            </button>
+            <Tooltip content={`More options for ${project.name}`} position="top">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveMenuId(isMenuOpen ? null : project.id);
+                }}
+                className="p-1.5 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors"
+                aria-label={`More options for ${project.name}`}
+              >
+                <MoreHorizontal size={14} aria-hidden="true" />
+              </button>
+            </Tooltip>
 
             {/* Popover Menu */}
             {isMenuOpen && (
@@ -477,13 +479,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           className={`p-6 pb-2 flex items-center ${isEffectivelyCollapsed ? "justify-center" : "justify-between"} transition-[padding] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]`}
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 flex items-center justify-center shrink-0 relative group">
-              <img
-                src={logo}
-                alt="Logo"
-                className="w-8 h-8 object-contain relative z-10 drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]"
-              />
-            </div>
+
             <div
               className={`overflow-hidden transition-[max-width,opacity,transform] duration-300 ease-out ${isEffectivelyCollapsed ? "max-w-0 opacity-0 -translate-x-2" : "max-w-[160px] opacity-100 translate-x-0"}`}
             >
@@ -510,35 +506,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
         >
           {/* Quick Navigation */}
           <div className="space-y-1 mb-4">
-            <div
-              onClick={() => onChangeView("dashboard")}
-              title="Open Dashboard"
-              aria-label="Open Dashboard"
-              onMouseEnter={(e) => {
-                if (isEffectivelyCollapsed) {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  setHoveredItem({
-                    label: "Dashboard",
-                    top: rect.top + rect.height / 2,
-                  });
-                }
-              }}
-              onMouseLeave={() => setHoveredItem(null)}
-              className={`
-              group px-3 py-2.5 rounded-xl cursor-pointer transition-[background-color,color,transform] duration-300
-              flex items-center relative overflow-hidden border border-transparent
-              ${isEffectivelyCollapsed ? "justify-center" : ""}
-              ${currentView === "dashboard" ? "bg-red-500/10 border-red-500/20 text-red-50" : "text-slate-400 hover:text-slate-100 hover:bg-white/5"}
-            `}
-            >
-              <div className="relative z-10 flex items-center gap-3">
-                <LayoutDashboard
-                  size={18}
-                  className={`shrink-0 transition-colors ${currentView === "dashboard" ? "text-red-400 drop-shadow-md" : "group-hover:text-red-400"}`}
-                />
-                {!isEffectivelyCollapsed && <span className="font-medium text-sm">Dashboard</span>}
+            <Tooltip content="Open Dashboard" position={isEffectivelyCollapsed ? "right" : "top"} delay={300}>
+              <div
+                onClick={() => onChangeView("dashboard")}
+                aria-label="Open Dashboard"
+                onMouseEnter={(e) => {
+                  if (isEffectivelyCollapsed) {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setHoveredItem({
+                      label: "Dashboard",
+                      top: rect.top + rect.height / 2,
+                    });
+                  }
+                }}
+                onMouseLeave={() => setHoveredItem(null)}
+                className={`
+                group px-3 py-2.5 rounded-xl cursor-pointer transition-[background-color,color,transform] duration-300
+                flex items-center relative overflow-hidden border border-transparent
+                ${isEffectivelyCollapsed ? "justify-center" : ""}
+                ${currentView === "dashboard" ? "bg-red-500/10 border-red-500/20 text-red-50" : "text-slate-400 hover:text-slate-100 hover:bg-white/5"}
+              `}
+              >
+                <div className="relative z-10 flex items-center gap-3">
+                  <LayoutDashboard
+                    size={18}
+                    className={`shrink-0 transition-colors ${currentView === "dashboard" ? "text-red-400 drop-shadow-md" : "group-hover:text-red-400"}`}
+                  />
+                  {!isEffectivelyCollapsed && <span className="font-medium text-sm">Dashboard</span>}
+                </div>
               </div>
-            </div>
+            </Tooltip>
           </div>
 
           {/* Search Bar */}
@@ -584,32 +581,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <h2 className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
                 Workspaces
               </h2>
-              <button
-                onClick={() => onAddProject()}
-                className="p-1 hover:bg-white/10 rounded text-slate-300 hover:text-red-400 transition-colors"
-                title="New Workspace"
-              >
-                <Plus size={14} />
-              </button>
+              <Tooltip content="New Workspace" position="top" delay={300}>
+                <button
+                  onClick={() => onAddProject()}
+                  aria-label="New Workspace"
+                  className="p-1 hover:bg-white/10 rounded text-slate-300 hover:text-red-400 transition-colors"
+                >
+                  <Plus size={14} />
+                </button>
+              </Tooltip>
             </div>
 
             {isEffectivelyCollapsed && (
-              <button
-                onClick={() => onAddProject()}
-                onMouseEnter={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  setHoveredItem({
-                    label: "New Workspace",
-                    top: rect.top + rect.height / 2,
-                  });
-                }}
-                onMouseLeave={() => setHoveredItem(null)}
-                className="w-full p-3 mb-2 rounded-xl bg-white/5 hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors flex justify-center"
-                aria-label="New Workspace"
-                title="New Workspace"
-              >
-                <Plus size={18} aria-hidden="true" />
-              </button>
+              <Tooltip content="New Workspace" position="right" delay={300}>
+                <button
+                  onClick={() => onAddProject()}
+                  onMouseEnter={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setHoveredItem({
+                      label: "New Workspace",
+                      top: rect.top + rect.height / 2,
+                    });
+                  }}
+                  onMouseLeave={() => setHoveredItem(null)}
+                  className="w-full p-3 mb-2 rounded-xl bg-white/5 hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors flex justify-center"
+                  aria-label="New Workspace"
+                >
+                  <Plus size={18} aria-hidden="true" />
+                </button>
+              </Tooltip>
             )}
 
             {/* List Projects */}
@@ -627,9 +627,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Footer */}
         <div className="mt-auto border-t border-white/5 bg-white/[0.02] p-4">
+        <Tooltip content="Settings" position={isEffectivelyCollapsed ? "right" : "top"} delay={300}>
           <button
             onClick={onOpenSettings}
-            title="Settings"
             aria-label="Settings"
             onMouseEnter={(e) => {
               if (isEffectivelyCollapsed) {
@@ -650,6 +650,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               Settings
             </span>
           </button>
+        </Tooltip>
         </div>
 
         {/* Edit Project Modal */}

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { Task, PriorityDefinition } from "../../src/types";
+import type { Task, PriorityDefinition } from "../../types";
 import { TaskCard } from "../TaskCard";
 
 // Mock sub-components to avoid complex rendering dependencies
@@ -85,7 +85,7 @@ describe("TaskCard Features", () => {
   it("calls onEditTask when edit button is clicked", () => {
     render(<TaskCard {...baseProps} task={mockTask} />);
 
-    fireEvent.click(screen.getByTitle(/Edit task/i));
+    fireEvent.click(screen.getByLabelText(/Edit task/i));
     expect(mockOnEditTask).toHaveBeenCalled();
   });
 });

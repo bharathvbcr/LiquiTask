@@ -131,7 +131,7 @@ describe("App Integration", () => {
     await renderApp();
     await waitFor(() => expect(screen.queryByText(/Loading/i)).not.toBeInTheDocument());
 
-    const settingsBtn = await screen.findByTitle(/Settings/i);
+    const settingsBtn = await screen.findByLabelText(/Settings/i);
     await act(async () => {
       fireEvent.click(settingsBtn);
     });

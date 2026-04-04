@@ -49,8 +49,10 @@ import type {
   Subtask,
   Task,
   TaskLink,
+  ToastType,
 } from "../types";
 import { ModalWrapper } from "./ModalWrapper";
+import { Tooltip } from "./Tooltip";
 
 const EMPTY_PRIORITIES: PriorityDefinition[] = [];
 const EMPTY_CUSTOM_FIELDS: CustomFieldDefinition[] = [];
@@ -250,7 +252,9 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
         jobId: initialData?.jobId || "",
         projectId: localProjectId,
         title: formData.title,
+        subtitle: formData.subtitle || "",
         summary: formData.summary,
+        assignee: formData.assignee || "",
         priority: formData.priority,
         status: formData.status,
         createdAt: new Date(),
@@ -258,6 +262,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
         attachments: [],
         tags: [],
         timeEstimate: formData.timeEstimate,
+        timeSpent: 0,
       };
 
       const estimate = await aiService.suggestTimeEstimate(taskObj, context);
@@ -325,11 +330,11 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
         prompt,
         {
           title: formData.title,
+          subtitle: formData.subtitle,
           summary: formData.summary,
           priority: formData.priority,
           dueDate: formData.dueDate ? new Date(formData.dueDate) : undefined,
-          subtitle: formData.subtitle,
-        } as Partial<AITaskSchema>,
+        } as Partial<Task>,
         context,
       );
 
@@ -577,7 +582,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
           };
           const suggestions = await aiService.suggestPriorities([taskData], context);
           if (suggestions.length > 0 && suggestions[0].confidence > 0.6) {
-            const suggestedPriorityId = suggestions[0].suggestedValue;
+            const suggestedPriorityId = suggestions[0].suggestedValue as string;
             const priorityDef = priorities.find((p) => p.id === suggestedPriorityId);
             if (priorityDef) {
               taskData.priority = suggestedPriorityId;
@@ -619,27 +624,17 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
             projects: allProjects,
             priorities: priorities,
           };
-          const duplicates = await aiService.detectDuplicates(
-            [
-              { title: formData.title, summary: formData.summary, tags: formData.tags },
-              ...availableTasks.map((t) => ({
-                title: t.title,
-                summary: t.summary,
-                tags: t.tags,
-                id: t.id,
-              })),
-            ],
-            context,
-          );
+          const pairs = availableTasks.slice(0, 10).map((t) => ({
+            task1: taskData,
+            task2: t,
+          }));
+          const duplicates = await aiService.detectDuplicates(pairs, context);
 
           if (duplicates.length > 0 && duplicates[0].confidence > 0.7) {
-            const duplicate = availableTasks.find((t) => t.id === duplicates[0].task2?.id);
-            if (duplicate) {
-              setDuplicateWarning({
-                task: duplicate,
-                confidence: duplicates[0].confidence,
-              });
-            }
+            setDuplicateWarning({
+              title: duplicates[0].task2.title,
+              confidence: duplicates[0].confidence,
+            });
           }
         } catch (e) {
           console.warn("AI duplicate detection failed:", e);
@@ -659,7 +654,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
             context,
           );
           if (redundancy && redundancy.confidence > 0.7) {
-            addToast(`Potential redundancy detected: ${redundancy.reasoning}`, "warning");
+            addToast(`Potential redundancy detected: ${redundancy.reasoning}`, "info");
           }
         } catch (e) {
           console.warn("AI redundancy check failed:", e);
@@ -1004,19 +999,20 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                   <Layers size={12} /> Project
                 </label>
                 <div className="relative">
-                  <select
-                    value={localProjectId}
-                    onChange={(e) => setLocalProjectId(e.target.value)}
-                    className="w-full liquid-input rounded-xl px-4 py-3 text-sm appearance-none cursor-pointer"
-                    aria-label="Task project"
-                    title="Select task project"
-                  >
-                    {allProjects.map((p) => (
-                      <option key={p.id} value={p.id} className="bg-navy-900 text-slate-200">
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
+                  <Tooltip content="Select task project" position="top">
+                    <select
+                      value={localProjectId}
+                      onChange={(e) => setLocalProjectId(e.target.value)}
+                      className="w-full liquid-input rounded-xl px-4 py-3 text-sm appearance-none cursor-pointer"
+                      aria-label="Task project"
+                    >
+                      {allProjects.map((p) => (
+                        <option key={p.id} value={p.id} className="bg-navy-900 text-slate-200">
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </Tooltip>
                   <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
                     <svg
                       width="10"
@@ -1042,19 +1038,20 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                   <Flag size={12} /> Priority
                 </label>
                 <div className="relative">
-                  <select
-                    value={formData.priority}
-                    onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                    className="w-full liquid-input rounded-xl px-4 py-3 text-sm appearance-none cursor-pointer"
-                    aria-label="Task priority"
-                    title="Select task priority"
-                  >
-                    {priorities.map((p) => (
-                      <option key={p.id} value={p.id} className="bg-navy-900 text-slate-200">
-                        {p.label}
-                      </option>
-                    ))}
-                  </select>
+                  <Tooltip content="Select task priority" position="top">
+                    <select
+                      value={formData.priority}
+                      onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
+                      className="w-full liquid-input rounded-xl px-4 py-3 text-sm appearance-none cursor-pointer"
+                      aria-label="Task priority"
+                    >
+                      {priorities.map((p) => (
+                        <option key={p.id} value={p.id} className="bg-navy-900 text-slate-200">
+                          {p.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Tooltip>
                   <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
                     <svg
                       width="10"
@@ -1081,19 +1078,20 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                   <Kanban size={12} /> Status
                 </label>
                 <div className="relative">
-                  <select
-                    value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="w-full liquid-input rounded-xl px-4 py-3 text-sm appearance-none cursor-pointer"
-                    aria-label="Task status"
-                    title="Select task status"
-                  >
-                    {columns.map((col) => (
-                      <option key={col.id} value={col.id} className="bg-navy-900 text-slate-200">
-                        {col.title}
-                      </option>
-                    ))}
-                  </select>
+                  <Tooltip content="Select task status" position="top">
+                    <select
+                      value={formData.status}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                      className="w-full liquid-input rounded-xl px-4 py-3 text-sm appearance-none cursor-pointer"
+                      aria-label="Task status"
+                    >
+                      {columns.map((col) => (
+                        <option key={col.id} value={col.id} className="bg-navy-900 text-slate-200">
+                          {col.title}
+                        </option>
+                      ))}
+                    </select>
+                  </Tooltip>
                   <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
                     <svg
                       width="10"
@@ -1144,14 +1142,15 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1 flex items-center gap-2">
                   <Calendar size={12} /> Due Date
                 </label>
-                <input
-                  type="date"
-                  value={formData.dueDate}
-                  onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                  className="w-full liquid-input rounded-xl px-4 py-3 text-sm [color-scheme:dark]"
-                  aria-label="Task due date"
-                  title="Select task due date"
-                />
+                <Tooltip content="Select task due date" position="top">
+                  <input
+                    type="date"
+                    value={formData.dueDate}
+                    onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                    className="w-full liquid-input rounded-xl px-4 py-3 text-sm [color-scheme:dark]"
+                    aria-label="Task due date"
+                  />
+                </Tooltip>
               </div>
 
               <div className="space-y-2">
@@ -1159,32 +1158,34 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1 flex items-center gap-2">
                     <Clock size={12} /> Est. Time (mins)
                   </label>
-                  <button
-                    type="button"
-                    onClick={handleSuggestTimeEstimate}
-                    disabled={isEstimating || !formData.title.trim()}
-                    className="text-[10px] font-bold text-cyan-300 hover:text-cyan-200 flex items-center gap-1 transition-colors px-2 py-1 rounded bg-cyan-500/10 border border-cyan-500/20"
-                    title="AI Estimate based on title and description"
-                  >
-                    {isEstimating ? (
-                      <Loader2 size={10} className="animate-spin" />
-                    ) : (
-                      <Sparkles size={10} />
-                    )}
-                    AI Estimate
-                  </button>
+                  <Tooltip content="AI Estimate based on title and description" position="top">
+                    <button
+                      type="button"
+                      onClick={handleSuggestTimeEstimate}
+                      disabled={isEstimating || !formData.title.trim()}
+                      className="text-[10px] font-bold text-cyan-300 hover:text-cyan-200 flex items-center gap-1 transition-colors px-2 py-1 rounded bg-cyan-500/10 border border-cyan-500/20"
+                    >
+                      {isEstimating ? (
+                        <Loader2 size={10} className="animate-spin" />
+                      ) : (
+                        <Sparkles size={10} />
+                      )}
+                      AI Estimate
+                    </button>
+                  </Tooltip>
                 </div>
-                <input
-                  type="number"
-                  min="0"
-                  step="5"
-                  value={formData.timeEstimate || ""}
-                  onChange={(e) => setFormData({ ...formData, timeEstimate: parseInt(e.target.value, 10) || 0 })}
-                  placeholder="e.g., 60"
-                  className="w-full liquid-input rounded-xl px-4 py-3 text-sm"
-                  aria-label="Task time estimate in minutes"
-                  title="Task time estimate in minutes"
-                />
+                <Tooltip content="Task time estimate in minutes" position="top">
+                  <input
+                    type="number"
+                    min="0"
+                    step="5"
+                    value={formData.timeEstimate || ""}
+                    onChange={(e) => setFormData({ ...formData, timeEstimate: parseInt(e.target.value, 10) || 0 })}
+                    placeholder="e.g., 60"
+                    className="w-full liquid-input rounded-xl px-4 py-3 text-sm"
+                    aria-label="Task time estimate in minutes"
+                  />
+                </Tooltip>
               </div>
             </div>
 
@@ -1199,46 +1200,48 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                     <div key={field.id} className="space-y-2">
                       <label className="text-xs text-slate-500 font-semibold">{field.label}</label>
                       {field.type === "dropdown" ? (
-                        <select
-                          value={customValues[field.id] || ""}
-                          onChange={(e) =>
-                            setCustomValues({
-                              ...customValues,
-                              [field.id]: e.target.value,
-                            })
-                          }
-                          className="w-full liquid-input rounded-xl px-4 py-3 text-sm appearance-none"
-                          aria-label={field.label}
-                          title={`Select ${field.label}`}
-                        >
-                          <option value="">Select...</option>
-                          {field.options?.map((opt) => (
-                            <option key={opt} value={opt} className="bg-navy-900">
-                              {opt}
-                            </option>
-                          ))}
-                        </select>
+                        <Tooltip content={`Select ${field.label}`} position="top">
+                          <select
+                            value={customValues[field.id] || ""}
+                            onChange={(e) =>
+                              setCustomValues({
+                                ...customValues,
+                                [field.id]: e.target.value,
+                              })
+                            }
+                            className="w-full liquid-input rounded-xl px-4 py-3 text-sm appearance-none"
+                            aria-label={field.label}
+                          >
+                            <option value="">Select...</option>
+                            {field.options?.map((opt) => (
+                              <option key={opt} value={opt} className="bg-navy-900">
+                                {opt}
+                              </option>
+                            ))}
+                          </select>
+                        </Tooltip>
                       ) : (
-                        <input
-                          type={field.type === "number" ? "number" : "text"}
-                          value={customValues[field.id] || ""}
-                          onChange={(e) =>
-                            setCustomValues({
-                              ...customValues,
-                              [field.id]: e.target.value,
-                            })
-                          }
-                          className="w-full liquid-input rounded-xl px-4 py-3 text-sm"
-                          placeholder={
-                            field.type === "url"
-                              ? "https://..."
-                              : field.type === "number"
-                                ? "Enter number..."
-                                : `Enter ${field.label.toLowerCase()}...`
-                          }
-                          aria-label={field.label}
-                          title={`Enter ${field.label}`}
-                        />
+                        <Tooltip content={`Enter ${field.label}`} position="top">
+                          <input
+                            type={field.type === "number" ? "number" : "text"}
+                            value={customValues[field.id] || ""}
+                            onChange={(e) =>
+                              setCustomValues({
+                                ...customValues,
+                                [field.id]: e.target.value,
+                              })
+                            }
+                            className="w-full liquid-input rounded-xl px-4 py-3 text-sm"
+                            placeholder={
+                              field.type === "url"
+                                ? "https://..."
+                                : field.type === "number"
+                                  ? "Enter number..."
+                                  : `Enter ${field.label.toLowerCase()}...`
+                            }
+                            aria-label={field.label}
+                          />
+                        </Tooltip>
                       )}
                     </div>
                   ))}
@@ -1253,43 +1256,45 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                   <AlignLeft size={12} /> Description
                 </label>
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (!formData.summary.trim()) return;
-                      setIsGenerating(true);
-                      try {
-                        const context: AIContext = {
-                          activeProjectId: localProjectId,
-                          projects: allProjects,
-                          priorities,
-                        };
-                        const refined = await aiService.refineTaskDraft(
-                          "Polish this task description to be professional and clear. Maintain markdown formatting.",
-                          { title: formData.title, summary: formData.summary },
-                          context,
-                        );
-                        if (refined.summary)
-                          setFormData((f) => ({
-                            ...f,
-                            summary: refined.summary,
-                          }));
-                      } catch (e) {
-                        setAiError((e as Error).message);
-                      } finally {
-                        setIsGenerating(false);
-                      }
-                    }}
-                    disabled={isGenerating || !formData.summary.trim()}
-                    className="text-[10px] font-bold text-cyan-300 hover:text-cyan-200 flex items-center gap-1 transition-colors px-2 py-1 rounded bg-cyan-500/10 border border-cyan-500/20"
-                  >
-                    {isGenerating ? (
-                      <Loader2 size={10} className="animate-spin" />
-                    ) : (
-                      <Sparkles size={10} />
-                    )}
-                    Polish
-                  </button>
+                  <Tooltip content="Polish description with AI" position="top">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!formData.summary.trim()) return;
+                        setIsGenerating(true);
+                        try {
+                          const context: AIContext = {
+                            activeProjectId: localProjectId,
+                            projects: allProjects,
+                            priorities,
+                          };
+                          const refined = await aiService.refineTaskDraft(
+                            "Polish this task description to be professional and clear. Maintain markdown formatting.",
+                            { title: formData.title, summary: formData.summary },
+                            context,
+                          );
+                          if (refined.summary)
+                            setFormData((f) => ({
+                              ...f,
+                              summary: refined.summary,
+                            }));
+                        } catch (e) {
+                          setAiError((e as Error).message);
+                        } finally {
+                          setIsGenerating(false);
+                        }
+                      }}
+                      disabled={isGenerating || !formData.summary.trim()}
+                      className="text-[10px] font-bold text-cyan-300 hover:text-cyan-200 flex items-center gap-1 transition-colors px-2 py-1 rounded bg-cyan-500/10 border border-cyan-500/20"
+                    >
+                      {isGenerating ? (
+                        <Loader2 size={10} className="animate-spin" />
+                      ) : (
+                        <Sparkles size={10} />
+                      )}
+                      Polish
+                    </button>
+                  </Tooltip>
                   <div className="flex bg-white/5 rounded-lg p-0.5 border border-white/5">
                     <button
                       type="button"
@@ -1347,53 +1352,56 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                 <Link size={12} /> Linked Tasks & Dependencies
               </label>
               <div className="flex gap-2">
-                <select
-                  value={newLinkType}
-                  onChange={(e) => setNewLinkType(e.target.value)}
-                  className="w-1/3 liquid-input rounded-xl px-4 py-2.5 text-xs appearance-none"
-                  aria-label="Link type"
-                  title="Select link type"
-                >
-                  <option value="relates-to" className="bg-navy-900">
-                    Relates to
-                  </option>
-                  <option value="blocks" className="bg-navy-900">
-                    Blocks
-                  </option>
-                  <option value="blocked-by" className="bg-navy-900">
-                    Blocked By
-                  </option>
-                  <option value="duplicates" className="bg-navy-900">
-                    Duplicates
-                  </option>
-                </select>
-                <select
-                  value={newLinkTarget}
-                  onChange={(e) => setNewLinkTarget(e.target.value)}
-                  className="flex-1 liquid-input rounded-xl px-4 py-2.5 text-xs appearance-none"
-                  aria-label="Select task to link"
-                  title="Select task to link"
-                >
-                  <option value="" className="bg-navy-900">
-                    Select Task...
-                  </option>
-                  {availableTasks
-                    .filter((t) => t.id !== initialData?.id)
-                    .map((t) => (
-                      <option key={t.id} value={t.id} className="bg-navy-900">
-                        [{t.jobId}] {t.title}
-                      </option>
-                    ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={handleAddTaskLink}
-                  className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 transition-colors border border-white/5"
-                  aria-label="Add task link"
-                  title="Add task link"
-                >
-                  <Plus size={18} aria-hidden="true" />
-                </button>
+                <Tooltip content="Select link type" position="top">
+                  <select
+                    value={newLinkType}
+                    onChange={(e) => setNewLinkType(e.target.value)}
+                    className="w-1/3 liquid-input rounded-xl px-4 py-2.5 text-xs appearance-none"
+                    aria-label="Link type"
+                  >
+                    <option value="relates-to" className="bg-navy-900">
+                      Relates to
+                    </option>
+                    <option value="blocks" className="bg-navy-900">
+                      Blocks
+                    </option>
+                    <option value="blocked-by" className="bg-navy-900">
+                      Blocked By
+                    </option>
+                    <option value="duplicates" className="bg-navy-900">
+                      Duplicates
+                    </option>
+                  </select>
+                </Tooltip>
+                <Tooltip content="Select task to link" position="top">
+                  <select
+                    value={newLinkTarget}
+                    onChange={(e) => setNewLinkTarget(e.target.value)}
+                    className="flex-1 liquid-input rounded-xl px-4 py-2.5 text-xs appearance-none"
+                    aria-label="Select task to link"
+                  >
+                    <option value="" className="bg-navy-900">
+                      Select Task...
+                    </option>
+                    {availableTasks
+                      .filter((t) => t.id !== initialData?.id)
+                      .map((t) => (
+                        <option key={t.id} value={t.id} className="bg-navy-900">
+                          [{t.jobId}] {t.title}
+                        </option>
+                      ))}
+                  </select>
+                </Tooltip>
+                <Tooltip content="Add task link" position="top">
+                  <button
+                    type="button"
+                    onClick={handleAddTaskLink}
+                    className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 transition-colors border border-white/5"
+                    aria-label="Add task link"
+                  >
+                    <Plus size={18} aria-hidden="true" />
+                  </button>
+                </Tooltip>
               </div>
               <div className="space-y-2 mt-2">
                 {links.map((link, idx) => {
@@ -1453,20 +1461,21 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
                   <CheckSquare size={12} /> Subtasks
                 </label>
-                <button
-                  type="button"
-                  onClick={handleAiBreakdown}
-                  disabled={isBreakingDown || !formData.title.trim()}
-                  className="text-[10px] font-bold text-cyan-300 hover:text-cyan-200 flex items-center gap-1 transition-colors"
-                  title="AI Breakdown - Generate subtasks"
-                >
-                  {isBreakingDown ? (
-                    <Loader2 size={10} className="animate-spin" />
-                  ) : (
-                    <Sparkles size={10} />
-                  )}
-                  AI Breakdown
-                </button>
+                <Tooltip content="AI Breakdown - Generate subtasks" position="top">
+                  <button
+                    type="button"
+                    onClick={handleAiBreakdown}
+                    disabled={isBreakingDown || !formData.title.trim()}
+                    className="text-[10px] font-bold text-cyan-300 hover:text-cyan-200 flex items-center gap-1 transition-colors"
+                  >
+                    {isBreakingDown ? (
+                      <Loader2 size={10} className="animate-spin" />
+                    ) : (
+                      <Sparkles size={10} />
+                    )}
+                    AI Breakdown
+                  </button>
+                </Tooltip>
               </div>
               <div className="flex gap-2">
                 <input
@@ -1483,15 +1492,16 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                   className="flex-1 liquid-input rounded-xl px-4 py-2.5 text-sm"
                   aria-label="New subtask title"
                 />
-                <button
-                  type="button"
-                  onClick={handleAddSubtask}
-                  className="p-3 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 transition-colors border border-white/5"
-                  aria-label="Add subtask"
-                  title="Add subtask"
-                >
-                  <Plus size={18} aria-hidden="true" />
-                </button>
+                <Tooltip content="Add subtask" position="top">
+                  <button
+                    type="button"
+                    onClick={handleAddSubtask}
+                    className="p-3 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 transition-colors border border-white/5"
+                    aria-label="Add subtask"
+                  >
+                    <Plus size={18} aria-hidden="true" />
+                  </button>
+                </Tooltip>
               </div>
               <div className="max-h-32 overflow-y-auto space-y-2 custom-scrollbar pr-2">
                 {subtasks.map((subtask) => (
@@ -1499,19 +1509,20 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                     key={subtask.id}
                     className="flex items-center gap-3 p-3 rounded-xl bg-black/20 border border-white/5 group hover:border-white/10 transition-colors"
                   >
-                    <button
-                      type="button"
-                      onClick={() => toggleSubtask(subtask.id)}
-                      className={`flex-shrink-0 w-5 h-5 rounded border flex items-center justify-center transition-all ${subtask.completed ? "bg-emerald-500/20 border-emerald-500 text-emerald-500" : "border-slate-600 text-transparent hover:border-slate-400"}`}
-                      aria-label={
-                        subtask.completed
-                          ? `Mark subtask "${subtask.title}" as incomplete`
-                          : `Mark subtask "${subtask.title}" as complete`
-                      }
-                      title={subtask.completed ? "Mark as incomplete" : "Mark as complete"}
-                    >
-                      <Check size={12} aria-hidden="true" />
-                    </button>
+                      <Tooltip content={subtask.completed ? "Mark as incomplete" : "Mark as complete"} position="top">
+                        <button
+                          type="button"
+                          onClick={() => toggleSubtask(subtask.id)}
+                          className={`flex-shrink-0 w-5 h-5 rounded border flex items-center justify-center transition-all ${subtask.completed ? "bg-emerald-500/20 border-emerald-500 text-emerald-500" : "border-slate-600 text-transparent hover:border-slate-400"}`}
+                          aria-label={
+                            subtask.completed
+                              ? `Mark subtask "${subtask.title}" as incomplete`
+                              : `Mark subtask "${subtask.title}" as complete`
+                          }
+                        >
+                          <Check size={12} aria-hidden="true" />
+                        </button>
+                      </Tooltip>
                     <input
                       type="text"
                       value={subtask.title}
@@ -1521,15 +1532,16 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                       aria-label={`Edit subtask ${subtask.id}`}
                       placeholder="Subtask title"
                     />
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveSubtask(subtask.id)}
-                      className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
-                      aria-label={`Remove subtask "${subtask.title}"`}
-                      title={`Remove subtask "${subtask.title}"`}
-                    >
-                      <X size={16} aria-hidden="true" />
-                    </button>
+                      <Tooltip content={`Remove subtask "${subtask.title}"`} position="top">
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSubtask(subtask.id)}
+                          className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                          aria-label={`Remove subtask "${subtask.title}"`}
+                        >
+                          <X size={16} aria-hidden="true" />
+                        </button>
+                      </Tooltip>
                   </div>
                 ))}
               </div>
@@ -1570,24 +1582,26 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                     className="flex-1 liquid-input rounded-xl px-4 py-2.5 text-sm"
                     aria-label="Link URL"
                   />
-                  <button
-                    type="button"
-                    onClick={handleAddLink}
-                    className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 transition-colors border border-white/5"
-                    title="Add Link"
-                    aria-label="Add link"
-                  >
-                    <LinkIcon size={18} aria-hidden="true" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 transition-colors border border-white/10 rounded-xl text-slate-300 transition-colors border border-white/5"
-                    title="Upload File"
-                    aria-label="Upload file"
-                  >
-                    <Upload size={18} aria-hidden="true" />
-                  </button>
+                  <Tooltip content="Add Link" position="top">
+                    <button
+                      type="button"
+                      onClick={handleAddLink}
+                      className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 transition-colors border border-white/5"
+                      aria-label="Add link"
+                    >
+                      <LinkIcon size={18} aria-hidden="true" />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="Upload File" position="top">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 transition-colors border border-white/10 rounded-xl text-slate-300 transition-colors border border-white/5"
+                      aria-label="Upload file"
+                    >
+                      <Upload size={18} aria-hidden="true" />
+                    </button>
+                  </Tooltip>
                   <input
                     type="file"
                     ref={fileInputRef}
@@ -1611,27 +1625,29 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                       const safeUrl = att.type === "file" ? att.url : getSafeExternalUrl(att.url);
                       const isSafe = Boolean(safeUrl);
                       return (
-                        <a
-                          href={safeUrl ?? "#"}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={`flex-1 text-sm font-medium truncate underline decoration-blue-500/30 hover:decoration-blue-400 ${isSafe ? "text-blue-400 hover:text-blue-300" : "text-slate-500 cursor-not-allowed decoration-slate-500/30"}`}
-                          onClick={(e) => !isSafe && e.preventDefault()}
-                          title={safeUrl ?? "Unsafe URL blocked"}
-                        >
-                          {att.name}
-                        </a>
+                        <Tooltip content={safeUrl ?? "Unsafe URL blocked"} position="top">
+                          <a
+                            href={safeUrl ?? "#"}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`flex-1 text-sm font-medium truncate underline decoration-blue-500/30 hover:decoration-blue-400 ${isSafe ? "text-blue-400 hover:text-blue-300" : "text-slate-500 cursor-not-allowed decoration-slate-500/30"}`}
+                            onClick={(e) => !isSafe && e.preventDefault()}
+                          >
+                            {att.name}
+                          </a>
+                        </Tooltip>
                       );
                     })()}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveAttachment(att.id)}
-                      className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
-                      aria-label={`Remove attachment "${att.name}"`}
-                      title={`Remove attachment "${att.name}"`}
-                    >
-                      <X size={16} aria-hidden="true" />
-                    </button>
+                    <Tooltip content={`Remove attachment "${att.name}"`} position="top">
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveAttachment(att.id)}
+                        className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                        aria-label={`Remove attachment "${att.name}"`}
+                      >
+                        <X size={16} aria-hidden="true" />
+                      </button>
+                    </Tooltip>
                   </div>
                 ))}
               </div>

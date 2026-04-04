@@ -19,6 +19,7 @@ import {
 import type React from "react";
 import { useState } from "react";
 import type { PriorityDefinition } from "../../types";
+import { Tooltip } from "../Tooltip";
 
 const AVAILABLE_ICONS = [
   { key: "flame", icon: Flame, label: "Flame" },
@@ -226,22 +227,24 @@ const PriorityRow: React.FC<PriorityRowProps> = ({
     >
       <div className="flex items-center gap-3 p-4">
         <div className="flex flex-col gap-0.5 text-slate-600">
-          <button
-            onClick={onMoveUp}
-            disabled={isFirst}
-            className="p-0.5 hover:text-slate-300 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
-            title="Move up"
-          >
-            <ChevronUp size={14} />
-          </button>
-          <button
-            onClick={onMoveDown}
-            disabled={isLast}
-            className="p-0.5 hover:text-slate-300 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
-            title="Move down"
-          >
-            <ChevronDown size={14} />
-          </button>
+          <Tooltip content="Move up" position="top">
+            <button
+              onClick={onMoveUp}
+              disabled={isFirst}
+              className="p-0.5 hover:text-slate-300 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronUp size={14} />
+            </button>
+          </Tooltip>
+          <Tooltip content="Move down" position="top">
+            <button
+              onClick={onMoveDown}
+              disabled={isLast}
+              className="p-0.5 hover:text-slate-300 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronDown size={14} />
+            </button>
+          </Tooltip>
         </div>
 
         <div
@@ -283,15 +286,15 @@ const PriorityRow: React.FC<PriorityRowProps> = ({
                 />
                 <div className="flex gap-1 flex-wrap">
                   {PRESET_COLORS.map((color) => (
-                    <button
-                      key={color}
-                      onClick={() => onUpdate({ color })}
-                      className={`w-5 h-5 rounded-full border-2 transition-transform hover:scale-110 ${
-                        priority.color === color ? "border-white scale-110" : "border-transparent"
-                      }`}
-                      style={{ backgroundColor: color }}
-                      title={color}
-                    />
+                    <Tooltip key={color} content={color} position="top">
+                      <button
+                        onClick={() => onUpdate({ color })}
+                        className={`w-5 h-5 rounded-full border-2 transition-transform hover:scale-110 ${
+                          priority.color === color ? "border-white scale-110" : "border-transparent"
+                        }`}
+                        style={{ backgroundColor: color }}
+                      />
+                    </Tooltip>
                   ))}
                 </div>
               </div>
@@ -336,29 +339,32 @@ const PriorityRow: React.FC<PriorityRowProps> = ({
 
         <div className="flex items-center gap-1">
           {isEditing ? (
-            <button
-              onClick={onSave}
-              className="p-1.5 rounded-lg text-emerald-400 hover:bg-emerald-500/20 transition-colors"
-              title="Done editing"
-            >
-              <Check size={16} />
-            </button>
+            <Tooltip content="Done editing" position="top">
+              <button
+                onClick={onSave}
+                className="p-1.5 rounded-lg text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+              >
+                <Check size={16} />
+              </button>
+            </Tooltip>
           ) : (
-            <button
-              onClick={onEdit}
-              className="p-1.5 rounded-lg text-slate-400 hover:bg-white/10 hover:text-white transition-colors opacity-0 group-hover:opacity-100"
-              title="Edit"
-            >
-              <Flag size={16} />
-            </button>
+            <Tooltip content="Edit" position="top">
+              <button
+                onClick={onEdit}
+                className="p-1.5 rounded-lg text-slate-400 hover:bg-white/10 hover:text-white transition-colors opacity-0 group-hover:opacity-100"
+              >
+                <Flag size={16} />
+              </button>
+            </Tooltip>
           )}
-          <button
-            onClick={onDelete}
-            className="p-1.5 rounded-lg text-slate-500 hover:bg-red-500/20 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
-            title="Delete"
-          >
-            <Trash2 size={16} />
-          </button>
+          <Tooltip content="Delete" position="top">
+            <button
+              onClick={onDelete}
+              className="p-1.5 rounded-lg text-slate-500 hover:bg-red-500/20 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+            >
+              <Trash2 size={16} />
+            </button>
+          </Tooltip>
         </div>
       </div>
     </div>
@@ -372,15 +378,15 @@ interface IconPickerProps {
 const IconPicker: React.FC<IconPickerProps> = ({ onSelect }) => (
   <div className="absolute top-full left-0 mt-2 z-50 p-3 bg-slate-900 border border-white/10 rounded-xl shadow-2xl grid grid-cols-4 gap-2 min-w-[200px]">
     {AVAILABLE_ICONS.map(({ key, icon: Icon, label }) => (
-      <button
-        key={key}
-        onClick={() => onSelect(key)}
-        className="p-2 rounded-lg hover:bg-white/10 transition-colors flex flex-col items-center gap-1"
-        title={label}
-      >
-        <Icon size={18} className="text-slate-300" />
-        <span className="text-[9px] text-slate-500">{label}</span>
-      </button>
+      <Tooltip key={key} content={label} position="top">
+        <button
+          onClick={() => onSelect(key)}
+          className="p-2 rounded-lg hover:bg-white/10 transition-colors flex flex-col items-center gap-1"
+        >
+          <Icon size={18} className="text-slate-300" />
+          <span className="text-[9px] text-slate-500">{label}</span>
+        </button>
+      </Tooltip>
     ))}
   </div>
 );

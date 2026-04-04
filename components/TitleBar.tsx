@@ -1,6 +1,7 @@
 import { Copy, Minus, Square, X } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import logo from "../src/assets/logo.png";
+
 import { getRuntimeWindowControls } from "../src/runtime/runtimeEnvironment";
 import { Tooltip } from "./Tooltip";
 

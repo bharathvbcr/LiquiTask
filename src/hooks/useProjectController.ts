@@ -135,10 +135,14 @@ export const useProjectController = ({
   }, []);
 
   const handleEditProject = useCallback(
-    (projectId: string, newName: string, newIcon: string) => {
+    (projectId: string, newName: string, newIcon: string, workspacePaths?: string[]) => {
       setProjects((prev) =>
         prev.map((p) => {
-          if (p.id === projectId) return { ...p, name: newName, icon: newIcon };
+          if (p.id === projectId) {
+            const updated: typeof p = { ...p, name: newName, icon: newIcon };
+            if (workspacePaths !== undefined) updated.workspacePaths = workspacePaths;
+            return updated;
+          }
           return p;
         }),
       );

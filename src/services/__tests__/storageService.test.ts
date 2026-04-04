@@ -2,29 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { STORAGE_KEYS } from "../../constants";
 import { storageService } from "../storageService";
 
-// Simple localStorage mock
-const localStorageMock = (() => {
-  let store: Record<string, string> = {};
-  return {
-    getItem: (key: string) => store[key] || null,
-    setItem: (key: string, value: string) => {
-      store[key] = value.toString();
-    },
-    removeItem: (key: string) => {
-      delete store[key];
-    },
-    clear: () => {
-      store = {};
-    },
-    get length() {
-      return Object.keys(store).length;
-    }
-  };
-})();
-
 describe("StorageService", () => {
   beforeEach(() => {
-    vi.stubGlobal("localStorage", localStorageMock);
     localStorage.clear();
     // Clear private cache via cast
     (storageService as any).cache.clear();

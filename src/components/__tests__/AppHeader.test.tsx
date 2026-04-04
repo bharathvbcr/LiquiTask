@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { AppHeader } from "../AppHeader";
 
 // Mock assets and sub-components
-vi.mock("../assets/logo.png", () => ({ default: "logo-stub" }));
+
 vi.mock("./ViewSwitcher", () => ({
   ViewSwitcher: () => <div data-testid="view-switcher">View Switcher</div>,
 }));
@@ -29,6 +29,7 @@ describe("AppHeader", () => {
   const mockOnSearchFocusChange = vi.fn();
   const mockOnFiltersChange = vi.fn();
   const mockOnClearFilters = vi.fn();
+  const mockOnToggleAssistant = vi.fn();
 
   const baseProps = {
     isHeaderExpanded: false,
@@ -49,11 +50,11 @@ describe("AppHeader", () => {
     filters: {
       assignee: "",
       tags: "",
-      dateRange: "",
+      dateRange: "due" as const,
       startDate: "",
       endDate: "",
     },
-    activeFilterGroup: { id: "root", type: "AND", rules: [] },
+    activeFilterGroup: { id: "root", type: "AND", operator: "AND" as const, rules: [] },
     customFields: [],
     views: [],
     activeViewId: null,
@@ -82,6 +83,8 @@ describe("AppHeader", () => {
     onFiltersChange: mockOnFiltersChange,
     onAdvancedFilterChange: vi.fn(),
     onClearFilters: mockOnClearFilters,
+    sidebarOffset: 0,
+    onToggleAssistant: mockOnToggleAssistant,
   };
 
   it("renders project info correctly when collapsed", () => {

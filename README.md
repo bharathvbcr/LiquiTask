@@ -1,21 +1,22 @@
 # LiquiTask
 
-LiquiTask is a desktop-first task management app built with React, TypeScript, Vite, and Electron. It combines a Kanban workflow with saved views, automation, recurring tasks, time tracking, export tools, and a glass-heavy desktop UI.
+LiquiTask is a premium, desktop-first task management application built with React 19, TypeScript, Vite, and Electron. It features a stunning **Liquid Glass** aesthetic, combining powerful Kanban workflows with advanced AI orchestration.
 
 ## What It Includes
 
-- Kanban board with drag and drop, WIP limits, and keyboard navigation
-- Multiple task views including board, calendar, gantt, archive, and dashboard surfaces
-- AI-powered task creation and refinement with Google Gemini 3.1 Flash-Lite and Ollama support
-- Custom fields, subtasks, task links, tags, templates, and quick-add parsing
-- Native desktop window controls, notifications, and local persistence through the Electron runtime bridge
-- Search history, saved views, bulk actions, automation rules, recurring tasks, and time reporting
-- CSV and JSON export support
-- Unit and component test coverage with Vitest and Testing Library
+- **Stunning Liquid Glass UI**: A premium, high-fidelity interface with advanced glassmorphism, smooth animations, and a cohesive dark-themed aesthetic.
+- **Kanban Engine**: Powerful board with drag and drop, WIP limits, and intelligent task cards.
+- **Multiple Task Views**: Integrated board, calendar, gantt, archive, and refined dashboard surfaces.
+- **AI Task Orchestration**: Intelligent task creation, refinement, and conversational management powered by Gemini and Ollama.
+- **Custom Tooltip System**: Custom-built "Liquid Glass" tooltips providing contextual info without breaking visual immersion.
+- **Native Desktop Integration**: Custom title bars, system notifications, and local persistence via the Electron bridge.
+- **Advanced Task Logic**: Custom fields, subtasks, recurring rules, and bulk actions.
+- **Data Sovereignty**: Local-first architecture with CSV/JSON export support.
+- **Quality Assured**: Comprehensive test coverage with Vitest and component-level validation.
 
 ## AI Integration
 
-LiquiTask 1.3.0 introduces a robust AI layer for intelligent task management.
+LiquiTask 2.3.0 introduces a robust AI layer for intelligent task management, featuring a conversational Task Assistant.
 
 ### Supported Providers
 
@@ -30,7 +31,7 @@ LiquiTask 1.3.0 introduces a robust AI layer for intelligent task management.
 - **AI Breakdown**: Automatically generate actionable subtask checklists from task summaries.
 - **Smart Metadata**: AI-driven suggestions for task priority and tags based on context.
 - **AI Workspace Integration**: Allow the AI to securely read, search, and modify `.md` files in user-authorized local directories.
-- **AI Task Assistant**: A conversational slide-over interface for natural language task management and workspace orchestration.
+- **AI Task Assistant**: A powerful, conversational glass-panel interface for natural language task management, workspace orchestration, and real-time task extraction. (Toggle with `Cmd/Ctrl + J`).
 
 ### Configuration
 
@@ -66,6 +67,7 @@ Run the desktop app with Electron:
 
 ```bash
 npm run dev
+# The dev server now defaults to port 4000
 ```
 
 Run the web renderer only:
@@ -138,14 +140,14 @@ The tagged release workflow does the following:
 
 Current release assets:
 
-- `LiquiTask Setup 1.3.0.exe`
-- `LiquiTask Setup 1.3.0.exe.blockmap`
+- `LiquiTask Setup 2.3.0.exe`
+- `LiquiTask Setup 2.3.0.exe.blockmap`
 
 Create a release:
 
 ```bash
-git tag v1.3.0
-git push origin v1.3.0
+git tag v2.3.0
+git push origin v2.3.0
 ```
 
 Before tagging a new version, update:

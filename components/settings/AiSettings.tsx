@@ -24,6 +24,7 @@ import { aiService } from "../../src/services/aiService";
 import storageService from "../../src/services/storageService";
 import { sanitizeUrl } from "../../src/utils/validation";
 import type { AIConfig, AutoOrganizeConfig, ToastType } from "../../types";
+import { Tooltip } from "../Tooltip";
 
 interface AiSettingsProps {
   addToast: (msg: string, type: ToastType) => void;
@@ -412,14 +413,15 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
                 <label className="flex items-center gap-2 text-sm font-medium text-slate-300">
                   <Server size={16} /> Model Name
                 </label>
-                <button
-                  onClick={() => fetchModels(config.ollamaBaseUrl || "http://localhost:11434")}
-                  disabled={isLoadingModels}
-                  className="text-slate-400 hover:text-white transition-colors"
-                  title="Refresh downloaded models"
-                >
-                  <RefreshCw size={14} className={isLoadingModels ? "animate-spin" : ""} />
-                </button>
+                <Tooltip content="Refresh downloaded models" position="top">
+                  <button
+                    onClick={() => fetchModels(config.ollamaBaseUrl || "http://localhost:11434")}
+                    disabled={isLoadingModels}
+                    className="text-slate-400 hover:text-white transition-colors"
+                  >
+                    <RefreshCw size={14} className={isLoadingModels ? "animate-spin" : ""} />
+                  </button>
+                </Tooltip>
               </div>
               <div className="flex gap-2">
                 {availableModels.length > 0 ? (
@@ -448,19 +450,20 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
                     className="flex-1 bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-500"
                   />
                 )}
-                <button
-                  onClick={handlePullModel}
-                  disabled={isPulling || !config.ollamaModel}
-                  className="px-3 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg border border-white/10 transition-all disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
-                  title="Download model from Ollama"
-                >
-                  {isPulling ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <Download size={16} />
-                  )}
-                  <span className="text-xs font-bold hidden sm:inline">Pull</span>
-                </button>
+                <Tooltip content="Download model from Ollama" position="top">
+                  <button
+                    onClick={handlePullModel}
+                    disabled={isPulling || !config.ollamaModel}
+                    className="px-3 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg border border-white/10 transition-all disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
+                  >
+                    {isPulling ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Download size={16} />
+                    )}
+                    <span className="text-xs font-bold hidden sm:inline">Pull</span>
+                  </button>
+                </Tooltip>
               </div>
               {availableModels.length === 0 && !isLoadingModels && (
                 <p className="text-xs text-amber-500/70 mt-2">
@@ -518,16 +521,19 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
                   key={p}
                   className="flex items-center justify-between gap-2 p-2 bg-black/20 border border-white/5 rounded-lg group"
                 >
-                  <span className="text-[10px] text-slate-300 truncate" title={p}>
-                    {p}
-                  </span>
-                  <button
-                    onClick={() => handleRemoveWorkspacePath(p)}
-                    className="text-slate-500 hover:text-red-400 transition-colors"
-                    title="Remove path"
-                  >
-                    <X size={14} />
-                  </button>
+                  <Tooltip content={p} position="top">
+                    <span className="text-[10px] text-slate-300 truncate">
+                      {p}
+                    </span>
+                  </Tooltip>
+                  <Tooltip content="Remove path" position="top">
+                    <button
+                      onClick={() => handleRemoveWorkspacePath(p)}
+                      className="text-slate-500 hover:text-red-400 transition-colors"
+                    >
+                      <X size={14} />
+                    </button>
+                  </Tooltip>
                 </li>
               ))}
             </ul>

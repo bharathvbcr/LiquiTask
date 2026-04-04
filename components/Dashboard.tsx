@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
-import logo from "../src/assets/logo.png";
+
 import { CalendarView } from "../src/components/CalendarView";
 import GanttView from "../src/components/GanttView";
 import ProjectBoard from "../src/components/ProjectBoard";
@@ -193,11 +193,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {onViewModeChange === undefined && (
         <div className="flex items-center justify-between mb-6 shrink-0">
           <div className="flex items-center gap-3">
-            <img
-              src={logo}
-              alt="LiquiTask"
-              className="w-8 h-8 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]"
-            />
+
             <h1 className="text-3xl font-bold text-white tracking-tight">Dashboard</h1>
           </div>
 

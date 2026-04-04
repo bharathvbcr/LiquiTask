@@ -23,6 +23,7 @@ import type React from "react";
 import { lazy, memo, Suspense, useState } from "react";
 import { InlineDatePicker, InlineEditable, InlineSelect } from "../src/components/InlineEditable";
 import { useTaskCardContextMenu } from "../src/hooks/useTaskCardContextMenu";
+import { Tooltip } from "./Tooltip";
 import { getSafeExternalUrl } from "../src/utils/safeUrl";
 import { getDueDateStatus, getPriorityIcon, getProgressStyles } from "../src/utils/taskCardUtils";
 import type { PriorityDefinition, Project, Task } from "../types";
@@ -160,30 +161,33 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               />
             </div>
             {isBlocked && (
-              <div
-                title={`Blocked by: ${blockerIds}`}
-                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-red-600/20 text-red-400 border border-red-500/30 text-[10px] font-bold uppercase cursor-help"
-              >
-                <Lock size={10} /> Blocked
-              </div>
+              <Tooltip content={`Blocked by: ${blockerIds}`} position="top">
+                <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-red-600/20 text-red-400 border border-red-500/30 text-[10px] font-bold uppercase cursor-help">
+                  <Lock size={10} /> Blocked
+                </div>
+              </Tooltip>
             )}
           </div>
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 rounded-lg p-0.5 border border-white/5 backdrop-blur-sm">
-              <button
-                onClick={() => onEditTask(task)}
-                className="p-1.5 text-slate-400 hover:text-white rounded-md transition-colors"
-                title="Edit task"
-              >
-                <Pencil size={12} />
-              </button>
-              <button
-                onClick={() => onDeleteTask(task.id)}
-                className="p-1.5 text-slate-400 hover:text-red-400 rounded-md transition-colors"
-                title="Delete task"
-              >
-                <Trash2 size={12} />
-              </button>
+              <Tooltip content="Edit task" position="top">
+                <button
+                  onClick={() => onEditTask(task)}
+                  aria-label="Edit task"
+                  className="p-1.5 text-slate-400 hover:text-white rounded-md transition-colors"
+                >
+                  <Pencil size={12} />
+                </button>
+              </Tooltip>
+              <Tooltip content="Delete task" position="top">
+                <button
+                  onClick={() => onDeleteTask(task.id)}
+                  aria-label="Delete task"
+                  className="p-1.5 text-slate-400 hover:text-red-400 rounded-md transition-colors"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </Tooltip>
             </div>
             <span className="text-[10px] font-mono text-slate-300 bg-black/30 px-2 py-0.5 rounded border border-white/5">
               {task.jobId}

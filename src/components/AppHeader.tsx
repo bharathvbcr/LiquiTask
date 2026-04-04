@@ -18,7 +18,7 @@ import type React from "react";
 import { lazy, Suspense } from "react";
 import { LiquidButton } from "../../components/LiquidButton";
 import type { CustomFieldDefinition, FilterState } from "../../types";
-import logo from "../assets/logo.png";
+
 import type { SearchHistoryItem } from "../hooks/useSearchHistory";
 import type { FilterGroup } from "../types/queryTypes";
 import { ViewSwitcher } from "./ViewSwitcher";
@@ -142,7 +142,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onToggleAssistant,
 }) => (
   <header
-    className={`fixed top-14 z-50 overflow-hidden rounded-3xl border border-white/5 px-8 shadow-xl liquid-glass will-change-transform md:left-[112px] md:right-6 ${isHeaderExpanded ? "py-6 max-h-[600px]" : "py-4 max-h-24"} transition-[transform,padding,max-height] duration-[400ms] ease-[cubic-bezier(0.22,1,0.36,1)]`}
+    className={`fixed top-14 z-50 overflow-hidden rounded-3xl border border-white/5 px-8 shadow-xl liquid-glass will-change-transform md:left-[104px] md:right-[72px] ${isHeaderExpanded ? "py-6 max-h-[600px]" : "py-4 max-h-24"} transition-[transform,padding,max-height] duration-[400ms] ease-[cubic-bezier(0.22,1,0.36,1)]`}
     style={{ transform: `translateX(${sidebarOffset}px)` }}
     onMouseEnter={() => onHeaderExpand(true)}
     onMouseLeave={() => onHeaderExpand(false)}
@@ -159,11 +159,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           <Menu size={20} />
         </button>
       )}
-      <img
-        src={logo}
-        alt="LiquiTask"
-        className="w-6 h-6 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)] shrink-0"
-      />
+
       <div className="flex flex-col min-w-0">
         <div className="flex items-center gap-2">
           <h2 className="text-xl font-bold text-white tracking-tight drop-shadow-md text-glow truncate">
@@ -200,12 +196,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     >
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4 flex-1 min-w-0">
-          <img
-            src={logo}
-            alt="LiquiTask"
-            className="w-8 h-8 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)] shrink-0"
-            title="LiquiTask - Task Management Dashboard"
-          />
+
           <div className="min-w-0 flex-1">
             <h2 className="text-3xl font-bold text-white tracking-tight drop-shadow-md text-glow truncate">
               {currentView === "dashboard"

@@ -2,6 +2,7 @@ import { Database, Flag, Kanban, Keyboard, Settings, Sparkles } from "lucide-rea
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 import logo from "../src/assets/logo.png";
+
 import { useKeybinding } from "../src/context/KeybindingContext";
 import storageService from "../src/services/storageService";
 import { generateTemplateBlob, validateBulkTasks } from "../src/utils/bulkTaskSchema";

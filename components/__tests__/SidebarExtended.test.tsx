@@ -4,7 +4,7 @@ import { Sidebar } from "../Sidebar";
 import type { Project, ProjectType } from "../../types";
 
 // Mock assets and sub-components
-vi.mock("../src/assets/logo.png", () => ({ default: "logo-stub" }));
+
 vi.mock("./EditProjectModal", () => ({
   EditProjectModal: () => <div data-testid="edit-modal">Edit Modal</div>,
 }));

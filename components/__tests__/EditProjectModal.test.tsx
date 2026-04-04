@@ -40,7 +40,7 @@ describe("EditProjectModal", () => {
     const saveButton = screen.getByText("Save Changes");
     fireEvent.click(saveButton);
 
-    expect(mockOnSave).toHaveBeenCalledWith("p1", "Updated Name", "folder");
+    expect(mockOnSave).toHaveBeenCalledWith("p1", "Updated Name", "folder", []);
   });
 
   it("calls onClose when cancel is clicked", () => {

@@ -18,9 +18,14 @@ vi.mock("../storageService", () => ({
 
 // Mock @google/generative-ai
 const mockGenerateContent = vi.fn();
+const mockSendMessage = vi.fn();
+const mockStartChat = vi.fn().mockReturnValue({
+  sendMessage: mockSendMessage,
+});
 
 const mockGetGenerativeModel = vi.fn().mockReturnValue({
   generateContent: mockGenerateContent,
+  startChat: mockStartChat,
 });
 
 vi.mock("@google/generative-ai", () => {
@@ -286,6 +291,53 @@ describe("AiService", () => {
       });
       const result = await aiService.smartImportFromText("csv data", mockContext);
       expect(result[0].title).toBe("Imported 1");
+    });
+
+    it("generateAgentResponse handles tool calls and text", async () => {
+      mockSendMessage.mockResolvedValueOnce({
+        response: {
+          text: () => "Here is a task.",
+          functionCalls: () => [{ name: "create_task", args: { title: "New" } }],
+        },
+      });
+
+      const result = await aiService.generateAgentResponse(
+        [{ id: "1", role: "user", content: "Hi", timestamp: new Date() }],
+        mockContext,
+        []
+      );
+
+      expect(result.content).toBe("Here is a task.");
+      expect(result.toolCalls?.[0].name).toBe("create_task");
+      expect(mockStartChat).toHaveBeenCalled();
+    });
+
+    it("generateAgentResponse formats history correctly with function results", async () => {
+      mockSendMessage.mockResolvedValueOnce({
+        response: {
+          text: () => "Task created.",
+          functionCalls: () => [],
+        },
+      });
+
+      const messages: any[] = [
+        { id: "1", role: "user", content: "Create task", timestamp: new Date() },
+        { id: "2", role: "assistant", content: "", timestamp: new Date(), toolCalls: [{ name: "create_task", args: { title: "T" } }] },
+        { id: "3", role: "function", content: "Done", timestamp: new Date(), toolResults: [{ name: "create_task", result: { id: "p1" } }] },
+        { id: "4", role: "user", content: "What next?", timestamp: new Date() },
+      ];
+
+      await aiService.generateAgentResponse(messages, mockContext, []);
+
+      const startChatArgs = mockStartChat.mock.calls[0][0];
+      const history = startChatArgs.history;
+
+      expect(history).toHaveLength(3); // 3 messages in history, last one is the prompt
+      expect(history[0].role).toBe("user");
+      expect(history[1].role).toBe("model");
+      expect(history[1].parts[1].functionCall).toBeDefined(); // text at parts[0], functionCall at parts[1]
+      expect(history[2].role).toBe("user"); // function results map to Gemini "user" role
+      expect(history[2].parts[1].functionResponse).toBeDefined(); // text at parts[0], functionResponse at parts[1]
     });
   });
 });

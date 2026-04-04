@@ -4,7 +4,7 @@ import { Sidebar } from "../Sidebar";
 import type { Project, ProjectType } from "../../types";
 
 // Mock assets and sub-components
-vi.mock("../src/assets/logo.png", () => ({ default: "logo-stub" }));
+
 vi.mock("./EditProjectModal", () => ({
   EditProjectModal: () => <div data-testid="edit-modal">Edit Modal</div>,
 }));
@@ -129,7 +129,7 @@ describe("Sidebar", () => {
   it("calls onAddProject when add button is clicked", () => {
     render(<Sidebar {...baseProps} />);
 
-    const addBtn = screen.getByTitle(/New Workspace/i);
+    const addBtn = screen.getByLabelText(/New Workspace/i);
     fireEvent.click(addBtn);
     expect(mockOnAddProject).toHaveBeenCalled();
   });

@@ -41,6 +41,14 @@ describe("runtimeEnvironment", () => {
       onWindowStateChange: vi.fn().mockReturnValue(listenerCleanup),
       showNotification: vi.fn().mockResolvedValue(undefined),
       storage: electronStorage,
+      workspace: {
+        selectDirectory: vi.fn().mockResolvedValue(null),
+        getPaths: vi.fn().mockResolvedValue([]),
+        setPaths: vi.fn().mockResolvedValue(undefined),
+        readFile: vi.fn().mockResolvedValue(""),
+        writeFile: vi.fn().mockResolvedValue(undefined),
+        searchFiles: vi.fn().mockResolvedValue([]),
+      },
     };
     (window as Window & { __electronAPI?: unknown }).__electronAPI = {};
 

@@ -166,10 +166,16 @@ const TaskAssistantSidebar = lazy(() =>
   }))
 );
 
+const AIRightRail = lazy(() =>
+  import('./src/components/AIRightRail').then(module => ({
+    default: module.AIRightRail,
+  }))
+);
+
 const SIDEBAR_EXPANDED_WIDTH = 320;
-const SIDEBAR_COLLAPSED_WIDTH = 80;
+const SIDEBAR_COLLAPSED_WIDTH = 72;
 const SIDEBAR_OFFSET_DELTA = SIDEBAR_EXPANDED_WIDTH - SIDEBAR_COLLAPSED_WIDTH;
-const _CONTENT_LEFT_OFFSET = 112;
+const _CONTENT_LEFT_OFFSET = 104;
 
 const ViewLoadingFallback: React.FC = () => (
   <div className="h-full w-full flex items-center justify-center text-slate-500">
@@ -203,7 +209,7 @@ const SidebarLoadingFallback: React.FC<{ isCollapsed: boolean }> = ({ isCollapse
 
 const HeaderLoadingFallback: React.FC<{ sidebarOffset: number }> = ({ sidebarOffset }) => (
   <div
-    className="fixed top-14 z-50 hidden h-16 rounded-3xl border border-white/5 liquid-glass shadow-xl md:block md:left-[112px] md:right-6"
+    className="fixed top-14 z-50 hidden h-16 rounded-3xl border border-white/5 liquid-glass shadow-xl md:block md:left-[104px] md:right-6"
     style={{ transform: `translateX(${sidebarOffset}px)` }}
   />
 );
@@ -308,12 +314,6 @@ const App: React.FC = () => {
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [nextTaskSuggestion, setNextTaskSuggestion] = useState<AISuggestion | null>(null);
 
-  const {
-    messages: assistantMessages,
-    sendMessage: handleSendAssistantMessage,
-    isLoading: isAssistantLoading,
-    clearChat: handleClearAssistantChat,
-  } = useTaskAssistant();
 
   // AI Settings
   const [aiSettings, setAiSettings] = useState({
@@ -451,6 +451,31 @@ const App: React.FC = () => {
     tasks,
     addToast,
     pushUndo,
+  });
+
+  const handleUpdateProjectPaths = useCallback((projectId: string, paths: string[]) => {
+    setProjects(prev => prev.map(p => p.id === projectId ? { ...p, workspacePaths: paths } : p));
+  }, [setProjects]);
+
+  const {
+    messages: assistantMessages,
+    sendMessage: handleSendAssistantMessage,
+    isLoading: isAssistantLoading,
+    isSearching: isAssistantSearching,
+    activeTool: assistantActiveTool,
+    clearChat: handleClearAssistantChat,
+  } = useTaskAssistant({
+    context: {
+      activeProjectId,
+      projects,
+      priorities,
+      customFields,
+      workspacePaths: projects.find(p => p.id === activeProjectId)?.workspacePaths ?? [],
+    },
+    allTasks: tasks,
+    addTask: (task) => handleCreateOrUpdateTask(task as any, null),
+    updateTask: (id, updates) => handleUpdateTask(id, updates),
+    searchTasks: (query) => searchIndexServiceRef.current?.search(query) || [],
   });
 
   // Keyboard Shortcuts
@@ -1131,7 +1156,7 @@ const App: React.FC = () => {
         />
       </Suspense>
 
-      <main id="main-content" className="relative z-10 min-h-screen flex flex-col md:pl-[112px]">
+      <main id="main-content" className="relative z-10 min-h-screen flex flex-col md:pl-[104px]">
         <Suspense fallback={<HeaderLoadingFallback sidebarOffset={sidebarOffset} />}>
           <AppHeader
             isHeaderExpanded={isHeaderExpanded}
@@ -1508,6 +1533,11 @@ const App: React.FC = () => {
       )}
 
       <Suspense fallback={null}>
+        <AIRightRail
+          isOpen={isAssistantOpen}
+          onToggle={() => setIsAssistantOpen(prev => !prev)}
+          isLoading={isAssistantLoading}
+        />
         {isAssistantOpen && (
           <TaskAssistantSidebar
             isOpen={isAssistantOpen}
@@ -1515,7 +1545,11 @@ const App: React.FC = () => {
             messages={assistantMessages}
             onSendMessage={handleSendAssistantMessage}
             isLoading={isAssistantLoading}
+            isSearching={isAssistantSearching}
+            activeTool={assistantActiveTool}
             onClearChat={handleClearAssistantChat}
+            activeProject={activeProject}
+            onUpdateProjectPaths={handleUpdateProjectPaths}
           />
         )}
       </Suspense>

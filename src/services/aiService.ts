@@ -15,6 +15,7 @@ import type {
   ProjectAssignment,
   Task,
   TaskCluster,
+  AssistantMessage,
 } from "../../types";
 import { STORAGE_KEYS } from "../constants";
 import type { FilterGroup } from "../types/queryTypes";
@@ -58,6 +59,11 @@ export interface AIProvider {
     schema: Record<string, unknown>,
   ): Promise<unknown>;
   analyzeImageToTask?(imageBase64: string, context: AIContext): Promise<Partial<Task>>;
+  generateAgentResponse?(
+    messages: AssistantMessage[],
+    context: AIContext,
+    allTasks: Task[],
+  ): Promise<{ content: string; toolCalls?: any[] }>;
 }
 
 class GeminiProvider implements AIProvider {
@@ -238,6 +244,176 @@ Today's Date: ${new Date().toISOString()}.`;
       }
       return { ok: false, stage: "inference", message: message || "Unknown Gemini error" };
     }
+  }
+
+  async generateAgentResponse(
+    messages: AssistantMessage[],
+    context: AIContext,
+    allTasks: Task[],
+  ): Promise<{ content: string; toolCalls?: any[] }> {
+    const { genAI } = await this.getGenAI();
+    const modelName = this.config.geminiModel || DEFAULT_GEMINI_MODEL;
+
+    const tools = [
+      {
+        functionDeclarations: [
+          {
+            name: "create_task",
+            description: "Create a new task on the board",
+            parameters: {
+              type: "object",
+              properties: {
+                title: { type: "string", description: "The title of the task" },
+                summary: { type: "string", description: "A brief description of the task" },
+                priority: { type: "string", description: "Task priority (e.g., high, medium, low)" },
+                tags: { type: "array", items: { type: "string" }, description: "Tags for the task" },
+                projectId: { type: "string", description: "Optional project ID to associate with" },
+              },
+              required: ["title"],
+            },
+          },
+          {
+            name: "update_task",
+            description: "Update an existing task status or details",
+            parameters: {
+              type: "object",
+              properties: {
+                id: { type: "string", description: "The ID of the task to update" },
+                status: { type: "string", description: "New status (e.g., column ID)" },
+                priority: { type: "string", description: "New priority" },
+                summary: { type: "string", description: "Updated summary" },
+              },
+              required: ["id"],
+            },
+          },
+          {
+            name: "search_tasks",
+            description: "Search for tasks on the board using a query",
+            parameters: {
+              type: "object",
+              properties: {
+                query: { type: "string", description: "Search term" },
+              },
+              required: ["query"],
+            },
+          },
+          {
+            name: "search_workspace",
+            description: "Search for .md files in the connected workspace folders",
+            parameters: {
+              type: "object",
+              properties: {
+                query: { type: "string", description: "Search term or filename part" },
+              },
+              required: ["query"],
+            },
+          },
+          {
+            name: "read_workspace_file",
+            description: "Read the contents of a file from the workspace",
+            parameters: {
+              type: "object",
+              properties: {
+                path: { type: "string", description: "Full path to the file" },
+              },
+              required: ["path"],
+            },
+          },
+          {
+            name: "write_workspace_file",
+            description: "Write or update a file in the workspace",
+            parameters: {
+              type: "object",
+              properties: {
+                path: { type: "string", description: "Full path to the file" },
+                content: { type: "string", description: "Content to write" },
+              },
+              required: ["path", "content"],
+            },
+          },
+        ],
+      },
+    ];
+
+    const activeProjectName = context.projects.find((p) => p.id === context.activeProjectId)?.name || "None";
+    const workspaceContext = context.workspacePaths?.length
+      ? `Linked Workspace Folders: ${context.workspacePaths.join(", ")}`
+      : "No workspace folders linked to this project.";
+    const systemInstruction = `You are the LiquiTask AI Assistant. You help users manage their tasks and workspace.
+
+Today's Date: ${new Date().toISOString()}
+Active Project: ${activeProjectName}
+Available Priorities: ${context.priorities.map((p) => p.id).join(", ")}
+${workspaceContext}
+
+When asked about tasks or files, use the provided tools. Be concise and professional.`;
+
+    const model = genAI.getGenerativeModel({
+      model: modelName,
+      tools: tools as any,
+      systemInstruction,
+    });
+
+    // Build chat history — Gemini requires alternating user/model roles.
+    // function-role messages (tool results) map to role "user" with functionResponse parts.
+    // assistant messages with toolCalls map to role "model" with functionCall parts only.
+    const history: any[] = [];
+    for (const m of messages.slice(0, -1)) {
+      if (m.role === "user") {
+        history.push({ role: "user", parts: [{ text: m.content || "" }] });
+      } else if (m.role === "assistant") {
+        const parts: any[] = [{ text: m.content || "" }];
+        if (m.toolCalls && m.toolCalls.length > 0) {
+          parts.push(
+            ...m.toolCalls.map((tc) => ({ functionCall: { name: tc.name, args: tc.args } })),
+          );
+        }
+        history.push({ role: "model", parts });
+      } else if (m.role === "function") {
+        const parts: any[] = [{ text: m.content || "" }];
+        if (m.toolResults && m.toolResults.length > 0) {
+          parts.push(
+            ...m.toolResults.map((tr) => ({
+              functionResponse: { name: tr.name, response: tr.result ?? {} },
+            })),
+          );
+        }
+        history.push({ role: "user", parts });
+      }
+    }
+
+    const chat = model.startChat({ history });
+
+    const lastMessage = messages[messages.length - 1];
+    let sendContent: any;
+
+    if (lastMessage.role === "user") {
+      // Inject RAG context for user messages
+      let contextPrefix = "";
+      try {
+        const { searchIndexService } = await import("./searchIndexService");
+        contextPrefix = `CURRENT CONTEXT (RAG):\n${searchIndexService.getRelevantContext(lastMessage.content, allTasks)}\n\n`;
+      } catch (e) {
+        console.warn("RAG injection failed:", e);
+      }
+      sendContent = `${contextPrefix}${lastMessage.content}`;
+    } else if (lastMessage.role === "function") {
+      // Send function responses back to the model
+      sendContent = (lastMessage.toolResults ?? []).map((tr) => ({
+        functionResponse: { name: tr.name, response: tr.result ?? {} },
+      }));
+    } else {
+      sendContent = lastMessage.content || "";
+    }
+
+    const result = await chat.sendMessage(sendContent);
+    const response = result.response;
+    const toolCalls = response.functionCalls ? response.functionCalls() : [];
+
+    return {
+      content: response.text() || "",
+      toolCalls: toolCalls ?? [],
+    };
   }
 }
 
@@ -500,6 +676,109 @@ Today's Date: ${new Date().toISOString()}`;
       return { ok: false, stage: "service", message: message || "Unknown Ollama error" };
     }
   }
+
+  async generateAgentResponse(
+    messages: AssistantMessage[],
+    context: AIContext,
+    allTasks: Task[],
+  ): Promise<{ content: string; toolCalls?: any[] }> {
+    const baseUrl = this.getBaseUrl();
+    const model = this.getModelName();
+    if (!model) throw new Error("Ollama model name is not configured.");
+
+    const TOOL_SCHEMA = `AVAILABLE TOOLS (use one per response if needed):
+- create_task: {"title": string, "summary"?: string, "priority"?: string, "tags"?: string[]}
+- update_task: {"id": string, "status"?: string, "priority"?: string, "summary"?: string}
+- search_tasks: {"query": string}
+- search_workspace: {"query": string}
+- read_workspace_file: {"path": string}
+- write_workspace_file: {"path": string, "content": string}
+
+To call a tool, respond ONLY with this JSON (no other text):
+{"tool_call": {"name": "TOOL_NAME", "args": {...}}}
+
+Otherwise respond with plain text.`;
+
+    const activeProjectNameOllama = context.projects.find((p) => p.id === context.activeProjectId)?.name || "None";
+    const workspaceContextOllama = context.workspacePaths?.length
+      ? `Linked Workspace Folders: ${context.workspacePaths.join(", ")}`
+      : "No workspace folders linked to this project.";
+    const systemInstruction = `You are the LiquiTask AI Assistant. You help users manage their tasks and workspace.
+Today's Date: ${new Date().toISOString()}
+Active Project: ${activeProjectNameOllama}
+Available Priorities: ${context.priorities.map((p) => p.id).join(", ")}
+${workspaceContextOllama}
+
+${TOOL_SCHEMA}`;
+
+    // Convert conversation history to Ollama chat format.
+    // "function" role messages (tool results) are added as user messages.
+    const chatMessages: { role: string; content: string }[] = [];
+    for (const m of messages.slice(0, -1)) {
+      if (m.role === "user") {
+        chatMessages.push({ role: "user", content: m.content });
+      } else if (m.role === "assistant") {
+        const text = m.toolCalls?.length
+          ? JSON.stringify({ tool_call: { name: m.toolCalls[0].name, args: m.toolCalls[0].args } })
+          : m.content || "";
+        chatMessages.push({ role: "assistant", content: text });
+      } else if (m.role === "function") {
+        const resultText = (m.toolResults ?? [])
+          .map((tr) => `Tool "${tr.name}" result: ${JSON.stringify(tr.result)}`)
+          .join("\n");
+        chatMessages.push({ role: "user", content: resultText });
+      }
+    }
+
+    const lastMsg = messages[messages.length - 1];
+    let lastContent = lastMsg.content;
+    if (lastMsg.role === "function") {
+      lastContent = (lastMsg.toolResults ?? [])
+        .map((tr) => `Tool "${tr.name}" result: ${JSON.stringify(tr.result)}`)
+        .join("\n");
+    }
+
+    const response = await fetch(`${baseUrl}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: systemInstruction },
+          ...chatMessages,
+          { role: "user", content: lastContent },
+        ],
+        stream: false,
+        options: { temperature: 0.4 },
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Ollama request failed: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const rawContent: string = data.message?.content || "";
+
+    // Try to parse as a tool call
+    try {
+      const start = rawContent.indexOf("{");
+      const end = rawContent.lastIndexOf("}");
+      if (start !== -1 && end > start) {
+        const parsed = JSON.parse(rawContent.substring(start, end + 1));
+        if (parsed.tool_call?.name) {
+          return {
+            content: "",
+            toolCalls: [{ name: parsed.tool_call.name, args: parsed.tool_call.args ?? {} }],
+          };
+        }
+      }
+    } catch {
+      // Not a tool call, return as plain text
+    }
+
+    return { content: rawContent, toolCalls: [] };
+  }
 }
 
 class AiService {
@@ -678,6 +957,34 @@ Return JSON: {"confidence": 0.0-1.0, "reasons": ["reason1", "reason2"]}`;
     }
 
     return results;
+  }
+
+  async generateAgentResponse(
+    messages: AssistantMessage[],
+    context: AIContext,
+    allTasks: Task[],
+  ): Promise<{ content: string; toolCalls?: any[] }> {
+    const provider = this.getProvider();
+    if (!provider) throw new Error("AI provider not configured");
+    if (!provider.generateAgentResponse) {
+      throw new Error("The configured AI provider does not support the assistant.");
+    }
+    return provider.generateAgentResponse(messages, context, allTasks);
+  }
+
+  async analyzeRedundancy(
+    tasks: Task[],
+    context: AIContext,
+  ): Promise<{ confidence: number; reasoning: string } | null> {
+    if (tasks.length < 2) return null;
+    // Compare the last task (newly created) against existing ones
+    const newTask = tasks[tasks.length - 1];
+    const pairs = tasks.slice(0, -1).slice(0, 5).map((t) => ({ task1: newTask, task2: t }));
+    const results = await this.detectDuplicates(pairs, context);
+    if (results.length === 0) return null;
+    const best = results.reduce((a, b) => (a.confidence > b.confidence ? a : b));
+    if (best.confidence < 0.5) return null;
+    return { confidence: best.confidence, reasoning: best.reasons.join(", ") };
   }
 
   async suggestMerge(group: DuplicateGroup, context: AIContext): Promise<MergeSuggestion> {

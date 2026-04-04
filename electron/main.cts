@@ -240,6 +240,35 @@ ipcMain.handle('writeWorkspaceFile', async (_, filePath: string, content: string
   await fs.writeFile(path.normalize(filePath), content, 'utf-8');
 });
 
+async function findFilesRecursively(dir: string, query: string, results: string[] = []) {
+  try {
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await findFilesRecursively(fullPath, query, results);
+      } else if (entry.isFile() && (entry.name.toLowerCase().endsWith('.md') || entry.name.toLowerCase().includes(query.toLowerCase()))) {
+        results.push(fullPath);
+      }
+    }
+  } catch (err) {
+    console.error(`Error searching directory ${dir}:`, err);
+  }
+  return results;
+}
+
+ipcMain.handle('searchWorkspaceFiles', async (_, query: string) => {
+  const data = await readStorage();
+  const paths = (data.workspacePaths as string[]) || [];
+  const allResults: string[] = [];
+
+  for (const workspacePath of paths) {
+    await findFilesRecursively(path.normalize(workspacePath), query, allResults);
+  }
+
+  return allResults;
+});
+
 ipcMain.on('showNotification', (_, options: { title: string; body: string; silent?: boolean }) => {
   if (!Notification.isSupported()) return;
   

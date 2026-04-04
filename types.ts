@@ -43,6 +43,7 @@ export interface Project {
   parentId?: string;
   pinned?: boolean;
   order?: number;
+  workspacePaths?: string[]; // File paths linked to this project for AI context
 }
 
 export type CustomFieldType = "text" | "number" | "dropdown" | "url" | "formula";
@@ -357,6 +358,8 @@ export interface AIContext {
   activeProjectId: string;
   projects: Project[];
   priorities: PriorityDefinition[];
+  customFields?: CustomFieldDefinition[];
+  workspacePaths?: string[]; // Active project's linked workspace paths
 }
 
 export interface AITestResult {
@@ -365,14 +368,25 @@ export interface AITestResult {
   message: string;
 }
 
+export interface ToolCall {
+  name: string;
+  args: any;
+}
+
+export interface ToolResult {
+  name: string;
+  result: any;
+}
+
 // AI Assistant Types
 export interface AssistantMessage {
   id: string;
-  role: "user" | "assistant" | "system";
+  role: "user" | "assistant" | "system" | "function";
   content: string;
   timestamp: Date;
   status?: "sending" | "error" | "done";
-  toolCalls?: unknown[]; // For future tool-calling support
+  toolCalls?: ToolCall[];
+  toolResults?: ToolResult[];
 }
 
 export interface AssistantState {

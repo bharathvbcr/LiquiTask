@@ -38,13 +38,40 @@ describe("TaskAssistantSidebar Component", () => {
     expect(defaultProps.onSendMessage).toHaveBeenCalledWith("Hello");
   });
 
-  it("renders messages correctly", () => {
+  it("filters out function role messages", () => {
     const messages = [
-      { id: "1", role: "user" as const, content: "Hello", timestamp: new Date() },
-      { id: "2", role: "assistant" as const, content: "Hi there!", timestamp: new Date() },
+      { id: "1", role: "user" as const, content: "Search", timestamp: new Date() },
+      { id: "2", role: "function" as const, content: "Result", timestamp: new Date(), toolResults: [{ name: "search", result: [] }] },
     ];
     render(<TaskAssistantSidebar {...defaultProps} messages={messages} />);
-    expect(screen.getByText("Hello")).toBeDefined();
-    expect(screen.getByText("Hi there!")).toBeDefined();
+    expect(screen.getByText("Search")).toBeDefined();
+    expect(screen.queryByText("Result")).toBeNull();
+  });
+
+  it("renders tool call indicators in assistant messages", () => {
+    const messages = [
+      { id: "1", role: "assistant" as const, content: "", timestamp: new Date(), toolCalls: [{ name: "create_task", args: {} }] },
+    ];
+    render(<TaskAssistantSidebar {...defaultProps} messages={messages} />);
+    expect(screen.getByText("create_task()")).toBeDefined();
+  });
+
+  it("shows searching status", () => {
+    render(<TaskAssistantSidebar {...defaultProps} isSearching={true} />);
+    expect(screen.getByText("Analyzing workspace context...")).toBeDefined();
+  });
+
+  it("shows active tool usage", () => {
+    render(<TaskAssistantSidebar {...defaultProps} isLoading={true} activeTool="update_task" />);
+    expect(screen.getByText(/Executing update task/i)).toBeDefined();
+  });
+
+  it("renders suggested replies for the last message", () => {
+    const messages = [
+      { id: "1", role: "assistant" as const, content: "Done", timestamp: new Date() },
+    ];
+    render(<TaskAssistantSidebar {...defaultProps} messages={messages} />);
+    expect(screen.getByText("Tell me more")).toBeDefined();
+    expect(screen.getByText("What's next?")).toBeDefined();
   });
 });

@@ -15,6 +15,11 @@ release
 coverage/
 diff.txt
 test_full_log.txt
+test_log.txt
+ai_test_log.txt
+*_log.txt
+*_output.txt
+tsc_output.txt
 *.local
 
 # Editor directories and files
@@ -36,3 +41,4 @@ test_output.txt
 .claude/
 .cursor/
 .worktrees/
+claude.md

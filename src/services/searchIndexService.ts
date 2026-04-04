@@ -229,6 +229,28 @@ export class SearchIndexService {
   }
 
   /**
+   * Get formatted context for AI queries
+   */
+  getRelevantContext(query: string, allTasks: Task[], limit = 5): string {
+    const matchedIds = this.search(query);
+    const matchedTasks = allTasks.filter((t) => matchedIds.includes(t.id)).slice(0, limit);
+
+    if (matchedTasks.length === 0) return "No relevant tasks found for the current query.";
+
+    return matchedTasks
+      .map((t) => {
+        return `[Task ID: ${t.id}]
+Title: ${t.title}
+Status: ${t.status}
+Priority: ${t.priority}
+Tags: ${t.tags.join(", ")}
+${t.summary ? `Summary: ${t.summary}` : ""}
+---`;
+      })
+      .join("\n");
+  }
+
+  /**
    * Get index statistics
    */
   getStats() {

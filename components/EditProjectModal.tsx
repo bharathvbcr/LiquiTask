@@ -13,6 +13,7 @@ import {
   Edit2,
   Flag,
   Folder,
+  FolderOpen,
   Gift,
   Globe,
   Heart,
@@ -23,6 +24,7 @@ import {
   MessageSquare,
   Music,
   PenTool,
+  Plus,
   Rocket,
   Server,
   Settings,
@@ -36,6 +38,7 @@ import {
   Users,
   Video,
   Wrench,
+  X,
   Zap,
 } from "lucide-react";
 import type React from "react";
@@ -47,7 +50,7 @@ import { Tooltip } from "./Tooltip";
 interface EditProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (projectId: string, name: string, icon: string) => void;
+  onSave: (projectId: string, name: string, icon: string, workspacePaths?: string[]) => void;
   project: Project | null;
 }
 
@@ -100,18 +103,30 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
 }) => {
   const [name, setName] = useState("");
   const [selectedIcon, setSelectedIcon] = useState<string>("folder");
+  const [workspacePaths, setWorkspacePaths] = useState<string[]>([]);
 
   useEffect(() => {
     if (isOpen && project) {
       setName(project.name);
       setSelectedIcon(project.icon || "folder");
+      setWorkspacePaths(project.workspacePaths ?? []);
     }
   }, [isOpen, project]);
+
+  const handleAddFolder = async () => {
+    const path = await (window as any).electronAPI?.workspace.selectDirectory();
+    if (!path || workspacePaths.includes(path)) return;
+    setWorkspacePaths(prev => [...prev, path]);
+  };
+
+  const handleRemovePath = (path: string) => {
+    setWorkspacePaths(prev => prev.filter(p => p !== path));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (name.trim() && project) {
-      onSave(project.id, name.trim(), selectedIcon);
+      onSave(project.id, name.trim(), selectedIcon, workspacePaths);
       onClose();
     }
   };
@@ -164,6 +179,47 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
               </Tooltip>
             ))}
           </div>
+        </div>
+
+        {/* Workspace Paths */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Linked Folders
+            </label>
+            <button
+              type="button"
+              onClick={handleAddFolder}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-500/10 border border-red-500/20 text-[11px] text-red-400 hover:bg-red-500/20 transition-colors"
+            >
+              <Plus size={11} />
+              Add Folder
+            </button>
+          </div>
+          {workspacePaths.length === 0 ? (
+            <p className="text-[12px] text-slate-600 italic px-1">
+              No folders linked. Add folders to give the AI context from your files.
+            </p>
+          ) : (
+            <div className="space-y-1.5">
+              {workspacePaths.map(p => (
+                <div key={p} className="flex items-center gap-2 group px-3 py-2 bg-[#05080f] border border-white/5 rounded-xl">
+                  <FolderOpen size={13} className="text-red-400/70 shrink-0" />
+                  <span className="flex-1 text-[12px] text-slate-400 font-mono truncate" title={p}>
+                    {p.split(/[\\/]/).pop()}
+                    <span className="text-slate-600 ml-1 hidden group-hover:inline">— {p}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemovePath(p)}
+                    className="p-0.5 text-slate-600 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="flex gap-3 pt-2">

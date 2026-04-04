@@ -58,5 +58,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
       console.error(`Failed to write workspace file "${filePath}":`, err);
       throw err;
     }),
+    searchFiles: (query: string) => ipcRenderer.invoke('searchWorkspaceFiles', query).catch((err) => {
+      console.error('Failed to search workspace files:', err);
+      return [];
+    }),
   },
 });

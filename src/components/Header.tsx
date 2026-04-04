@@ -2,7 +2,7 @@ import { Bell, Calendar, Filter, Plus, Search, Tag, Undo2, User } from "lucide-r
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import type { FilterState } from "../../types";
-import logo from "../assets/logo.png";
+
 import { Button } from "./common/Button";
 import { Input } from "./common/Input";
 
@@ -63,12 +63,7 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="px-8 py-6 flex flex-col gap-4 sticky top-4 z-30 mx-6 mt-4 rounded-3xl liquid-glass">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
-          <img
-            src={logo}
-            alt="LiquiTask"
-            className="w-8 h-8 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]"
-            title="LiquiTask - Task Management Dashboard"
-          />
+
           <div>
             <h2 className="text-3xl font-bold text-white tracking-tight drop-shadow-md text-glow">
               {currentView === "dashboard" ? "Executive Dashboard" : activeProjectName}
