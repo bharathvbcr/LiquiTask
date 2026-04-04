@@ -365,6 +365,22 @@ export interface AITestResult {
   message: string;
 }
 
+// AI Assistant Types
+export interface AssistantMessage {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  timestamp: Date;
+  status?: "sending" | "error" | "done";
+  toolCalls?: unknown[]; // For future tool-calling support
+}
+
+export interface AssistantState {
+  messages: AssistantMessage[];
+  isOpen: boolean;
+  isLoading: boolean;
+}
+
 // Migration system types
 export interface Migration {
   version: string;
