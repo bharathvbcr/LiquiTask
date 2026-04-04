@@ -313,7 +313,7 @@ const App: React.FC = () => {
     sendMessage: handleSendAssistantMessage,
     isLoading: isAssistantLoading,
     clearChat: handleClearAssistantChat,
-  } = useTaskAssistant();
+  } = useTaskAssistant(tasks);
 
   // AI Settings
   const [aiSettings, setAiSettings] = useState({

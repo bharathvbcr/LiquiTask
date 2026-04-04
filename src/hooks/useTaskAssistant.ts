@@ -1,8 +1,9 @@
 import { useState, useCallback } from 'react';
-import { AssistantMessage } from '../../types';
+import { AssistantMessage, Task } from '../../types';
 import { aiService } from '../services/aiService';
+import { searchIndexService } from '../services/searchIndexService';
 
-export const useTaskAssistant = () => {
+export const useTaskAssistant = (allTasks: Task[]) => {
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -21,8 +22,22 @@ export const useTaskAssistant = () => {
     setIsLoading(true);
 
     try {
-      // Basic text generation for Phase 1
-      const response = await aiService.generateText(content);
+      // Phase 2: RAG Context Retrieval
+      const rankedMatches = searchIndexService.searchRanked(content);
+      const topTaskIds = rankedMatches.slice(0, 10).map(m => m.id);
+      const relevantTasks = allTasks.filter(t => topTaskIds.includes(t.id));
+      const contextString = searchIndexService.formatTasksForContext(relevantTasks);
+
+      const systemPrompt = `You are the LiquiTask AI Assistant. You help users manage their workspace.
+Below is the context of relevant tasks from the user's board:
+---
+${contextString}
+---
+Use this information to provide accurate and helpful responses. If the user asks about a specific task mentioned above, refer to it by its Job ID.`;
+
+      // Basic text generation with context
+      const response = await aiService.generateText(`${systemPrompt}\n\nUser: ${content}`);
+      
       const assistantMsg: AssistantMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',

@@ -9,9 +9,17 @@ vi.mock("../../services/aiService", () => ({
   },
 }));
 
+// Mock searchIndexService
+vi.mock("../../services/searchIndexService", () => ({
+  searchIndexService: {
+    searchRanked: vi.fn().mockReturnValue([]),
+    formatTasksForContext: vi.fn().mockReturnValue("No relevant tasks found."),
+  },
+}));
+
 describe("useTaskAssistant Hook", () => {
   it("manages chat history", async () => {
-    const { result } = renderHook(() => useTaskAssistant());
+    const { result } = renderHook(() => useTaskAssistant([]));
     
     await act(async () => {
       await result.current.sendMessage("Hello");
@@ -25,7 +33,7 @@ describe("useTaskAssistant Hook", () => {
   });
 
   it("handles clearing chat", async () => {
-    const { result } = renderHook(() => useTaskAssistant());
+    const { result } = renderHook(() => useTaskAssistant([]));
     
     await act(async () => {
       await result.current.sendMessage("Hello");
