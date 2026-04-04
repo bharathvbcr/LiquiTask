@@ -143,6 +143,7 @@ describe("AiSettings Component", () => {
     
     await waitFor(() => {
       expect(screen.getByText("/test/path")).toBeDefined();
+      expect(screen.getByText("Add Workspace Folder")).toBeDefined();
     });
   });
 });

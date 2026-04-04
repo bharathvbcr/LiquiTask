@@ -290,13 +290,14 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
   };
 
   const handleAddWorkspacePath = async () => {
-    if (!newPath || workspacePaths.includes(newPath)) return;
-    const updated = [...workspacePaths, newPath];
+    if (!window.electronAPI?.workspace) return;
+    
+    const selectedPath = await window.electronAPI.workspace.selectDirectory();
+    if (!selectedPath || workspacePaths.includes(selectedPath)) return;
+    
+    const updated = [...workspacePaths, selectedPath];
     setWorkspacePaths(updated);
-    if (window.electronAPI?.workspace) {
-      await window.electronAPI.workspace.setPaths(updated);
-    }
-    setNewPath("");
+    await window.electronAPI.workspace.setPaths(updated);
     addToast("Workspace path added", "success");
   };
 
@@ -500,25 +501,15 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
           </div>
           <p className="text-[10px] text-slate-500 mb-2">
             Allow the AI to read and write .md files in these directories for external task tracking.
+            <span className="ml-1 text-cyan-500/70 italic">Saves automatically.</span>
           </p>
 
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={newPath}
-              onChange={(e) => setNewPath(e.target.value)}
-              placeholder="e.g. C:\Users\Name\Documents\Tasks"
-              className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500"
-            />
-            <button
-              onClick={handleAddWorkspacePath}
-              disabled={!newPath}
-              className="p-1.5 bg-cyan-600 hover:bg-cyan-500 text-slate-950 rounded-lg transition-all disabled:opacity-50"
-              title="Add path"
-            >
-              <Plus size={16} />
-            </button>
-          </div>
+          <button
+            onClick={handleAddWorkspacePath}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg border border-white/10 transition-all text-xs font-bold"
+          >
+            <Plus size={14} /> Add Workspace Folder
+          </button>
 
           {workspacePaths.length > 0 && (
             <ul className="space-y-2 max-h-32 overflow-y-auto pr-1 custom-scrollbar">

@@ -42,6 +42,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     }),
   },
   workspace: {
+    selectDirectory: () => ipcRenderer.invoke('selectWorkspaceDirectory'),
     getPaths: () => ipcRenderer.invoke('getWorkspacePaths').catch((err) => {
       console.error('Failed to get workspace paths:', err);
       return [];

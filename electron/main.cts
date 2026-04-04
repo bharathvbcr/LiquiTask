@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Notification } from 'electron';
+import { app, BrowserWindow, ipcMain, Notification, dialog } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 
@@ -179,6 +179,20 @@ ipcMain.handle('storageHas', async (_, key: string) => {
 });
 
 // Workspace IPC Handlers
+ipcMain.handle('selectWorkspaceDirectory', async () => {
+  if (!mainWindow) return null;
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory'],
+    title: 'Select Workspace Directory',
+    buttonLabel: 'Select Folder',
+  });
+  
+  if (result.canceled || result.filePaths.length === 0) {
+    return null;
+  }
+  return result.filePaths[0];
+});
+
 ipcMain.handle('getWorkspacePaths', async () => {
   const data = await readStorage();
   return (data.workspacePaths as string[]) || [];
@@ -190,34 +204,40 @@ ipcMain.handle('setWorkspacePaths', async (_, paths: string[]) => {
   await writeStorage(data);
 });
 
+const isPathAuthorized = (filePath: string, authorizedPaths: string[]) => {
+  const normalizedPath = path.normalize(filePath);
+  const isCaseInsensitive = process.platform === 'win32';
+  
+  return authorizedPaths.some(p => {
+    const authorized = path.normalize(p);
+    const a = isCaseInsensitive ? authorized.toLowerCase() : authorized;
+    const b = isCaseInsensitive ? normalizedPath.toLowerCase() : normalizedPath;
+    
+    // Exact match or within directory (matching directory boundary)
+    return b === a || b.startsWith(a + path.sep);
+  });
+};
+
 ipcMain.handle('readWorkspaceFile', async (_, filePath: string) => {
   const data = await readStorage();
   const paths = (data.workspacePaths as string[]) || [];
   
-  // Security check: ensure filePath is within one of the authorized paths
-  const normalizedPath = path.normalize(filePath);
-  const isAuthorized = paths.some(p => normalizedPath.startsWith(path.normalize(p)));
-  
-  if (!isAuthorized) {
+  if (!isPathAuthorized(filePath, paths)) {
     throw new Error(`Unauthorized access to file: ${filePath}`);
   }
   
-  return fs.readFile(normalizedPath, 'utf-8');
+  return fs.readFile(path.normalize(filePath), 'utf-8');
 });
 
 ipcMain.handle('writeWorkspaceFile', async (_, filePath: string, content: string) => {
   const data = await readStorage();
   const paths = (data.workspacePaths as string[]) || [];
   
-  // Security check: ensure filePath is within one of the authorized paths
-  const normalizedPath = path.normalize(filePath);
-  const isAuthorized = paths.some(p => normalizedPath.startsWith(path.normalize(p)));
-  
-  if (!isAuthorized) {
+  if (!isPathAuthorized(filePath, paths)) {
     throw new Error(`Unauthorized write access to file: ${filePath}`);
   }
   
-  await fs.writeFile(normalizedPath, content, 'utf-8');
+  await fs.writeFile(path.normalize(filePath), content, 'utf-8');
 });
 
 ipcMain.on('showNotification', (_, options: { title: string; body: string; silent?: boolean }) => {
