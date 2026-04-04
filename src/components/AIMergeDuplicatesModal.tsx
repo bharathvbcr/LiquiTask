@@ -32,11 +32,19 @@ export const AIMergeDuplicatesModal: React.FC<AIMergeDuplicatesModalProps> = ({
   const [groups, setGroups] = useState<MergeGroup[]>([]);
   const [loading, setLoading] = useState(false);
   const [applying, setApplying] = useState(false);
+  const [progress, setProgress] = useState({ processed: 0, total: 0 });
 
   const loadDuplicates = useCallback(async () => {
     setLoading(true);
+    setProgress({ processed: 0, total: 0 });
     try {
-      const duplicateGroups = await taskCleanupService.detectDuplicates(allTasks);
+      const duplicateGroups = await taskCleanupService.detectDuplicates(
+        allTasks,
+        0.75,
+        (processed, total) => {
+          setProgress({ processed, total });
+        },
+      );
 
       if (duplicateGroups.length === 0) {
         addToast("No duplicate tasks found", "info");
@@ -45,13 +53,16 @@ export const AIMergeDuplicatesModal: React.FC<AIMergeDuplicatesModalProps> = ({
       }
 
       // Load merge suggestions for each group
+      setProgress({ processed: 0, total: duplicateGroups.length });
       const mergeGroups: MergeGroup[] = await Promise.all(
-        duplicateGroups.map(async (group) => {
+        duplicateGroups.map(async (group, index) => {
           try {
             const suggestion = await taskCleanupService.suggestMerge(group);
+            setProgress((prev) => ({ ...prev, processed: index + 1 }));
             return { group, suggestion, loading: false, approved: false };
           } catch (error) {
             console.error("Failed to get merge suggestion:", error);
+            setProgress((prev) => ({ ...prev, processed: index + 1 }));
             return { group, suggestion: null, loading: false, approved: false };
           }
         }),
@@ -132,11 +143,33 @@ export const AIMergeDuplicatesModal: React.FC<AIMergeDuplicatesModalProps> = ({
   };
 
   if (loading) {
+    const percent =
+      progress.total > 0 ? Math.round((progress.processed / progress.total) * 100) : 0;
+
     return (
       <ModalWrapper isOpen={isOpen} onClose={onClose} title="Analyzing Duplicates">
-        <div className="flex items-center justify-center py-12">
-          <Loader2 size={24} className="animate-spin text-cyan-400 mr-3" />
-          <span className="text-slate-400">AI is analyzing your tasks for duplicates...</span>
+        <div className="flex flex-col items-center justify-center py-12 space-y-6">
+          <div className="relative flex items-center justify-center">
+            <Loader2 size={48} className="animate-spin text-cyan-400" />
+            <span className="absolute text-[10px] font-bold text-white">
+              {percent}%
+            </span>
+          </div>
+          <div className="text-center space-y-2">
+            <p className="text-white font-medium">AI is analyzing your tasks</p>
+            <p className="text-sm text-slate-400">
+              {progress.total > 0
+                ? `Checking ${progress.processed} of ${progress.total} task pairs...`
+                : "Scanning for potential matches..."}
+            </p>
+          </div>
+          
+          <div className="w-full max-w-xs bg-slate-800 rounded-full h-1.5 overflow-hidden">
+            <div 
+              className="bg-cyan-500 h-full transition-all duration-300 ease-out"
+              style={{ width: `${percent}%` }}
+            />
+          </div>
         </div>
       </ModalWrapper>
     );

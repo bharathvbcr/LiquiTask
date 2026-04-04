@@ -6,6 +6,7 @@ interface SearchIndex {
   assigneeIndex: Map<string, Set<string>>;
   jobIdIndex: Map<string, Set<string>>;
   summaryIndex: Map<string, Set<string>>;
+  semanticIndex: Map<string, Set<string>>; // AI-generated concepts -> taskIds
 }
 
 export class SearchIndexService {
@@ -15,6 +16,7 @@ export class SearchIndexService {
     assigneeIndex: new Map(),
     jobIdIndex: new Map(),
     summaryIndex: new Map(),
+    semanticIndex: new Map(),
   };
 
   /**
@@ -28,71 +30,27 @@ export class SearchIndexService {
       assigneeIndex: new Map(),
       jobIdIndex: new Map(),
       summaryIndex: new Map(),
+      semanticIndex: new Map(),
     };
 
     tasks.forEach((task) => {
-      // Index title words
-      this.tokenize(task.title).forEach((word) => {
-        if (!this.index.titleIndex.has(word)) {
-          this.index.titleIndex.set(word, new Set());
-        }
-        this.index.titleIndex.get(word)?.add(task.id);
-      });
-
-      // Index jobId
-      const jobIdLower = task.jobId.toLowerCase();
-      if (!this.index.jobIdIndex.has(jobIdLower)) {
-        this.index.jobIdIndex.set(jobIdLower, new Set());
-      }
-      this.index.jobIdIndex.get(jobIdLower)?.add(task.id);
-
-      // Index tags
-      task.tags.forEach((tag) => {
-        const tagLower = tag.toLowerCase();
-        if (!this.index.tagIndex.has(tagLower)) {
-          this.index.tagIndex.set(tagLower, new Set());
-        }
-        this.index.tagIndex.get(tagLower)?.add(task.id);
-      });
-
-      // Index assignee
-      if (task.assignee) {
-        const assigneeLower = task.assignee.toLowerCase();
-        if (!this.index.assigneeIndex.has(assigneeLower)) {
-          this.index.assigneeIndex.set(assigneeLower, new Set());
-        }
-        this.index.assigneeIndex.get(assigneeLower)?.add(task.id);
-      }
-
-      // Index summary
-      if (task.summary) {
-        this.tokenize(task.summary).forEach((word) => {
-          if (!this.index.summaryIndex.has(word)) {
-            this.index.summaryIndex.set(word, new Set());
-          }
-          this.index.summaryIndex.get(word)?.add(task.id);
-        });
-      }
+      this.addTask(task);
     });
   }
 
   /**
-   * Search using index
+   * AI-Augmented Hybrid Search
    */
   search(query: string): string[] {
     if (!query.trim()) return [];
 
     const words = this.tokenize(query);
     if (words.length === 0) {
-      // If tokenization returns nothing (e.g. all words < 3 chars),
-      // try a simple lowercase match on jobId
       const results = new Set<string>();
       const lowerQuery = query.toLowerCase().trim();
       this.index.jobIdIndex.forEach((taskIds, jobId) => {
         if (jobId.includes(lowerQuery)) {
-          taskIds.forEach((id) => {
-            results.add(id);
-          });
+          taskIds.forEach((id) => results.add(id));
         }
       });
       return Array.from(results);
@@ -102,48 +60,61 @@ export class SearchIndexService {
     const resultSets = words.map((word) => {
       const matches = new Set<string>();
 
-      // Search in all indexes
-      this.index.titleIndex.get(word)?.forEach((id) => {
-        matches.add(id);
-      });
-      this.index.tagIndex.get(word)?.forEach((id) => {
-        matches.add(id);
-      });
-      this.index.assigneeIndex.get(word)?.forEach((id) => {
-        matches.add(id);
-      });
-      this.index.summaryIndex.get(word)?.forEach((id) => {
-        matches.add(id);
-      });
+      // Exact matches (High weight)
+      this.index.titleIndex.get(word)?.forEach((id) => matches.add(id));
+      this.index.tagIndex.get(word)?.forEach((id) => matches.add(id));
+      this.index.assigneeIndex.get(word)?.forEach((id) => matches.add(id));
+      
+      // Partial matches & Semantic matches (Medium weight)
+      this.index.summaryIndex.get(word)?.forEach((id) => matches.add(id));
+      this.index.semanticIndex.get(word)?.forEach((id) => matches.add(id));
 
-      // Exact jobId match
       if (this.index.jobIdIndex.has(word)) {
-        this.index.jobIdIndex.get(word)?.forEach((id) => {
-          matches.add(id);
-        });
+        this.index.jobIdIndex.get(word)?.forEach((id) => matches.add(id));
       }
 
-      // Partial jobId match (search for word in jobId)
-      this.index.jobIdIndex.forEach((taskIds, jobId) => {
-        // If jobId is "LT-101", word might be "101" or "lt101"
-        // We compare normalized versions
-        const normalizedJobId = jobId.replace(/[^\w]/g, "");
-        if (jobId.includes(word) || normalizedJobId.includes(word)) {
-          taskIds.forEach((id) => {
-            matches.add(id);
-          });
+      // Check partial jobId matches
+      this.index.jobIdIndex.forEach((ids, jobId) => {
+        if (jobId.includes(word)) {
+          ids.forEach(id => matches.add(id));
         }
       });
 
       return matches;
     });
 
-    // Intersect result sets (AND logic - all words must match)
+    // Intersect result sets (AND logic)
     let intersection = resultSets[0] ?? new Set<string>();
     for (let i = 1; i < resultSets.length; i++) {
       intersection = new Set([...intersection].filter((id) => resultSets[i].has(id)));
     }
+
+    // If intersection is small, boost with OR-based semantic fuzzy matching
+    if (intersection.size < 3) {
+      words.forEach(word => {
+        this.index.semanticIndex.get(word)?.forEach(id => intersection.add(id));
+      });
+    }
+
     return Array.from(intersection);
+  }
+
+  /**
+   * Update semantic keywords via AI
+   */
+  async augmentTaskSemantically(task: Task, aiService: any, context: any): Promise<void> {
+    try {
+      const keywords = await aiService.generateSemanticKeywords(task, context);
+      keywords.forEach((keyword: string) => {
+        const normalized = keyword.toLowerCase().trim();
+        if (!this.index.semanticIndex.has(normalized)) {
+          this.index.semanticIndex.set(normalized, new Set());
+        }
+        this.index.semanticIndex.get(normalized)?.add(task.id);
+      });
+    } catch (e) {
+      console.error("Semantic augmentation failed:", e);
+    }
   }
 
   /**
@@ -152,89 +123,26 @@ export class SearchIndexService {
   searchWithRegex(pattern: string): string[] {
     try {
       const regex = new RegExp(pattern, "i");
-      const matches = new Set<string>();
+      const results = new Set<string>();
 
-      // Search in title index
-      this.index.titleIndex.forEach((taskIds, word) => {
-        if (regex.test(word)) {
-          taskIds.forEach((id) => {
-            matches.add(id);
-          });
-        }
-      });
+      // Helper to check map
+      const checkMap = (map: Map<string, Set<string>>) => {
+        map.forEach((ids, key) => {
+          if (regex.test(key)) {
+            ids.forEach((id) => results.add(id));
+          }
+        });
+      };
 
-      // Search in jobId index
-      this.index.jobIdIndex.forEach((taskIds, jobId) => {
-        if (regex.test(jobId)) {
-          taskIds.forEach((id) => {
-            matches.add(id);
-          });
-        }
-      });
+      checkMap(this.index.titleIndex);
+      checkMap(this.index.jobIdIndex);
+      checkMap(this.index.tagIndex);
+      checkMap(this.index.assigneeIndex);
+      checkMap(this.index.summaryIndex);
 
-      return Array.from(matches);
-    } catch (_e) {
-      // Invalid regex, fall back to normal search
+      return Array.from(results);
+    } catch {
       return this.search(pattern);
-    }
-  }
-
-  /**
-   * Tokenize text into searchable words
-   */
-  private tokenize(text: string): string[] {
-    return text
-      .toLowerCase()
-      .split(/\s+/)
-      .map((word) => word.replace(/[^\w]/g, ""))
-      .filter((word) => word.length >= 2); // Only words with 2+ characters
-  }
-
-  /**
-   * Update index for a single task (incremental update)
-   */
-  updateTask(task: Task, oldTask?: Task): void {
-    // Remove old task from index
-    if (oldTask) {
-      this.removeTask(oldTask);
-    }
-
-    // Add new task to index
-    this.addTask(task);
-  }
-
-  /**
-   * Remove task from index
-   */
-  removeTask(task: Task): void {
-    const removeFromMap = (map: Map<string, Set<string>>, key: string, id: string) => {
-      const set = map.get(key);
-      if (set) {
-        set.delete(id);
-        if (set.size === 0) {
-          map.delete(key);
-        }
-      }
-    };
-
-    this.tokenize(task.title).forEach((word) => {
-      removeFromMap(this.index.titleIndex, word, task.id);
-    });
-
-    task.tags.forEach((tag) => {
-      removeFromMap(this.index.tagIndex, tag.toLowerCase(), task.id);
-    });
-
-    if (task.assignee) {
-      removeFromMap(this.index.assigneeIndex, task.assignee.toLowerCase(), task.id);
-    }
-
-    removeFromMap(this.index.jobIdIndex, task.jobId.toLowerCase(), task.id);
-
-    if (task.summary) {
-      this.tokenize(task.summary).forEach((word) => {
-        removeFromMap(this.index.summaryIndex, word, task.id);
-      });
     }
   }
 
@@ -242,54 +150,88 @@ export class SearchIndexService {
    * Add task to index
    */
   private addTask(task: Task): void {
+    // Title
     this.tokenize(task.title).forEach((word) => {
-      if (!this.index.titleIndex.has(word)) {
-        this.index.titleIndex.set(word, new Set());
-      }
+      if (!this.index.titleIndex.has(word)) this.index.titleIndex.set(word, new Set());
       this.index.titleIndex.get(word)?.add(task.id);
     });
 
+    // Tags
     task.tags.forEach((tag) => {
-      const tagLower = tag.toLowerCase();
-      if (!this.index.tagIndex.has(tagLower)) {
-        this.index.tagIndex.set(tagLower, new Set());
-      }
+      const tagLower = tag.toLowerCase().trim();
+      if (!this.index.tagIndex.has(tagLower)) this.index.tagIndex.set(tagLower, new Set());
       this.index.tagIndex.get(tagLower)?.add(task.id);
     });
 
+    // Assignee
     if (task.assignee) {
-      const assigneeLower = task.assignee.toLowerCase();
-      if (!this.index.assigneeIndex.has(assigneeLower)) {
-        this.index.assigneeIndex.set(assigneeLower, new Set());
-      }
-      this.index.assigneeIndex.get(assigneeLower)?.add(task.id);
+      this.tokenize(task.assignee).forEach((word) => {
+        if (!this.index.assigneeIndex.has(word)) this.index.assigneeIndex.set(word, new Set());
+        this.index.assigneeIndex.get(word)?.add(task.id);
+      });
     }
 
-    const jobIdLower = task.jobId.toLowerCase();
-    if (!this.index.jobIdIndex.has(jobIdLower)) {
-      this.index.jobIdIndex.set(jobIdLower, new Set());
+    // JobId
+    if (task.jobId) {
+      const jobIdLower = task.jobId.toLowerCase().trim();
+      if (!this.index.jobIdIndex.has(jobIdLower)) this.index.jobIdIndex.set(jobIdLower, new Set());
+      this.index.jobIdIndex.get(jobIdLower)?.add(task.id);
     }
-    this.index.jobIdIndex.get(jobIdLower)?.add(task.id);
 
+    // Summary
     if (task.summary) {
       this.tokenize(task.summary).forEach((word) => {
-        if (!this.index.summaryIndex.has(word)) {
-          this.index.summaryIndex.set(word, new Set());
-        }
+        if (!this.index.summaryIndex.has(word)) this.index.summaryIndex.set(word, new Set());
         this.index.summaryIndex.get(word)?.add(task.id);
       });
     }
   }
 
   /**
+   * Update task in index
+   */
+  updateTask(newTask: Task, oldTask?: Task): void {
+    if (oldTask) {
+      this.removeTask(oldTask);
+    }
+    this.addTask(newTask);
+  }
+
+  /**
+   * Remove task from index
+   */
+  removeTask(task: Task): void {
+    const removeFromMap = (map: Map<string, Set<string>>) => {
+      map.forEach((ids, key) => {
+        ids.delete(task.id);
+        if (ids.size === 0) {
+          map.delete(key);
+        }
+      });
+    };
+
+    removeFromMap(this.index.titleIndex);
+    removeFromMap(this.index.tagIndex);
+    removeFromMap(this.index.assigneeIndex);
+    removeFromMap(this.index.jobIdIndex);
+    removeFromMap(this.index.summaryIndex);
+    removeFromMap(this.index.semanticIndex);
+  }
+
+  /**
+   * Tokenize string into words
+   */
+  private tokenize(text: string): string[] {
+    return text
+      .toLowerCase()
+      .split(/[\s,._-]+/)
+      .filter((word) => word.length >= 2);
+  }
+
+  /**
    * Get index statistics
    */
-  getStats(): {
-    totalWords: number;
-    totalTags: number;
-    totalAssignees: number;
-    totalJobIds: number;
-  } {
+  getStats() {
     return {
       totalWords: this.index.titleIndex.size + this.index.summaryIndex.size,
       totalTags: this.index.tagIndex.size,
@@ -299,5 +241,4 @@ export class SearchIndexService {
   }
 }
 
-// Singleton instance
 export const searchIndexService = new SearchIndexService();

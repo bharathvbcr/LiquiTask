@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { Dashboard } from "../Dashboard";
-import type { Task } from "../types";
+import type { Task, Project } from "../../types";
 
 // Mock sub-components with correct relative paths
 vi.mock("../../src/components/CalendarView", () => ({
@@ -57,7 +57,7 @@ describe("Dashboard", () => {
 
   const baseProps = {
     tasks: mockTasks,
-    projects: [{ id: "p1", name: "Project 1" }],
+    projects: [{ id: "p1", name: "Project 1", type: "default" as const }],
     priorities: mockPriorities,
     onEditTask: vi.fn(),
     onUpdateTask: vi.fn(),

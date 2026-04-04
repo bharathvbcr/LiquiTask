@@ -149,23 +149,23 @@ export class TemplateService {
       const result = await aiService.generateTemplate(description, context);
       const template: TaskTemplate = {
         id: `template-ai-${Date.now()}`,
-        name: result.name,
+        name: result.name as string,
         description: `AI-generated template from: "${description.substring(0, 80)}..."`,
         taskData: {
-          title: result.taskData.title || "Untitled Template",
-          summary: result.taskData.summary || "",
-          priority: result.taskData.priority || "medium",
-          status: result.taskData.status || "Pending",
-          timeEstimate: result.taskData.timeEstimate || 0,
+          title: (result.taskData.title as string) || "Untitled Template",
+          summary: (result.taskData.summary as string) || "",
+          priority: (result.taskData.priority as string) || "medium",
+          status: (result.taskData.status as string) || "Pending",
+          timeEstimate: (result.taskData.timeEstimate as number) || 0,
         },
-        subtasks: result.subtasks.map((title, i) => ({
+        subtasks: (result.subtasks as string[]).map((title, i) => ({
           id: `ai-st-${Date.now()}-${i}`,
           title,
           completed: false,
         })),
-        tags: result.tags,
+        tags: result.tags as string[],
         customFieldValues: {},
-        variables: result.variables,
+        variables: result.variables as string[],
       };
       this.templates.push(template);
       return template;

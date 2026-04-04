@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { Task } from "../../src/types";
+import type { Task, PriorityDefinition } from "../../src/types";
 import { TaskCard } from "../TaskCard";
 
 // Mock sub-components to avoid complex rendering dependencies
@@ -16,12 +16,16 @@ describe("TaskCard Features", () => {
   const mockOnUpdateTask = vi.fn();
   const mockOnDeleteTask = vi.fn();
 
+  const mockPriorities: PriorityDefinition[] = [
+    { id: "high", label: "High Priority", color: "#ff0000", level: 1 }
+  ];
+
   const baseProps = {
     onMoveTask: mockOnMoveTask,
     onEditTask: mockOnEditTask,
     onUpdateTask: mockOnUpdateTask,
     onDeleteTask: mockOnDeleteTask,
-    priorities: [{ id: "high", label: "High Priority", color: "#ff0000" }],
+    priorities: mockPriorities,
     allTasks: [],
   };
 

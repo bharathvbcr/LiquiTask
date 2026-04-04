@@ -25,6 +25,18 @@ const DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite";
 
 type AIRefineResponse = Record<string, unknown>;
 
+// Optimization: Strip unnecessary task data before sending to AI to save tokens (similar to Pydantic v2 lean models)
+const stripTaskData = (task: Task): Partial<Task> => ({
+  id: task.id,
+  title: task.title,
+  summary: task.summary,
+  priority: task.priority,
+  status: task.status,
+  tags: task.tags,
+  dueDate: task.dueDate,
+  projectId: task.projectId,
+});
+
 export interface AIProvider {
   extractTasks(input: string, context: AIContext): Promise<AITaskSchema[]>;
   refineTask(
@@ -45,6 +57,7 @@ export interface AIProvider {
     context: AIContext,
     schema: Record<string, unknown>,
   ): Promise<unknown>;
+  analyzeImageToTask?(imageBase64: string, context: AIContext): Promise<Partial<Task>>;
 }
 
 class GeminiProvider implements AIProvider {
@@ -58,6 +71,39 @@ class GeminiProvider implements AIProvider {
     const { GoogleGenerativeAI, SchemaType } = await import("@google/generative-ai");
     if (!this.config.geminiApiKey) throw new Error("Gemini API key is missing");
     return { genAI: new GoogleGenerativeAI(this.config.geminiApiKey), SchemaType };
+  }
+
+  async analyzeImageToTask(imageBase64: string, context: AIContext): Promise<Partial<Task>> {
+    const { genAI } = await this.getGenAI();
+    // Vision model must be used for images
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash",
+      generationConfig: { responseMimeType: "application/json" },
+    });
+
+    const prompt = `Analyze this image (e.g., a screenshot of a bug, a UI sketch, or text).
+Create a task based on it. Return ONLY a JSON object with:
+{"title": "Task title", "summary": "Detailed description or bug report extracted from image", "priority": "high|medium|low", "timeEstimate": 60, "tags": ["ui", "bug", "frontend"]}
+
+Context Projects: ${context.projects.map((p) => p.name).join(", ")}
+Priorities: ${context.priorities.map((p) => p.id).join(", ")}`;
+
+    try {
+      const result = await model.generateContent([
+        prompt,
+        {
+          inlineData: {
+            data: imageBase64.split(",")[1] || imageBase64,
+            mimeType: imageBase64.startsWith("data:image/png") ? "image/png" : "image/jpeg",
+          },
+        },
+      ]);
+      const text = result.response.text();
+      return JSON.parse(text) as Partial<Task>;
+    } catch (e) {
+      console.error("Image analysis failed:", e);
+      throw new Error("Failed to analyze image");
+    }
   }
 
   async extractTasks(input: string, context: AIContext): Promise<AITaskSchema[]> {
@@ -583,41 +629,52 @@ class AiService {
   async detectDuplicates(
     taskPairs: Array<{ task1: Task; task2: Task }>,
     context: AIContext,
+    onProgress?: (processed: number, total: number) => void,
   ): Promise<Array<{ task1: Task; task2: Task; confidence: number; reasons: string[] }>> {
     const provider = this.getProvider();
     if (!provider) throw new Error("AI provider not configured");
 
+    const batchSize = 5; // Process 5 pairs concurrently
     const results: Array<{ task1: Task; task2: Task; confidence: number; reasons: string[] }> = [];
 
-    for (const pair of taskPairs) {
-      try {
-        const prompt = `Analyze if these two tasks are duplicates:
+    for (let i = 0; i < taskPairs.length; i += batchSize) {
+      const batch = taskPairs.slice(i, i + batchSize);
+      
+      onProgress?.(i, taskPairs.length);
 
-Task 1: "${pair.task1.title}" - ${pair.task1.summary}
-Tags: ${pair.task1.tags.join(", ")}
-Project: ${context.projects.find((p) => p.id === pair.task1.projectId)?.name || "Unknown"}
+      const batchPromises = batch.map(async (pair) => {
+        try {
+          const t1 = stripTaskData(pair.task1);
+          const t2 = stripTaskData(pair.task2);
+          const prompt = `Analyze if these two tasks are duplicates:
 
-Task 2: "${pair.task2.title}" - ${pair.task2.summary}
-Tags: ${pair.task2.tags.join(", ")}
-Project: ${context.projects.find((p) => p.id === pair.task2.projectId)?.name || "Unknown"}
+Task 1: ${JSON.stringify(t1)}
+Project 1: ${context.projects.find((p) => p.id === pair.task1.projectId)?.name || "Unknown"}
+
+Task 2: ${JSON.stringify(t2)}
+Project 2: ${context.projects.find((p) => p.id === pair.task2.projectId)?.name || "Unknown"}
 
 Return JSON: {"confidence": 0.0-1.0, "reasons": ["reason1", "reason2"]}`;
 
-        const refined = await provider.refineTask(prompt, {}, context);
-        const aiResponse = refined as AIRefineResponse;
-        const confidence = (aiResponse.confidence as number) ?? 0.5;
-        const reasons = (aiResponse.reasons as string[]) ?? ["AI analysis"];
+          const refined = await provider.refineTask(prompt, {}, context);
+          const aiResponse = refined as AIRefineResponse;
+          const confidence = (aiResponse.confidence as number) ?? 0.5;
+          const reasons = (aiResponse.reasons as string[]) ?? ["AI analysis"];
 
-        results.push({ task1: pair.task1, task2: pair.task2, confidence, reasons });
-      } catch {
-        const similarity = this.calculateTextSimilarity(pair.task1.title, pair.task2.title);
-        results.push({
-          task1: pair.task1,
-          task2: pair.task2,
-          confidence: similarity,
-          reasons: ["Heuristic similarity score"],
-        });
-      }
+          return { task1: pair.task1, task2: pair.task2, confidence, reasons };
+        } catch {
+          const similarity = this.calculateTextSimilarity(pair.task1.title, pair.task2.title);
+          return {
+            task1: pair.task1,
+            task2: pair.task2,
+            confidence: similarity,
+            reasons: ["Heuristic similarity score"],
+          };
+        }
+      });
+
+      const batchResults = await Promise.all(batchPromises);
+      results.push(...batchResults);
     }
 
     return results;
@@ -660,42 +717,57 @@ Tasks:\n${taskDetails}`;
     if (!provider) throw new Error("AI provider not configured");
 
     const batchSize = 10;
+    const concurrentBatches = 3; // Process 3 batches of 10 tasks concurrently
     const results: AICategorySuggestion[] = [];
 
-    for (let i = 0; i < allTasks.length; i += batchSize) {
-      const batch = allTasks.slice(i, i + batchSize);
-      const taskDetails = batch
-        .map(
-          (t) =>
-            `ID: ${t.id}\nTitle: "${t.title}"\nSummary: ${t.summary}\nTags: ${t.tags.join(", ")}\nPriority: ${t.priority}`,
-        )
-        .join("\n\n");
+    for (let i = 0; i < allTasks.length; i += batchSize * concurrentBatches) {
+      const batchesToRun = [];
+      for (let j = 0; j < concurrentBatches; j++) {
+        const offset = i + j * batchSize;
+        if (offset < allTasks.length) {
+          batchesToRun.push(allTasks.slice(offset, offset + batchSize));
+        }
+      }
 
-      const prompt = `Categorize these tasks. Return JSON array: [{"taskId": "id", "suggestedTags": ["tag1"], "suggestedPriority": "priority", "confidence": 0.8, "reasoning": "why"}]\n\nTasks:\n${taskDetails}`;
+      const batchPromises = batchesToRun.map(async (batch) => {
+        const taskDetails = batch
+          .map((t) => JSON.stringify(stripTaskData(t)))
+          .join("\n\n");
 
-      try {
-        const refined = await provider.refineTask(prompt, {}, context);
-        const suggestions = Array.isArray(refined) ? refined : [refined];
-        suggestions.forEach((s: AIRefineResponse) => {
-          results.push({
+        const prompt = `Categorize these tasks. Return JSON array: [{"taskId": "id", "suggestedTags": ["tag1"], "suggestedPriority": "priority", "confidence": 0.8, "reasoning": "why"}]\n\nTasks:\n${taskDetails}`;
+
+        try {
+          const refined = await provider.refineTask(prompt, {}, context);
+          const suggestions = Array.isArray(refined) ? refined : [refined];
+          return suggestions.map((s: AIRefineResponse) => ({
             taskId: s.taskId as string,
             suggestedTags: (s.suggestedTags as string[]) ?? [],
             suggestedPriority: s.suggestedPriority as string | undefined,
             confidence: (s.confidence as number) ?? 0.6,
             reasoning: (s.reasoning as string) ?? "AI categorization",
-          });
-        });
-      } catch (e) {
-        console.error("Task categorization failed:", e);
-      }
+          }));
+        } catch (e) {
+          console.error("Task categorization batch failed:", e);
+          return [];
+        }
+      });
+
+      const batchResults = await Promise.all(batchPromises);
+      batchResults.forEach((res) => results.push(...res));
     }
 
     return results;
   }
 
-  async clusterTasks(allTasks: Task[], context: AIContext): Promise<TaskCluster[]> {
+  async clusterTasks(
+    allTasks: Task[],
+    context: AIContext,
+    onProgress?: (processed: number, total: number) => void,
+  ): Promise<TaskCluster[]> {
     const provider = this.getProvider();
     if (!provider) throw new Error("AI provider not configured");
+
+    onProgress?.(0, 100);
 
     const taskDetails = allTasks
       .map((t) => `ID: ${t.id}\nTitle: "${t.title}"\nTags: ${t.tags.join(", ")}`)
@@ -705,6 +777,7 @@ Tasks:\n${taskDetails}`;
 
     try {
       const refined = await provider.refineTask(prompt, {}, context);
+      onProgress?.(100, 100);
       const clusters = Array.isArray(refined) ? refined : [];
       return clusters.map((c: AIRefineResponse, i: number) => ({
         id: `cluster-ai-${Date.now()}-${i}`,
@@ -725,12 +798,13 @@ Tasks:\n${taskDetails}`;
 
     const taskDetails = allTasks
       .map((t) => {
+        const leanTask = stripTaskData(t);
         const daysUntilDue = t.dueDate
           ? Math.round((new Date(t.dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
           : "none";
         const blockedBy = t.links?.filter((l) => l.type === "blocked-by").length ?? 0;
         const blocks = t.links?.filter((l) => l.type === "blocks").length ?? 0;
-        return `ID: ${t.id}\nTitle: "${t.title}"\nCurrent Priority: ${t.priority}\nDue: ${daysUntilDue} days\nBlocks: ${blocks} tasks\nBlocked By: ${blockedBy} tasks`;
+        return `Task: ${JSON.stringify(leanTask)}\nDue: ${daysUntilDue} days\nBlocks: ${blocks} tasks\nBlocked By: ${blockedBy} tasks`;
       })
       .join("\n\n");
 
@@ -1031,6 +1105,82 @@ Tasks:\n${taskDetails}`;
       return (aiResponse.shouldTrigger as boolean) ?? false;
     } catch {
       return false;
+    }
+  }
+
+  async parseAutomationRule(
+    naturalLanguage: string,
+    context: AIContext,
+    availableColumns: { id: string; title: string }[],
+    availablePriorities: { id: string; label: string }[],
+  ): Promise<Record<string, any>> {
+    const provider = this.getProvider();
+    if (!provider) throw new Error("AI provider not configured");
+
+    const columnsContext = availableColumns.map(c => `${c.title} (ID: ${c.id})`).join(", ");
+    const prioritiesContext = availablePriorities.map(p => `${p.label} (ID: ${p.id})`).join(", ");
+
+    const prompt = `Convert this natural language description into an automation rule structure. Return ONLY valid JSON:
+{"name": "Generated Rule Name", "trigger": "onCreate|onUpdate|onMove|onComplete|onSchedule", "actions": [{"type": "setField|addTag|removeTag|moveToColumn|setPriority|notify", "field": "optional_field", "value": "value"}]}
+
+Available columns for moveToColumn: ${columnsContext}
+Available priorities for setPriority: ${prioritiesContext}
+Description: "${naturalLanguage}"`;
+
+    try {
+      const refined = await provider.refineTask(prompt, {}, context);
+      return refined as Record<string, any>;
+    } catch {
+      throw new Error("Failed to parse automation rule.");
+    }
+  }
+
+  async analyzeImageToTask(imageBase64: string, context: AIContext): Promise<Partial<Task>> {
+    const provider = this.getProvider();
+    if (!provider) throw new Error("AI provider not configured");
+    if (!provider.analyzeImageToTask) throw new Error("Current AI provider does not support image analysis.");
+    return provider.analyzeImageToTask(imageBase64, context);
+  }
+
+  async smartImportFromText(text: string, context: AIContext): Promise<Partial<Task>[]> {
+    const provider = this.getProvider();
+    if (!provider) throw new Error("AI provider not configured");
+
+    const prompt = `You are a data migration expert. The user provided an export (CSV or JSON) from another tool (Jira, Trello, Linear, etc.).
+Extract the tasks and map them to the following schema. Return a JSON array of tasks.
+
+Schema:
+[{"title": "Task name", "summary": "Description", "priority": "high|medium|low", "status": "Pending|In Progress|Completed", "tags": ["tag1"], "timeEstimate": 60}]
+
+Input Data:
+${text.substring(0, 10000)} // Truncated for token limit
+
+Return ONLY the JSON array.`;
+
+    try {
+      const refined = await provider.refineTask(prompt, {}, context);
+      return Array.isArray(refined) ? refined : [];
+    } catch (e) {
+      console.error("Smart import failed:", e);
+      return [];
+    }
+  }
+
+  async generateSemanticKeywords(task: Task, context: AIContext): Promise<string[]> {
+    const provider = this.getProvider();
+    if (!provider) throw new Error("AI provider not configured");
+
+    const prompt = `Generate 10 semantic keywords or synonyms for this task to improve search relevance.
+Task: "${task.title}" - ${task.summary}
+Tags: ${task.tags.join(", ")}
+
+Return JSON array of strings: ["keyword1", "keyword2", ...]`;
+
+    try {
+      const refined = await provider.refineTask(prompt, {}, context);
+      return (Array.isArray(refined) ? refined : []) as string[];
+    } catch {
+      return [];
     }
   }
 

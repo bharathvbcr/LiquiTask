@@ -29,6 +29,7 @@ export type FilterableField =
   | "tags"
   | "dueDate"
   | "createdAt"
+  | "projectId"
   | "customField";
 
 // A single condition rule

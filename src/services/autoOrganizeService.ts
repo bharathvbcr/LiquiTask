@@ -57,29 +57,51 @@ class AutoOrganizeService {
     const tasks = this.filterTasks(allTasks);
     const changes: AutoOrganizeChange[] = [];
 
-    const phases = [
-      { key: "deduplication", run: () => this.runDeduplication(tasks, context, config) },
-      { key: "clustering", run: () => this.runClustering(tasks, context, config) },
-      { key: "autoTagging", run: () => this.runAutoTagging(tasks, context, config) },
-      { key: "hierarchyDetection", run: () => this.runHierarchyDetection(tasks, context, config) },
-      { key: "projectAssignment", run: () => this.runProjectAssignment(tasks, context, config) },
-      { key: "tagConsolidation", run: () => this.runTagConsolidation(tasks, context, config) },
+    // Define phases grouped by independence
+    // Group 1: Structural changes (Deduplication, Clustering, Hierarchy)
+    // Group 2: Metadata changes (Tagging, Project Assignment, Tag Consolidation)
+    const phaseGroups = [
+      [
+        { key: "deduplication", run: () => this.runDeduplication(tasks, context, config) },
+        { key: "clustering", run: () => this.runClustering(tasks, context, config) },
+        { key: "hierarchyDetection", run: () => this.runHierarchyDetection(tasks, context, config) },
+      ],
+      [
+        { key: "autoTagging", run: () => this.runAutoTagging(tasks, context, config) },
+        { key: "projectAssignment", run: () => this.runProjectAssignment(tasks, context, config) },
+        { key: "tagConsolidation", run: () => this.runTagConsolidation(tasks, context, config) },
+      ],
     ];
 
-    for (let i = 0; i < phases.length; i++) {
-      const phase = phases[i];
-      const enabled = config.operations[phase.key as keyof typeof config.operations];
-      if (!enabled) continue;
+    let processedCount = 0;
+    const totalPhases = phaseGroups.flat().length;
 
-      onProgress?.(phase.key, (i / phases.length) * 100);
+    for (const group of phaseGroups) {
+      const groupPromises = group.map(async (phase) => {
+        const enabled = config.operations[phase.key as keyof typeof config.operations];
+        if (!enabled) {
+          processedCount++;
+          return [];
+        }
 
-      try {
-        const phaseChanges = await phase.run();
-        changes.push(...phaseChanges);
-      } catch (e) {
-        console.error(`Auto-organize phase ${phase.key} failed:`, e);
-      }
+        onProgress?.(phase.key, (processedCount / totalPhases) * 100);
+
+        try {
+          const phaseChanges = await phase.run();
+          processedCount++;
+          return phaseChanges;
+        } catch (e) {
+          console.error(`Auto-organize phase ${phase.key} failed:`, e);
+          processedCount++;
+          return [];
+        }
+      });
+
+      const groupResults = await Promise.all(groupPromises);
+      groupResults.forEach((res) => changes.push(...res));
     }
+
+    onProgress?.("complete", 100);
 
     const autoApplied = changes.filter((c) => c.status === "auto-applied").length;
     const pendingReview = changes.filter((c) => c.status === "pending-review").length;

@@ -3,6 +3,7 @@ import { useCallback, useRef, useState } from "react";
 import type {
   ActivityItem,
   ActivityType,
+  AIContext,
   BoardColumn,
   PriorityDefinition,
   Project,
@@ -42,6 +43,11 @@ type AutomationServiceLike = {
   ) => Partial<Task> | null;
 };
 
+type AiServiceLike = {
+  generateSemanticKeywords: (task: Task, context: AIContext) => Promise<string[]>;
+  generateSubtasks: (title: string, description: string) => Promise<string[]>;
+};
+
 interface TaskControllerProps {
   initialTasks: Task[];
   columns: BoardColumn[];
@@ -53,24 +59,42 @@ interface TaskControllerProps {
   activityServiceRef: MutableRefObject<ActivityServiceLike | null>;
   recurringTaskServiceRef: MutableRefObject<RecurringTaskService | null>;
   searchIndexServiceRef: MutableRefObject<SearchIndexService | null>;
+  aiServiceRef?: MutableRefObject<AiServiceLike | null>;
 }
 
 export const useTaskController = ({
   initialTasks,
   columns,
   projects,
-  priorities: _priorities,
+  priorities,
   activeProjectId,
   addToast,
   automationServiceRef,
   activityServiceRef,
   recurringTaskServiceRef,
   searchIndexServiceRef,
+  aiServiceRef,
 }: TaskControllerProps) => {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const undoStack = useRef<UndoAction[]>([]);
   const [canUndo, setCanUndo] = useState(false);
   const MAX_UNDO = 20;
+
+  const augmentTaskSemantically = useCallback(async (task: Task) => {
+    if (!aiServiceRef.current || !searchIndexServiceRef.current) return;
+    
+    const context: AIContext = {
+      activeProjectId,
+      projects,
+      priorities,
+    };
+
+    await searchIndexServiceRef.current.augmentTaskSemantically(
+      task,
+      aiServiceRef.current,
+      context
+    );
+  }, [activeProjectId, projects, priorities, aiServiceRef, searchIndexServiceRef]);
 
   const pushUndo = useCallback((action: UndoAction) => {
     undoStack.current = [action, ...undoStack.current.slice(0, MAX_UNDO - 1)];
@@ -148,8 +172,9 @@ export const useTaskController = ({
       });
       setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
       searchIndexServiceRef.current?.updateTask(updatedTask, previousTask);
+      augmentTaskSemantically(updatedTask);
     },
-    [tasks, pushUndo, searchIndexServiceRef],
+    [tasks, pushUndo, searchIndexServiceRef, augmentTaskSemantically],
   );
 
   const handleUpdateTaskDueDate = useCallback(
@@ -188,11 +213,12 @@ export const useTaskController = ({
         previousState: previousTask,
       });
       setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
+      augmentTaskSemantically(updatedTask);
 
       const dateStr = normalizedDate.toLocaleDateString();
       addToast(`Due date updated to ${dateStr}`, "success");
     },
-    [tasks, addToast, pushUndo, activityServiceRef],
+    [tasks, addToast, pushUndo, activityServiceRef, augmentTaskSemantically],
   );
 
   const handleMoveTaskToWorkspace = useCallback(
@@ -258,6 +284,7 @@ export const useTaskController = ({
         }
         setTasks((prev) => prev.map((t) => (t.id === editingTask.id ? updatedTask : t)));
         searchIndexServiceRef.current?.updateTask(updatedTask, previousTask);
+        augmentTaskSemantically(updatedTask);
 
         const recurringService = recurringTaskServiceRef.current;
         if (
@@ -320,6 +347,7 @@ export const useTaskController = ({
       pushUndo({ type: "task-create", taskId: newTask.id });
       setTasks((prev) => [...prev, newTask]);
       searchIndexServiceRef.current?.updateTask(newTask);
+      augmentTaskSemantically(newTask);
 
       if (indexedDBService.isAvailable()) {
         indexedDBService.saveTask(newTask).catch(console.error);
@@ -337,6 +365,7 @@ export const useTaskController = ({
       activityServiceRef,
       recurringTaskServiceRef,
       searchIndexServiceRef,
+      augmentTaskSemantically,
     ],
   );
 
@@ -374,8 +403,11 @@ export const useTaskController = ({
       if (indexedDBService.isAvailable()) {
         indexedDBService.saveTasks(createdTasks).catch(console.error);
       }
+      
+      // Augment semantically in background
+      createdTasks.forEach(t => augmentTaskSemantically(t));
     },
-    [activeProjectId, columns],
+    [activeProjectId, columns, augmentTaskSemantically],
   );
 
   const handleDeleteTaskInternal = useCallback(
@@ -511,6 +543,44 @@ export const useTaskController = ({
       if (indexedDBService.isAvailable()) {
         indexedDBService.saveTask(updatedTask).catch(console.error);
       }
+
+      // Auto-Pilot Subtask Engine
+      if (
+        newStatus !== previousTask.status &&
+        targetColumn.title.toLowerCase().includes("progress") &&
+        updatedTask.subtasks.length === 0 &&
+        aiServiceRef.current
+      ) {
+        addToast("Auto-pilot: Generating subtasks...", "info");
+        aiServiceRef.current
+          .generateSubtasks(updatedTask.title, updatedTask.summary)
+          .then((subtaskTitles) => {
+            if (subtaskTitles.length > 0) {
+              const newSubtasks = subtaskTitles.map((title, i) => ({
+                id: `ai-st-${Date.now()}-${i}`,
+                title,
+                completed: false,
+              }));
+              
+              setTasks((prev) =>
+                prev.map((t) => {
+                  if (t.id === taskId) {
+                    const finalTask = { ...t, subtasks: newSubtasks, updatedAt: new Date() };
+                    if (indexedDBService.isAvailable()) {
+                      indexedDBService.saveTask(finalTask).catch(console.error);
+                    }
+                    return finalTask;
+                  }
+                  return t;
+                })
+              );
+              addToast(`Auto-pilot added ${subtaskTitles.length} subtasks`, "success");
+            }
+          })
+          .catch((e) => {
+            console.error("Auto-pilot failed:", e);
+          });
+      }
     },
     [
       tasks,
@@ -521,6 +591,7 @@ export const useTaskController = ({
       activityServiceRef,
       recurringTaskServiceRef,
       searchIndexServiceRef,
+      aiServiceRef,
     ],
   );
 

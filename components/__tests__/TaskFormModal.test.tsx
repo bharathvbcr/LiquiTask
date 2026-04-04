@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import type React from "react";
 import { describe, expect, it, vi } from "vitest";
-import type { Task } from "../../src/types";
+import type { Task, PriorityDefinition, BoardColumn } from "../../types";
 import { TaskFormModal } from "../TaskFormModal";
 
 // Mock ModalWrapper since it might use portals or complex logic
@@ -12,15 +12,24 @@ vi.mock("../ModalWrapper", () => ({
 describe("TaskFormModal Features", () => {
   const mockOnClose = vi.fn();
   const mockOnSubmit = vi.fn();
+  
+  const mockColumns: BoardColumn[] = [
+    { id: "col1", title: "Todo", color: "#64748b" },
+    { id: "col2", title: "Done", color: "#10b981", isCompleted: true },
+  ];
+
+  const mockPriorities: PriorityDefinition[] = [
+    { id: "high", label: "High", color: "#ef4444", level: 1 },
+    { id: "medium", label: "Medium", color: "#eab308", level: 2 },
+  ];
+
   const baseProps = {
     isOpen: true,
     onClose: mockOnClose,
     onSubmit: mockOnSubmit,
     projectId: "test-project",
-    columns: [
-      { id: "col1", title: "Todo" },
-      { id: "col2", title: "Done" },
-    ],
+    columns: mockColumns,
+    priorities: mockPriorities,
   };
 
   const mockTask: Task = {

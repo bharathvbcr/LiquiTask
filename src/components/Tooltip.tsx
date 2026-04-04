@@ -127,32 +127,32 @@ export const Tooltip: React.FC<TooltipProps> = ({
     };
   }, []);
 
-  const triggerElement = React.cloneElement(children, {
+  const triggerElement = React.cloneElement(children as React.ReactElement<any>, {
     ref: (node: HTMLElement | null) => {
       triggerRef.current = node;
       // Preserve any existing ref
-      const existingRef = (children.props as Record<string, unknown>).ref;
+      const existingRef = (children as any).ref;
       if (typeof existingRef === "function") {
         existingRef(node);
-      } else if (existingRef) {
+      } else if (existingRef && typeof existingRef === "object") {
         (existingRef as React.MutableRefObject<HTMLElement | null>).current = node;
       }
     },
     onMouseEnter: (e: React.MouseEvent) => {
       showTooltip();
-      children.props.onMouseEnter?.(e);
+      (children.props as any).onMouseEnter?.(e);
     },
     onMouseLeave: (e: React.MouseEvent) => {
       hideTooltip();
-      children.props.onMouseLeave?.(e);
+      (children.props as any).onMouseLeave?.(e);
     },
     onFocus: (e: React.FocusEvent) => {
       showTooltip();
-      children.props.onFocus?.(e);
+      (children.props as any).onFocus?.(e);
     },
     onBlur: (e: React.FocusEvent) => {
       hideTooltip();
-      children.props.onBlur?.(e);
+      (children.props as any).onBlur?.(e);
     },
   });
 

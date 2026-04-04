@@ -18,6 +18,7 @@ import { useSearchHistory } from './src/hooks/useSearchHistory';
 // Hooks
 import { useTaskController } from './src/hooks/useTaskController';
 import { getRuntimeState } from './src/runtime/runtimeEnvironment';
+import { aiService } from './src/services/aiService';
 import { indexedDBService } from './src/services/indexedDBService';
 import storageService from './src/services/storageService';
 import type { FilterGroup } from './src/types/queryTypes';
@@ -407,6 +408,7 @@ const App: React.FC = () => {
     activityServiceRef: activityServiceRef as any,
     recurringTaskServiceRef: recurringTaskServiceRef as any,
     searchIndexServiceRef: searchIndexServiceRef as any,
+    aiServiceRef: { current: aiService } as any,
   });
 
   // Initialization
@@ -455,18 +457,35 @@ const App: React.FC = () => {
   const { views, activeViewId, createView, applyView, deleteView } = useSavedViews();
 
   // Task Filtering (needed by AI handlers)
-  const getAllSubWorkspaceIds = useCallback(
-    (projectId: string): string[] => {
-      const subWorkspaceIds: string[] = [];
-      const directChildren = projects.filter(p => p.parentId === projectId);
-      for (const child of directChildren) {
-        subWorkspaceIds.push(child.id);
-        subWorkspaceIds.push(...getAllSubWorkspaceIds(child.id));
+  // Pre-calculate project hierarchy for fast filtering (Optimization similar to Pydantic V2 indexing)
+  const descendantProjectsMap = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    
+    // Helper to get all descendants for a project
+    const getDescendants = (id: string): Set<string> => {
+      if (map.has(id)) return map.get(id)!;
+      
+      const descendants = new Set<string>();
+      const children = projects.filter(p => p.parentId === id);
+      
+      for (const child of children) {
+        descendants.add(child.id);
+        const childDescendants = getDescendants(child.id);
+        for (const dId of childDescendants) {
+          descendants.add(dId);
+        }
       }
-      return subWorkspaceIds;
-    },
-    [projects]
-  );
+      
+      map.set(id, descendants);
+      return descendants;
+    };
+
+    for (const project of projects) {
+      getDescendants(project.id);
+    }
+    
+    return map;
+  }, [projects]);
 
   const filteredTasks = useMemo(() => {
     let result = tasks;
@@ -491,11 +510,11 @@ const App: React.FC = () => {
 
   const currentProjectTasks = useMemo(() => {
     if (showSubWorkspaceTasks) {
-      const allProjectIds = [activeProjectId, ...getAllSubWorkspaceIds(activeProjectId)];
-      return filteredTasks.filter(t => allProjectIds.includes(t.projectId));
+      const descendants = descendantProjectsMap.get(activeProjectId) || new Set<string>();
+      return filteredTasks.filter(t => t.projectId === activeProjectId || descendants.has(t.projectId));
     }
     return filteredTasks.filter(t => t.projectId === activeProjectId);
-  }, [filteredTasks, activeProjectId, showSubWorkspaceTasks, getAllSubWorkspaceIds]);
+  }, [filteredTasks, activeProjectId, showSubWorkspaceTasks, descendantProjectsMap]);
 
   // AI Handlers
   const handleAiInsights = useCallback(() => {

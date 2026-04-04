@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { Sidebar } from "../Sidebar";
-import type { Project, ProjectType } from "../types";
+import type { Project, ProjectType } from "../../types";
 
 // Mock assets and sub-components
 vi.mock("../src/assets/logo.png", () => ({ default: "logo-stub" }));

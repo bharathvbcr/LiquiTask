@@ -19,8 +19,7 @@ describe("EditProjectModal", () => {
         onClose={mockOnClose}
         onSave={mockOnSave}
         project={mockProject}
-        projectTypes={mockProjectTypes}
-      />,
+      />
     );
     expect(screen.getByDisplayValue("Original Name")).toBeDefined();
   });
@@ -32,8 +31,7 @@ describe("EditProjectModal", () => {
         onClose={mockOnClose}
         onSave={mockOnSave}
         project={mockProject}
-        projectTypes={mockProjectTypes}
-      />,
+      />
     );
 
     const input = screen.getByDisplayValue("Original Name");
@@ -52,8 +50,7 @@ describe("EditProjectModal", () => {
         onClose={mockOnClose}
         onSave={mockOnSave}
         project={mockProject}
-        projectTypes={mockProjectTypes}
-      />,
+      />
     );
 
     const cancelButton = screen.getByText("Cancel");

@@ -175,4 +175,37 @@ describe("SearchIndexService", () => {
     expect(service.getStats().totalAssignees).toBe(0);
     expect(service.search("minimal")).toContain("4");
   });
+
+  it("should augment task semantically using AI keywords", async () => {
+    const task = mockTasks[0];
+    const mockAiService = {
+      generateSemanticKeywords: vi.fn().mockResolvedValue(["interface", "ui", "ux"]),
+    };
+    const mockContext = {};
+
+    await service.augmentTaskSemantically(task, mockAiService, mockContext);
+
+    // Should now find task by AI-generated keywords
+    expect(service.search("interface")).toContain(task.id);
+    expect(service.search("ui")).toContain(task.id);
+    expect(mockAiService.generateSemanticKeywords).toHaveBeenCalledWith(task, mockContext);
+  });
+
+  it("should boost search results with semantic matches when intersection is small", async () => {
+    service.buildIndex(mockTasks);
+    
+    // Manually add a semantic keyword to task 2
+    const task2 = mockTasks[1];
+    const mockAiService = {
+      generateSemanticKeywords: vi.fn().mockResolvedValue(["optimization", "fast"]),
+    };
+    
+    await service.augmentTaskSemantically(task2, mockAiService, {});
+
+    // Search for "Alice optimization"
+    // Alice is in Task 1 & 3. Optimization is semantic in Task 2.
+    // AND intersection is empty, but fuzzy boost should find Task 2
+    const results = service.search("Alice optimization");
+    expect(results).toContain(task2.id);
+  });
 });

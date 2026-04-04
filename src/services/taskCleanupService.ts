@@ -23,7 +23,11 @@ class TaskCleanupService {
     return TaskCleanupService.instance;
   }
 
-  async detectDuplicates(allTasks: Task[], threshold: number = 0.75): Promise<DuplicateGroup[]> {
+  async detectDuplicates(
+    allTasks: Task[],
+    threshold: number = 0.75,
+    onProgress?: (processed: number, total: number) => void,
+  ): Promise<DuplicateGroup[]> {
     if (allTasks.length < 2) return [];
 
     const activeProjectId = storageService.get<string>(STORAGE_KEYS.ACTIVE_PROJECT, "");
@@ -53,7 +57,7 @@ class TaskCleanupService {
     const processedTaskIds = new Set<string>();
 
     try {
-      const results = await aiService.detectDuplicates(taskPairs, context);
+      const results = await aiService.detectDuplicates(taskPairs, context, onProgress);
 
       for (const result of results) {
         if (result.confidence >= threshold) {

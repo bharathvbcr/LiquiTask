@@ -1,7 +1,17 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
-import type { Task } from "../../types";
+import { describe, expect, it, vi, beforeEach } from "vitest";
+import type { Task, PriorityDefinition } from "../../types";
 import { GanttView } from "../GanttView";
+
+// Mock storageService
+vi.mock("../../src/services/storageService", () => ({
+  default: {
+    get: vi.fn((key) => {
+      if (key === "projects") return [{ id: "p1", name: "P1", type: "default" }];
+      return "";
+    }),
+  },
+}));
 
 describe("GanttView", () => {
   const mockOnEditTask = vi.fn();
@@ -28,9 +38,9 @@ describe("GanttView", () => {
     } as unknown as Task,
   ];
 
-  const mockPriorities = [
-    { id: "high", label: "High", color: "red" },
-    { id: "medium", label: "Medium", color: "yellow" },
+  const mockPriorities: PriorityDefinition[] = [
+    { id: "high", label: "High", color: "red", level: 1 },
+    { id: "medium", label: "Medium", color: "yellow", level: 2 },
   ];
 
   const baseProps = {
@@ -40,6 +50,10 @@ describe("GanttView", () => {
     onEditTask: mockOnEditTask,
     onUpdateTask: mockOnUpdateTask,
   };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it("renders tasks in Gantt view", () => {
     render(<GanttView {...baseProps} />);
@@ -59,6 +73,7 @@ describe("GanttView", () => {
   it("calls onEditTask when a task is clicked", () => {
     render(<GanttView {...baseProps} />);
 
+    // In the new version, the title is inside a span
     fireEvent.click(screen.getByText("Task 1"));
     expect(mockOnEditTask).toHaveBeenCalledWith(expect.objectContaining({ id: "1" }));
   });

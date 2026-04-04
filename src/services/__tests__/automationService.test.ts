@@ -95,7 +95,7 @@ describe("AutomationService", () => {
       trigger: "onUpdate",
       conditions: {
         id: "g1",
-        type: "AND",
+        operator: "AND",
         rules: [{ id: "c1", field: "status", operator: "equals", value: "Todo" }],
       },
       actions: [{ type: "setPriority", value: "High" }],

@@ -1,4 +1,5 @@
 import {
+  Brain,
   ChevronDown,
   ChevronUp,
   Download,
@@ -8,7 +9,11 @@ import {
   Upload,
 } from "lucide-react";
 import type React from "react";
+import { useState } from "react";
 import { BULK_TASK_TEMPLATE_JSON } from "../../src/utils/bulkTaskSchema";
+import { aiService } from "../../src/services/aiService";
+import storageService from "../../src/services/storageService";
+import { STORAGE_KEYS } from "../../src/constants";
 import type {
   BoardColumn,
   CustomFieldDefinition,
@@ -67,8 +72,65 @@ export const DataSettings: React.FC<DataSettingsProps> = ({
   onBulkCreateTasks,
   handleReset,
 }) => {
+  const [smartImportText, setSmartImportText] = useState("");
+  const [isSmartImporting, setIsSmartImporting] = useState(false);
+
+  const handleSmartImport = async () => {
+    if (!smartImportText.trim() || !onBulkCreateTasks) return;
+    
+    setIsSmartImporting(true);
+    addToast("AI is analyzing your export...", "info");
+    
+    try {
+      const activeProjectId = storageService.get<string>(STORAGE_KEYS.ACTIVE_PROJECT, "");
+      const projects = storageService.get<Project[]>(STORAGE_KEYS.PROJECTS, []);
+      const priorities = storageService.get<PriorityDefinition[]>(STORAGE_KEYS.PRIORITIES, []);
+
+      const context = { activeProjectId, projects, priorities };
+      const mappedTasks = await aiService.smartImportFromText(smartImportText, context);
+      
+      if (mappedTasks && mappedTasks.length > 0) {
+        onBulkCreateTasks(mappedTasks);
+        setSmartImportText("");
+        addToast(`Successfully imported ${mappedTasks.length} tasks!`, "success");
+      } else {
+        addToast("AI could not find valid tasks in the provided text.", "warning");
+      }
+    } catch (e) {
+      console.error(e);
+      addToast("AI Smart Import failed", "error");
+    } finally {
+      setIsSmartImporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
+      {/* AI Smart Import Section */}
+      <div className="space-y-3 bg-cyan-900/10 border border-cyan-500/20 p-4 rounded-xl">
+        <h4 className="text-xs font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-2">
+          <Brain size={14} />
+          Switch to LiquiTask (AI Smart Import)
+        </h4>
+        <p className="text-xs text-slate-400">
+          Paste CSV or JSON from Jira, Trello, Linear, or Asana. AI will auto-map it to your current project.
+        </p>
+        <textarea
+          value={smartImportText}
+          onChange={(e) => setSmartImportText(e.target.value)}
+          placeholder="Paste external data dump here..."
+          className="w-full h-24 bg-black/40 border border-cyan-500/20 rounded-xl p-3 text-xs text-slate-300 font-mono resize-none focus:border-cyan-500/50 outline-none"
+        />
+        <button
+          onClick={handleSmartImport}
+          disabled={!smartImportText.trim() || isSmartImporting || !onBulkCreateTasks}
+          className="w-full p-3 bg-cyan-500/10 border border-cyan-500/20 rounded-xl text-cyan-400 disabled:opacity-50 font-bold flex items-center justify-center gap-2"
+        >
+          {isSmartImporting ? <Loader2 size={16} className="animate-spin" /> : <Brain size={16} />}
+          Extract & Import Tasks
+        </button>
+      </div>
+
       <div className="space-y-2">
         <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
           Export Data
@@ -101,12 +163,12 @@ export const DataSettings: React.FC<DataSettingsProps> = ({
 
       <div className="space-y-2">
         <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-          Import Data
+          Import App Backup
         </h4>
         <textarea
           value={importText}
           onChange={(e) => setImportText(e.target.value)}
-          placeholder="Paste JSON here..."
+          placeholder="Paste full LiquiTask backup JSON here..."
           className="w-full h-24 bg-[#05080f] border border-white/10 rounded-xl p-3 text-xs text-slate-400 font-mono resize-none"
         />
         {importError && <p className="text-xs text-red-400">{importError}</p>}
@@ -116,7 +178,7 @@ export const DataSettings: React.FC<DataSettingsProps> = ({
           className="flex items-center justify-center gap-2 w-full p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 disabled:opacity-50 transition-all"
         >
           {isImporting ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-          <span className="text-sm font-medium">Import from JSON</span>
+          <span className="text-sm font-medium">Restore Backup</span>
         </button>
       </div>
 
@@ -124,7 +186,7 @@ export const DataSettings: React.FC<DataSettingsProps> = ({
         <div className="flex items-center justify-between">
           <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
             <FileJson size={14} />
-            Bulk Import
+            Manual Bulk Import
           </h4>
           <button
             onClick={() => setShowTemplateRef(!showTemplateRef)}
@@ -144,12 +206,12 @@ export const DataSettings: React.FC<DataSettingsProps> = ({
           onClick={handleDownloadTemplate}
           className="w-full p-2 bg-white/5 border border-white/10 rounded-lg text-slate-400 text-xs hover:text-white"
         >
-          Download Template
+          Download JSON Template
         </button>
         <textarea
           value={bulkTasksJson}
           onChange={(e) => setBulkTasksJson(e.target.value)}
-          placeholder="Paste bulk tasks JSON here..."
+          placeholder="Paste formatted bulk tasks JSON here..."
           className="w-full h-32 bg-[#05080f] border border-white/10 rounded-xl p-3 text-xs text-slate-400 font-mono resize-none"
         />
         <button

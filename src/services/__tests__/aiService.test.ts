@@ -257,5 +257,35 @@ describe("AiService", () => {
       const result = await aiService.generateTemplate("desc", mockContext);
       expect(result.name).toBe("Template");
     });
+
+    it("analyzeImageToTask analyzes task from image base64", async () => {
+      mockGenerateContent.mockResolvedValueOnce({
+        response: {
+          text: () => JSON.stringify({ title: "Task from Image", priority: "high" }),
+        },
+      });
+      const result = await aiService.analyzeImageToTask("data:image/png;base64,abc", mockContext);
+      expect(result.title).toBe("Task from Image");
+    });
+
+    it("parseAutomationRule converts text to rule structure", async () => {
+      mockGenerateContent.mockResolvedValueOnce({
+        response: {
+          text: () => JSON.stringify({ name: "Rule", trigger: "onCreate", actions: [] }),
+        },
+      });
+      const result = await aiService.parseAutomationRule("when created", mockContext, [], []);
+      expect(result.name).toBe("Rule");
+    });
+
+    it("smartImportFromText extracts tasks from raw text", async () => {
+      mockGenerateContent.mockResolvedValueOnce({
+        response: {
+          text: () => JSON.stringify([{ title: "Imported 1" }]),
+        },
+      });
+      const result = await aiService.smartImportFromText("csv data", mockContext);
+      expect(result[0].title).toBe("Imported 1");
+    });
   });
 });

@@ -1,6 +1,7 @@
-import { Plus, Save, Trash2, X } from "lucide-react";
+import { Brain, Loader2, Plus, Save, Trash2, X } from "lucide-react";
 import type React from "react";
 import { useEffect, useState } from "react";
+import { aiService } from "../services/aiService";
 import type {
   AutomationAction,
   AutomationRule,
@@ -35,6 +36,8 @@ export const AutomationRuleEditor: React.FC<AutomationRuleEditorProps> = ({
     Array<{ type: AutomationAction; field?: string; value: unknown }>
   >(rule?.actions || []);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [nlQuery, setNlQuery] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
     if (rule) {
@@ -45,6 +48,33 @@ export const AutomationRuleEditor: React.FC<AutomationRuleEditorProps> = ({
       setActions(rule.actions || []);
     }
   }, [rule]);
+
+  const handleGenerateFromNL = async () => {
+    if (!nlQuery.trim()) return;
+    setIsGenerating(true);
+    setErrors({ ...errors, nlQuery: "" });
+    try {
+      // Mocking context since this is specific to automation
+      const context = { activeProjectId: "", projects: [], priorities: [] };
+      const generated = await aiService.parseAutomationRule(
+        nlQuery,
+        context,
+        availableColumns,
+        availablePriorities,
+      );
+
+      if (generated.name) setName(generated.name);
+      if (generated.trigger) setTrigger(generated.trigger as AutomationTrigger);
+      if (generated.actions && Array.isArray(generated.actions)) {
+        setActions(generated.actions as Array<{ type: AutomationAction; field?: string; value: unknown }>);
+      }
+      setNlQuery("");
+    } catch (e) {
+      setErrors({ ...errors, nlQuery: "Failed to generate rule. Try again." });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const handleAddAction = () => {
     setActions([...actions, { type: "setField", field: "priority", value: "medium" }]);
@@ -98,6 +128,42 @@ export const AutomationRuleEditor: React.FC<AutomationRuleEditorProps> = ({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {/* AI Generation Box */}
+          <div className="bg-cyan-900/10 border border-cyan-500/20 rounded-xl p-4">
+            <div className="flex items-start gap-3">
+              <Brain className="text-cyan-400 mt-1" size={20} />
+              <div className="flex-1 space-y-3">
+                <div>
+                  <h3 className="text-sm font-medium text-cyan-400">Describe your rule</h3>
+                  <p className="text-xs text-slate-400">
+                    e.g., "Whenever a task is created, set priority to high and assign it to Review column"
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={nlQuery}
+                    onChange={(e) => setNlQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleGenerateFromNL();
+                    }}
+                    placeholder="Describe what the automation should do..."
+                    className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500/50"
+                  />
+                  <button
+                    onClick={handleGenerateFromNL}
+                    disabled={isGenerating || !nlQuery.trim()}
+                    className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-slate-950 rounded-lg text-sm font-bold shadow-lg transition-all flex items-center gap-2"
+                  >
+                    {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <Brain size={16} />}
+                    Generate
+                  </button>
+                </div>
+                {errors.nlQuery && <p className="text-xs text-red-400">{errors.nlQuery}</p>}
+              </div>
+            </div>
+          </div>
+
           {/* Basic Info */}
           <div className="space-y-4">
             <div>

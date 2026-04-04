@@ -33,9 +33,11 @@ export const AIReorganizeModal: React.FC<AIReorganizeModalProps> = ({
   const [clusters, setClusters] = useState<ClusterGroup[]>([]);
   const [loading, setLoading] = useState(false);
   const [applying, setApplying] = useState(false);
+  const [progress, setProgress] = useState({ processed: 0, total: 0 });
 
   const loadClusters = useCallback(async () => {
     setLoading(true);
+    setProgress({ processed: 0, total: 100 });
     try {
       const activeProjectId = storageService.get<string>(STORAGE_KEYS.ACTIVE_PROJECT, "");
       const projects = storageService.get<Project[]>(STORAGE_KEYS.PROJECTS, []);
@@ -47,7 +49,9 @@ export const AIReorganizeModal: React.FC<AIReorganizeModalProps> = ({
         priorities,
       };
 
-      const taskClusters = await aiService.clusterTasks(allTasks, context);
+      const taskClusters = await aiService.clusterTasks(allTasks, context, (processed, total) => {
+        setProgress({ processed, total });
+      });
 
       if (taskClusters.length === 0) {
         addToast("No task clusters found for reorganization", "info");
@@ -150,13 +154,31 @@ export const AIReorganizeModal: React.FC<AIReorganizeModalProps> = ({
   };
 
   if (loading) {
+    const percent =
+      progress.total > 0 ? Math.round((progress.processed / progress.total) * 100) : 0;
+
     return (
       <ModalWrapper isOpen={isOpen} onClose={onClose} title="Analyzing Task Clusters">
-        <div className="flex items-center justify-center py-12">
-          <Loader2 size={24} className="animate-spin text-cyan-400 mr-3" />
-          <span className="text-slate-400">
-            AI is analyzing your tasks and grouping them into themed clusters...
-          </span>
+        <div className="flex flex-col items-center justify-center py-12 space-y-6">
+          <div className="relative flex items-center justify-center">
+            <Loader2 size={48} className="animate-spin text-cyan-400" />
+            <span className="absolute text-[10px] font-bold text-white">
+              {percent}%
+            </span>
+          </div>
+          <div className="text-center space-y-2">
+            <p className="text-white font-medium">AI is analyzing your tasks</p>
+            <p className="text-sm text-slate-400">
+              Grouping related tasks into themed clusters...
+            </p>
+          </div>
+          
+          <div className="w-full max-w-xs bg-slate-800 rounded-full h-1.5 overflow-hidden">
+            <div 
+              className="bg-cyan-500 h-full transition-all duration-300 ease-out"
+              style={{ width: `${percent}%` }}
+            />
+          </div>
         </div>
       </ModalWrapper>
     );
