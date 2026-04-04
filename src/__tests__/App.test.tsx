@@ -38,6 +38,24 @@ vi.mock("lucide-react", async (importOriginal) => {
   };
 });
 
+// Mock electronAPI
+(global as any).window.electronAPI = {
+  isMaximized: vi.fn().mockResolvedValue(false),
+  onWindowStateChange: vi.fn().mockReturnValue(() => {}),
+  storage: {
+    get: vi.fn().mockResolvedValue(null),
+    set: vi.fn().mockResolvedValue(undefined),
+    delete: vi.fn().mockResolvedValue(undefined),
+    clear: vi.fn().mockResolvedValue(undefined),
+    has: vi.fn().mockResolvedValue(false),
+  },
+  workspace: {
+    getPaths: vi.fn().mockResolvedValue([]),
+    setPaths: vi.fn().mockResolvedValue(undefined),
+    selectDirectory: vi.fn().mockResolvedValue(null),
+  },
+};
+
 describe("App Integration", () => {
   const mockData = {
     projects: [
@@ -122,5 +140,33 @@ describe("App Integration", () => {
     await waitFor(() => {
       expect(screen.getByText(/General/i)).toBeInTheDocument();
     }, { timeout: 5000 });
+  });
+
+  it("toggles AI Assistant with Cmd+J", async () => {
+    await renderApp();
+    await waitFor(() => expect(screen.queryByText(/Loading/i)).not.toBeInTheDocument());
+
+    // Initially closed
+    expect(screen.queryByText("AI Assistant")).toBeNull();
+
+    // Trigger Cmd+J
+    await act(async () => {
+      fireEvent.keyDown(window, { key: "j", ctrlKey: true });
+    });
+
+    // Should be open
+    await waitFor(() => {
+      expect(screen.getByText("AI Assistant")).toBeDefined();
+    });
+
+    // Trigger Cmd+J again
+    await act(async () => {
+      fireEvent.keyDown(window, { key: "j", ctrlKey: true });
+    });
+
+    // Should be closed
+    await waitFor(() => {
+      expect(screen.queryByText("AI Assistant")).toBeNull();
+    });
   });
 });

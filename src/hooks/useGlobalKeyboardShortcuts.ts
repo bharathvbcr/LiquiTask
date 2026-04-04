@@ -6,6 +6,7 @@ interface KeyboardShortcutsProps {
   handleUndo: () => void;
   setIsCommandPaletteOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setIsSidebarCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsAssistantOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setIsTaskModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setEditingTask: React.Dispatch<React.SetStateAction<Task | null>>;
   searchInputRef: React.RefObject<HTMLInputElement>;
@@ -19,6 +20,7 @@ export const useGlobalKeyboardShortcuts = ({
   handleUndo,
   setIsCommandPaletteOpen,
   setIsSidebarCollapsed,
+  setIsAssistantOpen,
   setIsTaskModalOpen,
   setEditingTask,
   searchInputRef,
@@ -36,6 +38,10 @@ export const useGlobalKeyboardShortcuts = ({
       if (matches("global:command-palette", e)) {
         e.preventDefault();
         setIsCommandPaletteOpen((prev) => !prev);
+      }
+      if (matches("global:toggle-assistant", e)) {
+        e.preventDefault();
+        setIsAssistantOpen((prev) => !prev);
       }
       if (matches("global:toggle-sidebar", e)) {
         e.preventDefault();

@@ -12,6 +12,7 @@ import { useConfirmation } from './src/contexts/ConfirmationContext';
 import { useAiKeyboardShortcuts } from './src/hooks/useAiKeyboardShortcuts';
 import { useAppInitialization } from './src/hooks/useAppInitialization';
 import { useGlobalKeyboardShortcuts } from './src/hooks/useGlobalKeyboardShortcuts';
+import { useTaskAssistant } from './src/hooks/useTaskAssistant';
 import { useProjectController } from './src/hooks/useProjectController';
 import useSavedViews from './src/hooks/useSavedViews';
 import { useSearchHistory } from './src/hooks/useSearchHistory';
@@ -159,6 +160,11 @@ const AutoOrganizePanel = lazy(() =>
     default: module.AutoOrganizePanel,
   }))
 );
+const TaskAssistantSidebar = lazy(() =>
+  import('./src/components/TaskAssistantSidebar').then(module => ({
+    default: module.TaskAssistantSidebar,
+  }))
+);
 
 const SIDEBAR_EXPANDED_WIDTH = 320;
 const SIDEBAR_COLLAPSED_WIDTH = 80;
@@ -298,8 +304,16 @@ const App: React.FC = () => {
   const [isAiProjectAssignmentModalOpen, setIsAiProjectAssignmentModalOpen] = useState(false);
   const [isAiHealthDashboardOpen, setIsAiHealthDashboardOpen] = useState(false);
   const [isAutoOrganizeOpen, setIsAutoOrganizeOpen] = useState(false);
+  const [isAssistantOpen, setIsAssistantOpen] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [nextTaskSuggestion, setNextTaskSuggestion] = useState<AISuggestion | null>(null);
+
+  const {
+    messages: assistantMessages,
+    sendMessage: handleSendAssistantMessage,
+    isLoading: isAssistantLoading,
+    clearChat: handleClearAssistantChat,
+  } = useTaskAssistant();
 
   // AI Settings
   const [aiSettings, setAiSettings] = useState({
@@ -444,6 +458,7 @@ const App: React.FC = () => {
     handleUndo,
     setIsCommandPaletteOpen,
     setIsSidebarCollapsed,
+    setIsAssistantOpen,
     setIsTaskModalOpen,
     setEditingTask,
     searchInputRef,
@@ -709,6 +724,15 @@ const App: React.FC = () => {
         keywords: ['undo', 'revert', 'back'],
         aliases: ['reverse', 'go back'],
         action: handleUndo,
+      },
+      {
+        id: 'action:toggle-assistant',
+        label: isAssistantOpen ? 'Close AI Assistant' : 'Open AI Assistant',
+        category: 'action',
+        description: `${isAssistantOpen ? 'Hide' : 'Reveal'} right conversational AI sidebar`,
+        keywords: ['ai', 'assistant', 'chat', 'help', 'bot'],
+        aliases: ['toggle assistant', 'chat bot', 'ai chat'],
+        action: () => setIsAssistantOpen(prev => !prev),
       },
       {
         id: 'action:toggle-sidebar',
@@ -1172,6 +1196,7 @@ const App: React.FC = () => {
               setIsNaturalLanguageSearch(!isNaturalLanguageSearch)
             }
             onOpenMobileNav={() => setIsMobileNavOpen(true)}
+            onToggleAssistant={() => setIsAssistantOpen(prev => !prev)}
           />
         </Suspense>
 
@@ -1480,6 +1505,19 @@ const App: React.FC = () => {
           />
         </Suspense>
       )}
+
+      <Suspense fallback={null}>
+        {isAssistantOpen && (
+          <TaskAssistantSidebar
+            isOpen={isAssistantOpen}
+            onClose={() => setIsAssistantOpen(false)}
+            messages={assistantMessages}
+            onSendMessage={handleSendAssistantMessage}
+            isLoading={isAssistantLoading}
+            onClearChat={handleClearAssistantChat}
+          />
+        )}
+      </Suspense>
     </div>
   );
 };

@@ -1,5 +1,6 @@
 export const DEFAULT_KEYBINDINGS: Record<string, string[]> = {
   "global:command-palette": ["Meta+k", "Ctrl+k"],
+  "global:toggle-assistant": ["Meta+j", "Ctrl+j"],
   "global:toggle-sidebar": ["Meta+b", "Ctrl+b"],
   "global:create-task": ["c"],
   "global:undo": ["Meta+z", "Ctrl+z"],

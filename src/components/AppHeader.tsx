@@ -89,6 +89,7 @@ interface AppHeaderProps {
   isNaturalLanguageSearch?: boolean;
   onToggleNaturalLanguageSearch?: () => void;
   onOpenMobileNav?: () => void;
+  onToggleAssistant: () => void;
 }
 
 export const AppHeader: React.FC<AppHeaderProps> = ({
@@ -137,6 +138,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   isNaturalLanguageSearch = false,
   onToggleNaturalLanguageSearch,
   onOpenMobileNav,
+  onToggleAssistant,
 }) => (
   <header
     className={`fixed top-14 z-50 overflow-hidden rounded-3xl border border-white/5 px-8 shadow-xl liquid-glass will-change-transform md:left-[112px] md:right-6 ${isHeaderExpanded ? "py-6 max-h-[600px]" : "py-3 max-h-16"} transition-[transform,padding,max-height] duration-[400ms] ease-[cubic-bezier(0.22,1,0.36,1)]`}
@@ -281,6 +283,14 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               <Brain size={18} />
             </button>
           )}
+          <button
+            onClick={onToggleAssistant}
+            className="p-2.5 rounded-xl transition-all text-slate-400 hover:text-cyan-400 hover:bg-cyan-500/10 relative group"
+            title="AI Assistant (Ctrl+J) - Chat with AI to manage your workspace"
+            aria-label="AI Assistant"
+          >
+            <MessageSquare size={18} />
+          </button>
           <button
             onClick={onToggleFilter}
             className={`p-2.5 rounded-xl transition-all relative group ${isFilterOpen ? "text-red-400 bg-red-500/10 border border-red-500/20" : "text-slate-400 hover:text-white hover:bg-white/10"}`}
