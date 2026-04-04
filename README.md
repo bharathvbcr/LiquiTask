@@ -29,6 +29,8 @@ LiquiTask 1.3.0 introduces a robust AI layer for intelligent task management.
 - **One-Click Polish**: Professionalize task descriptions with markdown support.
 - **AI Breakdown**: Automatically generate actionable subtask checklists from task summaries.
 - **Smart Metadata**: AI-driven suggestions for task priority and tags based on context.
+- **AI Workspace Integration**: Allow the AI to securely read, search, and modify `.md` files in user-authorized local directories.
+- **AI Task Assistant**: A conversational slide-over interface for natural language task management and workspace orchestration.
 
 ### Configuration
 
@@ -195,6 +197,7 @@ LiquiTask/
 ## Keyboard Shortcuts
 
 - `Cmd/Ctrl + K` opens the command palette
+- `Cmd/Ctrl + J` toggles the AI Task Assistant
 - `Cmd/Ctrl + E` exports data
 - `Cmd/Ctrl + B` toggles the sidebar
 - `Cmd/Ctrl + Z` undoes the last action

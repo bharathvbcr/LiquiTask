@@ -2,6 +2,7 @@ import { Copy, Minus, Square, X } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import logo from "../src/assets/logo.png";
 import { getRuntimeWindowControls } from "../src/runtime/runtimeEnvironment";
+import { Tooltip } from "./Tooltip";
 
 export const TitleBar: React.FC = () => {
   const [isMaximized, setIsMaximized] = useState(false);
@@ -42,27 +43,30 @@ export const TitleBar: React.FC = () => {
 
       {/* Window controls */}
       <div className="flex items-center h-full titlebar-no-drag">
-        <button
-          onClick={handleMinimize}
-          className="h-full px-4 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
-          title="Minimize"
-        >
-          <Minus size={14} />
-        </button>
-        <button
-          onClick={handleMaximize}
-          className="h-full px-4 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
-          title={isMaximized ? "Restore" : "Maximize"}
-        >
-          {isMaximized ? <Copy size={12} /> : <Square size={12} />}
-        </button>
-        <button
-          onClick={handleClose}
-          className="h-full px-4 flex items-center justify-center text-slate-400 hover:text-white hover:bg-red-500/80 transition-colors"
-          title="Close"
-        >
-          <X size={14} />
-        </button>
+        <Tooltip content="Minimize" position="bottom" delay={300}>
+          <button
+            onClick={handleMinimize}
+            className="h-full px-4 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
+          >
+            <Minus size={14} />
+          </button>
+        </Tooltip>
+        <Tooltip content={isMaximized ? "Restore" : "Maximize"} position="bottom" delay={300}>
+          <button
+            onClick={handleMaximize}
+            className="h-full px-4 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
+          >
+            {isMaximized ? <Copy size={12} /> : <Square size={12} />}
+          </button>
+        </Tooltip>
+        <Tooltip content="Close" position="bottom" delay={300}>
+          <button
+            onClick={handleClose}
+            className="h-full px-4 flex items-center justify-center text-slate-400 hover:text-white hover:bg-red-500/80 transition-colors"
+          >
+            <X size={14} />
+          </button>
+        </Tooltip>
       </div>
     </div>
   );

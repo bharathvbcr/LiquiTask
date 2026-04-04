@@ -7,7 +7,7 @@ import { ViteImageOptimizer } from 'vite-plugin-image-optimizer';
 export default defineConfig({
   base: './',
   server: {
-    port: 3000,
+    port: 4000,
     host: '0.0.0.0',
   },
   plugins: [

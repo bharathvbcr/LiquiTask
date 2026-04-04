@@ -188,29 +188,30 @@ export const Dashboard: React.FC<DashboardProps> = ({
     : tasks;
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-10">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <img
-            src={logo}
-            alt="LiquiTask"
-            className="w-8 h-8 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]"
-          />
-          <h1 className="text-3xl font-bold text-white tracking-tight">Dashboard</h1>
-        </div>
+    <div className="h-full w-full space-y-6 flex flex-col">
+      {/* Internal header is hidden when external view handling is used to avoid duplication */}
+      {onViewModeChange === undefined && (
+        <div className="flex items-center justify-between mb-6 shrink-0">
+          <div className="flex items-center gap-3">
+            <img
+              src={logo}
+              alt="LiquiTask"
+              className="w-8 h-8 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]"
+            />
+            <h1 className="text-3xl font-bold text-white tracking-tight">Dashboard</h1>
+          </div>
 
-        <div className="flex items-center gap-4">
-          {onSuggestNextTask && (
-            <button
-              onClick={onSuggestNextTask}
-              className="flex items-center gap-2 px-4 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 rounded-lg text-sm font-bold transition-all border border-cyan-500/20 shadow-glow-cyan/10"
-            >
-              <Sparkles size={16} />
-              Suggest Next Task
-            </button>
-          )}
+          <div className="flex items-center gap-4">
+            {onSuggestNextTask && (
+              <button
+                onClick={onSuggestNextTask}
+                className="flex items-center gap-2 px-4 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 rounded-lg text-sm font-bold transition-all border border-cyan-500/20 shadow-glow-cyan/10"
+              >
+                <Sparkles size={16} />
+                Suggest Next Task
+              </button>
+            )}
 
-          {onViewModeChange === undefined && (
             <div className="flex items-center gap-1 bg-black/20 rounded-lg p-1 border border-white/5">
               <button
                 onClick={() => setViewMode("stats")}
@@ -253,9 +254,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <GanttChart size={16} /> Gantt
               </button>
             </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
 
       {nextTaskSuggestion && (
         <div className="liquid-glass p-6 border-cyan-500/30 bg-cyan-500/5 animate-in fade-in slide-in-from-top-4">

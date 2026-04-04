@@ -64,7 +64,7 @@ interface AppHeaderProps {
   filters: FilterState;
   activeFilterGroup: FilterGroup;
   customFields: CustomFieldDefinition[];
-  views: unknown[];
+  views: any[];
   activeViewId: string | null;
   searchInputRef: React.RefObject<HTMLInputElement | null>;
   searchHistory: SearchHistoryApi;
@@ -142,7 +142,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onToggleAssistant,
 }) => (
   <header
-    className={`fixed top-14 z-50 overflow-hidden rounded-3xl border border-white/5 px-8 shadow-xl liquid-glass will-change-transform md:left-[112px] md:right-6 ${isHeaderExpanded ? "py-6 max-h-[600px]" : "py-3 max-h-16"} transition-[transform,padding,max-height] duration-[400ms] ease-[cubic-bezier(0.22,1,0.36,1)]`}
+    className={`fixed top-14 z-50 overflow-hidden rounded-3xl border border-white/5 px-8 shadow-xl liquid-glass will-change-transform md:left-[112px] md:right-6 ${isHeaderExpanded ? "py-6 max-h-[600px]" : "py-4 max-h-24"} transition-[transform,padding,max-height] duration-[400ms] ease-[cubic-bezier(0.22,1,0.36,1)]`}
     style={{ transform: `translateX(${sidebarOffset}px)` }}
     onMouseEnter={() => onHeaderExpand(true)}
     onMouseLeave={() => onHeaderExpand(false)}

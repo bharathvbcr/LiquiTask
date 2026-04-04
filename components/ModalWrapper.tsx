@@ -1,6 +1,7 @@
 import { X } from "lucide-react";
 import type React from "react";
 import { useEffect } from "react";
+import { Tooltip } from "./Tooltip";
 
 interface ModalWrapperProps {
   isOpen: boolean;
@@ -80,14 +81,15 @@ export const ModalWrapper: React.FC<ModalWrapperProps> = ({
                 <h3 className="text-2xl font-bold text-white tracking-tight text-glow">{title}</h3>
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="text-slate-400 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-full"
-              title="Close"
-              aria-label="Close modal"
-            >
-              <X size={20} aria-hidden="true" />
-            </button>
+            <Tooltip content="Close" position="top">
+              <button
+                onClick={onClose}
+                className="text-slate-400 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-full"
+                aria-label="Close modal"
+              >
+                <X size={20} aria-hidden="true" />
+              </button>
+            </Tooltip>
           </div>
         </div>
 

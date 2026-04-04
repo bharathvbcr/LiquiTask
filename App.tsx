@@ -1096,6 +1096,7 @@ const App: React.FC = () => {
             setActiveProjectId(id);
             setCurrentView('project');
             setViewMode('board');
+            setIsSidebarCollapsed(true);
           }}
           onAddProject={pid => {
             setCreatingSubProjectFor(pid);

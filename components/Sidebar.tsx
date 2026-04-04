@@ -234,9 +234,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={() => {
             onSelectProject(project.id);
             onChangeView("project");
-            // Clear hover state after click completes
-            if (isEffectivelyCollapsed) {
-              setTimeout(() => setHoveredProject(null), 100);
+            setIsRailHovered(false);
+            setHoveredProject(null);
+            if (hoverTimeoutRef.current) {
+              clearTimeout(hoverTimeoutRef.current);
+              hoverTimeoutRef.current = null;
             }
           }}
           onMouseEnter={(e) => {
@@ -261,11 +263,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }, 150);
           }}
           className={`
-                group relative px-2.5 py-3 rounded-xl cursor-pointer transition-[background-color,color,transform] duration-200
+                group relative px-2.5 py-2.5 rounded-xl cursor-pointer transition-[background-color,color,transform] duration-200
                 flex items-center overflow-visible
                 ${isEffectivelyCollapsed ? "justify-center" : "justify-between"}
-                ${isActive ? "bg-white/5 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]" : "text-slate-400 hover:text-slate-200 hover:bg-white/5"}
-                ${!isEffectivelyCollapsed && !isActive ? "hover:translate-x-1" : ""}
+                ${isActive ? "bg-white/10 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]" : "text-slate-400 hover:text-slate-100 hover:bg-white/5"}
                 ${isEffectivelyCollapsed ? "active:bg-white/10" : ""}
               `}
           style={
@@ -465,7 +466,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         `}
     >
       <div
-        className="pointer-events-auto flex h-full w-80 flex-col overflow-visible rounded-[28px] shadow-2xl transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform"
+        className="pointer-events-auto flex h-full w-80 flex-col overflow-hidden rounded-[28px] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.8)] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform liquid-glass border border-white/10"
         style={{
           transform: `translateX(${isEffectivelyCollapsed ? collapsedOffset : 0}px)`,
           paddingLeft: isEffectivelyCollapsed ? `${Math.abs(collapsedOffset)}px` : "0px",
@@ -473,7 +474,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       >
         {/* Header Logo */}
         <div
-          className={`p-6 pb-2 flex items-center liquid-glass ${isEffectivelyCollapsed ? "justify-center" : "justify-between"} transition-[padding] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]`}
+          className={`p-6 pb-2 flex items-center ${isEffectivelyCollapsed ? "justify-center" : "justify-between"} transition-[padding] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]`}
         >
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 flex items-center justify-center shrink-0 relative group">
@@ -505,7 +506,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Scrollable Area */}
         <div
-          className={`px-3 flex-1 custom-scrollbar space-y-6 pb-4 liquid-glass ${isEffectivelyCollapsed ? "overflow-visible" : "overflow-y-auto"}`}
+          className={`px-3 flex-1 custom-scrollbar space-y-6 pb-4 ${isEffectivelyCollapsed ? "overflow-visible" : "overflow-y-auto"}`}
         >
           {/* Quick Navigation */}
           <div className="space-y-1 mb-4">
@@ -527,8 +528,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               group px-3 py-2.5 rounded-xl cursor-pointer transition-[background-color,color,transform] duration-300
               flex items-center relative overflow-hidden border border-transparent
               ${isEffectivelyCollapsed ? "justify-center" : ""}
-              ${currentView === "dashboard" ? "bg-gradient-to-r from-red-900/40 to-transparent border-red-500/20 text-white" : "text-slate-400 hover:text-white hover:bg-white/5"}
-              ${!isEffectivelyCollapsed && currentView !== "dashboard" ? "hover:translate-x-1" : ""}
+              ${currentView === "dashboard" ? "bg-red-500/10 border-red-500/20 text-red-50" : "text-slate-400 hover:text-slate-100 hover:bg-white/5"}
             `}
             >
               <div className="relative z-10 flex items-center gap-3">
@@ -554,7 +554,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               value={projectSearch}
               onChange={(e) => setProjectSearch(e.target.value)}
               placeholder="Search workspaces..."
-              className="w-full bg-[#050000]/50 border border-white/10 rounded-xl py-2 pl-9 pr-3 text-xs text-slate-300 placeholder-slate-600 focus:outline-none focus:border-red-500/30 transition-all"
+              className="w-full bg-black/20 border border-white/5 rounded-xl py-2.5 pl-9 pr-3 text-xs text-slate-300 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-red-500/50 focus:border-red-500/30 hover:bg-black/40 transition-all shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]"
             />
           </div>
 
@@ -626,7 +626,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="mt-auto rounded-b-[28px] border-t border-white/5 bg-[#050000]/30 p-4 backdrop-blur-md liquid-glass">
+        <div className="mt-auto border-t border-white/5 bg-white/[0.02] p-4">
           <button
             onClick={onOpenSettings}
             title="Settings"
@@ -641,7 +641,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               }
             }}
             onMouseLeave={() => setHoveredItem(null)}
-            className={`flex items-center gap-3 w-full rounded-xl hover:bg-white/5 cursor-pointer text-slate-400 hover:text-white transition-[background-color,color,transform] border border-transparent hover:border-white/5 ${isEffectivelyCollapsed ? "justify-center px-2 py-3.5" : "px-3 py-3"} ${!isEffectivelyCollapsed ? "hover:translate-x-1" : ""}`}
+            className={`flex items-center gap-3 w-full rounded-xl hover:bg-white/5 cursor-pointer text-slate-400 hover:text-slate-100 transition-[background-color,color] border border-transparent hover:border-white/5 ${isEffectivelyCollapsed ? "justify-center px-2 py-3.5" : "px-3 py-3"}`}
           >
             <Settings size={isEffectivelyCollapsed ? 26 : 22} />
             <span

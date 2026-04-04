@@ -42,6 +42,7 @@ import type React from "react";
 import { useEffect, useState } from "react";
 import type { Project } from "../types";
 import { ModalWrapper } from "./ModalWrapper";
+import { Tooltip } from "./Tooltip";
 
 interface ProjectModalProps {
   isOpen: boolean;
@@ -167,23 +168,23 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
             Choose Icon
           </label>
           <div className="grid grid-cols-6 gap-2 max-h-48 overflow-y-auto custom-scrollbar p-1">
-            {AVAILABLE_ICONS.map(({ key, icon: IconComponent }) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setSelectedIcon(key)}
-                title={key}
-                className={`
-                   aspect-square flex items-center justify-center rounded-xl border transition-all duration-200
-                   ${
-                     selectedIcon === key
-                       ? "bg-red-500/20 border-red-500/50 text-red-400 scale-110 shadow-[0_0_12px_rgba(239,68,68,0.3)]"
-                       : "bg-[#05080f] border-white/5 text-slate-500 hover:border-white/20 hover:text-slate-300 hover:bg-white/5"
-                   }
-                 `}
-              >
-                <IconComponent size={18} />
-              </button>
+            {AVAILABLE_ICONS.map(({ key, icon: IconComponent, label }) => (
+              <Tooltip key={key} content={label} position="top">
+                <button
+                  type="button"
+                  onClick={() => setSelectedIcon(key)}
+                  className={`
+                     aspect-square flex items-center justify-center rounded-xl border transition-all duration-200
+                     ${
+                       selectedIcon === key
+                         ? "bg-red-500/20 border-red-500/50 text-red-400 scale-110 shadow-[0_0_12px_rgba(239,68,68,0.3)]"
+                         : "bg-[#05080f] border-white/5 text-slate-500 hover:border-white/20 hover:text-slate-300 hover:bg-white/5"
+                     }
+                   `}
+                >
+                  <IconComponent size={18} />
+                </button>
+              </Tooltip>
             ))}
           </div>
         </div>

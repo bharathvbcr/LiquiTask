@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain, Notification, dialog } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 
-const DEFAULT_DEV_SERVER_URL = 'http://localhost:3000';
+const DEFAULT_DEV_SERVER_URL = 'http://localhost:4000';
 const APP_NAME = 'LiquiTask';
 
 let mainWindow: BrowserWindow | null = null;
