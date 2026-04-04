@@ -149,19 +149,18 @@ describe("App Integration", () => {
     // Initially closed
     expect(screen.queryByText("AI Assistant")).toBeNull();
 
-    // Trigger Cmd+J
+    // Trigger Cmd+J (or Ctrl+J) on document which is where the hook listens
     await act(async () => {
-      fireEvent.keyDown(window, { key: "j", ctrlKey: true });
+      fireEvent.keyDown(document, { key: "j", ctrlKey: true });
     });
 
-    // Should be open
-    await waitFor(() => {
-      expect(screen.getByText("AI Assistant")).toBeDefined();
-    });
+    // Should be open (use findByText because it's lazy-loaded)
+    const assistantHeader = await screen.findByText("AI Assistant", {}, { timeout: 3000 });
+    expect(assistantHeader).toBeDefined();
 
     // Trigger Cmd+J again
     await act(async () => {
-      fireEvent.keyDown(window, { key: "j", ctrlKey: true });
+      fireEvent.keyDown(document, { key: "j", ctrlKey: true });
     });
 
     // Should be closed

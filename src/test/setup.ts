@@ -20,9 +20,10 @@ const localStorageMock = {
   key: vi.fn((index: number) => Object.keys(store)[index] || null),
 };
 
-Object.defineProperty(window, "localStorage", {
-  value: localStorageMock,
-});
+// Apply to all global objects to ensure consistency across environments
+Object.defineProperty(window, "localStorage", { value: localStorageMock, writable: true });
+Object.defineProperty(global, "localStorage", { value: localStorageMock, writable: true });
+Object.defineProperty(globalThis, "localStorage", { value: localStorageMock, writable: true });
 
 // Prevent jsdom from throwing navigation errors when test-rendered links are clicked.
 Object.defineProperty(HTMLAnchorElement.prototype, "click", {
