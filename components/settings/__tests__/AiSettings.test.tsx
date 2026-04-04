@@ -30,6 +30,14 @@ vi.mock("../../../src/services/aiService", () => ({
   },
 }));
 
+// Mock electronAPI
+(global as any).window.electronAPI = {
+  workspace: {
+    getPaths: vi.fn().mockResolvedValue(["/test/path"]),
+    setPaths: vi.fn().mockResolvedValue(undefined),
+  },
+};
+
 describe("AiSettings Component", () => {
   const mockAddToast = vi.fn();
 
@@ -128,5 +136,13 @@ describe("AiSettings Component", () => {
       fireEvent.click(reorganizeBtn);
     });
     expect(mockOpenReorganize).toHaveBeenCalled();
+  });
+
+  it("loads and displays workspace paths", async () => {
+    render(<AiSettings addToast={mockAddToast} />);
+    
+    await waitFor(() => {
+      expect(screen.getByText("/test/path")).toBeDefined();
+    });
   });
 });

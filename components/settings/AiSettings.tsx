@@ -14,6 +14,8 @@ import {
   Tags,
   Trash2,
   Zap,
+  Plus,
+  X,
 } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
@@ -80,6 +82,9 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
   };
 
   const [autoOrganize, setAutoOrganize] = useState<AutoOrganizeConfig>(defaultAutoOrganize);
+
+  const [workspacePaths, setWorkspacePaths] = useState<string[]>([]);
+  const [newPath, setNewPath] = useState("");
 
   const [_isTesting, setIsTesting] = useState(false);
   const [_testResult, setTestResult] = useState<"success" | "error" | null>(null);
@@ -160,6 +165,12 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (window.electronAPI?.workspace) {
+      window.electronAPI.workspace.getPaths().then(setWorkspacePaths);
+    }
   }, []);
 
   useEffect(() => {
@@ -276,6 +287,26 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
         [key]: value
       }
     }));
+  };
+
+  const handleAddWorkspacePath = async () => {
+    if (!newPath || workspacePaths.includes(newPath)) return;
+    const updated = [...workspacePaths, newPath];
+    setWorkspacePaths(updated);
+    if (window.electronAPI?.workspace) {
+      await window.electronAPI.workspace.setPaths(updated);
+    }
+    setNewPath("");
+    addToast("Workspace path added", "success");
+  };
+
+  const handleRemoveWorkspacePath = async (pathToRemove: string) => {
+    const updated = workspacePaths.filter((p) => p !== pathToRemove);
+    setWorkspacePaths(updated);
+    if (window.electronAPI?.workspace) {
+      await window.electronAPI.workspace.setPaths(updated);
+    }
+    addToast("Workspace path removed", "info");
   };
 
   return (
@@ -464,9 +495,60 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
 
         <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-4 animate-in fade-in slide-in-from-top-2">
           <div className="flex items-center gap-2 mb-2">
+            <Globe size={18} className="text-cyan-400" />
+            <h4 className="text-sm font-bold text-white">Workspace Integration</h4>
+          </div>
+          <p className="text-[10px] text-slate-500 mb-2">
+            Allow the AI to read and write .md files in these directories for external task tracking.
+          </p>
+
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newPath}
+              onChange={(e) => setNewPath(e.target.value)}
+              placeholder="e.g. C:\Users\Name\Documents\Tasks"
+              className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500"
+            />
+            <button
+              onClick={handleAddWorkspacePath}
+              disabled={!newPath}
+              className="p-1.5 bg-cyan-600 hover:bg-cyan-500 text-slate-950 rounded-lg transition-all disabled:opacity-50"
+              title="Add path"
+            >
+              <Plus size={16} />
+            </button>
+          </div>
+
+          {workspacePaths.length > 0 && (
+            <ul className="space-y-2 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
+              {workspacePaths.map((p) => (
+                <li
+                  key={p}
+                  className="flex items-center justify-between gap-2 p-2 bg-black/20 border border-white/5 rounded-lg group"
+                >
+                  <span className="text-[10px] text-slate-300 truncate" title={p}>
+                    {p}
+                  </span>
+                  <button
+                    onClick={() => handleRemoveWorkspacePath(p)}
+                    className="text-slate-500 hover:text-red-400 transition-colors"
+                    title="Remove path"
+                  >
+                    <X size={14} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-4 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-2 mb-2">
             <Brain size={18} className="text-cyan-400" />
             <h4 className="text-sm font-bold text-white">AI Task Management</h4>
           </div>
+
 
           <div className="space-y-3">
             <ToggleRow
