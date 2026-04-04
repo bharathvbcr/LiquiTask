@@ -6,6 +6,7 @@ import {
   Filter,
   Maximize2,
   Menu,
+  MessageSquare,
   Minimize2,
   Search,
   Sparkles,
