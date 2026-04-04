@@ -511,6 +511,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="space-y-1 mb-4">
             <div
               onClick={() => onChangeView("dashboard")}
+              title="Open Dashboard"
+              aria-label="Open Dashboard"
               onMouseEnter={(e) => {
                 if (isEffectivelyCollapsed) {
                   const rect = e.currentTarget.getBoundingClientRect();
@@ -627,6 +629,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="mt-auto rounded-b-[28px] border-t border-white/5 bg-[#050000]/30 p-4 backdrop-blur-md liquid-glass">
           <button
             onClick={onOpenSettings}
+            title="Settings"
+            aria-label="Settings"
             onMouseEnter={(e) => {
               if (isEffectivelyCollapsed) {
                 const rect = e.currentTarget.getBoundingClientRect();

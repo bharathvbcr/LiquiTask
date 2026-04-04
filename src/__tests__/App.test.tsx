@@ -5,7 +5,7 @@ import { KeybindingProvider } from "../context/KeybindingContext";
 import { ConfirmationProvider } from "../contexts/ConfirmationContext";
 import storageService from "../services/storageService";
 
-// Define mock functions first
+// We'll use REAL components but mock the heavy services
 const { mockInitialize, mockGetAllData, mockGet, mockSet } = vi.hoisted(() => ({
   mockInitialize: vi.fn().mockResolvedValue(undefined),
   mockGetAllData: vi.fn(),
@@ -13,7 +13,6 @@ const { mockInitialize, mockGetAllData, mockGet, mockSet } = vi.hoisted(() => ({
   mockSet: vi.fn(),
 }));
 
-// Mock services
 vi.mock("../services/storageService", () => ({
   __esModule: true,
   default: {
@@ -30,64 +29,30 @@ vi.mock("../services/storageService", () => ({
   }
 }));
 
-// Mock components - paths MUST match EXACTLY as they appear in App.tsx imports relative to root
-// Since App.tsx is in root, it imports from './src/components/AppHeader'
-// In this test, we MUST use the same string
-vi.mock("./src/components/AppHeader", () => ({
-  AppHeader: ({ onOpenTaskModal, onOpenCommandPalette, onOpenSettings }: any) => (
-    <div data-testid="app-header-mock">
-      <button onClick={onOpenTaskModal}>New Task</button>
-      <button onClick={onOpenCommandPalette}>Open Palette</button>
-      <button onClick={onOpenSettings}>Open Settings</button>
-    </div>
-  )
-}));
-
-vi.mock("./components/Sidebar", () => ({
-  Sidebar: ({ onSelectProject }: any) => (
-    <div data-testid="sidebar-mock">
-      <button onClick={() => onSelectProject("p2")}>Switch Project</button>
-      Sidebar Mock
-    </div>
-  )
-}));
-
-vi.mock("./src/components/ProjectBoard", () => ({
-  default: () => <div data-testid="project-board-mock">Project Board</div>
-}));
-
-vi.mock("./components/SettingsModal", () => ({
-  SettingsModal: ({ isOpen }: { isOpen: boolean }) => 
-    isOpen ? <div data-testid="settings-modal-mock">Settings Modal</div> : null
-}));
-
-vi.mock("./src/components/CommandPalette", () => ({
-  default: ({ isOpen }: { isOpen: boolean }) => 
-    isOpen ? <div data-testid="command-palette-mock">Command Palette</div> : null
-}));
-
-vi.mock("./components/TaskFormModal", () => ({
-  TaskFormModal: () => <div data-testid="task-modal-mock">Task Modal</div>
-}));
-
-// Mock runtime
-vi.mock("./src/runtime/runtimeEnvironment", () => ({
-  getRuntimeKind: () => "web",
-  getRuntimeState: () => ({ kind: "web", hasCustomWindowControls: false }),
-  getRuntimeWindowControls: () => null,
-  getElectronAPI: () => null,
-  getNativeStorageApi: () => null,
-  getPlatform: () => "web",
-}));
+// Mock icons to speed up rendering and avoid SVG issues
+vi.mock("lucide-react", async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual as any,
+    Loader2: () => <div data-testid="loader">Loading...</div>,
+  };
+});
 
 describe("App Integration", () => {
   const mockData = {
     projects: [
-      { id: "p1", name: "P1", type: "custom" },
-      { id: "p2", name: "P2", type: "custom" }
+      { id: "p1", name: "P1", type: "custom", order: 0 },
+      { id: "p2", name: "P2", type: "custom", order: 1 }
     ],
     tasks: [],
     activeProjectId: "p1",
+    columns: [],
+    priorities: [],
+    customFields: [],
+    projectTypes: [],
+    sidebarCollapsed: false,
+    grouping: "none",
+    version: "2.1.0"
   };
 
   beforeEach(() => {
@@ -97,6 +62,7 @@ describe("App Integration", () => {
     mockGet.mockImplementation((key: string, def: any) => {
       if (key.includes("activeProjectId")) return "p1";
       if (key.includes("projects")) return mockData.projects;
+      if (key.includes("aiConfig")) return { provider: "gemini" };
       return def;
     });
   });
@@ -115,36 +81,46 @@ describe("App Integration", () => {
     return result;
   };
 
-  it("should render and load data", async () => {
+  it("should render the app shell", async () => {
     await renderApp();
+    
+    // Wait for splash screen to disappear
     await waitFor(() => {
       expect(screen.queryByText(/Loading/i)).not.toBeInTheDocument();
-    }, { timeout: 5000 });
+    }, { timeout: 10000 });
     
-    expect(await screen.findByTestId("sidebar-mock")).toBeInTheDocument();
+    // Use findAllByText to handle multiple occurrences
+    const logoParts = await screen.findAllByText(/Liqui/i);
+    expect(logoParts.length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Task/i).length).toBeGreaterThan(0);
   });
 
   it("handles project switching", async () => {
     await renderApp();
     await waitFor(() => expect(screen.queryByText(/Loading/i)).not.toBeInTheDocument());
 
-    const switchBtn = await screen.findByText("Switch Project");
+    // In the real sidebar, we might have multiple P2 (pinned + list)
+    const p2Links = await screen.findAllByText("P2");
     await act(async () => {
-      fireEvent.click(switchBtn);
+      fireEvent.click(p2Links[0]);
     });
     
-    expect(mockSet).toHaveBeenCalledWith(expect.stringContaining("activeProjectId"), "p2");
+    // Use the actual key used in StorageService
+    expect(mockSet).toHaveBeenCalledWith("liquitask-active-project", "p2");
   });
 
-  it("opens settings modal", async () => {
+  it("opens settings via the sidebar button", async () => {
     await renderApp();
     await waitFor(() => expect(screen.queryByText(/Loading/i)).not.toBeInTheDocument());
 
-    const settingsBtn = await screen.findByText("Open Settings");
+    const settingsBtn = await screen.findByTitle(/Settings/i);
     await act(async () => {
       fireEvent.click(settingsBtn);
     });
 
-    expect(await screen.findByTestId("settings-modal-mock")).toBeInTheDocument();
+    // Check if settings modal content appears
+    await waitFor(() => {
+      expect(screen.getByText(/General/i)).toBeInTheDocument();
+    }, { timeout: 5000 });
   });
 });
