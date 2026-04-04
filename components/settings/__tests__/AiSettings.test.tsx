@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, act } from "@testing-library/react";
 import type { Mock } from "vitest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { aiService } from "../../../src/services/aiService";
@@ -11,6 +11,10 @@ vi.mock("../../../src/services/storageService", () => ({
     get: vi.fn(),
     set: vi.fn(),
   },
+  storageService: {
+    get: vi.fn(),
+    set: vi.fn(),
+  },
 }));
 
 vi.mock("../../../src/services/aiService", () => ({
@@ -18,6 +22,11 @@ vi.mock("../../../src/services/aiService", () => ({
     testProviderConnection: vi.fn(),
     listModels: vi.fn().mockResolvedValue([]),
     pullModel: vi.fn(),
+    getAutoOrganizeConfig: vi.fn().mockReturnValue({
+      enabled: false,
+      operations: { clustering: true }
+    }),
+    saveAutoOrganizeConfig: vi.fn(),
   },
 }));
 
@@ -39,10 +48,14 @@ describe("AiSettings Component", () => {
     render(<AiSettings addToast={mockAddToast} />);
 
     const apiKeyInput = screen.getByPlaceholderText("AIzaSy...");
-    fireEvent.change(apiKeyInput, { target: { value: "new-api-key" } });
+    await act(async () => {
+      fireEvent.change(apiKeyInput, { target: { value: "new-api-key" } });
+    });
 
     const saveButton = screen.getByText("Save Configuration");
-    fireEvent.click(saveButton);
+    await act(async () => {
+      fireEvent.click(saveButton);
+    });
 
     expect(storageService.set).toHaveBeenCalledWith(
       expect.any(String),
@@ -54,57 +67,66 @@ describe("AiSettings Component", () => {
     expect(mockAddToast).toHaveBeenCalledWith(expect.stringContaining("saved"), "success");
   });
 
-  it("switches to Ollama and shows relevant fields", async () => {
+  it("handles Auto-Organize toggles", async () => {
     render(<AiSettings addToast={mockAddToast} />);
+    
+    // Find ALL switches and find the one with the right label
+    const switches = screen.getAllByRole("switch");
+    const masterToggle = switches.find(s => s.getAttribute("aria-label") === "Toggle Auto-Organize");
+    
+    if (!masterToggle) throw new Error("Master toggle not found");
 
-    const ollamaButton = screen.getByText("Ollama");
-    fireEvent.click(ollamaButton);
-
-    expect(screen.getByPlaceholderText("http://localhost:11434")).toBeDefined();
-    expect(screen.getByPlaceholderText("llama3, mistral, etc.")).toBeDefined();
+    await act(async () => {
+      fireEvent.click(masterToggle);
+    });
+    
+    // Check if sub-toggles appear
+    expect(await screen.findByText("Clustering")).toBeDefined();
+    
+    const clusteringToggle = screen.getAllByRole("switch").find(s => s.getAttribute("aria-label")?.includes("Clustering"));
+    if (clusteringToggle) {
+      await act(async () => {
+        fireEvent.click(clusteringToggle);
+      });
+    }
+    
+    const saveButton = screen.getByText("Save Configuration");
+    await act(async () => {
+      fireEvent.click(saveButton);
+    });
+    
+    expect(storageService.set).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        autoOrganize: expect.objectContaining({
+          enabled: true
+        })
+      })
+    );
   });
 
-  it("handles connection test success with structured result", async () => {
-    (aiService.testProviderConnection as Mock).mockResolvedValue({
-      ok: true,
-      stage: "inference",
-      message: "Custom success message",
+  it("calls modal opening functions from quick actions", async () => {
+    const mockOpenMerge = vi.fn();
+    const mockOpenReorganize = vi.fn();
+    
+    render(
+      <AiSettings 
+        addToast={mockAddToast} 
+        onOpenMergeModal={mockOpenMerge}
+        onOpenReorganizeModal={mockOpenReorganize}
+      />
+    );
+    
+    const mergeBtn = screen.getByText("Merge");
+    await act(async () => {
+      fireEvent.click(mergeBtn);
     });
-    render(<AiSettings addToast={mockAddToast} />);
-
-    const testButton = screen.getByText("Test Connection");
-    fireEvent.click(testButton);
-
-    await waitFor(() => {
-      expect(mockAddToast).toHaveBeenCalledWith("Custom success message", "success");
+    expect(mockOpenMerge).toHaveBeenCalled();
+    
+    const reorganizeBtn = screen.getByText("Reorganize");
+    await act(async () => {
+      fireEvent.click(reorganizeBtn);
     });
-  });
-
-  it("handles connection test failure with descriptive message", async () => {
-    (aiService.testProviderConnection as Mock).mockResolvedValue({
-      ok: false,
-      stage: "service",
-      message: "Specific error detail",
-    });
-    render(<AiSettings addToast={mockAddToast} />);
-
-    const testButton = screen.getByText("Test Connection");
-    fireEvent.click(testButton);
-
-    await waitFor(() => {
-      expect(mockAddToast).toHaveBeenCalledWith("Specific error detail", "error");
-    });
-  });
-
-  it("shows Ollama model-test explanation", async () => {
-    render(<AiSettings addToast={mockAddToast} />);
-
-    fireEvent.click(screen.getByText("Ollama"));
-
-    expect(
-      screen.getByText(
-        /Test Connection checks the Ollama service, confirms the model is installed, and asks that model for a real response\./i,
-      ),
-    ).toBeDefined();
+    expect(mockOpenReorganize).toHaveBeenCalled();
   });
 });

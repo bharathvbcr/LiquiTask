@@ -6,6 +6,7 @@ import {
   Check,
   CheckSquare,
   ChevronRight,
+  Clock,
   Copy,
   Edit2,
   Eye,
@@ -106,6 +107,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
     priority: "",
     dueDate: "",
     status: "",
+    timeEstimate: 0,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -133,6 +135,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [isBreakingDown, setIsBreakingDown] = useState(false);
+  const [isEstimating, setIsEstimating] = useState(false);
   const [aiError, setAiError] = useState("");
   const [localProjectId, setLocalProjectId] = useState(projectId);
   const [extractedTasks, setExtractedTasks] = useState<AITaskSchema[] | null>(null);
@@ -174,6 +177,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
         priority: initialData.priority || defaultPrio,
         dueDate: dateStr,
         status: initialData.status || defaultStatus,
+        timeEstimate: initialData.timeEstimate || 0,
       });
       setLocalProjectId(initialData.projectId);
       setSubtasks(initialData.subtasks || []);
@@ -189,6 +193,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
         priority: defaultPrio,
         dueDate: "",
         status: defaultStatus,
+        timeEstimate: 0,
       });
       setSubtasks([]);
       setAttachments([]);
@@ -229,6 +234,46 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   };
 
   // AI Handlers
+  const handleSuggestTimeEstimate = async () => {
+    if (!formData.title.trim()) return;
+    setIsEstimating(true);
+    setAiError("");
+    try {
+      const context: AIContext = {
+        activeProjectId: localProjectId,
+        projects: allProjects,
+        priorities,
+      };
+      
+      const taskObj: Task = {
+        id: initialData?.id || "temp",
+        jobId: initialData?.jobId || "",
+        projectId: localProjectId,
+        title: formData.title,
+        summary: formData.summary,
+        priority: formData.priority,
+        status: formData.status,
+        createdAt: new Date(),
+        subtasks: [],
+        attachments: [],
+        tags: [],
+        timeEstimate: formData.timeEstimate,
+      };
+
+      const estimate = await aiService.suggestTimeEstimate(taskObj, context);
+      if (estimate > 0) {
+        setFormData((f) => ({ ...f, timeEstimate: estimate }));
+        addToast(`AI suggested ${estimate} minutes`, "success");
+      } else {
+        addToast("AI could not estimate time for this task", "info");
+      }
+    } catch (e) {
+      setAiError((e as Error).message);
+    } finally {
+      setIsEstimating(false);
+    }
+  };
+
   const handleSuggestMetadata = async () => {
     if (!formData.title.trim()) return;
     setIsSuggesting(true);
@@ -515,6 +560,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
       attachments: attachments,
       customFieldValues: customValues,
       links: links,
+      timeEstimate: formData.timeEstimate,
     };
 
     // AI Processing
@@ -1105,6 +1151,39 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                   className="w-full liquid-input rounded-xl px-4 py-3 text-sm [color-scheme:dark]"
                   aria-label="Task due date"
                   title="Select task due date"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1 flex items-center gap-2">
+                    <Clock size={12} /> Est. Time (mins)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleSuggestTimeEstimate}
+                    disabled={isEstimating || !formData.title.trim()}
+                    className="text-[10px] font-bold text-cyan-300 hover:text-cyan-200 flex items-center gap-1 transition-colors px-2 py-1 rounded bg-cyan-500/10 border border-cyan-500/20"
+                    title="AI Estimate based on title and description"
+                  >
+                    {isEstimating ? (
+                      <Loader2 size={10} className="animate-spin" />
+                    ) : (
+                      <Sparkles size={10} />
+                    )}
+                    AI Estimate
+                  </button>
+                </div>
+                <input
+                  type="number"
+                  min="0"
+                  step="5"
+                  value={formData.timeEstimate || ""}
+                  onChange={(e) => setFormData({ ...formData, timeEstimate: parseInt(e.target.value, 10) || 0 })}
+                  placeholder="e.g., 60"
+                  className="w-full liquid-input rounded-xl px-4 py-3 text-sm"
+                  aria-label="Task time estimate in minutes"
+                  title="Task time estimate in minutes"
                 />
               </div>
             </div>

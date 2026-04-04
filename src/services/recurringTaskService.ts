@@ -152,13 +152,18 @@ export class RecurringTaskService {
 
       case "monthly":
         if (config.dayOfMonth) {
-          // Set to specific day of month
+          // Set to 1st first to avoid overflow when changing month
+          next.setDate(1);
+          // Move to next month(s)
           next.setMonth(next.getMonth() + config.interval);
+          // Get the target month
+          const targetMonth = next.getMonth();
+          // Set to specific day of month
           next.setDate(config.dayOfMonth);
 
-          // If day doesn't exist in that month (e.g., Feb 30), use last day
-          if (next.getDate() !== config.dayOfMonth) {
-            next.setDate(0); // Last day of previous month
+          // If date rolled over to next month (e.g., Feb 30 -> March 2)
+          if (next.getMonth() !== targetMonth) {
+            next.setDate(0); // Set to last day of target month
           }
         } else {
           // Same day of month, N months later

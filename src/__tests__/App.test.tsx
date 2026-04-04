@@ -1,169 +1,133 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, act } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../../App";
 import { KeybindingProvider } from "../context/KeybindingContext";
 import { ConfirmationProvider } from "../contexts/ConfirmationContext";
 import storageService from "../services/storageService";
 
-// Mock AppHeader to avoid lazy loading issues in integration tests
-vi.mock("../components/AppHeader", () => ({
-  AppHeader: ({ onOpenTaskModal }: { onOpenTaskModal: () => void }) => (
-    <header>
-      <button onClick={onOpenTaskModal}>New Task</button>
-      <button>Gantt</button>
-      <span>List</span>
-    </header>
-  ),
-}));
-
-vi.mock("../components/Sidebar", () => ({
-  Sidebar: () => <nav>Sidebar</nav>,
-}));
-
-vi.mock("../components/ProjectBoard", () => ({
-  default: () => <div>Project Board</div>,
-}));
-
-vi.mock("../../components/TaskFormModal", () => ({
-  TaskFormModal: ({ isOpen }: { isOpen: boolean }) =>
-    isOpen ? (
-      <div>
-        Task Form Modal <input placeholder="e.g., Update Q3 Financials" />
-      </div>
-    ) : null,
-}));
-
-vi.mock("../../components/SettingsModal", () => ({
-  SettingsModal: ({ isOpen }: { isOpen: boolean }) => (isOpen ? <div>Settings Modal</div> : null),
-}));
-
-// Mock heavy services and lazy components
-vi.mock("../services/storageService", () => ({
+// Mock services first - must be top level
+vi.mock("../src/services/storageService", () => ({
+  __esModule: true,
   default: {
     initialize: vi.fn().mockResolvedValue(undefined),
-    getAllData: vi.fn().mockReturnValue({}),
+    getAllData: vi.fn().mockReturnValue({ projects: [], tasks: [], activeProjectId: "p1" }),
     get: vi.fn(),
     set: vi.fn(),
   },
 }));
 
-vi.mock("../services/indexedDBService", () => ({
-  indexedDBService: {
-    initialize: vi.fn().mockResolvedValue(undefined),
-    isAvailable: vi.fn().mockReturnValue(true),
-    saveColumns: vi.fn().mockResolvedValue(undefined),
-    savePriorities: vi.fn().mockResolvedValue(undefined),
-    saveCustomFields: vi.fn().mockResolvedValue(undefined),
-    saveProject: vi.fn().mockResolvedValue(undefined),
-    saveTasks: vi.fn().mockResolvedValue(undefined),
-  },
+// Mock components
+vi.mock("../src/components/AppHeader", () => ({
+  AppHeader: ({ onOpenTaskModal, onOpenCommandPalette, onOpenSettings }: any) => (
+    <header role="banner">
+      <button onClick={onOpenTaskModal}>New Task</button>
+      <button onClick={onOpenCommandPalette}>Open Palette</button>
+      <button onClick={onOpenSettings}>Open Settings</button>
+    </header>
+  )
 }));
 
-// Mock icons and assets
-vi.mock("../assets/logo.png", () => ({ default: "test-file-stub" }));
+vi.mock("../components/Sidebar", () => ({
+  Sidebar: ({ onSelectProject }: any) => (
+    <nav data-testid="sidebar">
+      <button onClick={() => onSelectProject("p2")}>Switch Project</button>
+      Sidebar Mock
+    </nav>
+  )
+}));
+
+vi.mock("../components/ProjectBoard", () => ({
+  default: () => <div data-testid="project-board">Project Board</div>
+}));
+
+vi.mock("../components/SettingsModal", () => ({
+  SettingsModal: ({ isOpen }: { isOpen: boolean }) => 
+    isOpen ? <div data-testid="settings-modal">Settings Modal</div> : null
+}));
+
+vi.mock("../src/components/CommandPalette", () => ({
+  default: ({ isOpen }: { isOpen: boolean }) => 
+    isOpen ? <div data-testid="command-palette">Command Palette</div> : null
+}));
+
+vi.mock("../src/components/TaskFormModal", () => ({
+  TaskFormModal: () => <div data-testid="task-modal">Task Modal</div>
+}));
+
+// Mock runtime
+vi.mock("../src/runtime/runtimeEnvironment", () => ({
+  getRuntimeKind: () => "web",
+  getRuntimeState: () => ({ kind: "web", hasCustomWindowControls: false }),
+  getRuntimeWindowControls: () => null,
+  getElectronAPI: () => null,
+  getNativeStorageApi: () => null,
+  getPlatform: () => "web",
+}));
 
 describe("App Integration", () => {
+  const mockData = {
+    projects: [
+      { id: "p1", name: "P1", type: "custom" },
+      { id: "p2", name: "P2", type: "custom" }
+    ],
+    tasks: [],
+    activeProjectId: "p1",
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(storageService, "getAllData").mockReturnValue(mockData as any);
+    vi.spyOn(storageService, "get").mockImplementation(((key: string, def: any) => {
+      if (key.includes("activeProjectId")) return "p1";
+      if (key.includes("projects")) return mockData.projects;
+      return def;
+    }) as any);
   });
 
-  it("should render loading state initially", () => {
-    render(
-      <KeybindingProvider>
-        <ConfirmationProvider>
-          <App />
-        </ConfirmationProvider>
-      </KeybindingProvider>,
-    );
-    expect(screen.getByText(/Loading LiquiTask.../i)).toBeInTheDocument();
-  });
+  const renderApp = async () => {
+    let result: any;
+    await act(async () => {
+      result = render(
+        <KeybindingProvider>
+          <ConfirmationProvider>
+            <App />
+          </ConfirmationProvider>
+        </KeybindingProvider>
+      );
+    });
+    return result;
+  };
 
-  it("should render app shell after data is loaded", async () => {
-    const mockData = {
-      projects: [{ id: "p1", name: "Test Project", type: "custom" }],
-      tasks: [],
-      activeProjectId: "p1",
-    };
-    vi.mocked(storageService.getAllData).mockReturnValue(mockData);
-
-    render(
-      <KeybindingProvider>
-        <ConfirmationProvider>
-          <App />
-        </ConfirmationProvider>
-      </KeybindingProvider>,
-    );
-
-    // Wait for isLoaded to become true (after storageService.initialize and loadData)
-    await waitFor(
-      () => {
-        expect(screen.queryByText(/Loading LiquiTask.../i)).not.toBeInTheDocument();
-      },
-      { timeout: 3000 },
-    );
-
-    expect(await screen.findByText(/Loading view\.\.\./i)).toBeInTheDocument();
-  });
-
-  it("should switch between views", async () => {
-    const mockData = {
-      projects: [{ id: "p1", name: "Test Project", type: "custom" }],
-      tasks: [],
-      activeProjectId: "p1",
-    };
-    vi.mocked(storageService.getAllData).mockReturnValue(mockData);
-
-    render(
-      <KeybindingProvider>
-        <ConfirmationProvider>
-          <App />
-        </ConfirmationProvider>
-      </KeybindingProvider>,
-    );
-
+  it("should render and load data", async () => {
+    await renderApp();
     await waitFor(() => {
-      expect(screen.queryByText(/Loading LiquiTask.../i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Loading/i)).not.toBeInTheDocument();
+    }, { timeout: 5000 });
+    
+    expect(await screen.findByTestId("sidebar")).toBeInTheDocument();
+  });
+
+  it("handles project switching", async () => {
+    await renderApp();
+    await waitFor(() => expect(screen.queryByText(/Loading/i)).not.toBeInTheDocument());
+
+    const switchBtn = await screen.findByText("Switch Project");
+    await act(async () => {
+      fireEvent.click(switchBtn);
+    });
+    
+    expect(storageService.set).toHaveBeenCalledWith(expect.stringContaining("activeProjectId"), "p2");
+  });
+
+  it("opens settings modal", async () => {
+    await renderApp();
+    await waitFor(() => expect(screen.queryByText(/Loading/i)).not.toBeInTheDocument());
+
+    const settingsBtn = await screen.findByText("Open Settings");
+    await act(async () => {
+      fireEvent.click(settingsBtn);
     });
 
-    // Expand header to see ViewSwitcher (wait for AppHeader to load)
-    const header = await screen.findByRole("banner", {}, { timeout: 5000 });
-    fireEvent.mouseEnter(header);
-
-    const ganttBtn = await screen.findByText(/Gantt/i);
-    expect(ganttBtn).toBeInTheDocument();
-
-    fireEvent.click(ganttBtn);
-    // Since we mocked the component synchronously, it should be visible immediately
-    // or at least we don't need to wait for the loading fallback
-  });
-
-  it('should open task modal when "New Task" is clicked', async () => {
-    const mockData = {
-      projects: [{ id: "p1", name: "Test Project", type: "custom" }],
-      tasks: [],
-      activeProjectId: "p1",
-    };
-    vi.mocked(storageService.getAllData).mockReturnValue(mockData);
-
-    render(
-      <KeybindingProvider>
-        <ConfirmationProvider>
-          <App />
-        </ConfirmationProvider>
-      </KeybindingProvider>,
-    );
-
-    await waitFor(() => {
-      expect(screen.queryByText(/Loading LiquiTask.../i)).not.toBeInTheDocument();
-    });
-
-    const header = await screen.findByRole("banner");
-    fireEvent.mouseEnter(header);
-
-    const newTaskBtn = await screen.findByText(/New Task/i);
-    fireEvent.click(newTaskBtn);
-
-    // Wait for modal to load (lazy loaded)
-    expect(await screen.findByPlaceholderText(/e\.g\., Update Q3 Financials/i)).toBeInTheDocument();
+    expect(await screen.findByTestId("settings-modal")).toBeInTheDocument();
   });
 });

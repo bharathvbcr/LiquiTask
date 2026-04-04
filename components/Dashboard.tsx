@@ -7,6 +7,7 @@ import {
   GanttChart,
   Layout,
   LayoutDashboard,
+  Sparkles,
   TrendingUp,
 } from "lucide-react";
 import type React from "react";
@@ -17,7 +18,14 @@ import GanttView from "../src/components/GanttView";
 import ProjectBoard from "../src/components/ProjectBoard";
 import type { ViewMode } from "../src/components/ViewSwitcher";
 import { ViewTransition } from "../src/components/ViewTransition";
-import type { BoardColumn, GroupingOption, PriorityDefinition, Project, Task } from "../types";
+import type {
+  AISuggestion,
+  BoardColumn,
+  GroupingOption,
+  PriorityDefinition,
+  Project,
+  Task,
+} from "../types";
 import { TaskCard } from "./TaskCard";
 
 interface DashboardProps {
@@ -40,6 +48,8 @@ interface DashboardProps {
   onCreateTask?: (date: Date) => void;
   viewMode?: ViewMode;
   onViewModeChange?: (mode: ViewMode) => void;
+  onSuggestNextTask?: () => void;
+  nextTaskSuggestion?: AISuggestion | null;
   addToast?: (message: string, type: "success" | "error" | "info") => void;
 }
 
@@ -63,6 +73,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onCreateTask,
   viewMode: externalViewMode,
   onViewModeChange,
+  onSuggestNextTask,
+  nextTaskSuggestion,
   addToast,
 }) => {
   const [internalViewMode, setInternalViewMode] = useState<ViewMode>("stats");
@@ -177,58 +189,104 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-10">
-      {/* View Toggle - Only show if not controlled externally */}
-      {onViewModeChange === undefined && (
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <img
-              src={logo}
-              alt="LiquiTask"
-              className="w-8 h-8 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]"
-            />
-            <h1 className="text-3xl font-bold text-white">Dashboard</h1>
-          </div>
-          <div className="flex items-center gap-1 bg-black/20 rounded-lg p-1 border border-white/5">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <img
+            src={logo}
+            alt="LiquiTask"
+            className="w-8 h-8 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]"
+          />
+          <h1 className="text-3xl font-bold text-white tracking-tight">Dashboard</h1>
+        </div>
+
+        <div className="flex items-center gap-4">
+          {onSuggestNextTask && (
             <button
-              onClick={() => setViewMode("stats")}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                viewMode === "stats"
-                  ? "bg-red-500/20 text-red-400"
-                  : "text-slate-400 hover:text-white"
-              }`}
+              onClick={onSuggestNextTask}
+              className="flex items-center gap-2 px-4 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 rounded-lg text-sm font-bold transition-all border border-cyan-500/20 shadow-glow-cyan/10"
             >
-              <BarChart3 size={16} /> Stats
+              <Sparkles size={16} />
+              Suggest Next Task
             </button>
-            <button
-              onClick={() => setViewMode("calendar")}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                viewMode === "calendar"
-                  ? "bg-red-500/20 text-red-400"
-                  : "text-slate-400 hover:text-white"
-              }`}
-            >
-              <Calendar size={16} /> Calendar
-            </button>
-            <button
-              onClick={() => setViewMode("board")}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                viewMode === "board"
-                  ? "bg-red-500/20 text-red-400"
-                  : "text-slate-400 hover:text-white"
-              }`}
-            >
-              <Layout size={16} /> Board
-            </button>
-            <button
-              onClick={() => setViewMode("gantt")}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                viewMode === "gantt"
-                  ? "bg-red-500/20 text-red-400"
-                  : "text-slate-400 hover:text-white"
-              }`}
-            >
-              <GanttChart size={16} /> Gantt
-            </button>
+          )}
+
+          {onViewModeChange === undefined && (
+            <div className="flex items-center gap-1 bg-black/20 rounded-lg p-1 border border-white/5">
+              <button
+                onClick={() => setViewMode("stats")}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  viewMode === "stats"
+                    ? "bg-red-500/20 text-red-400"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                <BarChart3 size={16} /> Stats
+              </button>
+              <button
+                onClick={() => setViewMode("calendar")}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  viewMode === "calendar"
+                    ? "bg-red-500/20 text-red-400"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                <Calendar size={16} /> Calendar
+              </button>
+              <button
+                onClick={() => setViewMode("board")}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  viewMode === "board"
+                    ? "bg-red-500/20 text-red-400"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                <Layout size={16} /> Board
+              </button>
+              <button
+                onClick={() => setViewMode("gantt")}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  viewMode === "gantt"
+                    ? "bg-red-500/20 text-red-400"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                <GanttChart size={16} /> Gantt
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {nextTaskSuggestion && (
+        <div className="liquid-glass p-6 border-cyan-500/30 bg-cyan-500/5 animate-in fade-in slide-in-from-top-4">
+          <div className="flex items-start justify-between">
+            <div className="flex items-start gap-4">
+              <div className="p-3 rounded-2xl bg-cyan-500/20 text-cyan-400 shadow-glow-cyan/20">
+                <Sparkles size={24} />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-cyan-300 uppercase tracking-widest">AI Recommendation</h4>
+                <p className="text-lg font-bold text-white mt-1">
+                  You should work on: <span className="text-cyan-400">
+                    {tasks.find(t => t.id === nextTaskSuggestion.taskId)?.title || "Unknown Task"}
+                  </span>
+                </p>
+                <p className="text-sm text-slate-400 mt-2 max-w-2xl italic">
+                  "{nextTaskSuggestion.reasoning}"
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  const task = tasks.find(t => t.id === nextTaskSuggestion.taskId);
+                  if (task) onEditTask(task);
+                }}
+                className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-slate-950 rounded-xl text-sm font-bold transition-all shadow-lg shadow-cyan-500/20"
+              >
+                Open Task
+              </button>
+            </div>
           </div>
         </div>
       )}

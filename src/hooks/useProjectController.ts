@@ -20,16 +20,30 @@ export const useProjectController = ({
   const [projectTypes, setProjectTypes] = useState<ProjectType[]>(initialProjectTypes);
 
   const handleCreateProject = useCallback(
-    (name: string, icon: string, parentId?: string) => {
-      const siblings = projects.filter((p) => p.parentId === parentId);
+    (nameOrProject: string | Partial<Project>, icon?: string, parentId?: string) => {
+      let name: string;
+      let finalIcon: string;
+      let finalParentId: string | undefined;
+
+      if (typeof nameOrProject === "string") {
+        name = nameOrProject;
+        finalIcon = icon || "folder";
+        finalParentId = parentId;
+      } else {
+        name = nameOrProject.name || "New Project";
+        finalIcon = nameOrProject.icon || "folder";
+        finalParentId = nameOrProject.parentId;
+      }
+
+      const siblings = projects.filter((p) => p.parentId === finalParentId);
       const maxOrder = siblings.length > 0 ? Math.max(...siblings.map((p) => p.order || 0)) : -1;
 
       const newProject: Project = {
         id: `p-${Date.now()}`,
         name,
         type: "custom",
-        icon,
-        parentId,
+        icon: finalIcon,
+        parentId: finalParentId,
         order: maxOrder + 1,
       };
       setProjects((prev) => [...prev, newProject]);

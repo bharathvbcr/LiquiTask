@@ -18,6 +18,7 @@ import { lazy, Suspense } from "react";
 import { LiquidButton } from "../../components/LiquidButton";
 import type { CustomFieldDefinition, FilterState } from "../../types";
 import logo from "../assets/logo.png";
+import type { SearchHistoryItem } from "../hooks/useSearchHistory";
 import type { FilterGroup } from "../types/queryTypes";
 import { ViewSwitcher } from "./ViewSwitcher";
 
@@ -34,12 +35,12 @@ const FilterBuilder = lazy(() =>
 );
 
 interface SearchHistoryApi {
-  getRecentSearches: () => string[];
-  getSavedSearches: () => string[];
+  getRecentSearches: () => SearchHistoryItem[];
+  getSavedSearches: () => SearchHistoryItem[];
   addToHistory: (query: string) => void;
-  toggleSaved: (query: string) => void;
-  removeFromHistory: (query: string) => void;
-  clearHistory: () => void;
+  toggleSaved: (id: string) => void;
+  removeFromHistory: (id: string) => void;
+  clearHistory: (keepSaved?: boolean) => void;
 }
 
 interface AppHeaderProps {
@@ -77,7 +78,7 @@ interface AppHeaderProps {
   onSearchQueryChange: (query: string) => void;
   onSearchFocusChange: (focused: boolean) => void;
   onApplyView: (id: string) => void;
-  onCreateView: () => void;
+  onCreateView: (name?: string) => void;
   onDeleteView: (id: string) => void;
   onFiltersChange: (filters: FilterState) => void;
   onAdvancedFilterChange: (group: FilterGroup) => void;

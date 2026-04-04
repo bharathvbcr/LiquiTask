@@ -12,10 +12,12 @@ import type {
   MergeSuggestion,
   PriorityDefinition,
   Project,
+  ProjectAssignment,
   Task,
   TaskCluster,
 } from "../../types";
 import { STORAGE_KEYS } from "../constants";
+import type { FilterGroup } from "../types/queryTypes";
 import { sanitizeUrl } from "../utils/validation";
 import storageService from "./storageService";
 
@@ -865,12 +867,12 @@ Current Workload:\n${workloadInfo}\n\nTask: "${task.title}" - ${task.summary}\nC
   async parseNaturalQuery(
     query: string,
     context: AIContext,
-  ): Promise<{ filterGroup: Record<string, unknown>; explanation: string }> {
+  ): Promise<{ filterGroup: FilterGroup; explanation: string }> {
     const provider = this.getProvider();
     if (!provider) throw new Error("AI provider not configured");
 
     const prompt = `Convert this natural language query into a filter structure. Return JSON:
-{"filterGroup": {"operator": "AND", "rules": [{"field": "priority", "operator": "equals", "value": "high"}]}, "explanation": "what this query does"}
+{"filterGroup": {"id": "ai-query", "operator": "AND", "rules": [{"id": "r1", "field": "priority", "operator": "equals", "value": "high"}]}, "explanation": "what this query does"}
 
 Available fields: title, priority, status, tags, dueDate, createdAt, assignee
 Query: "${query}"\nToday's Date: ${new Date().toISOString()}`;
@@ -879,7 +881,8 @@ Query: "${query}"\nToday's Date: ${new Date().toISOString()}`;
       const refined = await provider.refineTask(prompt, {}, context);
       const aiResponse = refined as AIRefineResponse;
       return {
-        filterGroup: (aiResponse.filterGroup as Record<string, unknown>) ?? {
+        filterGroup: (aiResponse.filterGroup as FilterGroup) ?? {
+          id: "ai-query",
           operator: "AND",
           rules: [],
         },
@@ -888,11 +891,96 @@ Query: "${query}"\nToday's Date: ${new Date().toISOString()}`;
     } catch {
       return {
         filterGroup: {
+          id: "ai-query",
           operator: "AND",
-          rules: [{ field: "title", operator: "contains", value: query }],
+          rules: [{ id: "r1", field: "title", operator: "contains", value: query }],
         },
         explanation: query,
       };
+    }
+  }
+
+  async suggestProjectReassignment(
+    allTasks: Task[],
+    context: AIContext,
+  ): Promise<ProjectAssignment[]> {
+    const provider = this.getProvider();
+    if (!provider) throw new Error("AI provider not configured");
+
+    const taskDetails = allTasks
+      .slice(0, 50) // Limit to avoid context window issues
+      .map((t) => `ID: ${t.id}\nTitle: "${t.title}"\nSummary: ${t.summary}\nTags: ${t.tags.join(", ")}`)
+      .join("\n\n");
+
+    const projectDetails = context.projects
+      .map((p) => `ID: ${p.id}\nName: "${p.name}"`)
+      .join("\n");
+
+    const prompt = `Analyze these tasks and projects. Suggest if any tasks should be moved to a different project. Return JSON array:
+[{"taskId": "id", "currentProjectId": "id", "suggestedProjectId": "id", "confidence": 0.8, "reasoning": "why"}]
+
+Tasks:\n${taskDetails}\n\nProjects:\n${projectDetails}`;
+
+    try {
+      const refined = await provider.refineTask(prompt, {}, context);
+      return Array.isArray(refined) ? (refined as ProjectAssignment[]) : [];
+    } catch (e) {
+      console.error("Project reassignment suggestion failed:", e);
+      return [];
+    }
+  }
+
+  async suggestNextTask(tasks: Task[], context: AIContext): Promise<AISuggestion | null> {
+    const provider = this.getProvider();
+    if (!provider) throw new Error("AI provider not configured");
+
+    const activeTasks = tasks.filter((t) => !t.completedAt).slice(0, 50);
+    if (activeTasks.length === 0) return null;
+
+    const taskDetails = activeTasks
+      .map(
+        (t) =>
+          `ID: ${t.id}\nTitle: "${t.title}"\nPriority: ${t.priority}\nDue: ${t.dueDate || "None"}\nSummary: ${t.summary}`,
+      )
+      .join("\n\n");
+
+    const prompt = `Analyze these tasks and suggest which one I should work on NEXT. Consider deadlines and priority. Return JSON:
+{"taskId": "id", "confidence": 0.9, "reasoning": "why this is the top priority"}
+
+Tasks:\n${taskDetails}`;
+
+    try {
+      const refined = await provider.refineTask(prompt, {}, context);
+      const aiResponse = refined as AIRefineResponse;
+      return {
+        id: `suggest-next-${Date.now()}`,
+        type: "priority",
+        taskId: (aiResponse.taskId as string) || activeTasks[0].id,
+        suggestedValue: "next",
+        currentValue: "pending",
+        confidence: (aiResponse.confidence as number) || 0.8,
+        reasoning: (aiResponse.reasoning as string) || "Based on your current priorities and deadlines.",
+      };
+    } catch (e) {
+      console.error("Next task suggestion failed:", e);
+      return null;
+    }
+  }
+
+  async suggestTimeEstimate(task: Task, context: AIContext): Promise<number> {
+    const provider = this.getProvider();
+    if (!provider) return 0;
+
+    const prompt = `Estimate the time required to complete this task in minutes. Return JSON:
+{"suggestedTimeEstimate": 60, "reasoning": "why"}\n\nTask: "${task.title}"\nDescription: ${task.summary || "No description"}`;
+
+    try {
+      const refined = await provider.refineTask(prompt, {}, context);
+      const aiResponse = refined as AIRefineResponse;
+      return (aiResponse.suggestedTimeEstimate as number) || 0;
+    } catch (e) {
+      console.error("Time estimation failed:", e);
+      return 0;
     }
   }
 

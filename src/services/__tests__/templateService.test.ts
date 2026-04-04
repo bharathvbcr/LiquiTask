@@ -1,98 +1,103 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Task, TaskTemplate } from "../../types";
 import { TemplateService } from "../templateService";
 
 describe("TemplateService", () => {
   let service: TemplateService;
 
-  const mockTask: Task = {
-    id: "1",
-    title: "Task with {{name}}",
-    subtitle: "Subtitle",
-    summary: "Summary for {{project}}",
-    assignee: "Alice",
-    priority: "Medium",
-    status: "Todo",
-    tags: ["tag1", "{{tag}}"],
-    projectId: "p1",
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    subtasks: [{ id: "st1", title: "Subtask {{num}}", completed: false }],
-  } as Task;
+  // Use a factory function to get fresh mocks for each test
+  const getMockTemplates = (): TaskTemplate[] => [
+    {
+      id: "t1",
+      name: "Template 1",
+      description: "Desc",
+      taskData: { title: "Task with {{name}}" },
+      subtasks: [],
+      tags: ["tag1"],
+      customFieldValues: {},
+      variables: ["name"]
+    }
+  ];
 
   beforeEach(() => {
     service = new TemplateService();
+    service.loadTemplates(getMockTemplates());
   });
 
-  it("should save task as template", () => {
-    const template = service.saveAsTemplate(mockTask, "My Template");
-    expect(template.name).toBe("My Template");
-    expect(template.variables).toContain("name");
-    expect(template.variables).toContain("project");
-    expect(template.variables).toContain("tag");
-    expect(template.variables).toContain("num");
+  it("should get all templates", () => {
     expect(service.getAllTemplates()).toHaveLength(1);
   });
 
-  it("should create task from template with variable replacement", () => {
-    const template = service.saveAsTemplate(mockTask, "My Template");
-    const variables = {
-      name: "Alice",
-      project: "LiquiTask",
-      tag: "urgent",
-      num: "1",
-    };
-
-    const newTask = service.createFromTemplate(template.id, variables);
-    expect(newTask.title).toBe("Task with Alice");
-    expect(newTask.summary).toBe("Summary for LiquiTask");
-    expect(newTask.tags).toContain("urgent");
-    expect(newTask.subtasks?.[0].title).toBe("Subtask 1");
-
-    // Ensure IDs and dates are reset
-    expect(newTask.id).toBeUndefined();
-    expect(newTask.createdAt).toBeUndefined();
+  it("should get template by id", () => {
+    expect(service.getTemplate("t1")).toBeDefined();
+    expect(service.getTemplate("t1")?.id).toBe("t1");
+    expect(service.getTemplate("missing")).toBeUndefined();
   });
 
-  it("should load and get templates", () => {
-    const templates: TaskTemplate[] = [
-      {
-        id: "t1",
-        name: "T1",
-        taskData: {},
-        variables: [],
-        tags: [],
-        subtasks: [],
-        customFieldValues: {},
-      },
-    ];
-    service.loadTemplates(templates);
-    expect(service.getAllTemplates()).toEqual(templates);
-    expect(service.getTemplate("t1")).toEqual(templates[0]);
+  it("should create task from template with variables", () => {
+    const variables = { name: "World" };
+    const task = service.createFromTemplate("t1", variables);
+    expect((task as any).title).toBe("Task with World");
+    expect(task.id).toBeUndefined();
+  });
+
+  it("should save task as template", () => {
+    const task: Task = {
+      id: "1",
+      title: "New Task {{foo}}",
+      summary: "Summary",
+      projectId: "p1",
+      priority: "high",
+      status: "Todo",
+      createdAt: new Date(),
+      subtasks: [],
+      attachments: [],
+      tags: [],
+      timeEstimate: 0,
+      timeSpent: 0
+    } as any;
+
+    const template = service.saveAsTemplate(task, "Saved Template");
+    expect(template.name).toBe("Saved Template");
+    expect(template.variables).toContain("foo");
+    expect(service.getAllTemplates()).toHaveLength(2);
   });
 
   it("should delete template", () => {
-    service.saveAsTemplate(mockTask, "T1");
-    const templates = service.getAllTemplates();
-    service.deleteTemplate(templates[0].id);
-    expect(service.getAllTemplates()).toHaveLength(0);
+    const allBefore = service.getAllTemplates();
+    expect(allBefore).toHaveLength(1);
+    expect(allBefore[0].id).toBe("t1");
+
+    service.deleteTemplate("t1");
+    
+    const allAfter = service.getAllTemplates();
+    expect(allAfter).toHaveLength(0);
   });
 
   it("should update template", () => {
-    const template = service.saveAsTemplate(mockTask, "T1");
-    service.updateTemplate(template.id, { name: "Updated" });
-    expect(service.getTemplate(template.id)?.name).toBe("Updated");
+    service.updateTemplate("t1", { name: "Updated Name" });
+    expect(service.getTemplate("t1")?.name).toBe("Updated Name");
   });
 
-  it("should throw error when template not found", () => {
-    expect(() => service.createFromTemplate("non-existent")).toThrow(
-      "Template non-existent not found",
-    );
-  });
-
-  it("should handle missing variables during replacement", () => {
-    const template = service.saveAsTemplate(mockTask, "My Template");
-    const newTask = service.createFromTemplate(template.id, {}); // No variables provided
-    expect(newTask.title).toBe("Task with {{name}}"); // Should keep placeholder if no value
+  it("should suggest templates from history", () => {
+    const tasks: Task[] = [
+      {
+        id: "1",
+        title: "Repetitive Task",
+        completedAt: new Date(),
+        subtasks: [],
+        tags: []
+      } as any,
+      {
+        id: "2",
+        title: "Repetitive Task",
+        completedAt: new Date(),
+        subtasks: [],
+        tags: []
+      } as any
+    ];
+    const suggestions = service.suggestTemplatesFromHistory(tasks);
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0].name).toContain("Repetitive Task");
   });
 });

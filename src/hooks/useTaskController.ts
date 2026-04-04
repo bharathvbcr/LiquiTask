@@ -119,22 +119,37 @@ export const useTaskController = ({
   }, [addToast]);
 
   const handleUpdateTask = useCallback(
-    (updatedTask: Task) => {
-      const previousTask = tasks.find((t) => t.id === updatedTask.id);
-      const taskWithUpdatedTime = {
-        ...updatedTask,
-        updatedAt: new Date(),
-      };
-      if (previousTask) {
-        pushUndo({
-          type: "task-update",
-          task: taskWithUpdatedTime,
-          previousState: previousTask,
-        });
+    (taskOrId: Task | string, updates?: Partial<Task>) => {
+      let taskId: string;
+      let taskUpdates: Partial<Task>;
+
+      if (typeof taskOrId === "string") {
+        taskId = taskOrId;
+        taskUpdates = updates || {};
+      } else {
+        taskId = taskOrId.id;
+        taskUpdates = taskOrId;
       }
-      setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? taskWithUpdatedTime : t)));
+
+      const task = tasks.find((t) => t.id === taskId);
+      if (!task) return;
+
+      const previousTask = { ...task };
+      const updatedTask = {
+        ...task,
+        ...taskUpdates,
+        updatedAt: new Date(),
+      } as Task;
+
+      pushUndo({
+        type: "task-update",
+        task: updatedTask,
+        previousState: previousTask,
+      });
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
+      searchIndexServiceRef.current?.updateTask(updatedTask, previousTask);
     },
-    [tasks, pushUndo],
+    [tasks, pushUndo, searchIndexServiceRef],
   );
 
   const handleUpdateTaskDueDate = useCallback(

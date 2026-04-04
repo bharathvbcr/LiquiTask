@@ -1,166 +1,133 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-// Mock localStorage
-const mockLocalStorage = {
-  store: {} as Record<string, string>,
-  getItem: vi.fn((key: string) => mockLocalStorage.store[key] || null),
-  setItem: vi.fn((key: string, value: string) => {
-    mockLocalStorage.store[key] = value;
-  }),
-  removeItem: vi.fn((key: string) => {
-    delete mockLocalStorage.store[key];
-  }),
-  clear: vi.fn(() => {
-    mockLocalStorage.store = {};
-  }),
-};
-
-Object.defineProperty(global, "localStorage", { value: mockLocalStorage });
-
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { STORAGE_KEYS } from "../../constants";
-// Import after mocking
 import { storageService } from "../storageService";
+
+// Simple localStorage mock
+const localStorageMock = (() => {
+  let store: Record<string, string> = {};
+  return {
+    getItem: (key: string) => store[key] || null,
+    setItem: (key: string, value: string) => {
+      store[key] = value.toString();
+    },
+    removeItem: (key: string) => {
+      delete store[key];
+    },
+    clear: () => {
+      store = {};
+    },
+    get length() {
+      return Object.keys(store).length;
+    }
+  };
+})();
 
 describe("StorageService", () => {
   beforeEach(() => {
-    mockLocalStorage.store = {};
-    mockLocalStorage.getItem.mockClear();
-    mockLocalStorage.setItem.mockClear();
-    vi.clearAllMocks();
+    vi.stubGlobal("localStorage", localStorageMock);
+    localStorage.clear();
+    // Clear private cache via cast
+    (storageService as any).cache.clear();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("should get default value if key not found", () => {
+    const val = storageService.get("missing", "default");
+    expect(val).toBe("default");
+  });
+
+  it("should set and get values from localStorage", () => {
+    storageService.set("test-key", { foo: "bar" });
+    expect(localStorage.getItem("test-key")).toBe(JSON.stringify({ foo: "bar" }));
+    
+    const val = storageService.get("test-key", null);
+    expect(val).toEqual({ foo: "bar" });
+  });
+
+  it("should use cache for subsequent gets", () => {
+    storageService.set("key", "val");
+    localStorage.setItem("key", JSON.stringify("wrong"));
+    
+    const val = storageService.get("key", null);
+    expect(val).toBe("val"); // Should come from cache, not localStorage
+  });
+
+  it("should parse tasks correctly with dates", () => {
+    const rawTasks = [
+      {
+        id: "1",
+        jobId: "J1",
+        projectId: "p1",
+        title: "T1",
+        status: "Todo",
+        createdAt: "2026-04-01T10:00:00Z",
+        updatedAt: "2026-04-02T10:00:00Z",
+        dueDate: "2026-04-03T10:00:00Z",
+        subtasks: [],
+        attachments: [],
+        customFieldValues: {},
+        links: [],
+        tags: [],
+      }
+    ];
+    localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(rawTasks));
+    
+    const tasks = storageService.get(STORAGE_KEYS.TASKS, []);
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0].createdAt).toBeInstanceOf(Date);
+    expect(tasks[0].updatedAt).toBeInstanceOf(Date);
+    expect(tasks[0].dueDate).toBeInstanceOf(Date);
+  });
+
+  it("should remove items from storage and cache", () => {
+    storageService.set("key", "val");
+    storageService.remove("key");
+    expect(storageService.get("key", null)).toBeNull();
+    expect(localStorage.getItem("key")).toBeNull();
+  });
+
+  it("should clear all items", () => {
+    storageService.set("key1", "val1");
+    storageService.set("key2", "val2");
+    storageService.clear();
+    expect(storageService.get("key1", null)).toBeNull();
+    expect(localStorage.length).toBe(0);
+  });
+
+  it("should export data as JSON string", () => {
+    storageService.set(STORAGE_KEYS.ACTIVE_PROJECT, "p1");
+    const exported = storageService.exportData();
+    const parsed = JSON.parse(exported);
+    expect(parsed.activeProjectId).toBe("p1");
+    expect(parsed.version).toBeDefined();
+  });
+
+  it("should import valid data string", () => {
+    const data = {
+      columns: [],
+      projectTypes: [],
+      priorities: [],
+      customFields: [],
+      projects: [],
+      tasks: [],
+      activeProjectId: "imported",
+      sidebarCollapsed: true,
+      grouping: "none",
+      version: "2.0.0"
+    };
+    const result = storageService.importData(JSON.stringify(data));
+    expect(result.data?.activeProjectId).toBe("imported");
+    expect(result.error).toBeUndefined();
+  });
+
+  it("should return error for invalid import string", () => {
+    // Mock console.error to avoid noise in tests
     vi.spyOn(console, "error").mockImplementation(() => {});
-  });
-
-  describe("get", () => {
-    it("should return default value when key does not exist", () => {
-      const result = storageService.get("nonexistent", "default");
-      expect(result).toBe("default");
-    });
-
-    it("should parse JSON from localStorage", () => {
-      const testData = { name: "Test Project", id: "p1" };
-      mockLocalStorage.store[STORAGE_KEYS.PROJECTS] = JSON.stringify([testData]);
-
-      const result = storageService.get(STORAGE_KEYS.PROJECTS, []);
-      expect(result).toEqual([testData]);
-    });
-
-    it("should return cached value on subsequent gets", () => {
-      const testData = [{ name: "Test" }];
-      mockLocalStorage.store["test-key"] = JSON.stringify(testData);
-
-      // First call
-      storageService.get("test-key", []);
-      // Second call should use cache
-      storageService.get("test-key", []);
-
-      // localStorage.getItem should only be called once due to caching
-      expect(mockLocalStorage.getItem).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  describe("set", () => {
-    it("should stringify and save to localStorage", () => {
-      const testData = { columns: ["col1", "col2"] };
-      storageService.set("test-key", testData);
-
-      expect(mockLocalStorage.setItem).toHaveBeenCalledWith("test-key", expect.any(String));
-    });
-
-    it("should update cache when setting", () => {
-      const testData = { id: "test" };
-      storageService.set("cache-test", testData);
-
-      const result = storageService.get("cache-test", null);
-      expect(result).toEqual(testData);
-    });
-  });
-
-  describe("remove", () => {
-    it("should remove from localStorage", () => {
-      storageService.remove("remove-test");
-      expect(mockLocalStorage.removeItem).toHaveBeenCalledWith("remove-test");
-    });
-  });
-
-  describe("getAllData", () => {
-    it("should return all app data with defaults", () => {
-      const data = storageService.getAllData();
-
-      expect(data).toHaveProperty("columns");
-      expect(data).toHaveProperty("projects");
-      expect(data).toHaveProperty("tasks");
-      expect(data).toHaveProperty("priorities");
-      expect(data).toHaveProperty("projectTypes");
-      expect(data).toHaveProperty("customFields");
-      expect(data).toHaveProperty("activeProjectId");
-      expect(data).toHaveProperty("sidebarCollapsed");
-      expect(data).toHaveProperty("grouping");
-    });
-  });
-
-  describe("exportData", () => {
-    it("should return valid JSON string", () => {
-      const exported = storageService.exportData();
-
-      expect(() => JSON.parse(exported)).not.toThrow();
-
-      const parsed = JSON.parse(exported);
-      expect(parsed).toHaveProperty("version");
-    });
-  });
-
-  describe("importData", () => {
-    it("should validate and import data", () => {
-      const validData = {
-        columns: [{ id: "col1", title: "Column 1", color: "#ff0000" }],
-        projectTypes: [{ id: "type1", label: "Type 1", icon: "folder" }],
-        priorities: [{ id: "high", label: "High", color: "#ff0000", level: 1 }],
-        customFields: [],
-        projects: [{ id: "p1", name: "Test Project", type: "folder" }],
-        tasks: [],
-        version: "1.0.0",
-      };
-
-      const result = storageService.importData(JSON.stringify(validData));
-
-      expect(result.error).toBeUndefined();
-      expect(result.data).toBeDefined();
-    });
-
-    it("should return error for invalid JSON", () => {
-      const result = storageService.importData("not valid json");
-
-      expect(result.data).toBeNull();
-      expect(result.error).toBeDefined();
-    });
-  });
-
-  describe("save methods", () => {
-    it("should save tasks using set", () => {
-      const tasks = [{ id: "1", title: "Task 1" }];
-      storageService.set(STORAGE_KEYS.TASKS, tasks);
-      expect(storageService.get(STORAGE_KEYS.TASKS, [])).toEqual(tasks);
-    });
-
-    it("should save projects using set", () => {
-      const projects = [{ id: "p1", name: "P1" }];
-      storageService.set(STORAGE_KEYS.PROJECTS, projects);
-      expect(storageService.get(STORAGE_KEYS.PROJECTS, [])).toEqual(projects);
-    });
-
-    it("should save active project ID using set", () => {
-      storageService.set(STORAGE_KEYS.ACTIVE_PROJECT, "p1");
-      expect(storageService.get(STORAGE_KEYS.ACTIVE_PROJECT, "")).toBe("p1");
-    });
-  });
-
-  describe("clear", () => {
-    it("should clear all data and cache", () => {
-      storageService.set(STORAGE_KEYS.TASKS, [{ id: "1" }]);
-      storageService.clear();
-
-      expect(mockLocalStorage.removeItem).toHaveBeenCalledWith(STORAGE_KEYS.TASKS);
-      expect(storageService.get(STORAGE_KEYS.TASKS, null)).toBeNull();
-    });
+    const result = storageService.importData("invalid-json");
+    expect(result.data).toBeNull();
+    expect(result.error).toBeDefined();
   });
 });

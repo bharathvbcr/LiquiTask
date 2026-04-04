@@ -29,6 +29,10 @@ interface AiSettingsProps {
   onOpenReorganizeModal?: () => void;
   onOpenSubtaskModal?: () => void;
   onOpenProjectAssignmentModal?: () => void;
+  onOpenHealthDashboard?: () => void;
+  onOpenBulkOperations?: () => void;
+  onOpenAutoOrganize?: () => void;
+  onOpenInsights?: () => void;
 }
 
 export const AiSettings: React.FC<AiSettingsProps> = ({
@@ -37,6 +41,10 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
   onOpenReorganizeModal,
   onOpenSubtaskModal,
   onOpenProjectAssignmentModal,
+  onOpenHealthDashboard,
+  onOpenBulkOperations,
+  onOpenAutoOrganize,
+  onOpenInsights,
 }) => {
   const [config, setConfig] = useState<AIConfig>({
     provider: "gemini",
@@ -114,7 +122,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
             setTimeout(() => fetchModels(baseUrl, retryCount + 1), 1000);
             return;
           }
-          setModelFetchError(e.message || "Could not reach Ollama");
+          setModelFetchError((e as Error).message || "Could not reach Ollama");
         }
         setAvailableModels([]);
       } finally {
@@ -152,7 +160,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config, fetchModels]);
+  }, []);
 
   useEffect(() => {
     if (config.provider === "ollama") {
@@ -258,6 +266,16 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
     const sanitized = sanitizeUrl(e.target.value);
     setConfig({ ...config, ollamaBaseUrl: sanitized });
     fetchModels(sanitized);
+  };
+
+  const updateAutoOrganizeOperation = (key: keyof AutoOrganizeConfig["operations"], value: boolean) => {
+    setAutoOrganize(prev => ({
+      ...prev,
+      operations: {
+        ...prev.operations,
+        [key]: value
+      }
+    }));
   };
 
   return (
@@ -441,19 +459,6 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
                 </div>
               </div>
             )}
-
-            <p className="text-xs text-slate-500">
-              Ensure Ollama is running locally. You can download models using the "Pull" button or
-              via CLI (
-              <code className="bg-white/5 px-1 rounded">
-                ollama pull {config.ollamaModel || "llama3.2"}
-              </code>
-              ).
-            </p>
-            <p className="text-xs text-slate-500">
-              Test Connection checks the Ollama service, confirms the model is installed, and asks
-              that model for a real response.
-            </p>
           </div>
         )}
 
@@ -462,9 +467,6 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
             <Brain size={18} className="text-cyan-400" />
             <h4 className="text-sm font-bold text-white">AI Task Management</h4>
           </div>
-          <p className="text-xs text-slate-400">
-            Enable AI-powered task cleanup, organization, and insights.
-          </p>
 
           <div className="space-y-3">
             <ToggleRow
@@ -525,52 +527,162 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
               </select>
             </div>
           </div>
+        </div>
 
-          <div className="pt-3 border-t border-white/10">
-            <div className="flex gap-2">
-              <button
-                onClick={onOpenMergeModal}
-                disabled={!onOpenMergeModal || isPulling}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 hover:text-cyan-300 rounded-xl text-sm font-bold transition-all border border-cyan-500/20 disabled:opacity-50"
-              >
-                <Merge size={16} />
-                Smart Merge Duplicates
-              </button>
-              <button
-                onClick={onOpenReorganizeModal}
-                disabled={!onOpenReorganizeModal || isPulling}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 hover:text-purple-300 rounded-xl text-sm font-bold transition-all border border-purple-500/20 disabled:opacity-50"
-              >
-                <Sparkles size={16} />
-                Smart Reorganize
-              </button>
+        <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-4 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <RefreshCw size={18} className="text-purple-400" />
+              <h4 className="text-sm font-bold text-white">Auto-Organize</h4>
             </div>
+            <ToggleRow
+              icon={() => null}
+              label=""
+              description=""
+              aria-label="Toggle Auto-Organize"
+              checked={autoOrganize.enabled}
+              onChange={(v) => setAutoOrganize((prev) => ({ ...prev, enabled: v }))}
+            />
+          </div>
+
+          {autoOrganize.enabled && (
+            <div className="space-y-3 pl-4 border-l border-white/10 animate-in fade-in slide-in-from-left-2">
+              <ToggleRow
+                icon={Sparkles}
+                label="Clustering"
+                description="Group similar tasks into projects"
+                checked={autoOrganize.operations.clustering}
+                onChange={(v) => updateAutoOrganizeOperation("clustering", v)}
+              />
+              <ToggleRow
+                icon={Merge}
+                label="Deduplication"
+                description="Identify and merge duplicate tasks"
+                checked={autoOrganize.operations.deduplication}
+                onChange={(v) => updateAutoOrganizeOperation("deduplication", v)}
+              />
+              <ToggleRow
+                icon={Tags}
+                label="Auto-Tagging"
+                description="Automatically apply relevant tags"
+                checked={autoOrganize.operations.autoTagging}
+                onChange={(v) => updateAutoOrganizeOperation("autoTagging", v)}
+              />
+              <ToggleRow
+                icon={GitBranch}
+                label="Hierarchy Detection"
+                description="Detect parent-child task relationships"
+                checked={autoOrganize.operations.hierarchyDetection}
+                onChange={(v) => updateAutoOrganizeOperation("hierarchyDetection", v)}
+              />
+              <ToggleRow
+                icon={Globe}
+                label="Project Assignment"
+                description="Suggest projects for uncategorized tasks"
+                checked={autoOrganize.operations.projectAssignment}
+                onChange={(v) => updateAutoOrganizeOperation("projectAssignment", v)}
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3 animate-in fade-in slide-in-from-top-2">
+          <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Quick Actions</h4>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={onOpenMergeModal}
+              disabled={!onOpenMergeModal}
+              className="flex items-center justify-center gap-2 px-3 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 rounded-lg text-xs font-bold transition-all border border-cyan-500/20"
+            >
+              <Merge size={14} /> Merge
+            </button>
+            <button
+              onClick={onOpenReorganizeModal}
+              disabled={!onOpenReorganizeModal}
+              className="flex items-center justify-center gap-2 px-3 py-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 rounded-lg text-xs font-bold transition-all border border-purple-500/20"
+            >
+              <Sparkles size={14} /> Reorganize
+            </button>
             <button
               onClick={onOpenSubtaskModal}
-              disabled={!onOpenSubtaskModal || isPulling}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-green-500/10 hover:bg-green-500/20 text-green-400 hover:text-green-300 rounded-xl text-sm font-bold transition-all border border-green-500/20 disabled:opacity-50"
+              disabled={!onOpenSubtaskModal}
+              className="flex items-center justify-center gap-2 px-3 py-2 bg-green-500/10 hover:bg-green-500/20 text-green-400 rounded-lg text-xs font-bold transition-all border border-green-500/20"
             >
-              <GitBranch size={16} />
-              Convert to Subtasks
+              <GitBranch size={14} /> Subtasks
+            </button>
+            <button
+              onClick={onOpenProjectAssignmentModal}
+              disabled={!onOpenProjectAssignmentModal}
+              className="flex items-center justify-center gap-2 px-3 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-lg text-xs font-bold transition-all border border-blue-500/20"
+            >
+              <Globe size={14} /> Assign
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={onOpenBulkOperations}
+              disabled={!onOpenBulkOperations}
+              className="flex items-center justify-center gap-2 px-3 py-2 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 rounded-lg text-xs font-bold transition-all border border-orange-500/20"
+            >
+              <Settings2 size={14} /> Bulk Ops
+            </button>
+            <button
+              onClick={onOpenAutoOrganize}
+              disabled={!onOpenAutoOrganize}
+              className="flex items-center justify-center gap-2 px-3 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg text-xs font-bold transition-all border border-rose-500/20"
+            >
+              <RefreshCw size={14} /> Auto-Org
             </button>
           </div>
           <button
-            onClick={onOpenProjectAssignmentModal}
-            disabled={!onOpenProjectAssignmentModal || isPulling}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 hover:text-blue-300 rounded-xl text-sm font-bold transition-all border border-blue-500/20 disabled:opacity-50"
+            onClick={onOpenHealthDashboard}
+            disabled={!onOpenHealthDashboard}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg text-xs font-bold transition-all border border-emerald-500/20"
           >
-            <Globe size={16} />
-            Smart Project Assignment
+            <CheckCircle2 size={14} /> AI Health Dashboard
+          </button>
+          <button
+            onClick={onOpenInsights}
+            disabled={!onOpenInsights}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-lg text-xs font-bold transition-all border border-indigo-500/20"
+          >
+            <Brain size={14} /> AI Insights
           </button>
         </div>
-        <button
-          onClick={handleSave}
-          disabled={isPulling}
-          className="flex-1 px-4 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-slate-950 rounded-xl text-sm font-bold shadow-lg shadow-cyan-500/20 transition-all disabled:opacity-50"
-        >
-          Save Configuration
-        </button>
+
+        <div className="flex gap-3">
+          <button
+            onClick={_handleTestConnection}
+            disabled={isPulling || _isTesting}
+            className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl text-sm font-bold border border-white/10 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {_isTesting ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Zap size={16} className="text-amber-400" />
+            )}
+            Test Connection
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={isPulling}
+            className="flex-[2] px-4 py-3 bg-cyan-600 hover:bg-cyan-500 text-slate-950 rounded-xl text-sm font-bold shadow-lg shadow-cyan-500/20 transition-all disabled:opacity-50"
+          >
+            Save Configuration
+          </button>
+        </div>
       </div>
+
+      {(config.provider === "ollama" || _testResult) && (
+        <div className="space-y-2">
+          {config.provider === "ollama" && (
+            <p className="text-xs text-slate-500">
+              Test Connection checks the Ollama service, confirms the model is installed, and asks
+              that model for a real response.
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-medium">
         <CheckCircle2 size={12} />
@@ -580,6 +692,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
   );
 };
 
+
 interface ToggleRowProps {
   icon: React.ComponentType<{ size: number; className?: string }>;
   label: string;
@@ -587,6 +700,7 @@ interface ToggleRowProps {
   checked: boolean;
   onChange: (checked: boolean) => void;
   disabled?: boolean;
+  "aria-label"?: string;
 }
 
 const ToggleRow: React.FC<ToggleRowProps> = ({
@@ -596,6 +710,7 @@ const ToggleRow: React.FC<ToggleRowProps> = ({
   checked,
   onChange,
   disabled = false,
+  ...props
 }) => {
   const handleToggle = useCallback(() => {
     if (!disabled) onChange(!checked);
@@ -606,7 +721,7 @@ const ToggleRow: React.FC<ToggleRowProps> = ({
       type="button"
       role="switch"
       aria-checked={checked}
-      aria-label={label}
+      aria-label={props["aria-label"] || label}
       aria-disabled={disabled}
       disabled={disabled}
       className={`flex items-center justify-between w-full cursor-pointer group py-2 rounded-lg transition-opacity ${

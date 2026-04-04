@@ -254,6 +254,7 @@ class StorageService {
     Object.values(STORAGE_KEYS).forEach((key) => {
       localStorage.removeItem(key);
     });
+    localStorage.clear();
   }
 
   // Get all app data

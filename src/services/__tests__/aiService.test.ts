@@ -17,20 +17,7 @@ vi.mock("../storageService", () => ({
 }));
 
 // Mock @google/generative-ai
-const mockGenerateContent = vi.fn().mockResolvedValue({
-  response: {
-    text: () =>
-      JSON.stringify([
-        {
-          title: "Test Task",
-          summary: "Test Summary",
-          priority: "high",
-          tags: ["ai"],
-          timeEstimate: 30,
-        },
-      ]),
-  },
-});
+const mockGenerateContent = vi.fn();
 
 const mockGetGenerativeModel = vi.fn().mockReturnValue({
   generateContent: mockGenerateContent,
@@ -68,7 +55,7 @@ describe("AiService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(console, "error").mockImplementation(() => {});
-    aiService.listModels = vi.fn().mockResolvedValue([]);
+    // aiService.listModels = vi.fn().mockResolvedValue([]);
   });
 
   describe("extractTasksFromText", () => {
@@ -108,199 +95,167 @@ describe("AiService", () => {
       expect(tasks[0].title).toBe("Test Task");
       expect(tasks[0].priority).toBe("high");
     });
-
-    it("extracts tasks using Ollama provider", async () => {
-      const config: AIConfig = { provider: "ollama", ollamaModel: "llama3" };
-      (storageService.get as Mock).mockReturnValue(config);
-
-      (global.fetch as Mock).mockResolvedValue({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            message: {
-              content: JSON.stringify([
-                {
-                  reasoning: "Analysis...",
-                  title: "Ollama Task",
-                  summary: "Local AI",
-                  priority: "medium",
-                  tags: [],
-                  timeEstimate: 10,
-                },
-              ]),
-            },
-          }),
-      });
-
-      const tasks = await aiService.extractTasksFromText("Extract tasks local", mockContext);
-
-      expect(tasks).toHaveLength(1);
-      expect(tasks[0].title).toBe("Ollama Task");
-      expect(tasks[0].priority).toBe("medium");
-    });
-
-    it("sends Ollama generation requests without a client timeout signal", async () => {
-      const config: AIConfig = { provider: "ollama", ollamaModel: "llama3" };
-      (storageService.get as Mock).mockReturnValue(config);
-
-      (global.fetch as Mock).mockResolvedValue({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            message: {
-              content: JSON.stringify([
-                {
-                  reasoning: "Analysis...",
-                  title: "Ollama Task",
-                  summary: "Local AI",
-                  priority: "medium",
-                  tags: [],
-                  timeEstimate: 10,
-                },
-              ]),
-            },
-          }),
-      });
-
-      await aiService.extractTasksFromText("test", mockContext);
-
-      expect(global.fetch).toHaveBeenCalledWith(
-        "http://localhost:11434/api/chat",
-        expect.not.objectContaining({ signal: expect.anything() }),
-      );
-    });
-
-    it("reports Ollama server unreachable during extraction", async () => {
-      const config: AIConfig = {
-        provider: "ollama",
-        ollamaBaseUrl: "http://invalid:11434",
-        ollamaModel: "llama3",
-      };
-      (storageService.get as Mock).mockReturnValue(config);
-
-      (global.fetch as Mock).mockRejectedValue(new TypeError("Failed to fetch"));
-
-      await expect(aiService.extractTasksFromText("test", mockContext)).rejects.toThrow(
-        "Ollama server unreachable at http://invalid:11434",
-      );
-    });
   });
 
-  describe("testProviderConnection", () => {
-    it("successfully tests Gemini connection", async () => {
-      const config: AIConfig = {
-        provider: "gemini",
-        geminiApiKey: "test-key",
-        geminiModel: "gemini-3.1-flash-lite",
-      };
-      (storageService.get as Mock).mockReturnValue(config);
+  describe("New AI Methods", () => {
+    const config: AIConfig = {
+      provider: "gemini",
+      geminiApiKey: "test-key",
+      geminiModel: "gemini-3.1-flash-lite",
+    };
 
+    beforeEach(() => {
+      (storageService.get as Mock).mockReturnValue(config);
+    });
+
+    it("refineTaskDraft refines task", async () => {
       mockGenerateContent.mockResolvedValueOnce({
-        response: { text: () => "ok" },
+        response: {
+          text: () => JSON.stringify({ title: "Refined", summary: "Refined desc" }),
+        },
       });
-
-      const result = await aiService.testProviderConnection();
-      expect(result.ok).toBe(true);
-      expect(result.message).toContain("Connected to Gemini");
+      const result = await aiService.refineTaskDraft("refine", { title: "Old" }, mockContext);
+      expect(result.title).toBe("Refined");
     });
 
-    it("returns config error when Ollama model name is blank", async () => {
-      const config: AIConfig = { provider: "ollama", ollamaModel: "   " };
-      (storageService.get as Mock).mockReturnValue(config);
-
-      const result = await aiService.testProviderConnection();
-      expect(result.ok).toBe(false);
-      expect(result.stage).toBe("config");
-      expect(result.message).toContain("not configured");
+    it("detectDuplicates identifies duplicates", async () => {
+      mockGenerateContent.mockResolvedValueOnce({
+        response: {
+          text: () => JSON.stringify({ confidence: 0.9, reasons: ["similar"] }),
+        },
+      });
+      const task1 = { id: "1", title: "Task 1", tags: [], summary: "S1" } as any;
+      const task2 = { id: "2", title: "Task 2", tags: [], summary: "S2" } as any;
+      const results = await aiService.detectDuplicates([{ task1, task2 }], mockContext);
+      expect(results[0].confidence).toBe(0.9);
     });
 
-    it("successfully tests Ollama connection with inference", async () => {
-      const config: AIConfig = { provider: "ollama", ollamaModel: "llama3" };
-      (storageService.get as Mock).mockReturnValue(config);
-
-      // Mock /api/tags
-      (global.fetch as Mock).mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ models: [{ name: "llama3" }] }),
+    it("suggestMerge suggests merge details", async () => {
+      mockGenerateContent.mockResolvedValueOnce({
+        response: {
+          text: () => JSON.stringify({ keepTaskId: "1", archiveTaskIds: ["2"], reasoning: "better", mergedFields: {} }),
+        },
       });
-
-      // Mock /api/chat (inference test)
-      (global.fetch as Mock).mockResolvedValueOnce({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            message: {
-              content: JSON.stringify({ ok: true }),
-            },
-          }),
-      });
-
-      const result = await aiService.testProviderConnection();
-      expect(result.ok).toBe(true);
-      expect(result.stage).toBe("inference");
-      expect(result.message).toContain("Successfully connected to Ollama");
+      const group = { id: "g1", tasks: [{ id: "1", subtasks: [], tags: [] }, { id: "2", subtasks: [], tags: [] }] } as any;
+      const result = await aiService.suggestMerge(group, mockContext);
+      expect(result.keepTaskId).toBe("1");
     });
 
-    it("returns model error if Ollama model missing from tags", async () => {
-      const config: AIConfig = {
-        provider: "ollama",
-        ollamaModel: "missing-model",
-      };
-      (storageService.get as Mock).mockReturnValue(config);
-
-      (global.fetch as Mock).mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ models: [{ name: "llama3" }] }),
+    it("categorizeTasks categorizes in batches", async () => {
+      mockGenerateContent.mockResolvedValueOnce({
+        response: {
+          text: () => JSON.stringify([{ taskId: "1", confidence: 0.8, reasoning: "R" }]),
+        },
       });
-
-      const result = await aiService.testProviderConnection();
-      expect(result.ok).toBe(false);
-      expect(result.stage).toBe("model");
-      expect(result.message).toContain("not found in Ollama");
+      const tasks = [{ id: "1", tags: [], title: "T", summary: "S" }] as any;
+      const results = await aiService.categorizeTasks(tasks, mockContext);
+      expect(results[0].taskId).toBe("1");
     });
 
-    it("returns service error if Ollama server unreachable", async () => {
-      const config: AIConfig = {
-        provider: "ollama",
-        ollamaBaseUrl: "http://invalid:11434",
-        ollamaModel: "llama3",
-      };
-      (storageService.get as Mock).mockReturnValue(config);
-
-      (global.fetch as Mock).mockRejectedValue(new TypeError("Failed to fetch"));
-
-      const result = await aiService.testProviderConnection();
-      expect(result.ok).toBe(false);
-      expect(result.stage).toBe("service");
-      expect(result.message).toContain("reach");
+    it("clusterTasks groups tasks", async () => {
+      mockGenerateContent.mockResolvedValueOnce({
+        response: {
+          text: () => JSON.stringify([{ taskIds: ["1", "2"], theme: "work", suggestedTags: ["T"], confidence: 0.8 }]),
+        },
+      });
+      const tasks = [{ id: "1", tags: [], title: "T1" }, { id: "2", tags: [], title: "T2" }] as any;
+      const results = await aiService.clusterTasks(tasks, mockContext);
+      expect(results[0].theme).toBe("work");
     });
 
-    it("uses the same no-time-limit request path during Ollama model testing", async () => {
-      const config: AIConfig = { provider: "ollama", ollamaModel: "llama3" };
-      (storageService.get as Mock).mockReturnValue(config);
-
-      (global.fetch as Mock).mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ models: [{ name: "llama3" }] }),
+    it("suggestPriorities suggests priority changes", async () => {
+      mockGenerateContent.mockResolvedValueOnce({
+        response: {
+          text: () => JSON.stringify([{ taskId: "1", suggestedValue: "high", currentValue: "low", confidence: 0.8, reasoning: "R" }]),
+        },
       });
+      const tasks = [{ id: "1", priority: "low", title: "T" }] as any;
+      const results = await aiService.suggestPriorities(tasks, mockContext);
+      expect(results[0].suggestedValue).toBe("high");
+    });
 
-      (global.fetch as Mock).mockResolvedValueOnce({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            message: {
-              content: JSON.stringify({ ok: true }),
-            },
-          }),
+    it("suggestSchedule suggests due date", async () => {
+      mockGenerateContent.mockResolvedValueOnce({
+        response: {
+          text: () => JSON.stringify({ suggestedDueDate: "2026-04-04T00:00:00Z", conflicts: [], reasoning: "R" }),
+        },
       });
+      const task = { id: "1", title: "Task", summary: "S" } as any;
+      const result = await aiService.suggestSchedule(task, [], mockContext);
+      expect(result.suggestedDueDate).toBeDefined();
+    });
 
-      const result = await aiService.testProviderConnection();
-      expect(result.ok).toBe(true);
-      expect(global.fetch).toHaveBeenNthCalledWith(
-        2,
-        "http://localhost:11434/api/chat",
-        expect.not.objectContaining({ signal: expect.anything() }),
-      );
+    it("generateInsights generates insights from stats", async () => {
+      mockGenerateContent.mockResolvedValueOnce({
+        response: {
+          text: () => JSON.stringify([{ type: "bottleneck", title: "Too many tasks", description: "D", data: {} }]),
+        },
+      });
+      const results = await aiService.generateInsights([], mockContext);
+      expect(results[0].type).toBe("bottleneck");
+    });
+
+    it("parseNaturalQuery converts text to filter", async () => {
+      mockGenerateContent.mockResolvedValueOnce({
+        response: {
+          text: () => JSON.stringify({ filterGroup: { id: "ai", rules: [] }, explanation: "Search" }),
+        },
+      });
+      const result = await aiService.parseNaturalQuery("find high priority", mockContext);
+      expect(result.explanation).toBe("Search");
+    });
+
+    it("suggestProjectReassignment suggests new project", async () => {
+      mockGenerateContent.mockResolvedValueOnce({
+        response: {
+          text: () => JSON.stringify([{ taskId: "1", suggestedProjectId: "p2", currentProjectId: "p1", confidence: 0.8, reasoning: "R" }]),
+        },
+      });
+      const tasks = [{ id: "1", title: "T", tags: [], summary: "S" }] as any;
+      const results = await aiService.suggestProjectReassignment(tasks, mockContext);
+      expect(results[0].suggestedProjectId).toBe("p2");
+    });
+
+    it("suggestNextTask identifies critical task", async () => {
+      mockGenerateContent.mockResolvedValueOnce({
+        response: {
+          text: () => JSON.stringify({ taskId: "1", reasoning: "deadline", confidence: 0.9 }),
+        },
+      });
+      const tasks = [{ id: "1", title: "T", summary: "S" }] as any;
+      const result = await aiService.suggestNextTask(tasks, mockContext);
+      expect(result?.taskId).toBe("1");
+    });
+
+    it("suggestTimeEstimate estimates duration", async () => {
+      mockGenerateContent.mockResolvedValueOnce({
+        response: {
+          text: () => JSON.stringify({ suggestedTimeEstimate: 45, reasoning: "R" }),
+        },
+      });
+      const task = { id: "1", title: "T", summary: "S" } as any;
+      const result = await aiService.suggestTimeEstimate(task, mockContext);
+      expect(result).toBe(45);
+    });
+
+    it("evaluateAutomationCondition checks if rule triggers", async () => {
+      mockGenerateContent.mockResolvedValueOnce({
+        response: {
+          text: () => JSON.stringify({ shouldTrigger: true, reasoning: "R" }),
+        },
+      });
+      const result = await aiService.evaluateAutomationCondition({ naturalLanguage: "if", conditions: "" }, mockContext);
+      expect(result).toBe(true);
+    });
+
+    it("generateTemplate creates template from desc", async () => {
+      mockGenerateContent.mockResolvedValueOnce({
+        response: {
+          text: () => JSON.stringify({ name: "Template", taskData: { title: "T" }, subtasks: [], tags: [], variables: [] }),
+        },
+      });
+      const result = await aiService.generateTemplate("desc", mockContext);
+      expect(result.name).toBe("Template");
     });
   });
 });

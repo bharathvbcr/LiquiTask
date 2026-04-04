@@ -343,6 +343,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                       <div key={s.id} className="flex items-center gap-2">
                         <button
                           onClick={(e) => handleSubtaskToggle(e, s.id)}
+                          aria-label={`Toggle subtask ${s.title}`}
                           className={`w-4 h-4 rounded border flex items-center justify-center ${s.completed ? "bg-emerald-500/20 border-emerald-500 text-emerald-500" : "border-slate-700 bg-black/20 text-transparent"}`}
                         >
                           <Check size={10} />

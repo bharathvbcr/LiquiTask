@@ -1,11 +1,11 @@
-import { Brain, CheckCircle2, Globe, Loader2 } from "lucide-react";
+import { ArrowRight, Brain, CheckCircle2, Globe, Loader2 } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 import type { AIContext, PriorityDefinition, Project, Task } from "../../types";
 import { STORAGE_KEYS } from "../constants";
 import { aiService } from "../services/aiService";
 import storageService from "../services/storageService";
-import { ModalWrapper } from "./ModalWrapper";
+import { ModalWrapper } from "../../components/ModalWrapper";
 
 interface AIProjectAssignmentModalProps {
   isOpen: boolean;
@@ -191,6 +191,7 @@ export const AIProjectAssignmentModal: React.FC<AIProjectAssignmentModalProps> =
                   key={suggestion.taskId}
                   suggestion={suggestion}
                   projects={projects}
+                  allTasks={allTasks}
                   onToggleApproval={() => toggleApproval(suggestion.taskId)}
                 />
               ))}
@@ -231,15 +232,17 @@ export const AIProjectAssignmentModal: React.FC<AIProjectAssignmentModalProps> =
 interface AssignmentSuggestionCardProps {
   suggestion: AssignmentSuggestion;
   projects: Project[];
+  allTasks: Task[];
   onToggleApproval: () => void;
 }
 
 const AssignmentSuggestionCard: React.FC<AssignmentSuggestionCardProps> = ({
   suggestion,
   projects,
+  allTasks,
   onToggleApproval,
 }) => {
-  const task = projects.find((p) => p.id === suggestion.taskId);
+  const task = allTasks.find((t) => t.id === suggestion.taskId);
   const suggestedProject = projects.find((p) => p.id === suggestion.suggestedProjectId);
 
   if (!task || !suggestedProject) return null;
@@ -287,7 +290,7 @@ const AssignmentSuggestionCard: React.FC<AssignmentSuggestionCardProps> = ({
         <div className="flex items-center gap-3 p-2 bg-slate-800/50 rounded-lg">
           <div className="w-2 h-2 rounded-full bg-blue-500" />
           <div className="flex-1">
-            <p className="text-sm text-white font-medium">{suggestedProject.title}</p>
+            <p className="text-sm text-white font-medium">{suggestedProject.name}</p>
             <p className="text-xs text-slate-400">Suggested project</p>
           </div>
         </div>

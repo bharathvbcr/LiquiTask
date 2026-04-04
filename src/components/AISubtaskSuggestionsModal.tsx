@@ -3,7 +3,7 @@ import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 import type { RedundancyAnalysis, Task } from "../../types";
 import { taskCleanupService } from "../services/taskCleanupService";
-import { ModalWrapper } from "./ModalWrapper";
+import { ModalWrapper } from "../../components/ModalWrapper";
 
 interface AISubtaskSuggestionsModalProps {
   isOpen: boolean;
@@ -38,9 +38,7 @@ export const AISubtaskSuggestionsModal: React.FC<AISubtaskSuggestionsModalProps>
 
       // Filter for subtask conversion suggestions
       const subtaskSuggestions = analyses
-        .filter(
-          (analysis) => analysis.type === "subset" || analysis.type === "converted-to-subtask",
-        )
+        .filter((analysis) => analysis.type === "subset")
         .filter((analysis) => analysis.confidence >= 0.7)
         .map((analysis) => ({
           analysis,

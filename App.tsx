@@ -24,7 +24,10 @@ import type { FilterGroup } from './src/types/queryTypes';
 import { debounce } from './src/utils/debounce';
 import { filterTasksBySearch } from './src/utils/taskSearch';
 import type {
+  ActivityType,
+  AIConfig,
   AIContext,
+  AISuggestion,
   BoardColumn,
   CustomFieldDefinition,
   FilterState,
@@ -32,6 +35,7 @@ import type {
   PriorityDefinition,
   Project,
   ProjectType,
+  RecurringConfig,
   Task,
   ToastMessage,
   ToastType,
@@ -144,11 +148,6 @@ const AIHealthDashboard = lazy(() =>
   }))
 );
 
-const AISubtaskSuggestionsModal = lazy(() =>
-  import('./src/components/AISubtaskSuggestionsModal').then(module => ({
-    default: module.AISubtaskSuggestionsModal,
-  }))
-);
 const MobileNavDrawer = lazy(() =>
   import('./src/components/MobileNavDrawer').then(module => ({
     default: module.MobileNavDrawer,
@@ -205,49 +204,59 @@ const HeaderLoadingFallback: React.FC<{ sidebarOffset: number }> = ({ sidebarOff
 type NotificationPayload = {
   title: string;
   body: string;
-  requireInteraction?: boolean;
+  icon?: string;
+  tag?: string;
+  silent?: boolean;
+  onClick?: () => void;
 };
 
 type NotificationServiceHandle = {
-  requestPermission: () => Promise<'granted' | 'denied' | 'default' | boolean>;
-  show: (payload: NotificationPayload) => Promise<void> | void;
+  requestPermission: () => Promise<boolean>;
+  show: (payload: NotificationPayload) => void;
+  startPeriodicCheck: (getTasks: () => unknown[], intervalMs?: number) => void;
+  stopPeriodicCheck: () => void;
 };
 
 type RecurringTaskServiceHandle = {
   start: (tasks: Task[]) => void;
   stop: () => void;
-  handleTaskCreation?: (task: Task) => void;
-  handleTaskUpdate?: (task: Task, previousTask?: Task) => void;
+  updateNextOccurrence: (task: Task) => void;
+  calculateNextOccurrence: (config: RecurringConfig, fromDate?: Date) => Date;
+  generateNow: (task: Task) => void;
+  isRunning: boolean;
+};
+
+type ActivityServiceHandle = {
+  createActivity: (
+    type: ActivityType,
+    details: string,
+    field?: string,
+    oldValue?: unknown,
+    newValue?: unknown
+  ) => unknown;
+  logChange: (task: Task, changes: Partial<Task>, activityType?: ActivityType) => Task;
 };
 
 type SearchIndexServiceHandle = {
   buildIndex: (tasks: Task[]) => void;
   updateTask: (task: Task, previousTask?: Task) => void;
   removeTask: (task: Task) => void;
+  search: (query: string) => string[];
 };
 
 type AutomationServiceHandle = {
+  loadRules: (rules: unknown) => void;
   processTaskEvent: (
     event: string,
     context: { previousTask?: Task; newTask: Task },
-    allTasks: Task[]
+    allTasks: Task[],
+    options?: { onNotify?: (message: string) => void }
   ) => Partial<Task> | null;
-  loadRules: (rules: unknown) => void;
 };
 
 type TemplateServiceHandle = {
   loadTemplates: (templates: unknown[]) => void;
-};
-
-type ActivityServiceHandle = {
-  logChange: (task: Task, updates: Partial<Task>) => Task;
-  createActivity: (
-    type: string,
-    details: string,
-    field?: string,
-    oldValue?: unknown,
-    newValue?: unknown
-  ) => unknown;
+  getAllTemplates: () => unknown[];
 };
 
 type AdvancedFilterExecutor = (tasks: Task[], group: FilterGroup) => Task[];
@@ -289,6 +298,7 @@ const App: React.FC = () => {
   const [isAiHealthDashboardOpen, setIsAiHealthDashboardOpen] = useState(false);
   const [isAutoOrganizeOpen, setIsAutoOrganizeOpen] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const [nextTaskSuggestion, setNextTaskSuggestion] = useState<AISuggestion | null>(null);
 
   // AI Settings
   const [aiSettings, setAiSettings] = useState({
@@ -300,12 +310,7 @@ const App: React.FC = () => {
 
   // Load AI settings
   useEffect(() => {
-    const savedConfig = storageService.get<{
-      autoDetectDuplicates: boolean;
-      autoSuggestPriorities: boolean;
-      autoSuggestTags: boolean;
-      cleanupOnCreate: boolean;
-    }>(STORAGE_KEYS.AI_CONFIG, null);
+    const savedConfig = storageService.get<AIConfig | null>(STORAGE_KEYS.AI_CONFIG, null);
     if (savedConfig) {
       setAiSettings({
         autoDetectDuplicates: savedConfig.autoDetectDuplicates ?? false,
@@ -398,10 +403,10 @@ const App: React.FC = () => {
     priorities,
     activeProjectId,
     addToast,
-    automationServiceRef,
-    activityServiceRef,
-    recurringTaskServiceRef,
-    searchIndexServiceRef,
+    automationServiceRef: automationServiceRef as any,
+    activityServiceRef: activityServiceRef as any,
+    recurringTaskServiceRef: recurringTaskServiceRef as any,
+    searchIndexServiceRef: searchIndexServiceRef as any,
   });
 
   // Initialization
@@ -420,13 +425,13 @@ const App: React.FC = () => {
     setShowSubWorkspaceTasks,
     setViewMode,
     setCurrentView,
-    searchIndexServiceRef,
-    automationServiceRef,
-    templateServiceRef,
-    activityServiceRef,
-    advancedFilterExecutorRef,
-    notificationServiceRef,
-    recurringTaskServiceRef,
+    searchIndexServiceRef: searchIndexServiceRef as any,
+    automationServiceRef: automationServiceRef as any,
+    templateServiceRef: templateServiceRef as any,
+    activityServiceRef: activityServiceRef as any,
+    advancedFilterExecutorRef: advancedFilterExecutorRef as any,
+    notificationServiceRef: notificationServiceRef as any,
+    recurringTaskServiceRef: recurringTaskServiceRef as any,
     tasks,
     addToast,
     pushUndo,
@@ -466,7 +471,11 @@ const App: React.FC = () => {
   const filteredTasks = useMemo(() => {
     let result = tasks;
     if (searchQuery.trim()) {
-      result = filterTasksBySearch(tasks, searchQuery, searchIndexServiceRef.current);
+      result = filterTasksBySearch(
+        tasks,
+        searchQuery,
+        searchIndexServiceRef.current as { search: (query: string) => string[] }
+      );
     }
     if (filters.assignee)
       result = result.filter(t =>
@@ -502,8 +511,8 @@ const App: React.FC = () => {
           projects,
           priorities,
         };
-        const result = await aiService.parseNaturalQuery(query, context);
-        if (result.filterGroup && result.filterGroup.rules.length > 0) {
+        const result = (await aiService.parseNaturalQuery(query, context)) as any;
+        if (result.filterGroup && result.filterGroup.rules && result.filterGroup.rules.length > 0) {
           setActiveFilterGroup(result.filterGroup);
           addToast(`AI Search: ${result.explanation}`, 'info');
         } else {
@@ -563,6 +572,27 @@ const App: React.FC = () => {
     addToast,
   ]);
 
+  const handleSuggestNextTask = useCallback(async () => {
+    addToast('AI is identifying your next task...', 'info');
+    try {
+      const { aiService } = await import('./src/services/aiService');
+      const context: AIContext = {
+        activeProjectId,
+        projects,
+        priorities,
+      };
+      const suggestion = await aiService.suggestNextTask(currentProjectTasks, context);
+      if (suggestion) {
+        setNextTaskSuggestion(suggestion);
+        addToast('AI found a recommendation for you', 'success');
+      } else {
+        addToast('AI reviewed tasks - everything is on track!', 'info');
+      }
+    } catch (e: unknown) {
+      addToast(e instanceof Error ? e.message : String(e), 'error');
+    }
+  }, [currentProjectTasks, activeProjectId, projects, priorities, addToast]);
+
   const handleUndoAiChanges = useCallback(() => {
     if (aiChangesUndoStack.length === 0) {
       addToast('No AI changes to undo', 'info');
@@ -611,9 +641,12 @@ const App: React.FC = () => {
     }
   };
 
-  const handleCreateView = (name: string) => {
-    createView(name, filters, boardGrouping, activeFilterGroup);
-    addToast(`View "${name}" saved`, 'success');
+  const handleCreateView = (name?: string) => {
+    const finalName = name || prompt('Enter a name for this view:');
+    if (finalName) {
+      createView(finalName, filters, boardGrouping, activeFilterGroup);
+      addToast(`View "${finalName}" saved`, 'success');
+    }
   };
 
   const recordCommandUsage = useCallback((commandId: string) => {
@@ -758,6 +791,71 @@ const App: React.FC = () => {
         action: () => setIsAiProjectAssignmentModalOpen(true),
       },
       {
+        id: 'action:ai-prioritize',
+        label: 'AI Suggest Priorities',
+        category: 'action',
+        description: 'AI suggests task priorities based on context',
+        keywords: ['ai', 'priority', 'suggest', 'optimization'],
+        aliases: ['ai priorities', 'optimize priorities'],
+        action: handleAiPrioritize,
+      },
+      {
+        id: 'action:ai-suggest-next',
+        label: 'Suggest My Next Task',
+        category: 'action',
+        description: 'AI recommends the most critical task to work on next',
+        keywords: ['ai', 'next', 'suggest', 'priority', 'recommendation'],
+        aliases: ['what next', 'ai suggest'],
+        action: handleSuggestNextTask,
+      },
+      {
+        id: 'action:ai-insights',
+        label: 'AI Insights',
+        category: 'action',
+        description: 'View AI-generated insights and recommendations',
+        keywords: ['ai', 'insights', 'recommendations', 'analysis'],
+        aliases: ['ai tips', 'smart insights'],
+        action: handleAiInsights,
+      },
+      {
+        id: 'action:ai-report-daily',
+        label: 'Generate Daily AI Report',
+        category: 'action',
+        description: 'Generate and download a daily AI summary report',
+        keywords: ['ai', 'report', 'daily', 'summary', 'export'],
+        aliases: ['daily report', 'export daily'],
+        action: async () => {
+          addToast('Generating daily report...', 'info');
+          try {
+            const { aiSummaryService } = await import('./src/services/aiSummaryService');
+            const report = await aiSummaryService.generateDailyReport(tasks);
+            aiSummaryService.downloadReport(report);
+            addToast('Daily report downloaded!', 'success');
+          } catch (e) {
+            addToast('Failed to generate daily report', 'error');
+          }
+        },
+      },
+      {
+        id: 'action:ai-report-weekly',
+        label: 'Generate Weekly AI Report',
+        category: 'action',
+        description: 'Generate and download a weekly AI summary report',
+        keywords: ['ai', 'report', 'weekly', 'summary', 'export'],
+        aliases: ['weekly report', 'export weekly'],
+        action: async () => {
+          addToast('Generating weekly report...', 'info');
+          try {
+            const { aiSummaryService } = await import('./src/services/aiSummaryService');
+            const report = await aiSummaryService.generateWeeklyReport(tasks);
+            aiSummaryService.downloadReport(report);
+            addToast('Weekly report downloaded!', 'success');
+          } catch (e) {
+            addToast('Failed to generate weekly report', 'error');
+          }
+        },
+      },
+      {
         id: 'view:project',
         label: 'Project View',
         category: 'view',
@@ -900,7 +998,7 @@ const App: React.FC = () => {
   };
 
   const handleRequestNotificationPermission = useCallback(async () => {
-    let granted = false;
+    let granted: boolean | string = false;
     if (notificationServiceRef.current) {
       granted = await notificationServiceRef.current.requestPermission();
     } else {
@@ -909,8 +1007,9 @@ const App: React.FC = () => {
       granted = await notificationService.requestPermission();
     }
 
-    setNotificationPermission(granted ? 'granted' : 'denied');
-    if (granted) {
+    const isGranted = granted === true || String(granted) === 'granted';
+    setNotificationPermission(isGranted ? 'granted' : 'denied');
+    if (isGranted) {
       notificationServiceRef.current?.show({
         title: 'Notifications Enabled',
         body: 'You will now receive task reminders.',
@@ -1106,6 +1205,8 @@ const App: React.FC = () => {
                   }}
                   viewMode={viewMode}
                   onViewModeChange={setViewMode}
+                  onSuggestNextTask={handleSuggestNextTask}
+                  nextTaskSuggestion={nextTaskSuggestion}
                   addToast={addToast}
                 />
               ) : viewMode === 'gantt' ? (
@@ -1218,6 +1319,11 @@ const App: React.FC = () => {
             onOpenMergeModal={() => setIsAiMergeModalOpen(true)}
             onOpenReorganizeModal={() => setIsAiReorganizeModalOpen(true)}
             onOpenSubtaskModal={() => setIsAiSubtaskModalOpen(true)}
+            onOpenProjectAssignmentModal={() => setIsAiProjectAssignmentModalOpen(true)}
+            onOpenHealthDashboard={() => setIsAiHealthDashboardOpen(true)}
+            onOpenBulkOperations={() => setIsBulkAIOperationsOpen(true)}
+            onOpenAutoOrganize={() => setIsAutoOrganizeOpen(true)}
+            onOpenInsights={() => setIsAiInsightsOpen(true)}
           />
         </Suspense>
       )}
@@ -1252,7 +1358,7 @@ const App: React.FC = () => {
             onClose={() => setIsAiMergeModalOpen(false)}
             allTasks={tasks}
             onUpdateTask={handleUpdateTask}
-            onArchiveTask={handleArchiveTask}
+            onArchiveTask={handleDeleteTaskInternal}
             addToast={addToast}
           />
         </Suspense>
@@ -1264,7 +1370,7 @@ const App: React.FC = () => {
             isOpen={isAiReorganizeModalOpen}
             onClose={() => setIsAiReorganizeModalOpen(false)}
             allTasks={tasks}
-            onCreateProject={handleCreateProject}
+            onCreateProject={(p) => handleCreateProject(p)}
             onMoveTask={(taskId, projectId) => handleUpdateTask(taskId, { projectId })}
             addToast={addToast}
           />
@@ -1278,7 +1384,7 @@ const App: React.FC = () => {
             onClose={() => setIsAiSubtaskModalOpen(false)}
             allTasks={tasks}
             onUpdateTask={handleUpdateTask}
-            onArchiveTask={handleArchiveTask}
+            onArchiveTask={handleDeleteTaskInternal}
             addToast={addToast}
           />
         </Suspense>

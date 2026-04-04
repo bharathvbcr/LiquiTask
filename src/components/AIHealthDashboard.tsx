@@ -5,6 +5,7 @@ import {
   Calendar,
   CheckCircle2,
   Clock,
+  Download,
   Loader2,
   Sparkles,
   TrendingDown,
@@ -44,6 +45,25 @@ export const AIHealthDashboard: React.FC<AIHealthDashboardProps> = ({
   const [insights, setInsights] = useState<AIInsight[]>([]);
   const [metrics, setMetrics] = useState<HealthMetric[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportReport = async (period: "daily" | "weekly") => {
+    setIsExporting(true);
+    addToast(`Generating ${period} report...`, "info");
+    try {
+      const { aiSummaryService } = await import("../services/aiSummaryService");
+      const report = await (period === "daily" 
+        ? aiSummaryService.generateDailyReport(allTasks) 
+        : aiSummaryService.generateWeeklyReport(allTasks));
+      aiSummaryService.downloadReport(report);
+      addToast(`${period.charAt(0).toUpperCase() + period.slice(1)} report downloaded!`, "success");
+    } catch (e) {
+      console.error("Report generation failed:", e);
+      addToast(`Failed to generate ${period} report`, "error");
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const loadHealthData = useCallback(async () => {
     setLoading(true);
@@ -78,82 +98,11 @@ export const AIHealthDashboard: React.FC<AIHealthDashboardProps> = ({
         const diff = (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
         return diff >= 0 && diff <= 3;
       }).length;
-      const staleTasks = allTasks.filter((t) => {
+      const staleTasksCount = allTasks.filter((t) => {
         if (!t.updatedAt) return false;
         const daysSinceUpdate =
           (now.getTime() - new Date(t.updatedAt).getTime()) / (1000 * 60 * 60 * 24);
         return daysSinceUpdate > 30 && (t.completedAt === undefined || t.completedAt === null);
-      }).length;
-      const staleTasks = allTasks.filter((t) => {
-        if (!t.updatedAt) return false;
-        const daysSinceUpdate =
-          (now.getTime() - new Date(t.updatedAt).getTime()) / (1000 * 60 * 60 * 24);
-        return daysSinceUpdate > 30 && (t.completedAt === undefined || t.completedAt === null);
-      }).length;
-      const staleTasks = allTasks.filter((t) => {
-        if (!t.updatedAt) return false;
-        const daysSinceUpdate =
-          (now.getTime() - new Date(t.updatedAt).getTime()) / (1000 * 60 * 60 * 24);
-        return daysSinceUpdate > 30 && (t.completedAt === undefined || t.completedAt === null);
-      }).length;
-      const staleTasks = allTasks.filter((t) => {
-        if (!t.updatedAt) return false;
-        const daysSinceUpdate =
-          (now.getTime() - new Date(t.updatedAt).getTime()) / (1000 * 60 * 60 * 24);
-        return daysSinceUpdate > 30 && (t.completedAt === undefined || t.completedAt === null);
-      }).length;
-      const staleTasks = allTasks.filter((t) => {
-        if (!t.updatedAt) return false;
-        const daysSinceUpdate =
-          (now.getTime() - new Date(t.updatedAt).getTime()) / (1000 * 60 * 60 * 24);
-        return daysSinceUpdate > 30 && (t.completedAt === undefined || t.completedAt === null);
-      }).length;
-      const staleTasks = allTasks.filter((t) => {
-        if (!t.updatedAt) return false;
-        const daysSinceUpdate =
-          (now.getTime() - new Date(t.updatedAt).getTime()) / (1000 * 60 * 60 * 24);
-        return daysSinceUpdate > 30 && (t.completedAt === undefined || t.completedAt === null);
-      }).length;
-      const staleTasks = allTasks.filter((t) => {
-        if (!t.updatedAt) return false;
-        const daysSinceUpdate =
-          (now.getTime() - new Date(t.updatedAt).getTime()) / (1000 * 60 * 60 * 24);
-        return daysSinceUpdate > 30 && (t.completedAt === undefined || t.completedAt === null);
-      }).length;
-      const staleTasks = allTasks.filter((t) => {
-        if (!t.updatedAt) return false;
-        const daysSinceUpdate =
-          (now.getTime() - new Date(t.updatedAt).getTime()) / (1000 * 60 * 60 * 24);
-        return daysSinceUpdate > 30 && (t.completedAt === undefined || t.completedAt === null);
-      }).length;
-      const staleTasks = allTasks.filter((t) => {
-        if (!t.updatedAt) return false;
-        const daysSinceUpdate =
-          (now.getTime() - new Date(t.updatedAt).getTime()) / (1000 * 60 * 60 * 24);
-        return daysSinceUpdate > 30 && (t.completedAt === undefined || t.completedAt === null);
-      }).length;
-      const staleTasks = allTasks.filter((t) => {
-        if (!t.updatedAt) return false;
-        const daysSinceUpdate =
-          (now.getTime() - new Date(t.updatedAt).getTime()) / (1000 * 60 * 60 * 24);
-        return daysSinceUpdate > 30 && (t.completedAt === undefined || t.completedAt === null);
-      }).length;
-      const staleTasks = allTasks.filter((t) => {
-        if (!t.updatedAt) return false;
-        const daysSinceUpdate =
-          (now.getTime() - new Date(t.updatedAt).getTime()) / (1000 * 60 * 60 * 24);
-        return daysSinceUpdate > 30 && (t.completedAt === undefined || t.completedAt === null);
-      }).length;
-      const staleTasks = allTasks.filter((t) => {
-        if (!t.updatedAt) return false;
-        const daysSinceUpdate = (now.getTime() - t.updatedAt.getTime()) / (1000 * 60 * 60 * 24);
-        return daysSinceUpdate >= 30;
-      }).length;
-      const staleTasks = allTasks.filter((t) => {
-        if (!t.updatedAt) return false;
-        const daysSinceUpdate =
-          (now.getTime() - new Date(t.updatedAt).getTime()) / (1000 * 60 * 60 * 24);
-        return daysSinceUpdate > 30 && !t.completed;
       }).length;
 
       const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
@@ -182,9 +131,9 @@ export const AIHealthDashboard: React.FC<AIHealthDashboardProps> = ({
         },
         {
           label: "Stale Tasks (30+ days)",
-          value: staleTasks,
-          trend: staleTasks > 0 ? "down" : "stable",
-          color: staleTasks > 0 ? "text-orange-400" : "text-green-400",
+          value: staleTasksCount,
+          trend: staleTasksCount > 0 ? "down" : "stable",
+          color: staleTasksCount > 0 ? "text-orange-400" : "text-green-400",
           icon: <Clock size={20} />,
         },
         {
@@ -230,15 +179,36 @@ export const AIHealthDashboard: React.FC<AIHealthDashboardProps> = ({
   return (
     <ModalWrapper isOpen={isOpen} onClose={onClose} title="AI Health Dashboard" size="xl">
       <div className="space-y-6">
-        <div className="flex items-start gap-3">
-          <div className="p-2 rounded-lg bg-cyan-500/20 text-cyan-400">
-            <Brain size={20} />
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-cyan-500/20 text-cyan-400">
+              <Brain size={20} />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-white">AI Task Health Overview</h3>
+              <p className="text-sm text-slate-400 mt-1">
+                Comprehensive analysis of your task management health with AI-generated insights.
+              </p>
+            </div>
           </div>
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold text-white">AI Task Health Overview</h3>
-            <p className="text-sm text-slate-400 mt-1">
-              Comprehensive analysis of your task management health with AI-generated insights.
-            </p>
+          
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleExportReport("daily")}
+              disabled={isExporting}
+              className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-lg text-xs font-bold transition-all border border-blue-500/20 disabled:opacity-50"
+            >
+              {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+              Daily Report
+            </button>
+            <button
+              onClick={() => handleExportReport("weekly")}
+              disabled={isExporting}
+              className="flex items-center gap-2 px-3 py-1.5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 rounded-lg text-xs font-bold transition-all border border-purple-500/20 disabled:opacity-50"
+            >
+              {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+              Weekly Report
+            </button>
           </div>
         </div>
 
@@ -272,9 +242,9 @@ export const AIHealthDashboard: React.FC<AIHealthDashboardProps> = ({
                 <div
                   key={insight.id}
                   className={`p-4 rounded-xl border ${
-                    insight.type === "warning"
+                    insight.type === "bottleneck"
                       ? "bg-amber-500/10 border-amber-500/20"
-                      : insight.type === "success"
+                      : insight.type === "productivity"
                         ? "bg-green-500/10 border-green-500/20"
                         : "bg-blue-500/10 border-blue-500/20"
                   }`}
@@ -282,9 +252,9 @@ export const AIHealthDashboard: React.FC<AIHealthDashboardProps> = ({
                   <div className="flex items-start gap-3">
                     <div
                       className={`p-1.5 rounded-lg ${
-                        insight.type === "warning"
+                        insight.type === "bottleneck"
                           ? "bg-amber-500/20 text-amber-400"
-                          : insight.type === "success"
+                          : insight.type === "productivity"
                             ? "bg-green-500/20 text-green-400"
                             : "bg-blue-500/20 text-blue-400"
                       }`}
@@ -294,12 +264,6 @@ export const AIHealthDashboard: React.FC<AIHealthDashboardProps> = ({
                     <div className="flex-1">
                       <h5 className="text-sm font-medium text-white">{insight.title}</h5>
                       <p className="text-xs text-slate-300 mt-1">{insight.description}</p>
-                      {insight.actionable && (
-                        <div className="mt-2 flex items-center gap-1.5 text-xs text-cyan-400">
-                          <Sparkles size={12} />
-                          <span>Actionable insight</span>
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>

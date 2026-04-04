@@ -53,6 +53,11 @@ interface SettingsModalProps {
   onOpenMergeModal?: () => void;
   onOpenReorganizeModal?: () => void;
   onOpenSubtaskModal?: () => void;
+  onOpenProjectAssignmentModal?: () => void;
+  onOpenHealthDashboard?: () => void;
+  onOpenBulkOperations?: () => void;
+  onOpenAutoOrganize?: () => void;
+  onOpenInsights?: () => void;
   onBulkCreateTasks?: (tasks: Partial<Task>[]) => void;
   showSubWorkspaceTasks: boolean;
   onUpdateShowSubWorkspaceTasks?: (s: boolean) => void;
@@ -76,6 +81,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onOpenMergeModal,
   onOpenReorganizeModal,
   onOpenSubtaskModal,
+  onOpenProjectAssignmentModal,
+  onOpenHealthDashboard,
+  onOpenBulkOperations,
+  onOpenAutoOrganize,
+  onOpenInsights,
 }) => {
   const [activeTab, setActiveTab] = useState("general");
   const [localGrouping, setLocalGrouping] = useState<GroupingOption>(grouping);
@@ -305,6 +315,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               onOpenMergeModal={onOpenMergeModal}
               onOpenReorganizeModal={onOpenReorganizeModal}
               onOpenSubtaskModal={onOpenSubtaskModal}
+              onOpenProjectAssignmentModal={onOpenProjectAssignmentModal}
+              onOpenHealthDashboard={onOpenHealthDashboard}
+              onOpenBulkOperations={onOpenBulkOperations}
+              onOpenAutoOrganize={onOpenAutoOrganize}
+              onOpenInsights={onOpenInsights}
             />
           )}
         </div>
