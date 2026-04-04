@@ -41,4 +41,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return false;
     }),
   },
+  workspace: {
+    getPaths: () => ipcRenderer.invoke('getWorkspacePaths').catch((err) => {
+      console.error('Failed to get workspace paths:', err);
+      return [];
+    }),
+    setPaths: (paths: string[]) => ipcRenderer.invoke('setWorkspacePaths', paths).catch((err) => {
+      console.error('Failed to set workspace paths:', err);
+    }),
+    readFile: (filePath: string) => ipcRenderer.invoke('readWorkspaceFile', filePath).catch((err) => {
+      console.error(`Failed to read workspace file "${filePath}":`, err);
+      throw err;
+    }),
+    writeFile: (filePath: string, content: string) => ipcRenderer.invoke('writeWorkspaceFile', filePath, content).catch((err) => {
+      console.error(`Failed to write workspace file "${filePath}":`, err);
+      throw err;
+    }),
+  },
 });
