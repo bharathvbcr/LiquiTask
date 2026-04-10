@@ -52,8 +52,8 @@ export const AIHealthDashboard: React.FC<AIHealthDashboardProps> = ({
     addToast(`Generating ${period} report...`, "info");
     try {
       const { aiSummaryService } = await import("../services/aiSummaryService");
-      const report = await (period === "daily" 
-        ? aiSummaryService.generateDailyReport(allTasks) 
+      const report = await (period === "daily"
+        ? aiSummaryService.generateDailyReport(allTasks)
         : aiSummaryService.generateWeeklyReport(allTasks));
       aiSummaryService.downloadReport(report);
       addToast(`${period.charAt(0).toUpperCase() + period.slice(1)} report downloaded!`, "success");
@@ -191,14 +191,18 @@ export const AIHealthDashboard: React.FC<AIHealthDashboardProps> = ({
               </p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <button
               onClick={() => handleExportReport("daily")}
               disabled={isExporting}
               className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-lg text-xs font-bold transition-all border border-blue-500/20 disabled:opacity-50"
             >
-              {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+              {isExporting ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Download size={14} />
+              )}
               Daily Report
             </button>
             <button
@@ -206,7 +210,11 @@ export const AIHealthDashboard: React.FC<AIHealthDashboardProps> = ({
               disabled={isExporting}
               className="flex items-center gap-2 px-3 py-1.5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 rounded-lg text-xs font-bold transition-all border border-purple-500/20 disabled:opacity-50"
             >
-              {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+              {isExporting ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Download size={14} />
+              )}
               Weekly Report
             </button>
           </div>

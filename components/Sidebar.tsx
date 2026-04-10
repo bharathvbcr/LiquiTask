@@ -479,7 +479,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           className={`p-6 pb-2 flex items-center ${isEffectivelyCollapsed ? "justify-center" : "justify-between"} transition-[padding] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]`}
         >
           <div className="flex items-center gap-3">
-
             <div
               className={`overflow-hidden transition-[max-width,opacity,transform] duration-300 ease-out ${isEffectivelyCollapsed ? "max-w-0 opacity-0 -translate-x-2" : "max-w-[160px] opacity-100 translate-x-0"}`}
             >
@@ -506,8 +505,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         >
           {/* Quick Navigation */}
           <div className="space-y-1 mb-4">
-            <Tooltip content="Open Dashboard" position={isEffectivelyCollapsed ? "right" : "top"} delay={300}>
-              <div
+            <Tooltip
+              content="Open Dashboard"
+              position={isEffectivelyCollapsed ? "right" : "top"}
+              delay={300}
+            >
+              <button
+                type="button"
                 onClick={() => onChangeView("dashboard")}
                 aria-label="Open Dashboard"
                 onMouseEnter={(e) => {
@@ -522,7 +526,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onMouseLeave={() => setHoveredItem(null)}
                 className={`
                 group px-3 py-2.5 rounded-xl cursor-pointer transition-[background-color,color,transform] duration-300
-                flex items-center relative overflow-hidden border border-transparent
+                flex w-full items-center relative overflow-hidden border border-transparent
                 ${isEffectivelyCollapsed ? "justify-center" : ""}
                 ${currentView === "dashboard" ? "bg-red-500/10 border-red-500/20 text-red-50" : "text-slate-400 hover:text-slate-100 hover:bg-white/5"}
               `}
@@ -532,9 +536,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     size={18}
                     className={`shrink-0 transition-colors ${currentView === "dashboard" ? "text-red-400 drop-shadow-md" : "group-hover:text-red-400"}`}
                   />
-                  {!isEffectivelyCollapsed && <span className="font-medium text-sm">Dashboard</span>}
+                  {!isEffectivelyCollapsed && (
+                    <span className="font-medium text-sm">Dashboard</span>
+                  )}
                 </div>
-              </div>
+              </button>
             </Tooltip>
           </div>
 
@@ -627,30 +633,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Footer */}
         <div className="mt-auto border-t border-white/5 bg-white/[0.02] p-4">
-        <Tooltip content="Settings" position={isEffectivelyCollapsed ? "right" : "top"} delay={300}>
-          <button
-            onClick={onOpenSettings}
-            aria-label="Settings"
-            onMouseEnter={(e) => {
-              if (isEffectivelyCollapsed) {
-                const rect = e.currentTarget.getBoundingClientRect();
-                setHoveredItem({
-                  label: "Settings",
-                  top: rect.top + rect.height / 2,
-                });
-              }
-            }}
-            onMouseLeave={() => setHoveredItem(null)}
-            className={`flex items-center gap-3 w-full rounded-xl hover:bg-white/5 cursor-pointer text-slate-400 hover:text-slate-100 transition-[background-color,color] border border-transparent hover:border-white/5 ${isEffectivelyCollapsed ? "justify-center px-2 py-3.5" : "px-3 py-3"}`}
+          <Tooltip
+            content="Settings"
+            position={isEffectivelyCollapsed ? "right" : "top"}
+            delay={300}
           >
-            <Settings size={isEffectivelyCollapsed ? 26 : 22} />
-            <span
-              className={`text-sm font-medium overflow-hidden transition-[max-width,opacity,transform] duration-300 ease-out ${isEffectivelyCollapsed ? "max-w-0 opacity-0 -translate-x-2" : "max-w-[120px] opacity-100 translate-x-0"}`}
+            <button
+              onClick={onOpenSettings}
+              aria-label="Settings"
+              onMouseEnter={(e) => {
+                if (isEffectivelyCollapsed) {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setHoveredItem({
+                    label: "Settings",
+                    top: rect.top + rect.height / 2,
+                  });
+                }
+              }}
+              onMouseLeave={() => setHoveredItem(null)}
+              className={`flex items-center gap-3 w-full rounded-xl hover:bg-white/5 cursor-pointer text-slate-400 hover:text-slate-100 transition-[background-color,color] border border-transparent hover:border-white/5 ${isEffectivelyCollapsed ? "justify-center px-2 py-3.5" : "px-3 py-3"}`}
             >
-              Settings
-            </span>
-          </button>
-        </Tooltip>
+              <Settings size={isEffectivelyCollapsed ? 26 : 22} />
+              <span
+                className={`text-sm font-medium overflow-hidden transition-[max-width,opacity,transform] duration-300 ease-out ${isEffectivelyCollapsed ? "max-w-0 opacity-0 -translate-x-2" : "max-w-[120px] opacity-100 translate-x-0"}`}
+              >
+                Settings
+              </span>
+            </button>
+          </Tooltip>
         </div>
 
         {/* Edit Project Modal */}

@@ -4,7 +4,7 @@ import type { BoardColumn } from "../../types";
 
 interface WorkflowSettingsProps {
   localColumns: BoardColumn[];
-  updateItem: <T extends Record<string, unknown>>(
+  updateItem: <T extends object>(
     list: T[],
     idx: number,
     field: keyof T,

@@ -11,10 +11,10 @@ describe("useTaskController", () => {
     calculateNextOccurrence: vi.fn(),
     updateNextOccurrence: vi.fn(),
   };
-  const mockSearchIndexService = { 
-    updateTask: vi.fn(), 
+  const mockSearchIndexService = {
+    updateTask: vi.fn(),
     removeTask: vi.fn(),
-    augmentTaskSemantically: vi.fn()
+    augmentTaskSemantically: vi.fn(),
   };
 
   const initialTasks: Task[] = [

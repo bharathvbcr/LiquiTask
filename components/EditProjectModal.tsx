@@ -114,13 +114,20 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
   }, [isOpen, project]);
 
   const handleAddFolder = async () => {
-    const path = await (window as any).electronAPI?.workspace.selectDirectory();
+    const workspaceApi = window.electronAPI?.workspace;
+    const path = await workspaceApi?.selectDirectory();
     if (!path || workspacePaths.includes(path)) return;
-    setWorkspacePaths(prev => [...prev, path]);
+
+    const globalPaths = (await workspaceApi?.getPaths?.().catch(() => [])) ?? [];
+    if (!globalPaths.includes(path)) {
+      await workspaceApi?.setPaths?.([...globalPaths, path]).catch(() => {});
+    }
+
+    setWorkspacePaths((prev) => [...prev, path]);
   };
 
   const handleRemovePath = (path: string) => {
-    setWorkspacePaths(prev => prev.filter(p => p !== path));
+    setWorkspacePaths((prev) => prev.filter((p) => p !== path));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -202,8 +209,11 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
             </p>
           ) : (
             <div className="space-y-1.5">
-              {workspacePaths.map(p => (
-                <div key={p} className="flex items-center gap-2 group px-3 py-2 bg-[#05080f] border border-white/5 rounded-xl">
+              {workspacePaths.map((p) => (
+                <div
+                  key={p}
+                  className="flex items-center gap-2 group px-3 py-2 bg-[#05080f] border border-white/5 rounded-xl"
+                >
                   <FolderOpen size={13} className="text-red-400/70 shrink-0" />
                   <span className="flex-1 text-[12px] text-slate-400 font-mono truncate" title={p}>
                     {p.split(/[\\/]/).pop()}

@@ -63,7 +63,6 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="px-8 py-6 flex flex-col gap-4 sticky top-4 z-30 mx-6 mt-4 rounded-3xl liquid-glass">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
-
           <div>
             <h2 className="text-3xl font-bold text-white tracking-tight drop-shadow-md text-glow">
               {currentView === "dashboard" ? "Executive Dashboard" : activeProjectName}

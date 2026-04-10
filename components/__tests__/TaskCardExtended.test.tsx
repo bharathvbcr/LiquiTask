@@ -57,7 +57,7 @@ describe("TaskCard Extended", () => {
 
     const subtask1Check = screen.getByLabelText("Toggle subtask Subtask 1");
     fireEvent.click(subtask1Check);
-    
+
     expect(defaultProps.onUpdateTask).toHaveBeenCalled();
   });
 
@@ -65,7 +65,7 @@ describe("TaskCard Extended", () => {
     render(<TaskCard {...defaultProps} />);
     const card = screen.getByText("Test Task").closest(".liquid-card");
     if (card) fireEvent.contextMenu(card);
-    
+
     expect(screen.getByText("Copy as JSON")).toBeDefined();
     expect(screen.getByText("Save as Template")).toBeDefined();
   });
@@ -80,11 +80,11 @@ describe("TaskCard Extended", () => {
   it("shows blocked status when task has blocked-by links", () => {
     const blockedTask = {
       ...mockTask,
-      links: [{ id: "l1", type: "blocked-by", targetTaskId: "task-2" }]
+      links: [{ id: "l1", type: "blocked-by", targetTaskId: "task-2" }],
     } as any;
     const allTasks = [
       blockedTask,
-      { id: "task-2", jobId: "JOB-2", status: "Pending", title: "Blocker" }
+      { id: "task-2", jobId: "JOB-2", status: "Pending", title: "Blocker" },
     ] as any;
 
     render(<TaskCard {...defaultProps} task={blockedTask} allTasks={allTasks} />);

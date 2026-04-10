@@ -1,4 +1,4 @@
-import { renderHook, act } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useVirtualTaskList } from "../useVirtualScroll";
 
@@ -35,14 +35,14 @@ describe("useVirtualTaskList", () => {
     const { result } = renderHook(() => useVirtualTaskList(tasks, estimatedHeight));
 
     // Mock the container element and its dimensions
-    const mockElement = document.createElement('div');
-    Object.defineProperty(mockElement, 'clientHeight', { value: 500 });
-    Object.defineProperty(mockElement, 'getBoundingClientRect', {
-      value: () => ({ height: 500, top: 0, left: 0, bottom: 500, right: 500, width: 500 })
+    const mockElement = document.createElement("div");
+    Object.defineProperty(mockElement, "clientHeight", { value: 500 });
+    Object.defineProperty(mockElement, "getBoundingClientRect", {
+      value: () => ({ height: 500, top: 0, left: 0, bottom: 500, right: 500, width: 500 }),
     });
 
     act(() => {
-      // @ts-ignore - setting private ref for test
+      // @ts-expect-error - setting private ref for test
       result.current.containerRef.current = mockElement;
     });
 

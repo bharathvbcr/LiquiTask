@@ -37,10 +37,10 @@ describe("taskParser", () => {
 
   it("should parse due dates: @today, @tomorrow, @nextweek", () => {
     const now = new Date();
-    
+
     const todayRes = parseQuickTask("Task @today");
     expect(todayRes.dueDate?.getDate()).toBe(now.getDate());
-    
+
     const tomRes = parseQuickTask("Task @tom");
     const tom = new Date();
     tom.setDate(now.getDate() + 1);

@@ -43,11 +43,20 @@ describe("AiService Ollama", () => {
   it("extracts tasks using Ollama", async () => {
     (global.fetch as Mock).mockResolvedValueOnce({
       ok: true,
-      json: () => Promise.resolve({
-        message: {
-          content: JSON.stringify([{ title: "Ollama Task", summary: "S", priority: "medium", tags: [], timeEstimate: 10 }])
-        }
-      }),
+      json: () =>
+        Promise.resolve({
+          message: {
+            content: JSON.stringify([
+              {
+                title: "Ollama Task",
+                summary: "S",
+                priority: "medium",
+                tags: [],
+                timeEstimate: 10,
+              },
+            ]),
+          },
+        }),
     });
 
     const tasks = await aiService.extractTasksFromText("test", mockContext);
@@ -58,12 +67,10 @@ describe("AiService Ollama", () => {
   it("lists Ollama models", async () => {
     (global.fetch as Mock).mockResolvedValueOnce({
       ok: true,
-      json: () => Promise.resolve({
-        models: [
-          { name: "llama3:latest" },
-          { name: "mistral:latest" }
-        ]
-      }),
+      json: () =>
+        Promise.resolve({
+          models: [{ name: "llama3:latest" }, { name: "mistral:latest" }],
+        }),
     });
 
     const models = await aiService.listModels();
@@ -72,21 +79,24 @@ describe("AiService Ollama", () => {
 
   it("pulls an Ollama model", async () => {
     const onProgress = vi.fn();
-    
+
     // Create a mock reader
     const mockReader = {
-      read: vi.fn()
+      read: vi
+        .fn()
         .mockResolvedValueOnce({
           done: false,
-          value: new TextEncoder().encode(JSON.stringify({ status: "downloading", completed: 50, total: 100 }) + "\n")
+          value: new TextEncoder().encode(
+            JSON.stringify({ status: "downloading", completed: 50, total: 100 }) + "\n",
+          ),
         })
-        .mockResolvedValueOnce({ done: true })
+        .mockResolvedValueOnce({ done: true }),
     };
 
     (global.fetch as Mock).mockResolvedValueOnce({
       ok: true,
       body: {
-        getReader: () => mockReader
+        getReader: () => mockReader,
       },
     });
 

@@ -41,6 +41,47 @@
     "lineWidth": 100
   },
   "files": {
-    "ignoreUnknown": true
-  }
+    "ignoreUnknown": true,
+    "includes": [
+      "**",
+      "!dist",
+      "!dist-electron",
+      "!build",
+      "!build-electrobun",
+      "!release",
+      "!.worktrees"
+    ]
+  },
+  "overrides": [
+    {
+      "includes": ["index.css"],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noImportantStyles": "off"
+          },
+          "style": {
+            "noDescendingSpecificity": "off"
+          },
+          "suspicious": {
+            "noUnknownAtRules": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["**/__tests__/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noNonNullAssertion": "off",
+            "useTemplate": "off"
+          },
+          "suspicious": {
+            "noExplicitAny": "off"
+          }
+        }
+      }
+    }
+  ]
 }

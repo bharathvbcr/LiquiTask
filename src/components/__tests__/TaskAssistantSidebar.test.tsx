@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TaskAssistantSidebar } from "../TaskAssistantSidebar";
 
 describe("TaskAssistantSidebar Component", () => {
@@ -34,14 +34,20 @@ describe("TaskAssistantSidebar Component", () => {
     render(<TaskAssistantSidebar {...defaultProps} />);
     const input = screen.getByPlaceholderText("Ask anything...");
     fireEvent.change(input, { target: { value: "Hello" } });
-    fireEvent.submit(screen.getByRole("form"));
+    fireEvent.submit(input.closest("form") as HTMLFormElement);
     expect(defaultProps.onSendMessage).toHaveBeenCalledWith("Hello");
   });
 
   it("filters out function role messages", () => {
     const messages = [
       { id: "1", role: "user" as const, content: "Search", timestamp: new Date() },
-      { id: "2", role: "function" as const, content: "Result", timestamp: new Date(), toolResults: [{ name: "search", result: [] }] },
+      {
+        id: "2",
+        role: "function" as const,
+        content: "Result",
+        timestamp: new Date(),
+        toolResults: [{ name: "search", result: [] }],
+      },
     ];
     render(<TaskAssistantSidebar {...defaultProps} messages={messages} />);
     expect(screen.getByText("Search")).toBeDefined();
@@ -50,7 +56,13 @@ describe("TaskAssistantSidebar Component", () => {
 
   it("renders tool call indicators in assistant messages", () => {
     const messages = [
-      { id: "1", role: "assistant" as const, content: "", timestamp: new Date(), toolCalls: [{ name: "create_task", args: {} }] },
+      {
+        id: "1",
+        role: "assistant" as const,
+        content: "",
+        timestamp: new Date(),
+        toolCalls: [{ name: "create_task", args: {} }],
+      },
     ];
     render(<TaskAssistantSidebar {...defaultProps} messages={messages} />);
     expect(screen.getByText("create_task()")).toBeDefined();

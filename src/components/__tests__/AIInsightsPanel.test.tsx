@@ -1,7 +1,7 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AIInsightsPanel } from "../AIInsightsPanel";
 import { aiService } from "../../services/aiService";
+import { AIInsightsPanel } from "../AIInsightsPanel";
 
 // Mock aiService
 vi.mock("../../services/aiService", () => ({
@@ -17,9 +17,7 @@ vi.mock("../../services/storageService", () => ({
 }));
 
 describe("AIInsightsPanel", () => {
-  const mockTasks = [
-    { id: "1", title: "Task 1" },
-  ] as any;
+  const mockTasks = [{ id: "1", title: "Task 1" }] as any;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -28,13 +26,7 @@ describe("AIInsightsPanel", () => {
   it("renders empty state when no insights", async () => {
     vi.mocked(aiService.generateInsights).mockResolvedValue([]);
 
-    render(
-      <AIInsightsPanel
-        isOpen={true}
-        onClose={vi.fn()}
-        allTasks={mockTasks}
-      />
-    );
+    render(<AIInsightsPanel isOpen={true} onClose={vi.fn()} allTasks={mockTasks} />);
 
     await waitFor(() => {
       expect(screen.getByText(/No insights available/i)).toBeInTheDocument();
@@ -43,16 +35,10 @@ describe("AIInsightsPanel", () => {
 
   it("renders insights when available", async () => {
     vi.mocked(aiService.generateInsights).mockResolvedValue([
-      { id: "i1", type: "pattern", title: "Insight Title", description: "Insight Desc" } as any
+      { id: "i1", type: "pattern", title: "Insight Title", description: "Insight Desc" } as any,
     ]);
 
-    render(
-      <AIInsightsPanel
-        isOpen={true}
-        onClose={vi.fn()}
-        allTasks={mockTasks}
-      />
-    );
+    render(<AIInsightsPanel isOpen={true} onClose={vi.fn()} allTasks={mockTasks} />);
 
     await waitFor(() => {
       expect(screen.getByText("Insight Title")).toBeInTheDocument();

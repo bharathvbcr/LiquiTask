@@ -1,4 +1,3 @@
-// biome-ignore lint/style/noNonNullAssertion: test assertions require non-null access
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FilterState, SavedView } from "../../../types";
@@ -162,7 +161,6 @@ describe("useSavedViews", () => {
 
       act(() => {
         result.current.updateView(viewId!, {
-          // biome-ignore lint/style/noNonNullAssertion: test setup
           name: "Updated",
           filters: {
             assignee: "John",

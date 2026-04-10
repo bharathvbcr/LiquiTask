@@ -83,6 +83,7 @@ export const useGlobalKeyboardShortcuts = ({
     addToast,
     matches,
     setIsCommandPaletteOpen,
+    setIsAssistantOpen,
     setIsSidebarCollapsed,
     setIsTaskModalOpen,
     setEditingTask,

@@ -140,10 +140,9 @@ export const TaskQuickView: React.FC<TaskQuickViewProps> = ({
           {/* Tags */}
           {task.tags?.length > 0 && (
             <div className="flex flex-wrap gap-1">
-              {task.tags.map((tag, i) => (
-                // biome-ignore lint/suspicious/noArrayIndexKey: tag order is stable
+              {task.tags.map((tag) => (
                 <span
-                  key={i}
+                  key={`${task.id}-${tag}`}
                   className="px-1.5 py-0.5 bg-white/5 border border-white/10 rounded text-[10px] text-slate-400"
                 >
                   {tag}

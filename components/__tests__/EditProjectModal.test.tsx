@@ -6,7 +6,6 @@ describe("EditProjectModal", () => {
   const mockOnClose = vi.fn();
   const mockOnSave = vi.fn();
   const mockProject = { id: "p1", name: "Original Name", type: "folder" };
-  const mockProjectTypes = [{ id: "folder", label: "Folder", icon: "folder" }];
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -19,7 +18,7 @@ describe("EditProjectModal", () => {
         onClose={mockOnClose}
         onSave={mockOnSave}
         project={mockProject}
-      />
+      />,
     );
     expect(screen.getByDisplayValue("Original Name")).toBeDefined();
   });
@@ -31,7 +30,7 @@ describe("EditProjectModal", () => {
         onClose={mockOnClose}
         onSave={mockOnSave}
         project={mockProject}
-      />
+      />,
     );
 
     const input = screen.getByDisplayValue("Original Name");
@@ -50,7 +49,7 @@ describe("EditProjectModal", () => {
         onClose={mockOnClose}
         onSave={mockOnSave}
         project={mockProject}
-      />
+      />,
     );
 
     const cancelButton = screen.getByText("Cancel");

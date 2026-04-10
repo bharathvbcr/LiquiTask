@@ -1,7 +1,7 @@
+import { DndContext } from "@dnd-kit/core";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { SortableTask } from "../SortableTask";
-import { DndContext } from "@dnd-kit/core";
 
 // Mock TaskCard with correct relative path from THIS test file
 vi.mock("../../../../components/TaskCard", () => ({
@@ -10,9 +10,9 @@ vi.mock("../../../../components/TaskCard", () => ({
 }));
 
 describe("SortableTask", () => {
-  const mockTask = { 
-    id: "1", 
-    title: "T1", 
+  const mockTask = {
+    id: "1",
+    title: "T1",
     status: "Todo",
     priority: "high",
     subtasks: [],
@@ -21,9 +21,7 @@ describe("SortableTask", () => {
     links: [],
   } as any;
 
-  const mockPriorities = [
-    { id: "high", label: "High", color: "red", level: 1 }
-  ];
+  const mockPriorities = [{ id: "high", label: "High", color: "red", level: 1 }];
 
   it("renders TaskCard", () => {
     render(
@@ -38,7 +36,7 @@ describe("SortableTask", () => {
           projects={[]}
           allTasks={[]}
         />
-      </DndContext>
+      </DndContext>,
     );
 
     expect(screen.getByTestId("task-card")).toBeDefined();

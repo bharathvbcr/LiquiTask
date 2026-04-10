@@ -1,11 +1,11 @@
 import { ArrowRight, Brain, CheckCircle2, Globe, Loader2 } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
+import { ModalWrapper } from "../../components/ModalWrapper";
 import type { AIContext, PriorityDefinition, Project, Task } from "../../types";
 import { STORAGE_KEYS } from "../constants";
 import { aiService } from "../services/aiService";
 import storageService from "../services/storageService";
-import { ModalWrapper } from "../../components/ModalWrapper";
 
 interface AIProjectAssignmentModalProps {
   isOpen: boolean;

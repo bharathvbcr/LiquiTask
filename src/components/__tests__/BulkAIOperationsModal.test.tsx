@@ -1,8 +1,7 @@
-import { fireEvent, render, screen, waitFor, act } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { BulkAIOperationsModal } from "../BulkAIOperationsModal";
 import { aiService } from "../../services/aiService";
-import { taskCleanupService } from "../../services/taskCleanupService";
+import { BulkAIOperationsModal } from "../BulkAIOperationsModal";
 
 // Mock services
 vi.mock("../../services/aiService", () => ({
@@ -51,7 +50,7 @@ describe("BulkAIOperationsModal", () => {
           onUpdateTask={mockOnUpdateTask}
           onArchiveTask={mockOnArchiveTask}
           addToast={mockAddToast}
-        />
+        />,
       );
     });
 
@@ -62,7 +61,7 @@ describe("BulkAIOperationsModal", () => {
 
   it("handles auto-categorize process", async () => {
     vi.mocked(aiService.categorizeTasks).mockResolvedValue([
-      { taskId: "1", suggestedTags: ["ai"], confidence: 0.9, reasoning: "R" } as any
+      { taskId: "1", suggestedTags: ["ai"], confidence: 0.9, reasoning: "R" } as any,
     ]);
 
     await act(async () => {
@@ -74,7 +73,7 @@ describe("BulkAIOperationsModal", () => {
           onUpdateTask={mockOnUpdateTask}
           onArchiveTask={mockOnArchiveTask}
           addToast={mockAddToast}
-        />
+        />,
       );
     });
 

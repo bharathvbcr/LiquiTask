@@ -7,15 +7,15 @@ import {
   Key,
   Loader2,
   Merge,
+  Plus,
   RefreshCw,
   Server,
   Settings2,
   Sparkles,
   Tags,
   Trash2,
-  Zap,
-  Plus,
   X,
+  Zap,
 } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
@@ -38,6 +38,14 @@ interface AiSettingsProps {
   onOpenInsights?: () => void;
 }
 
+const DEFAULT_AI_CONFIG: AIConfig = {
+  provider: "gemini",
+  geminiApiKey: "",
+  geminiModel: "gemini-3.1-flash-lite",
+  ollamaBaseUrl: "http://localhost:11434",
+  ollamaModel: "",
+};
+
 export const AiSettings: React.FC<AiSettingsProps> = ({
   addToast,
   onOpenMergeModal,
@@ -49,13 +57,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
   onOpenAutoOrganize,
   onOpenInsights,
 }) => {
-  const [config, setConfig] = useState<AIConfig>({
-    provider: "gemini",
-    geminiApiKey: "",
-    geminiModel: "gemini-3.1-flash-lite",
-    ollamaBaseUrl: "http://localhost:11434",
-    ollamaModel: "",
-  });
+  const [config, setConfig] = useState<AIConfig>(DEFAULT_AI_CONFIG);
 
   const [aiManagement, setAiManagement] = useState({
     autoDetectDuplicates: false,
@@ -85,7 +87,6 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
   const [autoOrganize, setAutoOrganize] = useState<AutoOrganizeConfig>(defaultAutoOrganize);
 
   const [workspacePaths, setWorkspacePaths] = useState<string[]>([]);
-  const [newPath, setNewPath] = useState("");
 
   const [_isTesting, setIsTesting] = useState(false);
   const [_testResult, setTestResult] = useState<"success" | "error" | null>(null);
@@ -99,47 +100,48 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [_modelFetchError, setModelFetchError] = useState<string | null>(null);
 
-  const fetchModels = useCallback(
-    async (baseUrl: string, retryCount = 0) => {
-      if (!baseUrl) return;
+  const fetchModels = useCallback(async (baseUrl: string, retryCount = 0) => {
+    if (!baseUrl) return;
 
-      setIsLoadingModels(true);
-      setModelFetchError(null);
+    const normalizedBaseUrl = sanitizeUrl(baseUrl);
+    setIsLoadingModels(true);
+    setModelFetchError(null);
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-      try {
-        const tempConfig = { ...config, ollamaBaseUrl: sanitizeUrl(baseUrl) };
-        storageService.set(STORAGE_KEYS.AI_CONFIG, tempConfig);
+    try {
+      const storedConfig = storageService.get<AIConfig | null>(STORAGE_KEYS.AI_CONFIG, null);
+      storageService.set(STORAGE_KEYS.AI_CONFIG, {
+        ...(storedConfig ?? DEFAULT_AI_CONFIG),
+        ollamaBaseUrl: normalizedBaseUrl,
+      });
 
-        const models = await aiService.listModels(controller.signal);
-        setAvailableModels(models);
-
-        if (models.length > 0 && !config.ollamaModel) {
-          setConfig((prev) => ({ ...prev, ollamaModel: models[0] }));
+      const models = await aiService.listModels(controller.signal);
+      setAvailableModels(models);
+      setConfig((prev) => ({
+        ...prev,
+        ollamaBaseUrl: normalizedBaseUrl,
+        ollamaModel: models.length > 0 && !prev.ollamaModel ? models[0] : prev.ollamaModel,
+      }));
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === "AbortError") {
+        setModelFetchError("Request timed out");
+      } else {
+        console.warn("Could not fetch Ollama models:", e);
+        if (retryCount < 1) {
+          setTimeout(() => fetchModels(baseUrl, retryCount + 1), 1000);
+          return;
         }
-      } catch (e) {
-        if ((e as Error).name === "AbortError") {
-          setModelFetchError("Request timed out");
-        } else {
-          console.warn("Could not fetch Ollama models:", e);
-          if (retryCount < 1) {
-            setTimeout(() => fetchModels(baseUrl, retryCount + 1), 1000);
-            return;
-          }
-          setModelFetchError((e as Error).message || "Could not reach Ollama");
-        }
-        setAvailableModels([]);
-      } finally {
-        clearTimeout(timeoutId);
-        setIsLoadingModels(false);
+        setModelFetchError(e instanceof Error ? e.message : "Could not reach Ollama");
       }
-    },
-    [config],
-  );
+      setAvailableModels([]);
+    } finally {
+      clearTimeout(timeoutId);
+      setIsLoadingModels(false);
+    }
+  }, []);
 
-  // Load saved config on mount (only once)
   useEffect(() => {
     const savedConfig = storageService.get<AIConfig | null>(STORAGE_KEYS.AI_CONFIG, null);
     if (savedConfig) {
@@ -160,13 +162,14 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
     } else {
       const oldKey = storageService.get<string>(STORAGE_KEYS.GEMINI_API_KEY, "");
       if (oldKey) {
-        const migrated = { ...config, geminiApiKey: oldKey };
-        setConfig(migrated);
-        storageService.set(STORAGE_KEYS.AI_CONFIG, migrated);
+        setConfig((prev) => {
+          const migrated = { ...prev, geminiApiKey: oldKey };
+          storageService.set(STORAGE_KEYS.AI_CONFIG, migrated);
+          return migrated;
+        });
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchModels]);
 
   useEffect(() => {
     if (window.electronAPI?.workspace) {
@@ -280,22 +283,25 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
     fetchModels(sanitized);
   };
 
-  const updateAutoOrganizeOperation = (key: keyof AutoOrganizeConfig["operations"], value: boolean) => {
-    setAutoOrganize(prev => ({
+  const updateAutoOrganizeOperation = (
+    key: keyof AutoOrganizeConfig["operations"],
+    value: boolean,
+  ) => {
+    setAutoOrganize((prev) => ({
       ...prev,
       operations: {
         ...prev.operations,
-        [key]: value
-      }
+        [key]: value,
+      },
     }));
   };
 
   const handleAddWorkspacePath = async () => {
     if (!window.electronAPI?.workspace) return;
-    
+
     const selectedPath = await window.electronAPI.workspace.selectDirectory();
     if (!selectedPath || workspacePaths.includes(selectedPath)) return;
-    
+
     const updated = [...workspacePaths, selectedPath];
     setWorkspacePaths(updated);
     await window.electronAPI.workspace.setPaths(updated);
@@ -503,7 +509,8 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
             <h4 className="text-sm font-bold text-white">Workspace Integration</h4>
           </div>
           <p className="text-[10px] text-slate-500 mb-2">
-            Allow the AI to read and write .md files in these directories for external task tracking.
+            Allow the AI to read and write .md files in these directories for external task
+            tracking.
             <span className="ml-1 text-cyan-500/70 italic">Saves automatically.</span>
           </p>
 
@@ -522,9 +529,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
                   className="flex items-center justify-between gap-2 p-2 bg-black/20 border border-white/5 rounded-lg group"
                 >
                   <Tooltip content={p} position="top">
-                    <span className="text-[10px] text-slate-300 truncate">
-                      {p}
-                    </span>
+                    <span className="text-[10px] text-slate-300 truncate">{p}</span>
                   </Tooltip>
                   <Tooltip content="Remove path" position="top">
                     <button
@@ -538,14 +543,13 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
               ))}
             </ul>
           )}
-          </div>
+        </div>
 
-          <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-4 animate-in fade-in slide-in-from-top-2">
+        <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-4 animate-in fade-in slide-in-from-top-2">
           <div className="flex items-center gap-2 mb-2">
             <Brain size={18} className="text-cyan-400" />
             <h4 className="text-sm font-bold text-white">AI Task Management</h4>
           </div>
-
 
           <div className="space-y-3">
             <ToggleRow
@@ -666,7 +670,9 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
         </div>
 
         <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3 animate-in fade-in slide-in-from-top-2">
-          <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Quick Actions</h4>
+          <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
+            Quick Actions
+          </h4>
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={onOpenMergeModal}
@@ -770,7 +776,6 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
     </div>
   );
 };
-
 
 interface ToggleRowProps {
   icon: React.ComponentType<{ size: number; className?: string }>;

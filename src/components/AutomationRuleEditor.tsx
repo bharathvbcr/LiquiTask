@@ -63,13 +63,17 @@ export const AutomationRuleEditor: React.FC<AutomationRuleEditorProps> = ({
         availablePriorities,
       );
 
-      if (generated.name) setName(generated.name);
-      if (generated.trigger) setTrigger(generated.trigger as AutomationTrigger);
+      if (typeof generated.name === "string") setName(generated.name);
+      if (typeof generated.trigger === "string") {
+        setTrigger(generated.trigger as AutomationTrigger);
+      }
       if (generated.actions && Array.isArray(generated.actions)) {
-        setActions(generated.actions as Array<{ type: AutomationAction; field?: string; value: unknown }>);
+        setActions(
+          generated.actions as Array<{ type: AutomationAction; field?: string; value: unknown }>,
+        );
       }
       setNlQuery("");
-    } catch (e) {
+    } catch {
       setErrors({ ...errors, nlQuery: "Failed to generate rule. Try again." });
     } finally {
       setIsGenerating(false);
@@ -136,7 +140,8 @@ export const AutomationRuleEditor: React.FC<AutomationRuleEditorProps> = ({
                 <div>
                   <h3 className="text-sm font-medium text-cyan-400">Describe your rule</h3>
                   <p className="text-xs text-slate-400">
-                    e.g., "Whenever a task is created, set priority to high and assign it to Review column"
+                    e.g., "Whenever a task is created, set priority to high and assign it to Review
+                    column"
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -155,7 +160,11 @@ export const AutomationRuleEditor: React.FC<AutomationRuleEditorProps> = ({
                     disabled={isGenerating || !nlQuery.trim()}
                     className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-slate-950 rounded-lg text-sm font-bold shadow-lg transition-all flex items-center gap-2"
                   >
-                    {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <Brain size={16} />}
+                    {isGenerating ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Brain size={16} />
+                    )}
                     Generate
                   </button>
                 </div>
@@ -239,8 +248,10 @@ export const AutomationRuleEditor: React.FC<AutomationRuleEditorProps> = ({
 
             <div className="space-y-3">
               {actions.map((action, index) => (
-                // biome-ignore lint/suspicious/noArrayIndexKey: action order is stable
-                <div key={index} className="bg-black/20 border border-white/10 rounded-lg p-4">
+                <div
+                  key={`${action.type}-${action.field ?? ""}-${String(action.value ?? "")}`}
+                  className="bg-black/20 border border-white/10 rounded-lg p-4"
+                >
                   <div className="flex items-start justify-between mb-3">
                     <select
                       value={action.type}

@@ -175,14 +175,17 @@ describe("useAppInitialization", () => {
 
     expect(setTasks).toHaveBeenCalled();
 
-    const createUpdater = setTasks.mock.calls.find(c => {
+    const createUpdater = setTasks.mock.calls.find((c) => {
       const result = c[0]([]);
       return Array.isArray(result) && result.some((t: any) => t.id === "new-task");
     })?.[0];
-    
-    const updateUpdater = setTasks.mock.calls.find(c => {
+
+    const updateUpdater = setTasks.mock.calls.find((c) => {
       const result = c[0]([makeTask({ id: "existing-task", title: "Old" })]);
-      return Array.isArray(result) && result.find((t: any) => t.id === "existing-task")?.title === "Updated title";
+      return (
+        Array.isArray(result) &&
+        result.find((t: any) => t.id === "existing-task")?.title === "Updated title"
+      );
     })?.[0];
 
     expect(createUpdater).toBeDefined();

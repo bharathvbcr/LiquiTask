@@ -1,8 +1,7 @@
-import { fireEvent, render, screen, waitFor, act } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AutoOrganizePanel } from "../AutoOrganizePanel";
-import { aiService } from "../../services/aiService";
 import { autoOrganizeService } from "../../services/autoOrganizeService";
+import { AutoOrganizePanel } from "../AutoOrganizePanel";
 
 // Mock services
 vi.mock("../../services/aiService", () => ({
@@ -20,7 +19,7 @@ vi.mock("../../services/aiService", () => ({
         hierarchyDetection: true,
         projectAssignment: true,
         tagConsolidation: true,
-      }
+      },
     }),
     saveAutoOrganizeConfig: vi.fn(),
     saveOrganizeHistory: vi.fn(),
@@ -35,7 +34,16 @@ vi.mock("../../services/autoOrganizeService", () => ({
       duration: 1000,
       tasksAnalyzed: 2,
       changes: [
-        { id: "c1", type: "tag", taskId: "1", before: {}, after: { tags: ["ai"] }, confidence: 0.9, reasoning: "R", status: "auto-applied" }
+        {
+          id: "c1",
+          type: "tag",
+          taskId: "1",
+          before: {},
+          after: { tags: ["ai"] },
+          confidence: 0.9,
+          reasoning: "R",
+          status: "auto-applied",
+        },
       ],
       autoApplied: 1,
       pendingReview: 0,
@@ -69,7 +77,7 @@ describe("AutoOrganizePanel", () => {
         onArchiveTask={vi.fn()}
         onMoveTask={vi.fn()}
         addToast={vi.fn()}
-      />
+      />,
     );
 
     expect(screen.getByText("AI Auto-Organize")).toBeInTheDocument();
@@ -87,7 +95,7 @@ describe("AutoOrganizePanel", () => {
         onArchiveTask={vi.fn()}
         onMoveTask={vi.fn()}
         addToast={vi.fn()}
-      />
+      />,
     );
 
     const startBtn = screen.getByRole("button", { name: /Run Auto-Organize/i });
@@ -98,7 +106,7 @@ describe("AutoOrganizePanel", () => {
     await waitFor(() => {
       expect(screen.getByText(/auto applied/i)).toBeInTheDocument();
     });
-    
+
     expect(autoOrganizeService.runAutoOrganize).toHaveBeenCalled();
   });
 });

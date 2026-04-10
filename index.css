@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   --accent-red: #ff1f1f;
   --bg-primary: #030000;
   --bg-secondary: #0a0505;

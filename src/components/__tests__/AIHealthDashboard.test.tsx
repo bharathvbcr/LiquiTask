@@ -1,8 +1,8 @@
-import { fireEvent, render, screen, waitFor, act } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AIHealthDashboard } from "../AIHealthDashboard";
 import { aiService } from "../../services/aiService";
 import { aiSummaryService } from "../../services/aiSummaryService";
+import { AIHealthDashboard } from "../AIHealthDashboard";
 
 // Mock services
 vi.mock("../../services/aiService", () => ({
@@ -51,11 +51,11 @@ describe("AIHealthDashboard", () => {
         allTasks={mockTasks}
         projects={[]}
         addToast={mockAddToast}
-      />
+      />,
     );
-    
+
     expect(screen.getByText(/AI is analyzing/i)).toBeInTheDocument();
-    
+
     // Resolve to avoid memory leaks/cleanup issues
     await act(async () => {
       resolveInsights([]);
@@ -64,7 +64,7 @@ describe("AIHealthDashboard", () => {
 
   it("renders metrics and insights after loading", async () => {
     vi.mocked(aiService.generateInsights).mockResolvedValue([
-      { id: "i1", type: "productivity", title: "Good job", description: "You are fast" } as any
+      { id: "i1", type: "productivity", title: "Good job", description: "You are fast" } as any,
     ]);
 
     await act(async () => {
@@ -75,7 +75,7 @@ describe("AIHealthDashboard", () => {
           allTasks={mockTasks}
           projects={[]}
           addToast={mockAddToast}
-        />
+        />,
       );
     });
 
@@ -97,7 +97,7 @@ describe("AIHealthDashboard", () => {
           allTasks={mockTasks}
           projects={[]}
           addToast={mockAddToast}
-        />
+        />,
       );
     });
 
@@ -108,7 +108,10 @@ describe("AIHealthDashboard", () => {
       fireEvent.click(dailyBtn);
     });
 
-    expect(mockAddToast).toHaveBeenCalledWith(expect.stringContaining("Generating daily report"), "info");
+    expect(mockAddToast).toHaveBeenCalledWith(
+      expect.stringContaining("Generating daily report"),
+      "info",
+    );
     await waitFor(() => {
       expect(aiSummaryService.generateDailyReport).toHaveBeenCalled();
       expect(aiSummaryService.downloadReport).toHaveBeenCalled();

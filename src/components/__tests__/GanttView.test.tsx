@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi, beforeEach } from "vitest";
-import type { Task, PriorityDefinition } from "../../types";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { PriorityDefinition, Task } from "../../types";
 import { GanttView } from "../GanttView";
 
 // Mock storageService

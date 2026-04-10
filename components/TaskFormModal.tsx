@@ -246,7 +246,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
         projects: allProjects,
         priorities,
       };
-      
+
       const taskObj: Task = {
         id: initialData?.id || "temp",
         jobId: initialData?.jobId || "",
@@ -876,10 +876,9 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                 {extractedTasks.length > 0 ? (
                   <>
                     <div className="max-h-48 overflow-y-auto space-y-2 custom-scrollbar pr-2">
-                      {extractedTasks.map((et, i) => (
-                        // biome-ignore lint/suspicious/noArrayIndexKey: AI extracted tasks have no stable id
+                      {extractedTasks.map((et) => (
                         <div
-                          key={i}
+                          key={`${et.title}-${et.priority ?? ""}-${et.summary ?? ""}-${et.dueDate ?? ""}`}
                           className="bg-black/40 border border-white/10 rounded-lg p-3 group"
                         >
                           <div className="flex items-center justify-between mb-1">
@@ -1180,7 +1179,9 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                     min="0"
                     step="5"
                     value={formData.timeEstimate || ""}
-                    onChange={(e) => setFormData({ ...formData, timeEstimate: parseInt(e.target.value, 10) || 0 })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, timeEstimate: parseInt(e.target.value, 10) || 0 })
+                    }
                     placeholder="e.g., 60"
                     className="w-full liquid-input rounded-xl px-4 py-3 text-sm"
                     aria-label="Task time estimate in minutes"
@@ -1404,13 +1405,12 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                 </Tooltip>
               </div>
               <div className="space-y-2 mt-2">
-                {links.map((link, idx) => {
+                {links.map((link) => {
                   const target = availableTasks.find((t) => t.id === link.targetTaskId);
                   if (!target) return null;
                   return (
                     <div
-                      // biome-ignore lint/suspicious/noArrayIndexKey: link order is stable
-                      key={idx}
+                      key={`${link.type}-${link.targetTaskId}`}
                       className="flex items-center justify-between p-3 rounded-xl bg-[#0a0a0a] border border-white/10 group hover:border-white/20 hover:bg-white/5 transition-all"
                     >
                       <div className="flex items-center gap-3">
@@ -1509,20 +1509,23 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                     key={subtask.id}
                     className="flex items-center gap-3 p-3 rounded-xl bg-black/20 border border-white/5 group hover:border-white/10 transition-colors"
                   >
-                      <Tooltip content={subtask.completed ? "Mark as incomplete" : "Mark as complete"} position="top">
-                        <button
-                          type="button"
-                          onClick={() => toggleSubtask(subtask.id)}
-                          className={`flex-shrink-0 w-5 h-5 rounded border flex items-center justify-center transition-all ${subtask.completed ? "bg-emerald-500/20 border-emerald-500 text-emerald-500" : "border-slate-600 text-transparent hover:border-slate-400"}`}
-                          aria-label={
-                            subtask.completed
-                              ? `Mark subtask "${subtask.title}" as incomplete`
-                              : `Mark subtask "${subtask.title}" as complete`
-                          }
-                        >
-                          <Check size={12} aria-hidden="true" />
-                        </button>
-                      </Tooltip>
+                    <Tooltip
+                      content={subtask.completed ? "Mark as incomplete" : "Mark as complete"}
+                      position="top"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => toggleSubtask(subtask.id)}
+                        className={`flex-shrink-0 w-5 h-5 rounded border flex items-center justify-center transition-all ${subtask.completed ? "bg-emerald-500/20 border-emerald-500 text-emerald-500" : "border-slate-600 text-transparent hover:border-slate-400"}`}
+                        aria-label={
+                          subtask.completed
+                            ? `Mark subtask "${subtask.title}" as incomplete`
+                            : `Mark subtask "${subtask.title}" as complete`
+                        }
+                      >
+                        <Check size={12} aria-hidden="true" />
+                      </button>
+                    </Tooltip>
                     <input
                       type="text"
                       value={subtask.title}
@@ -1532,16 +1535,16 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                       aria-label={`Edit subtask ${subtask.id}`}
                       placeholder="Subtask title"
                     />
-                      <Tooltip content={`Remove subtask "${subtask.title}"`} position="top">
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveSubtask(subtask.id)}
-                          className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
-                          aria-label={`Remove subtask "${subtask.title}"`}
-                        >
-                          <X size={16} aria-hidden="true" />
-                        </button>
-                      </Tooltip>
+                    <Tooltip content={`Remove subtask "${subtask.title}"`} position="top">
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSubtask(subtask.id)}
+                        className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                        aria-label={`Remove subtask "${subtask.title}"`}
+                      >
+                        <X size={16} aria-hidden="true" />
+                      </button>
+                    </Tooltip>
                   </div>
                 ))}
               </div>

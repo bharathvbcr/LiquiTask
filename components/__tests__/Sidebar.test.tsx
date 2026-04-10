@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { Sidebar } from "../Sidebar";
 import type { Project, ProjectType } from "../../types";
+import { Sidebar } from "../Sidebar";
 
 // Mock assets and sub-components
 

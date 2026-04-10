@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { IndexedDBService } from "../indexedDBService";
 import "fake-indexeddb/auto";
 
@@ -30,7 +30,7 @@ describe("IndexedDBService", () => {
 
     await service.saveTask(task);
     const allTasks = await service.getAllTasks();
-    
+
     expect(allTasks).toHaveLength(1);
     expect(allTasks[0].id).toBe("t1");
     expect(allTasks[0].createdAt).toBeInstanceOf(Date);
@@ -44,7 +44,7 @@ describe("IndexedDBService", () => {
 
     await service.saveTasks(tasks);
     const p1Tasks = await service.getTasksByProject("p1");
-    
+
     expect(p1Tasks).toHaveLength(1);
     expect(p1Tasks[0].id).toBe("t1");
   });
@@ -57,13 +57,19 @@ describe("IndexedDBService", () => {
 
     await service.saveTasks(tasks);
     const todoTasks = await service.getTasksByStatus("Todo");
-    
+
     expect(todoTasks).toHaveLength(1);
     expect(todoTasks[0].id).toBe("t1");
   });
 
   it("should delete a task", async () => {
-    await service.saveTask({ id: "t1", title: "T1", jobId: "J1", projectId: "p1", status: "Todo" } as any);
+    await service.saveTask({
+      id: "t1",
+      title: "T1",
+      jobId: "J1",
+      projectId: "p1",
+      status: "Todo",
+    } as any);
     await service.deleteTask("t1");
     const all = await service.getAllTasks();
     expect(all).toHaveLength(0);
@@ -94,7 +100,7 @@ describe("IndexedDBService", () => {
       status: "Todo",
       recurring: {
         nextOccurrence: new Date("2026-05-01T10:00:00Z"),
-      }
+      },
     } as any;
 
     await service.saveTask(task);

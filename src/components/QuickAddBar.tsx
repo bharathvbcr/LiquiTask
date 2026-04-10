@@ -1,11 +1,11 @@
 import { Calendar, Flag, Image as ImageIcon, Loader2, Plus, X } from "lucide-react";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
+import type { PriorityDefinition, Project } from "../../types";
+import { STORAGE_KEYS } from "../constants";
 import { aiService } from "../services/aiService";
 import storageService from "../services/storageService";
-import { STORAGE_KEYS } from "../constants";
 import { Button } from "./common/Button";
-import type { Project, PriorityDefinition } from "../../types";
 
 interface QuickAddBarProps {
   onAddTask: (
@@ -168,8 +168,11 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({ onAddTask, isVisible, 
           try {
             const activeProjectId = storageService.get<string>(STORAGE_KEYS.ACTIVE_PROJECT, "");
             const projects = storageService.get<Project[]>(STORAGE_KEYS.PROJECTS, []);
-            const priorities = storageService.get<PriorityDefinition[]>(STORAGE_KEYS.PRIORITIES, []);
-            
+            const priorities = storageService.get<PriorityDefinition[]>(
+              STORAGE_KEYS.PRIORITIES,
+              [],
+            );
+
             const result = await aiService.analyzeImageToTask(base64, {
               activeProjectId,
               projects,
@@ -180,12 +183,12 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({ onAddTask, isVisible, 
             let newText = result.title || "Task from Image";
             if (result.priority) newText += ` !${result.priority}`;
             if (result.tags && result.tags.length > 0) {
-              newText += result.tags.map(t => ` +${t}`).join("");
+              newText += result.tags.map((t) => ` +${t}`).join("");
             }
             if (result.timeEstimate) {
               newText += ` ~${result.timeEstimate}m`;
             }
-            
+
             setInput(newText);
             setAiSummary(result.summary);
           } catch (error) {
@@ -232,7 +235,6 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({ onAddTask, isVisible, 
       <div className="fixed top-1/4 left-1/2 -translate-x-1/2 z-50 w-full max-w-xl px-4 animate-in zoom-in-95 fade-in duration-150">
         <form onSubmit={handleSubmit} className="relative">
           <div className="bg-[#0a0505]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden flex flex-col">
-            
             {/* Image Preview Area */}
             {imagePreview && (
               <div className="relative w-full h-32 bg-black/50 border-b border-white/10 overflow-hidden flex items-center justify-center">
@@ -250,7 +252,9 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({ onAddTask, isVisible, 
                 {isAnalyzing && (
                   <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-2 backdrop-blur-sm">
                     <Loader2 size={24} className="text-cyan-400 animate-spin" />
-                    <span className="text-xs font-medium text-white shadow-black drop-shadow-md">AI analyzing image...</span>
+                    <span className="text-xs font-medium text-white shadow-black drop-shadow-md">
+                      AI analyzing image...
+                    </span>
                   </div>
                 )}
               </div>
@@ -309,13 +313,19 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({ onAddTask, isVisible, 
                       ~{parsed.timeEstimate}m
                     </span>
                   )}
-                  {parsed.tags.map(tag => (
-                    <span key={tag} className="px-2 py-0.5 rounded text-xs bg-slate-500/20 text-slate-400">
+                  {parsed.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="px-2 py-0.5 rounded text-xs bg-slate-500/20 text-slate-400"
+                    >
                       #{tag}
                     </span>
                   ))}
                   {aiSummary && (
-                    <span className="px-2 py-0.5 rounded text-xs bg-cyan-500/20 text-cyan-400 truncate max-w-[150px]" title={aiSummary}>
+                    <span
+                      className="px-2 py-0.5 rounded text-xs bg-cyan-500/20 text-cyan-400 truncate max-w-[150px]"
+                      title={aiSummary}
+                    >
                       <ImageIcon size={10} className="inline mr-1" />
                       Image context added
                     </span>
@@ -337,7 +347,8 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({ onAddTask, isVisible, 
                   <Hint label="~2h" description="Estimate" />
                 </div>
                 <div className="text-[10px] text-cyan-500/80 flex items-center gap-1">
-                  <kbd className="px-1 py-0.5 bg-white/5 rounded">Ctrl</kbd>+<kbd className="px-1 py-0.5 bg-white/5 rounded">V</kbd> to paste image
+                  <kbd className="px-1 py-0.5 bg-white/5 rounded">Ctrl</kbd>+
+                  <kbd className="px-1 py-0.5 bg-white/5 rounded">V</kbd> to paste image
                 </div>
               </div>
             </div>

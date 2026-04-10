@@ -5,6 +5,9 @@ interface SkeletonLoaderProps {
   count?: number;
 }
 
+const getSkeletonKeys = (count: number, prefix: string) =>
+  Array.from({ length: count }, (_, index) => `${prefix}-${index + 1}`);
+
 const SkeletonCard: React.FC = () => (
   <div className="liquid-card rounded-2xl p-5 skeleton-shimmer">
     {/* Priority badge skeleton */}
@@ -57,8 +60,8 @@ const SkeletonColumn: React.FC = () => (
 
 const SkeletonSidebar: React.FC = () => (
   <div className="p-4 space-y-3">
-    {[1, 2, 3, 4, 5].map((i) => (
-      <div key={i} className="flex items-center gap-3 p-2 skeleton-shimmer">
+    {getSkeletonKeys(5, "sidebar-item").map((key) => (
+      <div key={key} className="flex items-center gap-3 p-2 skeleton-shimmer">
         <div className="w-5 h-5 rounded bg-white/10 skeleton-shimmer"></div>
         <div className="h-4 flex-1 bg-white/10 rounded skeleton-shimmer"></div>
       </div>
@@ -68,8 +71,8 @@ const SkeletonSidebar: React.FC = () => (
 
 const SkeletonDashboardStats: React.FC = () => (
   <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-    {[1, 2, 3, 4].map((i) => (
-      <div key={i} className="liquid-glass p-6 rounded-2xl skeleton-shimmer">
+    {getSkeletonKeys(4, "dashboard-stat").map((key) => (
+      <div key={key} className="liquid-glass p-6 rounded-2xl skeleton-shimmer">
         <div className="h-3 w-24 bg-white/10 rounded mb-3 skeleton-shimmer"></div>
         <div className="h-8 w-16 bg-white/10 rounded skeleton-shimmer"></div>
         <div className="h-2 w-20 bg-white/5 rounded mt-3 skeleton-shimmer"></div>
@@ -95,10 +98,8 @@ const SkeletonModal: React.FC = () => (
 
 const SkeletonList: React.FC<{ count?: number }> = ({ count = 5 }) => (
   <div className="space-y-3">
-    {Array.from({ length: count }).map((_, i) => (
-      <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 skeleton-shimmer">
-        {" "}
-        {/* biome-ignore lint/suspicious/noArrayIndexKey: skeleton items are identical */}
+    {getSkeletonKeys(count, "list-item").map((key) => (
+      <div key={key} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 skeleton-shimmer">
         <div className="w-8 h-8 rounded-full bg-white/10 skeleton-shimmer"></div>
         <div className="flex-1 space-y-2">
           <div className="h-4 w-3/4 bg-white/10 rounded skeleton-shimmer"></div>
@@ -113,9 +114,8 @@ export const SkeletonLoader: React.FC<SkeletonLoaderProps> = ({ type = "card", c
   if (type === "column") {
     return (
       <div className="flex gap-6">
-        {Array.from({ length: count }).map((_, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: skeleton columns are identical
-          <SkeletonColumn key={i} />
+        {getSkeletonKeys(count, "column").map((key) => (
+          <SkeletonColumn key={key} />
         ))}
       </div>
     );
@@ -139,9 +139,8 @@ export const SkeletonLoader: React.FC<SkeletonLoaderProps> = ({ type = "card", c
 
   return (
     <div className="space-y-4">
-      {Array.from({ length: count }).map((_, i) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: skeleton cards are identical
-        <SkeletonCard key={i} />
+      {getSkeletonKeys(count, "card").map((key) => (
+        <SkeletonCard key={key} />
       ))}
     </div>
   );

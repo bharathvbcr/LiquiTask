@@ -1,7 +1,7 @@
-import { fireEvent, render, screen, waitFor, act } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AIMergeDuplicatesModal } from "../AIMergeDuplicatesModal";
 import { taskCleanupService } from "../../services/taskCleanupService";
+import { AIMergeDuplicatesModal } from "../AIMergeDuplicatesModal";
 
 // Mock taskCleanupService
 vi.mock("../../services/taskCleanupService", () => ({
@@ -27,13 +27,18 @@ describe("AIMergeDuplicatesModal", () => {
 
   it("renders correctly and scans for duplicates", async () => {
     vi.mocked(taskCleanupService.detectDuplicates).mockResolvedValue([
-      { id: "g1", tasks: [mockTasks[0], mockTasks[1]], confidence: 0.9, reasons: ["Similar title"] } as any
+      {
+        id: "g1",
+        tasks: [mockTasks[0], mockTasks[1]],
+        confidence: 0.9,
+        reasons: ["Similar title"],
+      } as any,
     ]);
     vi.mocked(taskCleanupService.suggestMerge).mockResolvedValue({
       keepTaskId: "1",
       archiveTaskIds: ["2"],
       mergedFields: { title: "Merged" },
-      reasoning: "R"
+      reasoning: "R",
     });
 
     await act(async () => {
@@ -45,12 +50,14 @@ describe("AIMergeDuplicatesModal", () => {
           onUpdateTask={mockOnUpdateTask}
           onArchiveTask={mockOnArchiveTask}
           addToast={mockAddToast}
-        />
+        />,
       );
     });
 
-    expect(screen.getByRole('heading', { name: "Smart Merge Duplicates", level: 3 })).toBeInTheDocument();
-    
+    expect(
+      screen.getByRole("heading", { name: "Smart Merge Duplicates", level: 3 }),
+    ).toBeInTheDocument();
+
     await waitFor(() => {
       expect(screen.getAllByText(/duplicate task/i).length).toBeGreaterThan(0);
       expect(screen.getByText("Similar title")).toBeInTheDocument();
@@ -59,13 +66,13 @@ describe("AIMergeDuplicatesModal", () => {
 
   it("handles merge suggestion and application", async () => {
     vi.mocked(taskCleanupService.detectDuplicates).mockResolvedValue([
-      { id: "g1", tasks: [mockTasks[0], mockTasks[1]], confidence: 0.9, reasons: ["R"] } as any
+      { id: "g1", tasks: [mockTasks[0], mockTasks[1]], confidence: 0.9, reasons: ["R"] } as any,
     ]);
     vi.mocked(taskCleanupService.suggestMerge).mockResolvedValue({
       keepTaskId: "1",
       archiveTaskIds: ["2"],
       mergedFields: { title: "Merged Task" },
-      reasoning: "Better title"
+      reasoning: "Better title",
     });
 
     await act(async () => {
@@ -77,7 +84,7 @@ describe("AIMergeDuplicatesModal", () => {
           onUpdateTask={mockOnUpdateTask}
           onArchiveTask={mockOnArchiveTask}
           addToast={mockAddToast}
-        />
+        />,
       );
     });
 

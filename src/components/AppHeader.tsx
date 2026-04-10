@@ -17,7 +17,7 @@ import {
 import type React from "react";
 import { lazy, Suspense } from "react";
 import { LiquidButton } from "../../components/LiquidButton";
-import type { CustomFieldDefinition, FilterState } from "../../types";
+import type { CustomFieldDefinition, FilterState, SavedView } from "../../types";
 
 import type { SearchHistoryItem } from "../hooks/useSearchHistory";
 import type { FilterGroup } from "../types/queryTypes";
@@ -64,7 +64,7 @@ interface AppHeaderProps {
   filters: FilterState;
   activeFilterGroup: FilterGroup;
   customFields: CustomFieldDefinition[];
-  views: any[];
+  views: SavedView[];
   activeViewId: string | null;
   searchInputRef: React.RefObject<HTMLInputElement | null>;
   searchHistory: SearchHistoryApi;
@@ -196,7 +196,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     >
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4 flex-1 min-w-0">
-
           <div className="min-w-0 flex-1">
             <h2 className="text-3xl font-bold text-white tracking-tight drop-shadow-md text-glow truncate">
               {currentView === "dashboard"

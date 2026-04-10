@@ -1,9 +1,8 @@
-import { fireEvent, render, screen, waitFor, act } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../../App";
 import { KeybindingProvider } from "../context/KeybindingContext";
 import { ConfirmationProvider } from "../contexts/ConfirmationContext";
-import storageService from "../services/storageService";
 
 // We'll use REAL components but mock the heavy services
 const { mockInitialize, mockGetAllData, mockGet, mockSet } = vi.hoisted(() => ({
@@ -26,14 +25,14 @@ vi.mock("../services/storageService", () => ({
     getAllData: mockGetAllData,
     get: mockGet,
     set: mockSet,
-  }
+  },
 }));
 
 // Mock icons to speed up rendering and avoid SVG issues
 vi.mock("lucide-react", async (importOriginal) => {
   const actual = await importOriginal();
   return {
-    ...actual as any,
+    ...(actual as any),
     Loader2: () => <div data-testid="loader">Loading...</div>,
   };
 });
@@ -60,7 +59,7 @@ describe("App Integration", () => {
   const mockData = {
     projects: [
       { id: "p1", name: "P1", type: "custom", order: 0 },
-      { id: "p2", name: "P2", type: "custom", order: 1 }
+      { id: "p2", name: "P2", type: "custom", order: 1 },
     ],
     tasks: [],
     activeProjectId: "p1",
@@ -70,11 +69,12 @@ describe("App Integration", () => {
     projectTypes: [],
     sidebarCollapsed: false,
     grouping: "none",
-    version: "2.1.0"
+    version: "2.1.0",
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(console, "warn").mockImplementation(() => {});
     mockInitialize.mockResolvedValue(undefined);
     mockGetAllData.mockReturnValue(mockData);
     mockGet.mockImplementation((key: string, def: any) => {
@@ -85,6 +85,10 @@ describe("App Integration", () => {
     });
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   const renderApp = async () => {
     let result: any;
     await act(async () => {
@@ -93,7 +97,7 @@ describe("App Integration", () => {
           <ConfirmationProvider>
             <App />
           </ConfirmationProvider>
-        </KeybindingProvider>
+        </KeybindingProvider>,
       );
     });
     return result;
@@ -101,12 +105,15 @@ describe("App Integration", () => {
 
   it("should render the app shell", async () => {
     await renderApp();
-    
+
     // Wait for splash screen to disappear
-    await waitFor(() => {
-      expect(screen.queryByText(/Loading/i)).not.toBeInTheDocument();
-    }, { timeout: 10000 });
-    
+    await waitFor(
+      () => {
+        expect(screen.queryByText(/Loading/i)).not.toBeInTheDocument();
+      },
+      { timeout: 10000 },
+    );
+
     // Use findAllByText to handle multiple occurrences
     const logoParts = await screen.findAllByText(/Liqui/i);
     expect(logoParts.length).toBeGreaterThan(0);
@@ -122,7 +129,7 @@ describe("App Integration", () => {
     await act(async () => {
       fireEvent.click(p2Links[0]);
     });
-    
+
     // Use the actual key used in StorageService
     expect(mockSet).toHaveBeenCalledWith("liquitask-active-project", "p2");
   });
@@ -137,9 +144,12 @@ describe("App Integration", () => {
     });
 
     // Check if settings modal content appears
-    await waitFor(() => {
-      expect(screen.getByText(/General/i)).toBeInTheDocument();
-    }, { timeout: 5000 });
+    await waitFor(
+      () => {
+        expect(screen.getByText(/General/i)).toBeInTheDocument();
+      },
+      { timeout: 5000 },
+    );
   });
 
   it("toggles AI Assistant with Cmd+J", async () => {

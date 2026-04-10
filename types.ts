@@ -370,12 +370,12 @@ export interface AITestResult {
 
 export interface ToolCall {
   name: string;
-  args: any;
+  args: Record<string, unknown>;
 }
 
 export interface ToolResult {
   name: string;
-  result: any;
+  result: unknown;
 }
 
 // AI Assistant Types

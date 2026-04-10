@@ -1,8 +1,8 @@
-import { afterEach, beforeEach, describe, expect, it, vi, Mock } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { STORAGE_KEYS } from "../../constants";
-import { storageService } from "../storageService";
 import { indexedDBService } from "../indexedDBService";
 import { migrationService } from "../migrationService";
+import { storageService } from "../storageService";
 
 // Simple localStorage mock
 const localStorageMock = (() => {
@@ -15,12 +15,13 @@ const localStorageMock = (() => {
     removeItem: (key: string) => {
       delete store[key];
     },
+    key: (index: number) => Object.keys(store)[index] ?? null,
     clear: () => {
       store = {};
     },
     get length() {
       return Object.keys(store).length;
-    }
+    },
   };
 })();
 
@@ -76,7 +77,7 @@ describe("StorageService Extended", () => {
       success: true,
       data: { version: "2.0.0", tasks: [] } as any,
       migratedFrom: "1.0.0",
-      migratedTo: "2.0.0"
+      migratedTo: "2.0.0",
     });
 
     // Mock getAllData to return old version
@@ -111,11 +112,11 @@ describe("StorageService Extended", () => {
       {
         id: "1",
         createdAt: new Date().toISOString(),
-        errorLogs: [{ timestamp: new Date().toISOString(), message: "Error" }]
-      }
+        errorLogs: [{ timestamp: new Date().toISOString(), message: "Error" }],
+      },
     ];
     localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(rawTasks));
-    
+
     const tasks = storageService.get(STORAGE_KEYS.TASKS, []);
     expect(tasks[0].errorLogs![0].timestamp).toBeInstanceOf(Date);
   });

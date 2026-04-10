@@ -1,5 +1,4 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import type React from "react";
 import { useRef } from "react";
 
 /**
@@ -12,7 +11,7 @@ export function useVirtualTaskList<T extends { id: string }>(
   estimatedHeight: number = 180,
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
-  
+
   const virtualizer = useVirtualizer({
     count: tasks.length,
     getScrollElement: () => containerRef.current,
@@ -24,9 +23,10 @@ export function useVirtualTaskList<T extends { id: string }>(
   const visibleTasks = virtualItems.map((virtualItem) => tasks[virtualItem.index]);
 
   const paddingTop = virtualItems.length > 0 ? virtualItems[0].start : 0;
-  const paddingBottom = virtualItems.length > 0 
-    ? virtualizer.getTotalSize() - virtualItems[virtualItems.length - 1].end 
-    : 0;
+  const paddingBottom =
+    virtualItems.length > 0
+      ? virtualizer.getTotalSize() - virtualItems[virtualItems.length - 1].end
+      : 0;
 
   return {
     containerRef,

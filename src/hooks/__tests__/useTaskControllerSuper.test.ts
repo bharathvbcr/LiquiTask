@@ -1,7 +1,7 @@
-import { renderHook, act, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { BoardColumn, Task } from "../../types";
 import { useTaskController } from "../useTaskController";
-import type { Task, BoardColumn } from "../../types";
 
 describe("useTaskController Super Features", () => {
   const mockAddToast = vi.fn();
@@ -59,24 +59,29 @@ describe("useTaskController Super Features", () => {
 
     // Wait for subtasks to be added to state
     await waitFor(() => {
-      const updatedTask = result.current.tasks.find(t => t.id === "t1");
+      const updatedTask = result.current.tasks.find((t) => t.id === "t1");
       return updatedTask && updatedTask.subtasks.length === 3;
     });
 
-    const finalTask = result.current.tasks.find(t => t.id === "t1");
+    const finalTask = result.current.tasks.find((t) => t.id === "t1");
     expect(finalTask?.subtasks[0].title).toBe("Step 1");
-    expect(mockAddToast).toHaveBeenCalledWith(expect.stringContaining("added 3 subtasks"), "success");
+    expect(mockAddToast).toHaveBeenCalledWith(
+      expect.stringContaining("added 3 subtasks"),
+      "success",
+    );
   });
 
   it("should NOT trigger Auto-Pilot if subtasks already exist", async () => {
     const tasksWithSubtasks = [
-      { ...initialTasks[0], subtasks: [{ id: "s1", title: "Existing", completed: false }] }
+      { ...initialTasks[0], subtasks: [{ id: "s1", title: "Existing", completed: false }] },
     ];
-    
-    const { result } = renderHook(() => useTaskController({
-      ...baseProps,
-      initialTasks: tasksWithSubtasks
-    }));
+
+    const { result } = renderHook(() =>
+      useTaskController({
+        ...baseProps,
+        initialTasks: tasksWithSubtasks,
+      }),
+    );
 
     await act(async () => {
       result.current.moveTask("t1", "InProgress");

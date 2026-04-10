@@ -162,19 +162,15 @@ export const AIReorganizeModal: React.FC<AIReorganizeModalProps> = ({
         <div className="flex flex-col items-center justify-center py-12 space-y-6">
           <div className="relative flex items-center justify-center">
             <Loader2 size={48} className="animate-spin text-cyan-400" />
-            <span className="absolute text-[10px] font-bold text-white">
-              {percent}%
-            </span>
+            <span className="absolute text-[10px] font-bold text-white">{percent}%</span>
           </div>
           <div className="text-center space-y-2">
             <p className="text-white font-medium">AI is analyzing your tasks</p>
-            <p className="text-sm text-slate-400">
-              Grouping related tasks into themed clusters...
-            </p>
+            <p className="text-sm text-slate-400">Grouping related tasks into themed clusters...</p>
           </div>
-          
+
           <div className="w-full max-w-xs bg-slate-800 rounded-full h-1.5 overflow-hidden">
-            <div 
+            <div
               className="bg-cyan-500 h-full transition-all duration-300 ease-out"
               style={{ width: `${percent}%` }}
             />

@@ -100,11 +100,14 @@ describe("RecurringTaskService Extended", () => {
       (service as any).checkAndGenerate(tasks);
 
       expect(mockOnCreateTask).toHaveBeenCalled();
-      expect(mockOnUpdateTask).toHaveBeenCalledWith("t1", expect.objectContaining({
-        recurring: expect.objectContaining({
-          nextOccurrence: expect.any(Date)
-        })
-      }));
+      expect(mockOnUpdateTask).toHaveBeenCalledWith(
+        "t1",
+        expect.objectContaining({
+          recurring: expect.objectContaining({
+            nextOccurrence: expect.any(Date),
+          }),
+        }),
+      );
     });
   });
 });

@@ -1,7 +1,7 @@
-import { fireEvent, render, screen, waitFor, act } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AISubtaskSuggestionsModal } from "../AISubtaskSuggestionsModal";
 import { taskCleanupService } from "../../services/taskCleanupService";
+import { AISubtaskSuggestionsModal } from "../AISubtaskSuggestionsModal";
 
 // Mock services
 vi.mock("../../services/taskCleanupService", () => ({
@@ -25,13 +25,13 @@ describe("AISubtaskSuggestionsModal", () => {
 
   it("renders correctly and scans for subtasks", async () => {
     vi.mocked(taskCleanupService.analyzeRedundancy).mockResolvedValue([
-      { 
-        taskId: "2", 
-        type: "subset", 
-        relatedTaskId: "1", 
-        confidence: 0.9, 
-        reasoning: "Task 2 is a part of Task 1" 
-      }
+      {
+        taskId: "2",
+        type: "subset",
+        relatedTaskId: "1",
+        confidence: 0.9,
+        reasoning: "Task 2 is a part of Task 1",
+      },
     ]);
 
     await act(async () => {
@@ -43,13 +43,15 @@ describe("AISubtaskSuggestionsModal", () => {
           onUpdateTask={mockOnUpdateTask}
           onArchiveTask={mockOnArchiveTask}
           addToast={mockAddToast}
-        />
+        />,
       );
     });
 
     // Use exact name match for the modal title
-    expect(screen.getByRole('heading', { name: "Convert to Subtasks", level: 3 })).toBeInTheDocument();
-    
+    expect(
+      screen.getByRole("heading", { name: "Convert to Subtasks", level: 3 }),
+    ).toBeInTheDocument();
+
     await waitFor(() => {
       expect(screen.getByText(/Found 1 subtask conversion suggestion/i)).toBeInTheDocument();
       expect(screen.getByText("Task 2 is a part of Task 1")).toBeInTheDocument();
@@ -58,7 +60,7 @@ describe("AISubtaskSuggestionsModal", () => {
 
   it("handles subtask conversion approval and application", async () => {
     vi.mocked(taskCleanupService.analyzeRedundancy).mockResolvedValue([
-      { taskId: "2", type: "subset", relatedTaskId: "1", confidence: 0.9, reasoning: "R" }
+      { taskId: "2", type: "subset", relatedTaskId: "1", confidence: 0.9, reasoning: "R" },
     ]);
 
     await act(async () => {
@@ -70,7 +72,7 @@ describe("AISubtaskSuggestionsModal", () => {
           onUpdateTask={mockOnUpdateTask}
           onArchiveTask={mockOnArchiveTask}
           addToast={mockAddToast}
-        />
+        />,
       );
     });
 
@@ -81,13 +83,16 @@ describe("AISubtaskSuggestionsModal", () => {
       fireEvent.click(approveBtn);
     });
 
-    const applyBtn = screen.getByRole('button', { name: "Convert to Subtasks" });
+    const applyBtn = screen.getByRole("button", { name: "Convert to Subtasks" });
     await act(async () => {
       fireEvent.click(applyBtn);
     });
 
     expect(mockOnUpdateTask).toHaveBeenCalledWith("1", expect.any(Object));
     expect(mockOnArchiveTask).toHaveBeenCalledWith("2");
-    expect(mockAddToast).toHaveBeenCalledWith(expect.stringContaining("Successfully converted"), "success");
+    expect(mockAddToast).toHaveBeenCalledWith(
+      expect.stringContaining("Successfully converted"),
+      "success",
+    );
   });
 });

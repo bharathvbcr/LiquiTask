@@ -26,10 +26,10 @@ describe("AutomationService Extended", () => {
     };
     service.addRule(rule);
     expect(service.getRules()).toHaveLength(1);
-    
+
     service.updateRule("r1", { name: "Updated" });
     expect(service.getRules()[0].name).toBe("Updated");
-    
+
     service.deleteRule("r1");
     expect(service.getRules()).toHaveLength(0);
   });
@@ -49,7 +49,7 @@ describe("AutomationService Extended", () => {
       ],
     };
     service.loadRules([rule]);
-    
+
     const updates = service.processTaskEvent("onCreate", { newTask: mockTask }, [mockTask]);
     expect(updates?.assignee).toBe("Bob");
     expect(updates?.tags).toContain("new");
@@ -68,8 +68,10 @@ describe("AutomationService Extended", () => {
       actions: [{ type: "notify", value: "Hello" }],
     };
     service.loadRules([rule]);
-    
-    service.processTaskEvent("onCreate", { newTask: mockTask }, [mockTask], { onNotify: mockNotify });
+
+    service.processTaskEvent("onCreate", { newTask: mockTask }, [mockTask], {
+      onNotify: mockNotify,
+    });
     expect(mockNotify).toHaveBeenCalledWith("Hello");
   });
 
@@ -86,7 +88,7 @@ describe("AutomationService Extended", () => {
       // Access private method
       const isDue = (service as any).isRuleDue(rule, now);
       expect(isDue).toBe(true);
-      
+
       const wrongTime = new Date();
       wrongTime.setHours(10, 1, 0, 0);
       expect((service as any).isRuleDue(rule, wrongTime)).toBe(false);
@@ -102,7 +104,7 @@ describe("AutomationService Extended", () => {
         schedule: { frequency: "daily", time: "10:00" },
         actions: [{ type: "setPriority", value: "high" }],
       } as any;
-      
+
       service.loadRules([rule]);
       service.configureSchedulerContext({
         getAllTasks: () => [mockTask],
@@ -116,13 +118,13 @@ describe("AutomationService Extended", () => {
 
       // Advance by 2 seconds to reach 10:00:01
       // The interval check runs every 60s. We need to make sure the interval callback sees 10:00.
-      
-      vi.advanceTimersByTime(60000); 
-      
-      // Since interval runs every 60s, if it started at 09:59:59, 
+
+      vi.advanceTimersByTime(60000);
+
+      // Since interval runs every 60s, if it started at 09:59:59,
       // the first call is at 10:00:59. At that time, isRuleDue(10:00) should be true (if only HH:mm checked).
       expect(mockApply).toHaveBeenCalledWith("t1", { priority: "high" });
-      
+
       service.stop();
       vi.useRealTimers();
     });

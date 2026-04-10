@@ -6,7 +6,7 @@ class MockNotification {
   static lastInstance: MockNotification | null = null;
   static permission: NotificationPermission = "default";
   static requestPermission = vi.fn().mockResolvedValue("granted");
-  
+
   onclick: (() => void) | null = null;
   title: string;
   options: any;
@@ -36,14 +36,14 @@ describe("notificationService", () => {
 
     // Setup global mocks
     vi.stubGlobal("Notification", MockNotification);
-    
+
     // Default to web runtime
     vi.stubGlobal("window", {
       ...globalThis,
       Notification: MockNotification,
       electronAPI: undefined,
     });
-    
+
     // Reset service state (hacky since it's a singleton)
     const internal = notificationService as unknown as NotificationServiceInternal;
     internal.hasPermission = false;
@@ -130,7 +130,7 @@ describe("notificationService", () => {
         ...globalThis,
         electronAPI: mockElectronAPI,
       });
-      
+
       await notificationService.requestPermission();
       mockElectronAPI.showNotification.mockClear();
 
@@ -166,10 +166,12 @@ describe("notificationService", () => {
 
       vi.advanceTimersByTime(60 * 60 * 1000); // 1 hour
 
-      expect(showSpy).toHaveBeenCalledWith(expect.objectContaining({
-        title: "⏰ Task Due Soon",
-        body: expect.stringContaining("due in 1 hour"),
-      }));
+      expect(showSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "⏰ Task Due Soon",
+          body: expect.stringContaining("due in 1 hour"),
+        }),
+      );
     });
   });
 
@@ -205,9 +207,11 @@ describe("notificationService", () => {
 
       notificationService.notifyOverdue([{ title: "Overdue Task" }]);
 
-      expect(showSpy).toHaveBeenCalledWith(expect.objectContaining({
-        title: "⚠️ Overdue Task",
-      }));
+      expect(showSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "⚠️ Overdue Task",
+        }),
+      );
     });
   });
 

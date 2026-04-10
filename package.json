@@ -2,7 +2,7 @@
   "name": "liquitask",
   "productName": "LiquiTask",
   "private": true,
-  "version": "2.3.0",
+  "version": "2.4.0",
   "description": "A premium Kanban task management desktop app with a stunning liquid glass aesthetic",
   "author": {
     "name": "LiquidTask",
@@ -66,9 +66,6 @@
     "vite-plugin-pwa": "^1.2.0",
     "vitest": "^4.0.18",
     "wait-on": "^8.0.2"
-  },
-  "overrides": {
-    "rollup": "4.59.0"
   },
   "build": {
     "appId": "com.liquitask.app",

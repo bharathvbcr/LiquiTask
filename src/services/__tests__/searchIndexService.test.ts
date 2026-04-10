@@ -1,6 +1,8 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { STORAGE_KEYS } from "../../constants";
 import type { Task } from "../../types";
 import { SearchIndexService } from "../searchIndexService";
+import storageService from "../storageService";
 
 describe("SearchIndexService", () => {
   let service: SearchIndexService;
@@ -57,6 +59,8 @@ describe("SearchIndexService", () => {
   ];
 
   beforeEach(() => {
+    localStorage.clear();
+    storageService.remove(STORAGE_KEYS.AI_SEMANTIC_CACHE);
     service = new SearchIndexService();
   });
 
@@ -104,6 +108,12 @@ describe("SearchIndexService", () => {
     service.buildIndex(mockTasks);
     const results = service.search("mobile");
     expect(results).toContain("1");
+  });
+
+  it("should normalize punctuation in search queries", () => {
+    service.buildIndex(mockTasks);
+    expect(service.search("navigation?")).toContain("1");
+    expect(service.search("frontend!!!")).toContain("1");
   });
 
   it("should perform AND search for multiple words", () => {
@@ -193,13 +203,13 @@ describe("SearchIndexService", () => {
 
   it("should boost search results with semantic matches when intersection is small", async () => {
     service.buildIndex(mockTasks);
-    
+
     // Manually add a semantic keyword to task 2
     const task2 = mockTasks[1];
     const mockAiService = {
       generateSemanticKeywords: vi.fn().mockResolvedValue(["optimization", "fast"]),
     };
-    
+
     await service.augmentTaskSemantically(task2, mockAiService, {});
 
     // Search for "Alice optimization"
@@ -207,5 +217,24 @@ describe("SearchIndexService", () => {
     // AND intersection is empty, but fuzzy boost should find Task 2
     const results = service.search("Alice optimization");
     expect(results).toContain(task2.id);
+  });
+
+  it("should load persisted semantic keywords when rebuilding the index", () => {
+    localStorage.setItem(
+      STORAGE_KEYS.AI_SEMANTIC_CACHE,
+      JSON.stringify({
+        "1": ["interface", "ux"],
+      }),
+    );
+
+    service.buildIndex(mockTasks);
+
+    expect(service.search("interface")).toContain("1");
+    expect(service.getStats().totalSemanticKeywords).toBe(2);
+  });
+
+  it("should omit filler context when no relevant tasks are found", () => {
+    service.buildIndex(mockTasks);
+    expect(service.getRelevantContext("totally unrelated", mockTasks)).toBe("");
   });
 });

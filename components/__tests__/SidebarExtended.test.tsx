@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { Sidebar } from "../Sidebar";
 import type { Project, ProjectType } from "../../types";
+import { Sidebar } from "../Sidebar";
 
 // Mock assets and sub-components
 
@@ -29,7 +29,7 @@ describe("Sidebar Extended", () => {
       type: "code",
       parentId: "p1",
       pinned: false,
-      order: 0
+      order: 0,
     },
   ] as Project[];
 
@@ -57,7 +57,7 @@ describe("Sidebar Extended", () => {
 
   it("handles dashboard navigation", () => {
     render(<Sidebar {...baseProps} />);
-    const dashboardBtn = screen.getAllByText("Dashboard").find(el => el.tagName === "SPAN");
+    const dashboardBtn = screen.getAllByText("Dashboard").find((el) => el.tagName === "SPAN");
     if (dashboardBtn) fireEvent.click(dashboardBtn);
     expect(mockOnChangeView).toHaveBeenCalledWith("dashboard");
   });
@@ -74,9 +74,11 @@ describe("Sidebar Extended", () => {
     render(<Sidebar {...baseProps} />);
     const moreBtn = screen.getByLabelText("More options for Project 1");
     fireEvent.click(moreBtn);
-    
+
     // Find the button specifically
-    const pinBtn = screen.getAllByRole("button").find(b => b.textContent?.includes("Pin") && !b.textContent?.includes("Unpin"));
+    const pinBtn = screen
+      .getAllByRole("button")
+      .find((b) => b.textContent?.includes("Pin") && !b.textContent?.includes("Unpin"));
     if (pinBtn) fireEvent.click(pinBtn);
     expect(mockOnTogglePin).toHaveBeenCalledWith("p1");
   });
@@ -85,7 +87,7 @@ describe("Sidebar Extended", () => {
     render(<Sidebar {...baseProps} />);
     const moreBtn = screen.getByLabelText("More options for Project 1");
     fireEvent.click(moreBtn);
-    
+
     const moveDownBtn = screen.getByText(/Move Down/i);
     fireEvent.click(moveDownBtn);
     expect(mockOnMoveProject).toHaveBeenCalledWith("p1", "down");
@@ -96,7 +98,7 @@ describe("Sidebar Extended", () => {
     const project1Container = screen.getByText("Project 1").closest(".flex-col");
     const chevron = project1Container?.querySelector(".lucide-chevron-down");
     expect(chevron).toBeDefined();
-    
+
     if (chevron) {
       fireEvent.click(chevron);
     }
@@ -116,7 +118,7 @@ describe("Sidebar Extended", () => {
 
   it("renders different icons based on project properties", () => {
     const customProjects = [
-      { id: "px", name: "Custom Icon", icon: "zap", type: "code" }
+      { id: "px", name: "Custom Icon", icon: "zap", type: "code" },
     ] as Project[];
     render(<Sidebar {...baseProps} projects={customProjects} />);
     expect(document.querySelector(".lucide-zap")).toBeDefined();

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import type { Task } from "../../types";
 import { Dashboard } from "../Dashboard";
-import type { Task, Project } from "../../types";
 
 // Mock sub-components with correct relative paths
 vi.mock("../../src/components/CalendarView", () => ({

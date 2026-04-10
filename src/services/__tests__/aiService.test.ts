@@ -138,10 +138,22 @@ describe("AiService", () => {
     it("suggestMerge suggests merge details", async () => {
       mockGenerateContent.mockResolvedValueOnce({
         response: {
-          text: () => JSON.stringify({ keepTaskId: "1", archiveTaskIds: ["2"], reasoning: "better", mergedFields: {} }),
+          text: () =>
+            JSON.stringify({
+              keepTaskId: "1",
+              archiveTaskIds: ["2"],
+              reasoning: "better",
+              mergedFields: {},
+            }),
         },
       });
-      const group = { id: "g1", tasks: [{ id: "1", subtasks: [], tags: [] }, { id: "2", subtasks: [], tags: [] }] } as any;
+      const group = {
+        id: "g1",
+        tasks: [
+          { id: "1", subtasks: [], tags: [] },
+          { id: "2", subtasks: [], tags: [] },
+        ],
+      } as any;
       const result = await aiService.suggestMerge(group, mockContext);
       expect(result.keepTaskId).toBe("1");
     });
@@ -160,10 +172,16 @@ describe("AiService", () => {
     it("clusterTasks groups tasks", async () => {
       mockGenerateContent.mockResolvedValueOnce({
         response: {
-          text: () => JSON.stringify([{ taskIds: ["1", "2"], theme: "work", suggestedTags: ["T"], confidence: 0.8 }]),
+          text: () =>
+            JSON.stringify([
+              { taskIds: ["1", "2"], theme: "work", suggestedTags: ["T"], confidence: 0.8 },
+            ]),
         },
       });
-      const tasks = [{ id: "1", tags: [], title: "T1" }, { id: "2", tags: [], title: "T2" }] as any;
+      const tasks = [
+        { id: "1", tags: [], title: "T1" },
+        { id: "2", tags: [], title: "T2" },
+      ] as any;
       const results = await aiService.clusterTasks(tasks, mockContext);
       expect(results[0].theme).toBe("work");
     });
@@ -171,7 +189,16 @@ describe("AiService", () => {
     it("suggestPriorities suggests priority changes", async () => {
       mockGenerateContent.mockResolvedValueOnce({
         response: {
-          text: () => JSON.stringify([{ taskId: "1", suggestedValue: "high", currentValue: "low", confidence: 0.8, reasoning: "R" }]),
+          text: () =>
+            JSON.stringify([
+              {
+                taskId: "1",
+                suggestedValue: "high",
+                currentValue: "low",
+                confidence: 0.8,
+                reasoning: "R",
+              },
+            ]),
         },
       });
       const tasks = [{ id: "1", priority: "low", title: "T" }] as any;
@@ -182,7 +209,12 @@ describe("AiService", () => {
     it("suggestSchedule suggests due date", async () => {
       mockGenerateContent.mockResolvedValueOnce({
         response: {
-          text: () => JSON.stringify({ suggestedDueDate: "2026-04-04T00:00:00Z", conflicts: [], reasoning: "R" }),
+          text: () =>
+            JSON.stringify({
+              suggestedDueDate: "2026-04-04T00:00:00Z",
+              conflicts: [],
+              reasoning: "R",
+            }),
         },
       });
       const task = { id: "1", title: "Task", summary: "S" } as any;
@@ -193,7 +225,10 @@ describe("AiService", () => {
     it("generateInsights generates insights from stats", async () => {
       mockGenerateContent.mockResolvedValueOnce({
         response: {
-          text: () => JSON.stringify([{ type: "bottleneck", title: "Too many tasks", description: "D", data: {} }]),
+          text: () =>
+            JSON.stringify([
+              { type: "bottleneck", title: "Too many tasks", description: "D", data: {} },
+            ]),
         },
       });
       const results = await aiService.generateInsights([], mockContext);
@@ -203,7 +238,8 @@ describe("AiService", () => {
     it("parseNaturalQuery converts text to filter", async () => {
       mockGenerateContent.mockResolvedValueOnce({
         response: {
-          text: () => JSON.stringify({ filterGroup: { id: "ai", rules: [] }, explanation: "Search" }),
+          text: () =>
+            JSON.stringify({ filterGroup: { id: "ai", rules: [] }, explanation: "Search" }),
         },
       });
       const result = await aiService.parseNaturalQuery("find high priority", mockContext);
@@ -213,7 +249,16 @@ describe("AiService", () => {
     it("suggestProjectReassignment suggests new project", async () => {
       mockGenerateContent.mockResolvedValueOnce({
         response: {
-          text: () => JSON.stringify([{ taskId: "1", suggestedProjectId: "p2", currentProjectId: "p1", confidence: 0.8, reasoning: "R" }]),
+          text: () =>
+            JSON.stringify([
+              {
+                taskId: "1",
+                suggestedProjectId: "p2",
+                currentProjectId: "p1",
+                confidence: 0.8,
+                reasoning: "R",
+              },
+            ]),
         },
       });
       const tasks = [{ id: "1", title: "T", tags: [], summary: "S" }] as any;
@@ -249,14 +294,24 @@ describe("AiService", () => {
           text: () => JSON.stringify({ shouldTrigger: true, reasoning: "R" }),
         },
       });
-      const result = await aiService.evaluateAutomationCondition({ naturalLanguage: "if", conditions: "" }, mockContext);
+      const result = await aiService.evaluateAutomationCondition(
+        { naturalLanguage: "if", conditions: "" },
+        mockContext,
+      );
       expect(result).toBe(true);
     });
 
     it("generateTemplate creates template from desc", async () => {
       mockGenerateContent.mockResolvedValueOnce({
         response: {
-          text: () => JSON.stringify({ name: "Template", taskData: { title: "T" }, subtasks: [], tags: [], variables: [] }),
+          text: () =>
+            JSON.stringify({
+              name: "Template",
+              taskData: { title: "T" },
+              subtasks: [],
+              tags: [],
+              variables: [],
+            }),
         },
       });
       const result = await aiService.generateTemplate("desc", mockContext);
@@ -304,7 +359,7 @@ describe("AiService", () => {
       const result = await aiService.generateAgentResponse(
         [{ id: "1", role: "user", content: "Hi", timestamp: new Date() }],
         mockContext,
-        []
+        [],
       );
 
       expect(result.content).toBe("Here is a task.");
@@ -322,8 +377,20 @@ describe("AiService", () => {
 
       const messages: any[] = [
         { id: "1", role: "user", content: "Create task", timestamp: new Date() },
-        { id: "2", role: "assistant", content: "", timestamp: new Date(), toolCalls: [{ name: "create_task", args: { title: "T" } }] },
-        { id: "3", role: "function", content: "Done", timestamp: new Date(), toolResults: [{ name: "create_task", result: { id: "p1" } }] },
+        {
+          id: "2",
+          role: "assistant",
+          content: "",
+          timestamp: new Date(),
+          toolCalls: [{ name: "create_task", args: { title: "T" } }],
+        },
+        {
+          id: "3",
+          role: "function",
+          content: "Done",
+          timestamp: new Date(),
+          toolResults: [{ name: "create_task", result: { id: "p1" } }],
+        },
         { id: "4", role: "user", content: "What next?", timestamp: new Date() },
       ];
 

@@ -21,7 +21,7 @@ describe("StorageService", () => {
   it("should set and get values from localStorage", () => {
     storageService.set("test-key", { foo: "bar" });
     expect(localStorage.getItem("test-key")).toBe(JSON.stringify({ foo: "bar" }));
-    
+
     const val = storageService.get("test-key", null);
     expect(val).toEqual({ foo: "bar" });
   });
@@ -29,7 +29,7 @@ describe("StorageService", () => {
   it("should use cache for subsequent gets", () => {
     storageService.set("key", "val");
     localStorage.setItem("key", JSON.stringify("wrong"));
-    
+
     const val = storageService.get("key", null);
     expect(val).toBe("val"); // Should come from cache, not localStorage
   });
@@ -50,10 +50,10 @@ describe("StorageService", () => {
         customFieldValues: {},
         links: [],
         tags: [],
-      }
+      },
     ];
     localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(rawTasks));
-    
+
     const tasks = storageService.get(STORAGE_KEYS.TASKS, []);
     expect(tasks).toHaveLength(1);
     expect(tasks[0].createdAt).toBeInstanceOf(Date);
@@ -95,7 +95,7 @@ describe("StorageService", () => {
       activeProjectId: "imported",
       sidebarCollapsed: true,
       grouping: "none",
-      version: "2.0.0"
+      version: "2.0.0",
     };
     const result = storageService.importData(JSON.stringify(data));
     expect(result.data?.activeProjectId).toBe("imported");

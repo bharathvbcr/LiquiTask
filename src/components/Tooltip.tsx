@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import type React from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 interface TooltipProps {
   content: React.ReactNode;
@@ -127,35 +128,6 @@ export const Tooltip: React.FC<TooltipProps> = ({
     };
   }, []);
 
-  const triggerElement = React.cloneElement(children as React.ReactElement<any>, {
-    ref: (node: HTMLElement | null) => {
-      triggerRef.current = node;
-      // Preserve any existing ref
-      const existingRef = (children as any).ref;
-      if (typeof existingRef === "function") {
-        existingRef(node);
-      } else if (existingRef && typeof existingRef === "object") {
-        (existingRef as React.MutableRefObject<HTMLElement | null>).current = node;
-      }
-    },
-    onMouseEnter: (e: React.MouseEvent) => {
-      showTooltip();
-      (children.props as any).onMouseEnter?.(e);
-    },
-    onMouseLeave: (e: React.MouseEvent) => {
-      hideTooltip();
-      (children.props as any).onMouseLeave?.(e);
-    },
-    onFocus: (e: React.FocusEvent) => {
-      showTooltip();
-      (children.props as any).onFocus?.(e);
-    },
-    onBlur: (e: React.FocusEvent) => {
-      hideTooltip();
-      (children.props as any).onBlur?.(e);
-    },
-  });
-
   const getArrowPosition = () => {
     switch (position) {
       case "top":
@@ -171,7 +143,16 @@ export const Tooltip: React.FC<TooltipProps> = ({
 
   return (
     <>
-      {triggerElement}
+      <span
+        ref={triggerRef as React.RefObject<HTMLSpanElement>}
+        onMouseEnter={showTooltip}
+        onMouseLeave={hideTooltip}
+        onFocus={showTooltip}
+        onBlur={hideTooltip}
+        style={{ display: "contents" }}
+      >
+        {children}
+      </span>
       {isVisible && (
         /* eslint-disable-next-line react/forbid-dom-props */
         <div

@@ -1,7 +1,7 @@
-import { fireEvent, render, screen, waitFor, act } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AIProjectAssignmentModal } from "../AIProjectAssignmentModal";
 import { aiService } from "../../services/aiService";
+import { AIProjectAssignmentModal } from "../AIProjectAssignmentModal";
 
 // Mock services
 vi.mock("../../services/aiService", () => ({
@@ -20,9 +20,7 @@ vi.mock("../../services/storageService", () => ({
 describe("AIProjectAssignmentModal", () => {
   const mockAddToast = vi.fn();
   const mockOnUpdateTask = vi.fn();
-  const mockTasks = [
-    { id: "1", title: "Task 1", projectId: "p1", tags: [], summary: "S" },
-  ] as any;
+  const mockTasks = [{ id: "1", title: "Task 1", projectId: "p1", tags: [], summary: "S" }] as any;
   const mockProjects = [
     { id: "p1", name: "Project 1" },
     { id: "p2", name: "Project 2" },
@@ -34,7 +32,13 @@ describe("AIProjectAssignmentModal", () => {
 
   it("renders correctly and scans for reassignments", async () => {
     vi.mocked(aiService.suggestProjectReassignment).mockResolvedValue([
-      { taskId: "1", currentProjectId: "p1", suggestedProjectId: "p2", confidence: 0.9, reasoning: "Belongs to P2" }
+      {
+        taskId: "1",
+        currentProjectId: "p1",
+        suggestedProjectId: "p2",
+        confidence: 0.9,
+        reasoning: "Belongs to P2",
+      },
     ]);
 
     await act(async () => {
@@ -46,13 +50,15 @@ describe("AIProjectAssignmentModal", () => {
           projects={mockProjects}
           onUpdateTask={mockOnUpdateTask}
           addToast={mockAddToast}
-        />
+        />,
       );
     });
 
     // Use exact name match for the modal title heading
-    expect(screen.getByRole('heading', { name: "Smart Project Assignment", level: 3 })).toBeInTheDocument();
-    
+    expect(
+      screen.getByRole("heading", { name: "Smart Project Assignment", level: 3 }),
+    ).toBeInTheDocument();
+
     await waitFor(() => {
       expect(screen.getByText(/Found 1 project assignment suggestion/i)).toBeInTheDocument();
       expect(screen.getByText("Belongs to P2")).toBeInTheDocument();
@@ -62,7 +68,13 @@ describe("AIProjectAssignmentModal", () => {
 
   it("handles assignment approval and application", async () => {
     vi.mocked(aiService.suggestProjectReassignment).mockResolvedValue([
-      { taskId: "1", currentProjectId: "p1", suggestedProjectId: "p2", confidence: 0.9, reasoning: "R" }
+      {
+        taskId: "1",
+        currentProjectId: "p1",
+        suggestedProjectId: "p2",
+        confidence: 0.9,
+        reasoning: "R",
+      },
     ]);
 
     await act(async () => {
@@ -74,7 +86,7 @@ describe("AIProjectAssignmentModal", () => {
           projects={mockProjects}
           onUpdateTask={mockOnUpdateTask}
           addToast={mockAddToast}
-        />
+        />,
       );
     });
 
@@ -85,12 +97,15 @@ describe("AIProjectAssignmentModal", () => {
       fireEvent.click(approveBtn);
     });
 
-    const applyBtn = screen.getByRole('button', { name: /Apply Assignments/i });
+    const applyBtn = screen.getByRole("button", { name: /Apply Assignments/i });
     await act(async () => {
       fireEvent.click(applyBtn);
     });
 
-    expect(mockOnUpdateTask).toHaveBeenCalledWith("1", expect.objectContaining({ projectId: "p2" }));
+    expect(mockOnUpdateTask).toHaveBeenCalledWith(
+      "1",
+      expect.objectContaining({ projectId: "p2" }),
+    );
     expect(mockAddToast).toHaveBeenCalledWith(expect.stringContaining("reassigned"), "success");
   });
 });

@@ -16,7 +16,7 @@ LiquiTask is a premium, desktop-first task management application built with Rea
 
 ## AI Integration
 
-LiquiTask 2.3.0 introduces a robust AI layer for intelligent task management, featuring a conversational Task Assistant.
+LiquiTask 2.4.0 introduces a robust AI layer for intelligent task management, featuring a conversational Task Assistant.
 
 ### Supported Providers
 
@@ -140,14 +140,14 @@ The tagged release workflow does the following:
 
 Current release assets:
 
-- `LiquiTask Setup 2.3.0.exe`
-- `LiquiTask Setup 2.3.0.exe.blockmap`
+- `LiquiTask Setup 2.4.0.exe`
+- `LiquiTask Setup 2.4.0.exe.blockmap`
 
 Create a release:
 
 ```bash
-git tag v2.3.0
-git push origin v2.3.0
+git tag v2.4.0
+git push origin v2.4.0
 ```
 
 Before tagging a new version, update:

@@ -29,7 +29,7 @@ interface UseBoardKeyboardNavReturn {
   setFocusedColumnIndex: (index: number) => void;
   setFocusedTaskId: (id: string | null) => void;
   handlers: {
-    onKeyDown: (e: React.KeyboardEvent) => void;
+    onKeyDown: (e: KeyboardEvent | React.KeyboardEvent) => void;
   };
 }
 
@@ -145,7 +145,7 @@ export function useBoardKeyboardNav({
   );
 
   const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
+    (e: KeyboardEvent | React.KeyboardEvent) => {
       if (!isEnabled) return;
 
       // Don't handle if user is typing in an input

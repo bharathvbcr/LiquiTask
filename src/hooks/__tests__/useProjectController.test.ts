@@ -8,9 +8,7 @@ describe("useProjectController", () => {
     { id: "p1", name: "Project 1", type: "default", icon: "folder", order: 0 },
     { id: "p2", name: "Project 2", type: "custom", icon: "folder", order: 1 },
   ];
-  const initialProjectTypes: ProjectType[] = [
-    { id: "default", label: "Default", color: "blue" },
-  ];
+  const initialProjectTypes: ProjectType[] = [{ id: "default", label: "Default", color: "blue" }];
   const mockAddToast = vi.fn();
   const mockConfirm = vi.fn();
 
@@ -29,12 +27,11 @@ describe("useProjectController", () => {
 
   it("should handle handleCreateProject with string name", () => {
     const { result } = renderHook(() => useProjectController(props));
-    let newProject: Project;
     act(() => {
-      newProject = result.current.handleCreateProject("New Project", "rocket", "p1");
+      result.current.handleCreateProject("New Project", "rocket", "p1");
     });
     expect(result.current.projects).toHaveLength(3);
-    expect(result.current.projects.find(p => p.name === "New Project")).toBeDefined();
+    expect(result.current.projects.find((p) => p.name === "New Project")).toBeDefined();
     expect(mockAddToast).toHaveBeenCalledWith('Workspace "New Project" created', "success");
   });
 
@@ -44,7 +41,7 @@ describe("useProjectController", () => {
       result.current.handleCreateProject({ name: "Obj Project", icon: "star" });
     });
     expect(result.current.projects).toHaveLength(3);
-    expect(result.current.projects.find(p => p.name === "Obj Project")).toBeDefined();
+    expect(result.current.projects.find((p) => p.name === "Obj Project")).toBeDefined();
   });
 
   it("should handle handleDeleteProject", async () => {
@@ -54,7 +51,12 @@ describe("useProjectController", () => {
     const { result } = renderHook(() => useProjectController(props));
 
     await act(async () => {
-      const deleted = await result.current.handleDeleteProject("p2", "p2", mockSetActiveProjectId, mockSetTasks);
+      const deleted = await result.current.handleDeleteProject(
+        "p2",
+        "p2",
+        mockSetActiveProjectId,
+        mockSetTasks,
+      );
       expect(deleted).toBe(true);
     });
 
@@ -64,20 +66,30 @@ describe("useProjectController", () => {
   });
 
   it("should not delete project with sub-projects", async () => {
-    const { result } = renderHook(() => useProjectController({
-      ...props,
-      initialProjects: [
-        { id: "parent", name: "Parent", type: "custom" },
-        { id: "child", name: "Child", type: "custom", parentId: "parent" }
-      ]
-    }));
+    const { result } = renderHook(() =>
+      useProjectController({
+        ...props,
+        initialProjects: [
+          { id: "parent", name: "Parent", type: "custom" },
+          { id: "child", name: "Child", type: "custom", parentId: "parent" },
+        ],
+      }),
+    );
 
     await act(async () => {
-      const deleted = await result.current.handleDeleteProject("parent", "parent", vi.fn(), vi.fn());
+      const deleted = await result.current.handleDeleteProject(
+        "parent",
+        "parent",
+        vi.fn(),
+        vi.fn(),
+      );
       expect(deleted).toBe(false);
     });
 
-    expect(mockAddToast).toHaveBeenCalledWith("Cannot delete a project that has sub-projects.", "error");
+    expect(mockAddToast).toHaveBeenCalledWith(
+      "Cannot delete a project that has sub-projects.",
+      "error",
+    );
   });
 
   it("should handle handleTogglePin", () => {
@@ -98,8 +110,8 @@ describe("useProjectController", () => {
       result.current.handleMoveProject("p1", "down");
     });
     // p1 order should increase, p2 order should decrease
-    const p1 = result.current.projects.find(p => p.id === "p1");
-    const p2 = result.current.projects.find(p => p.id === "p2");
+    const p1 = result.current.projects.find((p) => p.id === "p1");
+    const p2 = result.current.projects.find((p) => p.id === "p2");
     expect(p1?.order).toBe(1);
     expect(p2?.order).toBe(0);
   });
@@ -109,7 +121,7 @@ describe("useProjectController", () => {
     act(() => {
       result.current.handleEditProject("p1", "Renamed", "zap");
     });
-    const p1 = result.current.projects.find(p => p.id === "p1");
+    const p1 = result.current.projects.find((p) => p.id === "p1");
     expect(p1?.name).toBe("Renamed");
     expect(p1?.icon).toBe("zap");
     expect(mockAddToast).toHaveBeenCalledWith("Workspace updated", "success");

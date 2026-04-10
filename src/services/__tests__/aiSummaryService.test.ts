@@ -22,13 +22,13 @@ describe("AISummaryService", () => {
   });
 
   it("identifies bottlenecks", async () => {
-    const overdueTask = { 
-      id: "3", 
-      title: "Overdue", 
+    const overdueTask = {
+      id: "3",
+      title: "Overdue",
       dueDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5), // 5 days ago
       status: "Pending",
       subtasks: [],
-      priority: "high"
+      priority: "high",
     } as any;
     const report = await aiSummaryService.generateDailyReport([...mockTasks, overdueTask]);
     expect(report.overview.overdueTasks).toBe(1);

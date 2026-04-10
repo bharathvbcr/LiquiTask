@@ -1,15 +1,9 @@
-import {
-  Archive,
-  ChevronDown,
-  ChevronRight,
-  Folder,
-  LayoutDashboard,
-  Settings,
-  X,
-} from "lucide-react";
+import { ChevronDown, ChevronRight, Folder, LayoutDashboard, Settings, X } from "lucide-react";
 import type React from "react";
 import { useEffect, useState } from "react";
-import type { Project } from "../types";
+import type { Project } from "../../types";
+
+type NavigationView = "project" | "dashboard" | "gantt";
 
 interface MobileNavDrawerProps {
   isOpen: boolean;
@@ -18,8 +12,8 @@ interface MobileNavDrawerProps {
   activeProjectId: string;
   onSelectProject: (id: string) => void;
   onOpenSettings: () => void;
-  currentView: "project" | "dashboard" | "gantt";
-  onChangeView: (view: "project" | "dashboard" | "gantt") => void;
+  currentView: NavigationView;
+  onChangeView: (view: NavigationView) => void;
 }
 
 export const MobileNavDrawer: React.FC<MobileNavDrawerProps> = ({
@@ -70,7 +64,7 @@ export const MobileNavDrawer: React.FC<MobileNavDrawerProps> = ({
     onClose();
   };
 
-  const handleNavigate = (view: "project" | "dashboard" | "archive" | "gantt") => {
+  const handleNavigate = (view: NavigationView) => {
     onChangeView(view);
     onClose();
   };
@@ -166,16 +160,6 @@ export const MobileNavDrawer: React.FC<MobileNavDrawerProps> = ({
                 )}
               </div>
             </div>
-
-            {/* Archive */}
-            <div className="mt-4">
-              <NavButton
-                icon={<Archive size={18} />}
-                label="Archive"
-                isActive={currentView === "archive"}
-                onClick={() => handleNavigate("archive")}
-              />
-            </div>
           </div>
 
           {/* Footer - Settings */}
@@ -225,7 +209,7 @@ interface ProjectItemProps {
   project: Project;
   allProjects: Project[];
   activeProjectId: string;
-  currentView: string;
+  currentView: NavigationView;
   expandedProjects: Set<string>;
   onSelect: (id: string) => void;
   onToggleExpand: (e: React.MouseEvent, projectId: string) => void;

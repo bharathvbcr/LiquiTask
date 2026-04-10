@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import type { Task, TaskTemplate } from "../../types";
 import { TemplateService } from "../templateService";
 
@@ -15,8 +15,8 @@ describe("TemplateService", () => {
       subtasks: [],
       tags: ["tag1"],
       customFieldValues: {},
-      variables: ["name"]
-    }
+      variables: ["name"],
+    },
   ];
 
   beforeEach(() => {
@@ -54,7 +54,7 @@ describe("TemplateService", () => {
       attachments: [],
       tags: [],
       timeEstimate: 0,
-      timeSpent: 0
+      timeSpent: 0,
     } as any;
 
     const template = service.saveAsTemplate(task, "Saved Template");
@@ -69,7 +69,7 @@ describe("TemplateService", () => {
     expect(allBefore[0].id).toBe("t1");
 
     service.deleteTemplate("t1");
-    
+
     const allAfter = service.getAllTemplates();
     expect(allAfter).toHaveLength(0);
   });
@@ -86,15 +86,15 @@ describe("TemplateService", () => {
         title: "Repetitive Task",
         completedAt: new Date(),
         subtasks: [],
-        tags: []
+        tags: [],
       } as any,
       {
         id: "2",
         title: "Repetitive Task",
         completedAt: new Date(),
         subtasks: [],
-        tags: []
-      } as any
+        tags: [],
+      } as any,
     ];
     const suggestions = service.suggestTemplatesFromHistory(tasks);
     expect(suggestions).toHaveLength(1);

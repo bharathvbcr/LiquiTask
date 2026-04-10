@@ -64,7 +64,7 @@ describe("useTaskCardContextMenu", () => {
   it("should handle handleWorkspaceSubmenuEnter/Leave", () => {
     vi.useFakeTimers();
     const { result } = renderHook(() => useTaskCardContextMenu(defaultProps));
-    
+
     act(() => {
       result.current.handleWorkspaceSubmenuEnter();
     });
@@ -80,7 +80,7 @@ describe("useTaskCardContextMenu", () => {
       vi.advanceTimersByTime(200);
     });
     expect(result.current.showWorkspaceSubmenu).toBe(false);
-    
+
     vi.useRealTimers();
   });
 });

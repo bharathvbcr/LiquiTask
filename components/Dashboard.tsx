@@ -193,7 +193,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {onViewModeChange === undefined && (
         <div className="flex items-center justify-between mb-6 shrink-0">
           <div className="flex items-center gap-3">
-
             <h1 className="text-3xl font-bold text-white tracking-tight">Dashboard</h1>
           </div>
 
@@ -262,10 +261,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <Sparkles size={24} />
               </div>
               <div>
-                <h4 className="text-sm font-bold text-cyan-300 uppercase tracking-widest">AI Recommendation</h4>
+                <h4 className="text-sm font-bold text-cyan-300 uppercase tracking-widest">
+                  AI Recommendation
+                </h4>
                 <p className="text-lg font-bold text-white mt-1">
-                  You should work on: <span className="text-cyan-400">
-                    {tasks.find(t => t.id === nextTaskSuggestion.taskId)?.title || "Unknown Task"}
+                  You should work on:{" "}
+                  <span className="text-cyan-400">
+                    {tasks.find((t) => t.id === nextTaskSuggestion.taskId)?.title || "Unknown Task"}
                   </span>
                 </p>
                 <p className="text-sm text-slate-400 mt-2 max-w-2xl italic">
@@ -276,7 +278,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <div className="flex gap-2">
               <button
                 onClick={() => {
-                  const task = tasks.find(t => t.id === nextTaskSuggestion.taskId);
+                  const task = tasks.find((t) => t.id === nextTaskSuggestion.taskId);
                   if (task) onEditTask(task);
                 }}
                 className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-slate-950 rounded-xl text-sm font-bold transition-all shadow-lg shadow-cyan-500/20"

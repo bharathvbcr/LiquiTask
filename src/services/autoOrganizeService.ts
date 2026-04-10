@@ -64,7 +64,10 @@ class AutoOrganizeService {
       [
         { key: "deduplication", run: () => this.runDeduplication(tasks, context, config) },
         { key: "clustering", run: () => this.runClustering(tasks, context, config) },
-        { key: "hierarchyDetection", run: () => this.runHierarchyDetection(tasks, context, config) },
+        {
+          key: "hierarchyDetection",
+          run: () => this.runHierarchyDetection(tasks, context, config),
+        },
       ],
       [
         { key: "autoTagging", run: () => this.runAutoTagging(tasks, context, config) },
@@ -98,7 +101,9 @@ class AutoOrganizeService {
       });
 
       const groupResults = await Promise.all(groupPromises);
-      groupResults.forEach((res) => changes.push(...res));
+      groupResults.forEach((res) => {
+        changes.push(...res);
+      });
     }
 
     onProgress?.("complete", 100);

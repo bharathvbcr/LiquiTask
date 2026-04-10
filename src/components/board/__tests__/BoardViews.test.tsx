@@ -1,12 +1,14 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import StandardBoardView from "../StandardBoardView";
-import PriorityBoardView from "../PriorityBoardView";
 import type { BoardColumn, PriorityDefinition, Task } from "../../../../types";
+import PriorityBoardView from "../PriorityBoardView";
+import StandardBoardView from "../StandardBoardView";
 
 // Mock sub-components
 vi.mock("../SortableColumn", () => ({
-  SortableColumn: ({ title, column }: any) => <div data-testid="column">{title || column?.title}</div>,
+  SortableColumn: ({ title, column }: any) => (
+    <div data-testid="column">{title || column?.title}</div>
+  ),
 }));
 
 vi.mock("../SortableTask", () => ({
@@ -53,7 +55,9 @@ describe("Board Views", () => {
     onEditTask: vi.fn(),
     onUpdateTask: vi.fn(),
     onDeleteTask: vi.fn(),
-    getTasksByContext: vi.fn((s, p) => mockTasks.filter(t => t.status === s && (!p || t.priority === p))),
+    getTasksByContext: vi.fn((s, p) =>
+      mockTasks.filter((t) => t.status === s && (!p || t.priority === p)),
+    ),
     allTasks: mockTasks,
   };
 
@@ -67,7 +71,7 @@ describe("Board Views", () => {
           tasks={mockTasks}
           priorities={mockPriorities}
           projects={[]}
-        />
+        />,
       );
       expect(screen.getAllByTestId("column")).toHaveLength(2);
       expect(screen.getByText("Todo")).toBeDefined();
@@ -84,7 +88,7 @@ describe("Board Views", () => {
           priorities={mockPriorities}
           tasks={mockTasks}
           projects={[]}
-        />
+        />,
       );
       // PriorityBoardView maps over priorities.
       expect(screen.getByText("High")).toBeDefined();

@@ -1,11 +1,15 @@
-import { describe, expect, it } from "vitest";
-import { 
-  isValidUrl, 
-  sanitizeUrl, 
-  validateAndTransformImportedData 
-} from "../validation";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { isValidUrl, sanitizeUrl, validateAndTransformImportedData } from "../validation";
 
 describe("Validation Utils Extended", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   describe("sanitizeUrl", () => {
     it("should handle empty or null", () => {
       expect(sanitizeUrl("")).toBe("");
@@ -33,7 +37,7 @@ describe("Validation Utils Extended", () => {
     it("should handle valid minimal data", () => {
       const data = {
         version: "2.0.0",
-        tasks: []
+        tasks: [],
       };
       const result = validateAndTransformImportedData(data);
       expect(result?.version).toBe("2.0.0");
@@ -59,25 +63,24 @@ describe("Validation Utils Extended", () => {
               enabled: true,
               frequency: "daily",
               interval: 1,
-              nextOccurrence: "2026-04-03T10:00:00Z"
+              nextOccurrence: "2026-04-03T10:00:00Z",
             },
-            errorLogs: [
-              { timestamp: "2026-04-01T11:00:00Z", message: "Error" }
-            ]
-          }
-        ]
+            errorLogs: [{ timestamp: "2026-04-01T11:00:00Z", message: "Error" }],
+          },
+        ],
       };
       const result = validateAndTransformImportedData(data);
-      const task = result?.tasks![0];
+      expect(result).not.toBeNull();
+      const task = result?.tasks[0];
       expect(task?.createdAt).toBeInstanceOf(Date);
       expect(task?.dueDate).toBeInstanceOf(Date);
       expect(task?.recurring?.nextOccurrence).toBeInstanceOf(Date);
-      expect(task?.errorLogs![0].timestamp).toBeInstanceOf(Date);
+      expect(task?.errorLogs?.[0]?.timestamp).toBeInstanceOf(Date);
     });
 
     it("should throw on invalid data structure", () => {
       const data = {
-        tasks: [{ id: "missing-fields" }]
+        tasks: [{ id: "missing-fields" }],
       };
       expect(() => validateAndTransformImportedData(data)).toThrow(/Validation failed/);
     });

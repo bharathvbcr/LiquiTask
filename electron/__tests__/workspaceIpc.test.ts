@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import path from "path";
+import path from "node:path";
+import { describe, expect, it } from "vitest";
 
 /**
  * Mirrors the isPathAuthorized function from electron/main.cts.
@@ -16,6 +16,26 @@ const isPathAuthorized = (filePath: string, authorizedPaths: string[]): boolean 
     const b = isCaseInsensitive ? normalizedPath.toLowerCase() : normalizedPath;
     return b === a || b.startsWith(a + path.sep);
   });
+};
+
+const resolveWorkspaceScope = (authorizedPaths: string[], requestedScopePaths?: string[]) => {
+  if (requestedScopePaths === undefined) {
+    return authorizedPaths;
+  }
+
+  if (requestedScopePaths.length === 0) {
+    return [];
+  }
+
+  return requestedScopePaths.filter((scopePath) => isPathAuthorized(scopePath, authorizedPaths));
+};
+
+const isPathAuthorizedForScope = (
+  filePath: string,
+  authorizedPaths: string[],
+  requestedScopePaths?: string[],
+): boolean => {
+  return isPathAuthorized(filePath, resolveWorkspaceScope(authorizedPaths, requestedScopePaths));
 };
 
 describe("Workspace IPC Path Authorization", () => {
@@ -68,5 +88,35 @@ describe("Workspace IPC Path Authorization", () => {
     expect(isPathAuthorized("/workspace/a/file.md", paths)).toBe(true);
     expect(isPathAuthorized("/workspace/b/sub/file.md", paths)).toBe(true);
     expect(isPathAuthorized("/workspace/c/file.md", paths)).toBe(false);
+  });
+
+  it("allows access when the requested project scope stays within the global allowlist", () => {
+    expect(
+      isPathAuthorizedForScope(
+        "/workspace/a/notes/today.md",
+        ["/workspace/a", "/workspace/b"],
+        ["/workspace/a/notes"],
+      ),
+    ).toBe(true);
+  });
+
+  it("blocks access to globally authorized folders that are outside the requested project scope", () => {
+    expect(
+      isPathAuthorizedForScope(
+        "/workspace/b/notes/today.md",
+        ["/workspace/a", "/workspace/b"],
+        ["/workspace/a/notes"],
+      ),
+    ).toBe(false);
+  });
+
+  it("blocks access when the requested scope is not itself inside the global allowlist", () => {
+    expect(
+      isPathAuthorizedForScope(
+        "/workspace/private/secret.md",
+        ["/workspace/a", "/workspace/b"],
+        ["/workspace/private"],
+      ),
+    ).toBe(false);
   });
 });

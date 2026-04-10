@@ -7,14 +7,13 @@ import type {
   BoardColumn,
   PriorityDefinition,
   Project,
+  RecurringConfig,
   Task,
   ToastType,
 } from "../../types";
 import { COLUMN_STATUS } from "../constants";
 import type { AutomationTrigger, TaskContext } from "../services/automationService";
 import { indexedDBService } from "../services/indexedDBService";
-import type { RecurringTaskService } from "../services/recurringTaskService";
-import type { SearchIndexService } from "../services/searchIndexService";
 
 interface UndoAction {
   type: "task-create" | "task-update" | "task-delete" | "task-move";
@@ -48,6 +47,25 @@ type AiServiceLike = {
   generateSubtasks: (title: string, description: string) => Promise<string[]>;
 };
 
+type RecurringTaskServiceLike = {
+  start: (tasks: Task[]) => void;
+  stop: () => void;
+  updateNextOccurrence: (task: Task) => void;
+  calculateNextOccurrence: (config: RecurringConfig, fromDate?: Date) => Date;
+};
+
+type SearchIndexServiceLike = {
+  buildIndex: (tasks: Task[]) => void;
+  updateTask?: (task: Task, previousTask?: Task) => void;
+  removeTask?: (task: Task) => void;
+  search: (query: string) => string[];
+  augmentTaskSemantically?: (
+    task: Task,
+    aiService: AiServiceLike,
+    context: AIContext,
+  ) => Promise<void>;
+};
+
 interface TaskControllerProps {
   initialTasks: Task[];
   columns: BoardColumn[];
@@ -57,8 +75,8 @@ interface TaskControllerProps {
   addToast: (message: string, type?: ToastType) => void;
   automationServiceRef: MutableRefObject<AutomationServiceLike | null>;
   activityServiceRef: MutableRefObject<ActivityServiceLike | null>;
-  recurringTaskServiceRef: MutableRefObject<RecurringTaskService | null>;
-  searchIndexServiceRef: MutableRefObject<SearchIndexService | null>;
+  recurringTaskServiceRef: MutableRefObject<RecurringTaskServiceLike | null>;
+  searchIndexServiceRef: MutableRefObject<SearchIndexServiceLike | null>;
   aiServiceRef?: MutableRefObject<AiServiceLike | null>;
 }
 
@@ -80,21 +98,24 @@ export const useTaskController = ({
   const [canUndo, setCanUndo] = useState(false);
   const MAX_UNDO = 20;
 
-  const augmentTaskSemantically = useCallback(async (task: Task) => {
-    if (!aiServiceRef.current || !searchIndexServiceRef.current) return;
-    
-    const context: AIContext = {
-      activeProjectId,
-      projects,
-      priorities,
-    };
+  const augmentTaskSemantically = useCallback(
+    async (task: Task) => {
+      if (!aiServiceRef.current || !searchIndexServiceRef.current) return;
 
-    await searchIndexServiceRef.current.augmentTaskSemantically(
-      task,
-      aiServiceRef.current,
-      context
-    );
-  }, [activeProjectId, projects, priorities, aiServiceRef, searchIndexServiceRef]);
+      const context: AIContext = {
+        activeProjectId,
+        projects,
+        priorities,
+      };
+
+      await searchIndexServiceRef.current.augmentTaskSemantically?.(
+        task,
+        aiServiceRef.current,
+        context,
+      );
+    },
+    [activeProjectId, projects, priorities, aiServiceRef, searchIndexServiceRef],
+  );
 
   const pushUndo = useCallback((action: UndoAction) => {
     undoStack.current = [action, ...undoStack.current.slice(0, MAX_UNDO - 1)];
@@ -114,6 +135,10 @@ export const useTaskController = ({
       case "task-delete":
         if (action.task) {
           setTasks((prev) => [...prev, action.task]);
+          searchIndexServiceRef.current?.updateTask?.(action.task);
+          if (indexedDBService.isAvailable()) {
+            indexedDBService.saveTask(action.task).catch(console.error);
+          }
           addToast(`Restored "${action.task.title}"`, "success");
         }
         break;
@@ -122,12 +147,23 @@ export const useTaskController = ({
           setTasks((prev) =>
             prev.map((t) => (t.id === action.previousState.id ? action.previousState : t)),
           );
+          searchIndexServiceRef.current?.updateTask?.(action.previousState, action.task);
+          if (indexedDBService.isAvailable()) {
+            indexedDBService.saveTask(action.previousState).catch(console.error);
+          }
           addToast("Change undone", "info");
         }
         break;
       case "task-create":
         if (action.taskId) {
+          const createdTask = tasks.find((t) => t.id === action.taskId);
           setTasks((prev) => prev.filter((t) => t.id !== action.taskId));
+          if (createdTask) {
+            searchIndexServiceRef.current?.removeTask?.(createdTask);
+            if (indexedDBService.isAvailable()) {
+              indexedDBService.deleteTask(createdTask.id).catch(console.error);
+            }
+          }
           addToast("Task creation undone", "info");
         }
         break;
@@ -136,11 +172,15 @@ export const useTaskController = ({
           setTasks((prev) =>
             prev.map((t) => (t.id === action.previousState.id ? action.previousState : t)),
           );
+          searchIndexServiceRef.current?.updateTask?.(action.previousState, action.task);
+          if (indexedDBService.isAvailable()) {
+            indexedDBService.saveTask(action.previousState).catch(console.error);
+          }
           addToast("Move undone", "info");
         }
         break;
     }
-  }, [addToast]);
+  }, [addToast, searchIndexServiceRef, tasks]);
 
   const handleUpdateTask = useCallback(
     (taskOrId: Task | string, updates?: Partial<Task>) => {
@@ -171,7 +211,7 @@ export const useTaskController = ({
         previousState: previousTask,
       });
       setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
-      searchIndexServiceRef.current?.updateTask(updatedTask, previousTask);
+      searchIndexServiceRef.current?.updateTask?.(updatedTask, previousTask);
       augmentTaskSemantically(updatedTask);
     },
     [tasks, pushUndo, searchIndexServiceRef, augmentTaskSemantically],
@@ -213,12 +253,16 @@ export const useTaskController = ({
         previousState: previousTask,
       });
       setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
+      searchIndexServiceRef.current?.updateTask?.(updatedTask, previousTask);
+      if (indexedDBService.isAvailable()) {
+        indexedDBService.saveTask(updatedTask).catch(console.error);
+      }
       augmentTaskSemantically(updatedTask);
 
       const dateStr = normalizedDate.toLocaleDateString();
       addToast(`Due date updated to ${dateStr}`, "success");
     },
-    [tasks, addToast, pushUndo, activityServiceRef, augmentTaskSemantically],
+    [tasks, addToast, pushUndo, activityServiceRef, searchIndexServiceRef, augmentTaskSemantically],
   );
 
   const handleMoveTaskToWorkspace = useCallback(
@@ -247,9 +291,13 @@ export const useTaskController = ({
         previousState: previousTask,
       });
       setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
+      searchIndexServiceRef.current?.updateTask?.(updatedTask, previousTask);
+      if (indexedDBService.isAvailable()) {
+        indexedDBService.saveTask(updatedTask).catch(console.error);
+      }
       addToast(`Task moved to "${targetProject.name}"`, "success");
     },
-    [tasks, projects, addToast, pushUndo],
+    [tasks, projects, addToast, pushUndo, searchIndexServiceRef],
   );
 
   const handleCreateOrUpdateTask = useCallback(
@@ -283,7 +331,7 @@ export const useTaskController = ({
           });
         }
         setTasks((prev) => prev.map((t) => (t.id === editingTask.id ? updatedTask : t)));
-        searchIndexServiceRef.current?.updateTask(updatedTask, previousTask);
+        searchIndexServiceRef.current?.updateTask?.(updatedTask, previousTask);
         augmentTaskSemantically(updatedTask);
 
         const recurringService = recurringTaskServiceRef.current;
@@ -346,7 +394,7 @@ export const useTaskController = ({
 
       pushUndo({ type: "task-create", taskId: newTask.id });
       setTasks((prev) => [...prev, newTask]);
-      searchIndexServiceRef.current?.updateTask(newTask);
+      searchIndexServiceRef.current?.updateTask?.(newTask);
       augmentTaskSemantically(newTask);
 
       if (indexedDBService.isAvailable()) {
@@ -399,15 +447,20 @@ export const useTaskController = ({
       );
 
       setTasks((prev) => [...prev, ...createdTasks]);
+      createdTasks.forEach((task) => {
+        searchIndexServiceRef.current?.updateTask?.(task);
+      });
 
       if (indexedDBService.isAvailable()) {
         indexedDBService.saveTasks(createdTasks).catch(console.error);
       }
-      
+
       // Augment semantically in background
-      createdTasks.forEach(t => augmentTaskSemantically(t));
+      createdTasks.forEach((task) => {
+        void augmentTaskSemantically(task);
+      });
     },
-    [activeProjectId, columns, augmentTaskSemantically],
+    [activeProjectId, columns, searchIndexServiceRef, augmentTaskSemantically],
   );
 
   const handleDeleteTaskInternal = useCallback(
@@ -417,7 +470,10 @@ export const useTaskController = ({
 
       pushUndo({ type: "task-delete", task });
       setTasks((prev) => prev.filter((t) => t.id !== taskId));
-      searchIndexServiceRef.current?.removeTask(task);
+      searchIndexServiceRef.current?.removeTask?.(task);
+      if (indexedDBService.isAvailable()) {
+        indexedDBService.deleteTask(taskId).catch(console.error);
+      }
       addToast("Task deleted (Ctrl+Z to undo)", "info");
     },
     [tasks, pushUndo, addToast, searchIndexServiceRef],
@@ -538,7 +594,7 @@ export const useTaskController = ({
         previousState: previousTask,
       });
       setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
-      searchIndexServiceRef.current?.updateTask(updatedTask, previousTask);
+      searchIndexServiceRef.current?.updateTask?.(updatedTask, previousTask);
 
       if (indexedDBService.isAvailable()) {
         indexedDBService.saveTask(updatedTask).catch(console.error);
@@ -561,7 +617,7 @@ export const useTaskController = ({
                 title,
                 completed: false,
               }));
-              
+
               setTasks((prev) =>
                 prev.map((t) => {
                   if (t.id === taskId) {
@@ -572,7 +628,7 @@ export const useTaskController = ({
                     return finalTask;
                   }
                   return t;
-                })
+                }),
               );
               addToast(`Auto-pilot added ${subtaskTitles.length} subtasks`, "success");
             }

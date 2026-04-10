@@ -12,7 +12,9 @@ const localStorageMock = {
     delete store[key];
   }),
   clear: vi.fn(() => {
-    Object.keys(store).forEach(key => delete store[key]);
+    Object.keys(store).forEach((key) => {
+      delete store[key];
+    });
   }),
   get length() {
     return Object.keys(store).length;

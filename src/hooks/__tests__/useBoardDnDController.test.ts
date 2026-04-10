@@ -3,14 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BoardColumn, Task } from "../../types";
 import { useBoardDnDController } from "../useBoardDnDController";
 
-interface DragEventPayload {
-  active: {
-    id: string;
-    data: { current: { type: string; task?: Task; column?: BoardColumn } };
-  };
-  over?: { id: string };
-}
-
 describe("useBoardDnDController", () => {
   const mockOnUpdateColumns = vi.fn();
   const mockOnMoveTask = vi.fn();

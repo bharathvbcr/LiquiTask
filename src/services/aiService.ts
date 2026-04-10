@@ -6,6 +6,7 @@ import type {
   AISuggestion,
   AITaskSchema,
   AITestResult,
+  AssistantMessage,
   AutoOrganizeConfig,
   AutoOrganizeResult,
   DuplicateGroup,
@@ -15,7 +16,7 @@ import type {
   ProjectAssignment,
   Task,
   TaskCluster,
-  AssistantMessage,
+  ToolCall,
 } from "../../types";
 import { STORAGE_KEYS } from "../constants";
 import type { FilterGroup } from "../types/queryTypes";
@@ -63,7 +64,7 @@ export interface AIProvider {
     messages: AssistantMessage[],
     context: AIContext,
     allTasks: Task[],
-  ): Promise<{ content: string; toolCalls?: any[] }>;
+  ): Promise<{ content: string; toolCalls?: ToolCall[] }>;
 }
 
 class GeminiProvider implements AIProvider {
@@ -250,7 +251,7 @@ Today's Date: ${new Date().toISOString()}.`;
     messages: AssistantMessage[],
     context: AIContext,
     allTasks: Task[],
-  ): Promise<{ content: string; toolCalls?: any[] }> {
+  ): Promise<{ content: string; toolCalls?: ToolCall[] }> {
     const { genAI } = await this.getGenAI();
     const modelName = this.config.geminiModel || DEFAULT_GEMINI_MODEL;
 
@@ -265,8 +266,15 @@ Today's Date: ${new Date().toISOString()}.`;
               properties: {
                 title: { type: "string", description: "The title of the task" },
                 summary: { type: "string", description: "A brief description of the task" },
-                priority: { type: "string", description: "Task priority (e.g., high, medium, low)" },
-                tags: { type: "array", items: { type: "string" }, description: "Tags for the task" },
+                priority: {
+                  type: "string",
+                  description: "Task priority (e.g., high, medium, low)",
+                },
+                tags: {
+                  type: "array",
+                  items: { type: "string" },
+                  description: "Tags for the task",
+                },
                 projectId: { type: "string", description: "Optional project ID to associate with" },
               },
               required: ["title"],
@@ -335,7 +343,8 @@ Today's Date: ${new Date().toISOString()}.`;
       },
     ];
 
-    const activeProjectName = context.projects.find((p) => p.id === context.activeProjectId)?.name || "None";
+    const activeProjectName =
+      context.projects.find((p) => p.id === context.activeProjectId)?.name || "None";
     const workspaceContext = context.workspacePaths?.length
       ? `Linked Workspace Folders: ${context.workspacePaths.join(", ")}`
       : "No workspace folders linked to this project.";
@@ -348,21 +357,22 @@ ${workspaceContext}
 
 When asked about tasks or files, use the provided tools. Be concise and professional.`;
 
+    type GeminiModelOptions = Parameters<typeof genAI.getGenerativeModel>[0];
     const model = genAI.getGenerativeModel({
       model: modelName,
-      tools: tools as any,
+      tools: tools as GeminiModelOptions["tools"],
       systemInstruction,
     });
 
     // Build chat history — Gemini requires alternating user/model roles.
     // function-role messages (tool results) map to role "user" with functionResponse parts.
     // assistant messages with toolCalls map to role "model" with functionCall parts only.
-    const history: any[] = [];
+    const history: Array<{ role: "user" | "model"; parts: Array<Record<string, unknown>> }> = [];
     for (const m of messages.slice(0, -1)) {
       if (m.role === "user") {
         history.push({ role: "user", parts: [{ text: m.content || "" }] });
       } else if (m.role === "assistant") {
-        const parts: any[] = [{ text: m.content || "" }];
+        const parts: Array<Record<string, unknown>> = [{ text: m.content || "" }];
         if (m.toolCalls && m.toolCalls.length > 0) {
           parts.push(
             ...m.toolCalls.map((tc) => ({ functionCall: { name: tc.name, args: tc.args } })),
@@ -370,7 +380,7 @@ When asked about tasks or files, use the provided tools. Be concise and professi
         }
         history.push({ role: "model", parts });
       } else if (m.role === "function") {
-        const parts: any[] = [{ text: m.content || "" }];
+        const parts: Array<Record<string, unknown>> = [{ text: m.content || "" }];
         if (m.toolResults && m.toolResults.length > 0) {
           parts.push(
             ...m.toolResults.map((tr) => ({
@@ -382,17 +392,27 @@ When asked about tasks or files, use the provided tools. Be concise and professi
       }
     }
 
-    const chat = model.startChat({ history });
+    const chat = model.startChat({
+      history: history as unknown as Parameters<typeof model.startChat>[0]["history"],
+    });
 
     const lastMessage = messages[messages.length - 1];
-    let sendContent: any;
+    let sendContent: string | Array<Record<string, unknown>>;
 
     if (lastMessage.role === "user") {
-      // Inject RAG context for user messages
       let contextPrefix = "";
       try {
         const { searchIndexService } = await import("./searchIndexService");
-        contextPrefix = `CURRENT CONTEXT (RAG):\n${searchIndexService.getRelevantContext(lastMessage.content, allTasks)}\n\n`;
+        const relevantContext = searchIndexService.getRelevantContext(
+          lastMessage.content,
+          allTasks,
+          {
+            projectId: context.activeProjectId,
+          },
+        );
+        if (relevantContext) {
+          contextPrefix = `CURRENT CONTEXT (RAG):\n${relevantContext}\n\n`;
+        }
       } catch (e) {
         console.warn("RAG injection failed:", e);
       }
@@ -406,13 +426,16 @@ When asked about tasks or files, use the provided tools. Be concise and professi
       sendContent = lastMessage.content || "";
     }
 
-    const result = await chat.sendMessage(sendContent);
+    const result = await chat.sendMessage(sendContent as Parameters<typeof chat.sendMessage>[0]);
     const response = result.response;
     const toolCalls = response.functionCalls ? response.functionCalls() : [];
 
     return {
       content: response.text() || "",
-      toolCalls: toolCalls ?? [],
+      toolCalls: toolCalls.map((call) => ({
+        name: call.name,
+        args: (call.args ?? {}) as Record<string, unknown>,
+      })),
     };
   }
 }
@@ -681,7 +704,7 @@ Today's Date: ${new Date().toISOString()}`;
     messages: AssistantMessage[],
     context: AIContext,
     allTasks: Task[],
-  ): Promise<{ content: string; toolCalls?: any[] }> {
+  ): Promise<{ content: string; toolCalls?: ToolCall[] }> {
     const baseUrl = this.getBaseUrl();
     const model = this.getModelName();
     if (!model) throw new Error("Ollama model name is not configured.");
@@ -699,7 +722,8 @@ To call a tool, respond ONLY with this JSON (no other text):
 
 Otherwise respond with plain text.`;
 
-    const activeProjectNameOllama = context.projects.find((p) => p.id === context.activeProjectId)?.name || "None";
+    const activeProjectNameOllama =
+      context.projects.find((p) => p.id === context.activeProjectId)?.name || "None";
     const workspaceContextOllama = context.workspacePaths?.length
       ? `Linked Workspace Folders: ${context.workspacePaths.join(", ")}`
       : "No workspace folders linked to this project.";
@@ -732,6 +756,19 @@ ${TOOL_SCHEMA}`;
 
     const lastMsg = messages[messages.length - 1];
     let lastContent = lastMsg.content;
+    if (lastMsg.role === "user") {
+      try {
+        const { searchIndexService } = await import("./searchIndexService");
+        const relevantContext = searchIndexService.getRelevantContext(lastMsg.content, allTasks, {
+          projectId: context.activeProjectId,
+        });
+        if (relevantContext) {
+          lastContent = `CURRENT CONTEXT (RAG):\n${relevantContext}\n\n${lastMsg.content}`;
+        }
+      } catch (e) {
+        console.warn("Ollama RAG injection failed:", e);
+      }
+    }
     if (lastMsg.role === "function") {
       lastContent = (lastMsg.toolResults ?? [])
         .map((tr) => `Tool "${tr.name}" result: ${JSON.stringify(tr.result)}`)
@@ -918,7 +955,7 @@ class AiService {
 
     for (let i = 0; i < taskPairs.length; i += batchSize) {
       const batch = taskPairs.slice(i, i + batchSize);
-      
+
       onProgress?.(i, taskPairs.length);
 
       const batchPromises = batch.map(async (pair) => {
@@ -963,7 +1000,7 @@ Return JSON: {"confidence": 0.0-1.0, "reasons": ["reason1", "reason2"]}`;
     messages: AssistantMessage[],
     context: AIContext,
     allTasks: Task[],
-  ): Promise<{ content: string; toolCalls?: any[] }> {
+  ): Promise<{ content: string; toolCalls?: ToolCall[] }> {
     const provider = this.getProvider();
     if (!provider) throw new Error("AI provider not configured");
     if (!provider.generateAgentResponse) {
@@ -979,7 +1016,10 @@ Return JSON: {"confidence": 0.0-1.0, "reasons": ["reason1", "reason2"]}`;
     if (tasks.length < 2) return null;
     // Compare the last task (newly created) against existing ones
     const newTask = tasks[tasks.length - 1];
-    const pairs = tasks.slice(0, -1).slice(0, 5).map((t) => ({ task1: newTask, task2: t }));
+    const pairs = tasks
+      .slice(0, -1)
+      .slice(0, 5)
+      .map((t) => ({ task1: newTask, task2: t }));
     const results = await this.detectDuplicates(pairs, context);
     if (results.length === 0) return null;
     const best = results.reduce((a, b) => (a.confidence > b.confidence ? a : b));
@@ -1037,9 +1077,7 @@ Tasks:\n${taskDetails}`;
       }
 
       const batchPromises = batchesToRun.map(async (batch) => {
-        const taskDetails = batch
-          .map((t) => JSON.stringify(stripTaskData(t)))
-          .join("\n\n");
+        const taskDetails = batch.map((t) => JSON.stringify(stripTaskData(t))).join("\n\n");
 
         const prompt = `Categorize these tasks. Return JSON array: [{"taskId": "id", "suggestedTags": ["tag1"], "suggestedPriority": "priority", "confidence": 0.8, "reasoning": "why"}]\n\nTasks:\n${taskDetails}`;
 
@@ -1060,7 +1098,9 @@ Tasks:\n${taskDetails}`;
       });
 
       const batchResults = await Promise.all(batchPromises);
-      batchResults.forEach((res) => results.push(...res));
+      batchResults.forEach((res) => {
+        results.push(...res);
+      });
     }
 
     return results;
@@ -1290,12 +1330,13 @@ Query: "${query}"\nToday's Date: ${new Date().toISOString()}`;
 
     const taskDetails = allTasks
       .slice(0, 50) // Limit to avoid context window issues
-      .map((t) => `ID: ${t.id}\nTitle: "${t.title}"\nSummary: ${t.summary}\nTags: ${t.tags.join(", ")}`)
+      .map(
+        (t) =>
+          `ID: ${t.id}\nTitle: "${t.title}"\nSummary: ${t.summary}\nTags: ${t.tags.join(", ")}`,
+      )
       .join("\n\n");
 
-    const projectDetails = context.projects
-      .map((p) => `ID: ${p.id}\nName: "${p.name}"`)
-      .join("\n");
+    const projectDetails = context.projects.map((p) => `ID: ${p.id}\nName: "${p.name}"`).join("\n");
 
     const prompt = `Analyze these tasks and projects. Suggest if any tasks should be moved to a different project. Return JSON array:
 [{"taskId": "id", "currentProjectId": "id", "suggestedProjectId": "id", "confidence": 0.8, "reasoning": "why"}]
@@ -1340,7 +1381,8 @@ Tasks:\n${taskDetails}`;
         suggestedValue: "next",
         currentValue: "pending",
         confidence: (aiResponse.confidence as number) || 0.8,
-        reasoning: (aiResponse.reasoning as string) || "Based on your current priorities and deadlines.",
+        reasoning:
+          (aiResponse.reasoning as string) || "Based on your current priorities and deadlines.",
       };
     } catch (e) {
       console.error("Next task suggestion failed:", e);
@@ -1420,12 +1462,12 @@ Tasks:\n${taskDetails}`;
     context: AIContext,
     availableColumns: { id: string; title: string }[],
     availablePriorities: { id: string; label: string }[],
-  ): Promise<Record<string, any>> {
+  ): Promise<Record<string, unknown>> {
     const provider = this.getProvider();
     if (!provider) throw new Error("AI provider not configured");
 
-    const columnsContext = availableColumns.map(c => `${c.title} (ID: ${c.id})`).join(", ");
-    const prioritiesContext = availablePriorities.map(p => `${p.label} (ID: ${p.id})`).join(", ");
+    const columnsContext = availableColumns.map((c) => `${c.title} (ID: ${c.id})`).join(", ");
+    const prioritiesContext = availablePriorities.map((p) => `${p.label} (ID: ${p.id})`).join(", ");
 
     const prompt = `Convert this natural language description into an automation rule structure. Return ONLY valid JSON:
 {"name": "Generated Rule Name", "trigger": "onCreate|onUpdate|onMove|onComplete|onSchedule", "actions": [{"type": "setField|addTag|removeTag|moveToColumn|setPriority|notify", "field": "optional_field", "value": "value"}]}
@@ -1436,7 +1478,7 @@ Description: "${naturalLanguage}"`;
 
     try {
       const refined = await provider.refineTask(prompt, {}, context);
-      return refined as Record<string, any>;
+      return refined as Record<string, unknown>;
     } catch {
       throw new Error("Failed to parse automation rule.");
     }
@@ -1445,7 +1487,8 @@ Description: "${naturalLanguage}"`;
   async analyzeImageToTask(imageBase64: string, context: AIContext): Promise<Partial<Task>> {
     const provider = this.getProvider();
     if (!provider) throw new Error("AI provider not configured");
-    if (!provider.analyzeImageToTask) throw new Error("Current AI provider does not support image analysis.");
+    if (!provider.analyzeImageToTask)
+      throw new Error("Current AI provider does not support image analysis.");
     return provider.analyzeImageToTask(imageBase64, context);
   }
 

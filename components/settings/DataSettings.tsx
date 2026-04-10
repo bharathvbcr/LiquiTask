@@ -10,10 +10,10 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
-import { BULK_TASK_TEMPLATE_JSON } from "../../src/utils/bulkTaskSchema";
+import { STORAGE_KEYS } from "../../src/constants";
 import { aiService } from "../../src/services/aiService";
 import storageService from "../../src/services/storageService";
-import { STORAGE_KEYS } from "../../src/constants";
+import { BULK_TASK_TEMPLATE_JSON } from "../../src/utils/bulkTaskSchema";
 import type {
   BoardColumn,
   CustomFieldDefinition,
@@ -77,10 +77,10 @@ export const DataSettings: React.FC<DataSettingsProps> = ({
 
   const handleSmartImport = async () => {
     if (!smartImportText.trim() || !onBulkCreateTasks) return;
-    
+
     setIsSmartImporting(true);
     addToast("AI is analyzing your export...", "info");
-    
+
     try {
       const activeProjectId = storageService.get<string>(STORAGE_KEYS.ACTIVE_PROJECT, "");
       const projects = storageService.get<Project[]>(STORAGE_KEYS.PROJECTS, []);
@@ -88,13 +88,13 @@ export const DataSettings: React.FC<DataSettingsProps> = ({
 
       const context = { activeProjectId, projects, priorities };
       const mappedTasks = await aiService.smartImportFromText(smartImportText, context);
-      
+
       if (mappedTasks && mappedTasks.length > 0) {
         onBulkCreateTasks(mappedTasks);
         setSmartImportText("");
         addToast(`Successfully imported ${mappedTasks.length} tasks!`, "success");
       } else {
-        addToast("AI could not find valid tasks in the provided text.", "warning");
+        addToast("AI could not find valid tasks in the provided text.", "info");
       }
     } catch (e) {
       console.error(e);
@@ -113,7 +113,8 @@ export const DataSettings: React.FC<DataSettingsProps> = ({
           Switch to LiquiTask (AI Smart Import)
         </h4>
         <p className="text-xs text-slate-400">
-          Paste CSV or JSON from Jira, Trello, Linear, or Asana. AI will auto-map it to your current project.
+          Paste CSV or JSON from Jira, Trello, Linear, or Asana. AI will auto-map it to your current
+          project.
         </p>
         <textarea
           value={smartImportText}

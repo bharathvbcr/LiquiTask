@@ -1,6 +1,6 @@
-import React from 'react';
-import { Sparkles } from 'lucide-react';
-import { Tooltip } from './Tooltip';
+import { Sparkles } from "lucide-react";
+import type React from "react";
+import { Tooltip } from "./Tooltip";
 
 interface AIRightRailProps {
   isOpen: boolean;
@@ -25,7 +25,7 @@ interface AIRightRailProps {
  *       → no translateX needed — the panel naturally starts at the parent's left edge
  */
 const PANEL_W = 320; // w-80
-const RAIL_W  =  56; // w-14
+const RAIL_W = 56; // w-14
 const OVERFLOW = PANEL_W - RAIL_W; // 264px goes off right side of screen
 
 export const AIRightRail: React.FC<AIRightRailProps> = ({ isOpen, onToggle, isLoading: _ }) => {
@@ -35,7 +35,7 @@ export const AIRightRail: React.FC<AIRightRailProps> = ({ isOpen, onToggle, isLo
         fixed right-0 top-14 bottom-0 w-14
         overflow-visible z-[55]
         transition-[opacity,transform] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]
-        ${isOpen ? 'opacity-0 pointer-events-none translate-x-4' : 'opacity-100 pointer-events-auto'}
+        ${isOpen ? "opacity-0 pointer-events-none translate-x-4" : "opacity-100 pointer-events-auto"}
       `}
     >
       {/*

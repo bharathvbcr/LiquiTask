@@ -14,8 +14,6 @@ export * from "./constants";
 export { useBulkSelection } from "./hooks/useBulkSelection";
 export { useDragAndDrop } from "./hooks/useDragAndDrop";
 export { KEYBOARD_SHORTCUTS, useKeyboardNav } from "./hooks/useKeyboardNav";
-export { useProjectManagement } from "./hooks/useProjectManagement";
-export { useTaskManagement } from "./hooks/useTaskManagement";
 export { formatMinutes, secondsToMinutes, useTimer } from "./hooks/useTimer";
 export { notificationService } from "./services/notificationService";
 // Services

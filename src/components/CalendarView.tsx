@@ -453,16 +453,15 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         <div
           className={`grid grid-cols-7 gap-1 flex-1 ${viewMode === "week" ? "grid-rows-1" : "grid-rows-6"}`}
         >
-          {displayDays.map((date, i) => {
+          {displayDays.map((date) => {
             const dateKey = getDateKey(date);
             const dayTasks = tasksByDate.get(dateKey) || [];
             const isCurrentMonthDay = isCurrentMonth(date);
             const isTodayDate = isToday(date);
 
             return (
-              // biome-ignore lint/suspicious/noArrayIndexKey: calendar grid cells are position-based
               <DroppableDayCell
-                key={i}
+                key={dateKey}
                 date={date}
                 dateKey={dateKey}
                 isToday={isTodayDate}

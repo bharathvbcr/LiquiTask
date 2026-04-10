@@ -1,24 +1,23 @@
 import {
+  Bot,
   Brain,
   FolderOpen,
   Link,
+  Loader2,
+  Plus,
   RefreshCw,
   Send,
   Sparkles,
   Terminal,
   Trash2,
   Unlink,
-  X,
-  Bot,
   User as UserIcon,
-  Loader2,
-  Plus,
+  X,
 } from "lucide-react";
 import type React from "react";
-import { useState, useRef, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { AssistantMessage, Project } from "../../types";
 import MarkdownRenderer from "./MarkdownRenderer";
-
 
 interface TaskAssistantSidebarProps {
   isOpen: boolean;
@@ -58,16 +57,23 @@ export const TaskAssistantSidebar: React.FC<TaskAssistantSidebarProps> = ({
 
   const projectPaths = activeProject?.workspacePaths ?? [];
 
-  const scrollToBottom = () => {
+  const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen || (messages.length === 0 && !isLoading)) return;
+    scrollToBottom();
+  }, [isLoading, isOpen, messages.length, scrollToBottom]);
 
   useEffect(() => {
     if (isOpen) {
-      scrollToBottom();
-      window.electronAPI?.workspace.getPaths().then(setGlobalPaths).catch(() => {});
+      window.electronAPI?.workspace
+        .getPaths()
+        .then(setGlobalPaths)
+        .catch(() => {});
     }
-  }, [messages, isLoading, isOpen]);
+  }, [isOpen]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,10 +106,13 @@ export const TaskAssistantSidebar: React.FC<TaskAssistantSidebarProps> = ({
 
   const handleUnlinkPath = (path: string) => {
     if (!activeProject || !onUpdateProjectPaths) return;
-    onUpdateProjectPaths(activeProject.id, projectPaths.filter(p => p !== path));
+    onUpdateProjectPaths(
+      activeProject.id,
+      projectPaths.filter((p) => p !== path),
+    );
   };
 
-  const unlinkedGlobalPaths = globalPaths.filter(p => !projectPaths.includes(p));
+  const unlinkedGlobalPaths = globalPaths.filter((p) => !projectPaths.includes(p));
 
   const SUGGESTIONS = ["Tell me more", "Explain this", "What's next?", "Show blockers"];
 
@@ -130,7 +139,9 @@ export const TaskAssistantSidebar: React.FC<TaskAssistantSidebarProps> = ({
               <Sparkles size={20} />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white tracking-tight leading-tight">AI Assistant</h2>
+              <h2 className="text-xl font-bold text-white tracking-tight leading-tight">
+                AI Assistant
+              </h2>
               <div className="flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
                 <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-bold">
@@ -141,7 +152,7 @@ export const TaskAssistantSidebar: React.FC<TaskAssistantSidebarProps> = ({
           </div>
           <div className="flex items-center gap-1">
             <button
-              onClick={() => setShowPathPanel(v => !v)}
+              onClick={() => setShowPathPanel((v) => !v)}
               className={`p-2.5 rounded-xl transition-all duration-300 hover:scale-105 active:scale-95 ${
                 showPathPanel
                   ? "text-red-400 bg-red-500/10 border border-red-500/20"
@@ -173,7 +184,7 @@ export const TaskAssistantSidebar: React.FC<TaskAssistantSidebarProps> = ({
           <div className="px-6 py-4 border-b border-white/5 bg-white/[0.01] space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">
-                Linked to "{activeProject?.name ?? 'Project'}"
+                Linked to "{activeProject?.name ?? "Project"}"
               </span>
               <button
                 onClick={handleAddFolder}
@@ -185,10 +196,12 @@ export const TaskAssistantSidebar: React.FC<TaskAssistantSidebarProps> = ({
             </div>
 
             {projectPaths.length === 0 ? (
-              <p className="text-[11px] text-slate-500 italic">No folders linked. Add a folder or link from global paths below.</p>
+              <p className="text-[11px] text-slate-500 italic">
+                No folders linked. Add a folder or link from global paths below.
+              </p>
             ) : (
               <div className="space-y-1.5">
-                {projectPaths.map(p => (
+                {projectPaths.map((p) => (
                   <div key={p} className="flex items-center gap-2 group">
                     <span
                       className="flex-1 flex items-center gap-1.5 px-2.5 py-1.5 bg-red-500/5 border border-red-500/10 rounded-lg text-[10px] text-red-400/80 font-mono truncate"
@@ -212,10 +225,12 @@ export const TaskAssistantSidebar: React.FC<TaskAssistantSidebarProps> = ({
             {unlinkedGlobalPaths.length > 0 && (
               <>
                 <div className="pt-1 border-t border-white/5">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Available to link</span>
+                  <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
+                    Available to link
+                  </span>
                 </div>
                 <div className="space-y-1.5">
-                  {unlinkedGlobalPaths.map(p => (
+                  {unlinkedGlobalPaths.map((p) => (
                     <div key={p} className="flex items-center gap-2 group">
                       <span
                         className="flex-1 flex items-center gap-1.5 px-2.5 py-1.5 bg-white/[0.03] border border-white/5 rounded-lg text-[10px] text-slate-400/70 font-mono truncate"
@@ -242,7 +257,9 @@ export const TaskAssistantSidebar: React.FC<TaskAssistantSidebarProps> = ({
         {/* Active Context Indicator (when panel is closed) */}
         {!showPathPanel && projectPaths.length > 0 && (
           <div className="px-6 py-3 border-b border-white/5 flex items-center gap-2 flex-wrap bg-white/[0.01]">
-            <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold shrink-0">In Context:</span>
+            <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold shrink-0">
+              In Context:
+            </span>
             {projectPaths.map((p) => (
               <span
                 key={p}
@@ -276,9 +293,12 @@ export const TaskAssistantSidebar: React.FC<TaskAssistantSidebarProps> = ({
               </div>
 
               <div className="space-y-2">
-                <h3 className="text-2xl font-bold text-white tracking-tight">Welcome to LiquiTask AI</h3>
+                <h3 className="text-2xl font-bold text-white tracking-tight">
+                  Welcome to LiquiTask AI
+                </h3>
                 <p className="text-sm text-slate-400 max-w-[280px] leading-relaxed">
-                  Your intelligent partner for summarizing tasks, finding bottlenecks, and organizing your workspace.
+                  Your intelligent partner for summarizing tasks, finding bottlenecks, and
+                  organizing your workspace.
                 </p>
               </div>
 
@@ -293,7 +313,9 @@ export const TaskAssistantSidebar: React.FC<TaskAssistantSidebarProps> = ({
                     <div className="p-2.5 rounded-xl bg-white/5 text-slate-400 group-hover:bg-red-500/10 group-hover:text-red-400 transition-colors">
                       <action.icon size={18} />
                     </div>
-                    <span className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">{action.label}</span>
+                    <span className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">
+                      {action.label}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -314,21 +336,27 @@ export const TaskAssistantSidebar: React.FC<TaskAssistantSidebarProps> = ({
                 <div
                   key={msg.id}
                   className={`flex gap-4 animate-slide-in-up ${isUser ? "flex-row-reverse" : "flex-row"}`}
-                  style={{ animationDelay: '100ms' }}
+                  style={{ animationDelay: "100ms" }}
                 >
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border shadow-sm ${
-                    isUser
-                      ? "bg-white/5 border-white/10 text-slate-400"
-                      : "bg-red-500/10 border-red-500/20 text-red-400"
-                  }`}>
+                  <div
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border shadow-sm ${
+                      isUser
+                        ? "bg-white/5 border-white/10 text-slate-400"
+                        : "bg-red-500/10 border-red-500/20 text-red-400"
+                    }`}
+                  >
                     {isUser ? <UserIcon size={18} /> : <Bot size={18} />}
                   </div>
-                  <div className={`flex flex-col max-w-[82%] ${isUser ? "items-end" : "items-start"}`}>
-                    <div className={`p-4 rounded-2xl text-sm leading-relaxed shadow-sm ${
-                      isUser
-                        ? "bg-red-500/10 text-red-50 border border-red-500/20 rounded-tr-none"
-                        : "bg-white/[0.04] text-slate-200 border border-white/5 rounded-tl-none"
-                    }`}>
+                  <div
+                    className={`flex flex-col max-w-[82%] ${isUser ? "items-end" : "items-start"}`}
+                  >
+                    <div
+                      className={`p-4 rounded-2xl text-sm leading-relaxed shadow-sm ${
+                        isUser
+                          ? "bg-red-500/10 text-red-50 border border-red-500/20 rounded-tr-none"
+                          : "bg-white/[0.04] text-slate-200 border border-white/5 rounded-tl-none"
+                      }`}
+                    >
                       {showContent ? (
                         <div className="markdown-content prose-invert">
                           <MarkdownRenderer content={msg.content} />
@@ -342,9 +370,9 @@ export const TaskAssistantSidebar: React.FC<TaskAssistantSidebarProps> = ({
 
                       {hasToolCalls && (
                         <div className="mt-4 flex flex-wrap gap-2">
-                          {msg.toolCalls?.map((call, cidx) => (
+                          {msg.toolCalls?.map((call) => (
                             <span
-                              key={cidx}
+                              key={`${msg.id}-${call.name}-${JSON.stringify(call.args)}`}
                               className="px-2.5 py-1 bg-red-500/5 border border-red-500/10 rounded-lg text-[10px] text-red-400/80 font-mono flex items-center gap-1.5"
                             >
                               <div className="w-1.5 h-1.5 rounded-full bg-red-400/50 animate-pulse" />
@@ -356,7 +384,10 @@ export const TaskAssistantSidebar: React.FC<TaskAssistantSidebarProps> = ({
                     </div>
                     <div className="flex items-center gap-2 mt-2 px-1">
                       <span className="text-[10px] text-slate-500 font-medium opacity-60">
-                        {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {msg.timestamp.toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </span>
                     </div>
 
@@ -397,13 +428,19 @@ export const TaskAssistantSidebar: React.FC<TaskAssistantSidebarProps> = ({
                     <div className="absolute inset-0 bg-red-400/10 blur-sm rounded-full animate-pulse" />
                   </div>
                   <span className="text-sm text-slate-400 italic font-medium">
-                    {activeTool ? `Executing ${activeTool.replace(/_/g, ' ')}...` : isSearching ? "Analyzing workspace context..." : "Synthesizing response..."}
+                    {activeTool
+                      ? `Executing ${activeTool.replace(/_/g, " ")}...`
+                      : isSearching
+                        ? "Analyzing workspace context..."
+                        : "Synthesizing response..."}
                   </span>
                 </div>
                 {isSearching && (
                   <div className="flex items-center gap-2.5 px-3 py-1.5 bg-red-500/5 rounded-xl border border-red-500/10 animate-pulse">
                     <Sparkles size={12} className="text-red-400" />
-                    <span className="text-[10px] text-red-300/80 font-bold uppercase tracking-wider">Semantic RAG Engine</span>
+                    <span className="text-[10px] text-red-300/80 font-bold uppercase tracking-wider">
+                      Semantic RAG Engine
+                    </span>
                   </div>
                 )}
               </div>
@@ -414,11 +451,7 @@ export const TaskAssistantSidebar: React.FC<TaskAssistantSidebarProps> = ({
 
         {/* Input */}
         <div className="p-6 border-t border-white/5 bg-white/[0.02]">
-          <form
-            role="form"
-            onSubmit={handleSubmit}
-            className="group relative"
-          >
+          <form onSubmit={handleSubmit} className="group relative">
             <div className="absolute -inset-0.5 bg-gradient-to-r from-red-500/10 to-red-500/5 rounded-[1.25rem] blur opacity-0 group-focus-within:opacity-100 transition duration-500" />
             <div className="relative">
               <input
@@ -440,9 +473,7 @@ export const TaskAssistantSidebar: React.FC<TaskAssistantSidebarProps> = ({
           </form>
           <div className="flex items-center justify-center gap-2 mt-4 opacity-30">
             <Sparkles size={10} className="text-red-400" />
-            <p className="text-[10px] text-slate-500 font-medium">
-              Powered by LiquiTask AI
-            </p>
+            <p className="text-[10px] text-slate-500 font-medium">Powered by LiquiTask AI</p>
           </div>
         </div>
       </aside>

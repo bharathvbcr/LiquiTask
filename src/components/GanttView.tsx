@@ -1,9 +1,17 @@
-import { AlertCircle, AlertTriangle, ArrowRight, Brain, Calendar, Info, Lock, ShieldCheck } from "lucide-react";
+import {
+  AlertCircle,
+  AlertTriangle,
+  ArrowRight,
+  Brain,
+  Calendar,
+  Lock,
+  ShieldCheck,
+} from "lucide-react";
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
-import type { BoardColumn, PriorityDefinition, Task } from "../../types";
-import { riskAnalysisService, type ProjectRiskSummary } from "../services/riskAnalysisService";
+import type { BoardColumn, PriorityDefinition, Project, Task } from "../../types";
 import { STORAGE_KEYS } from "../constants";
+import { type ProjectRiskSummary, riskAnalysisService } from "../services/riskAnalysisService";
 import storageService from "../services/storageService";
 
 interface GanttViewProps {
@@ -41,8 +49,8 @@ export const GanttView: React.FC<GanttViewProps> = ({ tasks, priorities, onEditT
       setIsAnalyzing(true);
       try {
         const activeProjectId = storageService.get<string>(STORAGE_KEYS.ACTIVE_PROJECT, "");
-        const projects = storageService.get<any[]>(STORAGE_KEYS.PROJECTS, []);
-        
+        const projects = storageService.get<Project[]>(STORAGE_KEYS.PROJECTS, []);
+
         const summary = await riskAnalysisService.analyzeProjectRisks(tasks, {
           activeProjectId,
           projects,
@@ -164,8 +172,14 @@ export const GanttView: React.FC<GanttViewProps> = ({ tasks, priorities, onEditT
       {riskSummary && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="col-span-2 bg-cyan-500/5 border border-cyan-500/20 rounded-2xl p-4 flex items-center gap-4">
-            <div className={`p-3 rounded-xl ${riskSummary.overallScore > 0.6 ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>
-              {riskSummary.overallScore > 0.6 ? <AlertTriangle size={24} /> : <ShieldCheck size={24} />}
+            <div
+              className={`p-3 rounded-xl ${riskSummary.overallScore > 0.6 ? "bg-red-500/20 text-red-400" : "bg-green-500/20 text-green-400"}`}
+            >
+              {riskSummary.overallScore > 0.6 ? (
+                <AlertTriangle size={24} />
+              ) : (
+                <ShieldCheck size={24} />
+              )}
             </div>
             <div>
               <h3 className="text-sm font-bold text-white">AI Prediction</h3>
@@ -174,8 +188,12 @@ export const GanttView: React.FC<GanttViewProps> = ({ tasks, priorities, onEditT
           </div>
           <div className="bg-slate-900/50 border border-white/10 rounded-2xl p-4 flex items-center justify-between">
             <div>
-              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Critical Path</h3>
-              <p className="text-lg font-bold text-white">{riskSummary.criticalPath.length} Tasks</p>
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                Critical Path
+              </h3>
+              <p className="text-lg font-bold text-white">
+                {riskSummary.criticalPath.length} Tasks
+              </p>
             </div>
             <div className="h-10 w-1 bg-red-500/50 rounded-full" />
           </div>
@@ -187,10 +205,9 @@ export const GanttView: React.FC<GanttViewProps> = ({ tasks, priorities, onEditT
         <div className="mb-4 flex border-b border-white/10 pb-2">
           <div className="w-64 shrink-0 font-bold text-xs text-slate-400 uppercase">Task</div>
           <div className="flex-1 flex">
-            {daysInRange.map((day, idx) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: day order is stable
+            {daysInRange.map((day) => (
               <div
-                key={idx}
+                key={day.toISOString()}
                 className="flex-1 text-center text-xs text-slate-500 border-l border-white/5"
                 style={{ minWidth: "40px" }}
               >
@@ -205,27 +222,29 @@ export const GanttView: React.FC<GanttViewProps> = ({ tasks, priorities, onEditT
           {ganttTasks.map((task) => {
             const prio = priorityDef(task.priority);
             const style = getTaskStyle(task);
-            const taskRisk = riskSummary?.risks.find(r => r.taskId === task.id);
+            const taskRisk = riskSummary?.risks.find((r) => r.taskId === task.id);
 
             return (
               <div
                 key={task.id}
-                className={`flex items-center group cursor-pointer hover:bg-white/5 rounded-lg p-2 transition-colors ${task.isOnCriticalPath ? 'bg-red-500/5 border-l-2 border-red-500/50' : ''}`}
+                className={`flex items-center group cursor-pointer hover:bg-white/5 rounded-lg p-2 transition-colors ${task.isOnCriticalPath ? "bg-red-500/5 border-l-2 border-red-500/50" : ""}`}
                 onClick={() => onEditTask(task)}
               >
                 <div className="w-64 shrink-0 flex items-center gap-2 pr-4">
                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: prio.color }} />
-                  <span className={`text-sm font-medium truncate flex-1 ${task.isOnCriticalPath ? 'text-red-200' : 'text-slate-200'}`}>
+                  <span
+                    className={`text-sm font-medium truncate flex-1 ${task.isOnCriticalPath ? "text-red-200" : "text-slate-200"}`}
+                  >
                     {task.title}
                   </span>
-                  
+
                   {/* Risk Indicators */}
                   <div className="flex items-center gap-1.5 shrink-0">
                     {taskRisk && (
                       <div title={taskRisk.reason}>
-                        <AlertCircle 
-                          size={14} 
-                          className={taskRisk.level === 'high' ? 'text-red-500' : 'text-amber-500'} 
+                        <AlertCircle
+                          size={14}
+                          className={taskRisk.level === "high" ? "text-red-500" : "text-amber-500"}
                         />
                       </div>
                     )}
@@ -238,7 +257,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ tasks, priorities, onEditT
                 </div>
                 <div className="flex-1 relative h-8">
                   <div
-                    className={`absolute top-1/2 -translate-y-1/2 h-6 rounded-lg flex items-center justify-center text-[10px] font-bold text-white shadow-lg transition-all group-hover:scale-[1.02] ${task.isOnCriticalPath ? 'ring-2 ring-red-500/50 ring-offset-2 ring-offset-black' : ''}`}
+                    className={`absolute top-1/2 -translate-y-1/2 h-6 rounded-lg flex items-center justify-center text-[10px] font-bold text-white shadow-lg transition-all group-hover:scale-[1.02] ${task.isOnCriticalPath ? "ring-2 ring-red-500/50 ring-offset-2 ring-offset-black" : ""}`}
                     style={{
                       backgroundColor: prio.color,
                       ...style,

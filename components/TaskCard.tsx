@@ -23,10 +23,10 @@ import type React from "react";
 import { lazy, memo, Suspense, useState } from "react";
 import { InlineDatePicker, InlineEditable, InlineSelect } from "../src/components/InlineEditable";
 import { useTaskCardContextMenu } from "../src/hooks/useTaskCardContextMenu";
-import { Tooltip } from "./Tooltip";
 import { getSafeExternalUrl } from "../src/utils/safeUrl";
 import { getDueDateStatus, getPriorityIcon, getProgressStyles } from "../src/utils/taskCardUtils";
 import type { PriorityDefinition, Project, Task } from "../types";
+import { Tooltip } from "./Tooltip";
 
 const MarkdownRenderer = lazy(() => import("../src/components/MarkdownRenderer"));
 

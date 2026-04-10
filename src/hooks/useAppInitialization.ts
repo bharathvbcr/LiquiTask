@@ -15,10 +15,7 @@ import type {
 import { STORAGE_KEYS } from "../constants";
 import type { AutomationRule, AutomationTrigger, TaskContext } from "../services/automationService";
 import { indexedDBService } from "../services/indexedDBService";
-import type { RecurringTaskService } from "../services/recurringTaskService";
-import type { SearchIndexService } from "../services/searchIndexService";
 import storageService from "../services/storageService";
-import type { TemplateService } from "../services/templateService";
 import type { FilterGroup } from "../types/queryTypes";
 
 type CurrentView = "project" | "dashboard" | "gantt";
@@ -69,6 +66,23 @@ type AutomationServiceLike = {
 
 type AdvancedFilterExecutor = (tasks: Task[], group: FilterGroup) => Task[];
 
+type SearchIndexServiceLike = {
+  buildIndex: (tasks: Task[]) => void;
+  updateTask?: (task: Task, previousTask?: Task) => void;
+  removeTask?: (task: Task) => void;
+  search: (query: string) => string[];
+};
+
+type TemplateServiceLike = {
+  loadTemplates: (templates: TaskTemplate[]) => void;
+  getAllTemplates?: () => TaskTemplate[];
+};
+
+type RecurringTaskServiceLike = {
+  start: (tasks: Task[]) => void;
+  stop: () => void;
+};
+
 type PushUndoAction = { type: "task-create"; taskId: string };
 
 interface InitializationProps {
@@ -86,13 +100,13 @@ interface InitializationProps {
   setShowSubWorkspaceTasks: (val: boolean) => void;
   setViewMode: (val: ViewMode) => void;
   setCurrentView: (val: CurrentView) => void;
-  searchIndexServiceRef: MutableRefObject<SearchIndexService | null>;
+  searchIndexServiceRef: MutableRefObject<SearchIndexServiceLike | null>;
   automationServiceRef: MutableRefObject<AutomationServiceLike | null>;
-  templateServiceRef: MutableRefObject<TemplateService | null>;
+  templateServiceRef: MutableRefObject<TemplateServiceLike | null>;
   activityServiceRef: MutableRefObject<ActivityServiceLike | null>;
   advancedFilterExecutorRef: MutableRefObject<AdvancedFilterExecutor | null>;
   notificationServiceRef: MutableRefObject<NotificationServiceLike | null>;
-  recurringTaskServiceRef: MutableRefObject<RecurringTaskService | null>;
+  recurringTaskServiceRef: MutableRefObject<RecurringTaskServiceLike | null>;
   tasks: Task[];
   addToast: (msg: string, type?: ToastType) => void;
   pushUndo: (action: PushUndoAction) => void;

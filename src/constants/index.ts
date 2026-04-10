@@ -22,6 +22,7 @@ export const STORAGE_KEYS = {
   MIGRATION_LOG: "liquitask-migration-log",
   AI_CONFIG: "liquitask-ai-config",
   GEMINI_API_KEY: "liquitask-gemini-api-key",
+  AI_SEMANTIC_CACHE: "liquitask-ai-semantic-cache",
   AUTO_ORGANIZE_HISTORY: "liquitask-auto-organize-history",
   AI_ORGANIZE_CACHE: "liquitask-ai-organize-cache",
 } as const;

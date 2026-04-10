@@ -128,7 +128,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     addToast,
   ]);
 
-  const updateItem = <T extends Record<string, unknown>>(
+  const updateItem = <T extends object>(
     list: T[],
     index: number,
     field: keyof T,

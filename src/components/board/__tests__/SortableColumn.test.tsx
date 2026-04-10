@@ -1,7 +1,7 @@
+import { DndContext } from "@dnd-kit/core";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { SortableColumn } from "../SortableColumn";
-import { DndContext } from "@dnd-kit/core";
 
 // Mock sub-components
 vi.mock("../SortableTask", () => ({
@@ -29,7 +29,7 @@ describe("SortableColumn", () => {
           priorities={[]}
           projects={[]}
         />
-      </DndContext>
+      </DndContext>,
     );
 
     expect(screen.getByText("Todo")).toBeDefined();
@@ -51,7 +51,7 @@ describe("SortableColumn", () => {
           priorities={[]}
           projects={[]}
         />
-      </DndContext>
+      </DndContext>,
     );
     // Check for red text or warning class
     const wipBadge = screen.getByText(/2 \/ 1/);

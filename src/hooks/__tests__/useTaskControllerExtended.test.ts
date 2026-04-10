@@ -1,11 +1,11 @@
 import { act, renderHook } from "@testing-library/react";
-import { describe, expect, it, vi, beforeEach } from "vitest";
-import type { Task, BoardColumn } from "../../types";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { BoardColumn, Task } from "../../types";
 import { useTaskController } from "../useTaskController";
 
 describe("useTaskController Extended", () => {
   const mockAddToast = vi.fn();
-  
+
   const mockColumns: BoardColumn[] = [
     { id: "c1", title: "Col 1", color: "red" },
     { id: "InProgress", title: "In Progress", color: "blue" },
@@ -21,7 +21,9 @@ describe("useTaskController Extended", () => {
     automationServiceRef: { current: null } as any,
     activityServiceRef: { current: null } as any,
     recurringTaskServiceRef: { current: null } as any,
-    searchIndexServiceRef: { current: { updateTask: vi.fn(), augmentTaskSemantically: vi.fn() } } as any,
+    searchIndexServiceRef: {
+      current: { updateTask: vi.fn(), augmentTaskSemantically: vi.fn() },
+    } as any,
     aiServiceRef: { current: null } as any,
   };
 
@@ -55,7 +57,7 @@ describe("useTaskController Extended", () => {
       links: [{ targetTaskId: "t2", type: "blocked-by" }],
       projectId: "p1",
     } as any;
-    
+
     const blockerTask: Task = {
       id: "t2",
       title: "Blocker",
@@ -63,15 +65,17 @@ describe("useTaskController Extended", () => {
       projectId: "p1",
     } as any;
 
-    const { result } = renderHook(() => useTaskController({
-      ...mockProps,
-      initialTasks: [blockedTask, blockerTask]
-    }));
+    const { result } = renderHook(() =>
+      useTaskController({
+        ...mockProps,
+        initialTasks: [blockedTask, blockerTask],
+      }),
+    );
 
     act(() => {
       result.current.moveTask("t1", "InProgress");
     });
-    
+
     expect(mockAddToast).toHaveBeenCalledWith(expect.stringContaining("Blocked by task"), "error");
   });
 });
