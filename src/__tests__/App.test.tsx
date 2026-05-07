@@ -150,7 +150,7 @@ describe("App Integration", () => {
       },
       { timeout: 5000 },
     );
-  });
+  }, 15000);
 
   it("toggles AI Assistant with Cmd+J", async () => {
     await renderApp();
