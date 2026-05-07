@@ -1,85 +1,170 @@
 # LiquiTask
 
-LiquiTask is a premium, desktop-first task management application built with React 19, TypeScript, Vite, and Electron. It features a stunning **Liquid Glass** aesthetic, combining powerful Kanban workflows with advanced AI orchestration.
+LiquiTask is a desktop-first task management app built with React 19, TypeScript,
+Vite, and Electron. It combines a Liquid Glass interface with Kanban workflows,
+local-first persistence, automation rules, task search, recurring tasks, and
+optional AI assistance through Gemini or Ollama.
 
 ## What It Includes
 
-- **Stunning Liquid Glass UI**: A premium, high-fidelity interface with advanced glassmorphism, smooth animations, and a cohesive dark-themed aesthetic.
-- **Kanban Engine**: Powerful board with drag and drop, WIP limits, and intelligent task cards.
-- **Multiple Task Views**: Integrated board, calendar, gantt, archive, and refined dashboard surfaces.
-- **AI Task Orchestration**: Intelligent task creation, refinement, and conversational management powered by Gemini and Ollama.
-- **Custom Tooltip System**: Custom-built "Liquid Glass" tooltips providing contextual info without breaking visual immersion.
-- **Native Desktop Integration**: Custom title bars, system notifications, and local persistence via the Electron bridge.
-- **Advanced Task Logic**: Custom fields, subtasks, recurring rules, and bulk actions.
-- **Data Sovereignty**: Local-first architecture with CSV/JSON export support.
-- **Quality Assured**: Comprehensive test coverage with Vitest and component-level validation.
-
-## AI Integration
-
-LiquiTask 2.4.0 introduces a robust AI layer for intelligent task management, featuring a conversational Task Assistant.
-
-### Supported Providers
-
-- **Google Gemini**: Cloud-based intelligence using the Gemini 3.1 Flash-Lite model.
-- **Ollama**: Local, private AI running on your own hardware. Supports any GGUF-compatible model.
-
-### Key AI Capabilities
-
-- **Batch Extraction**: Paste meeting notes or raw text to extract multiple tasks into your active workspace.
-- **Task Refinement**: Refine task titles and metadata using natural language or quick-action chips (Summarize, Technical, Formal).
-- **One-Click Polish**: Professionalize task descriptions with markdown support.
-- **AI Breakdown**: Automatically generate actionable subtask checklists from task summaries.
-- **Smart Metadata**: AI-driven suggestions for task priority and tags based on context.
-- **AI Workspace Integration**: Allow the AI to securely read, search, and modify `.md` files in user-authorized local directories.
-- **AI Task Assistant**: A powerful, conversational glass-panel interface for natural language task management, workspace orchestration, and real-time task extraction. (Toggle with `Cmd/Ctrl + J`).
-
-### Configuration
-
-AI settings are managed in **Settings > AI Settings**. You can configure your preferred provider, enter model card names, and test your connection with real-time feedback. All AI credentials and settings stay strictly local on your device.
+- **Kanban-first planning** with board, dashboard, Gantt, calendar, archive, and
+  saved-view workflows.
+- **Local-first data ownership** through Electron native storage, IndexedDB, and
+  localStorage fallback paths.
+- **AI task orchestration** for task extraction, refinement, breakdowns,
+  metadata suggestions, duplicate detection, workspace-aware assistance, and
+  bulk operations.
+- **Automation rules** for task events and scheduled actions such as tagging,
+  priority changes, moves, field updates, and notifications.
+- **Desktop integration** with custom window controls, system notifications,
+  single-instance protection, and a sandboxed Electron preload bridge.
+- **Power-user surfaces** including command palette, keyboard shortcuts, quick
+  add, search history, custom fields, templates, import/export, and archive
+  recovery.
 
 ## Stack
 
-- React 19
-- TypeScript 7 beta (`tsgo`) with TypeScript 6 compatibility for tooling
-- Vite
-- Electron
-- Tailwind CSS
-- Vitest
+| Area          | Technology                                                                 |
+| ------------- | -------------------------------------------------------------------------- |
+| Renderer      | React 19, Vite 7, TypeScript, Tailwind CSS                                 |
+| Desktop shell | Electron 39 main/preload processes                                         |
+| Type checking | TypeScript native preview (`tsgo`) plus TypeScript 6 tooling compatibility |
+| Persistence   | Electron JSON storage, IndexedDB, localStorage                             |
+| AI providers  | Google Gemini, Ollama                                                      |
+| Testing       | Vitest, Testing Library, jsdom, fake-indexeddb                             |
+| Linting       | Biome                                                                      |
+| Packaging     | electron-builder NSIS Windows installer                                    |
+
+## Project Diagram
+
+```mermaid
+flowchart LR
+  User["User"] --> UI["React renderer\nApp.tsx + lazy views"]
+  UI --> Hooks["Controller hooks\nuseAppInitialization\nuseTaskController\nuseTaskAssistant"]
+  Hooks --> Services["Domain services\nstorage, AI, automation,\nsearch, recurring, archive"]
+  Services --> BrowserStore["Browser storage\nIndexedDB + localStorage"]
+  Services --> Runtime["Runtime adapter\nsrc/runtime/runtimeEnvironment.ts"]
+  Runtime --> Preload["Electron preload\ncontextBridge electronAPI"]
+  Preload --> Main["Electron main\nwindow, storage, workspace IPC"]
+  Main --> NativeStore["User data JSON\nelectron-store.json"]
+  Main --> Workspace["Authorized markdown workspaces"]
+  Services --> Providers["External or local AI\nGemini / Ollama"]
+```
+
+## Runtime Flow
+
+```mermaid
+sequenceDiagram
+  participant Dev as npm run dev
+  participant Vite as Vite dev server :4000
+  participant Electron as Electron main
+  participant Preload as preload bridge
+  participant React as React app
+  participant Storage as Storage services
+
+  Dev->>Vite: npm run dev:web
+  Dev->>Electron: npm run dev:electron waits on tcp:4000
+  Electron->>Electron: compile electron/*.cts with tsgo
+  Electron->>Vite: load http://localhost:4000
+  Electron->>Preload: expose sandboxed electronAPI
+  Preload->>React: window.electronAPI
+  React->>Storage: useAppInitialization loads app data
+  Storage->>Preload: native storage when Electron is available
+  Storage->>Storage: fallback/cache in IndexedDB and localStorage
+```
+
+## Data And Task Flow
+
+```mermaid
+flowchart TD
+  Init["useAppInitialization"] --> LoadIDB["indexedDBService.initialize"]
+  Init --> LoadNative["storageService.initialize"]
+  LoadNative --> Migrate["migrationService.runMigrations when needed"]
+  Migrate --> State["React task/project/setting state"]
+  State --> Controller["useTaskController"]
+  Controller --> Writes["Task create/update/move/delete"]
+  Writes --> Search["searchIndexService.updateTask/removeTask"]
+  Writes --> Automation["automationService.processTaskEvent"]
+  Writes --> Recurring["recurringTaskService"]
+  Writes --> IDB["IndexedDB task/project writes"]
+  Writes --> Local["storageService cache + localStorage"]
+  Local --> Native["Electron native storage backup"]
+```
+
+## Repository Layout
+
+```text
+LiquiTask/
+├── App.tsx                  Main renderer app shell and lazy-loaded surfaces
+├── index.tsx                React entrypoint
+├── components/              Shared top-level UI components and modals
+├── src/
+│   ├── components/          Main feature UI: board, dashboard, AI, settings
+│   ├── constants/           Storage keys, defaults, and keybindings
+│   ├── context/             Keybinding provider
+│   ├── contexts/            App-level React contexts
+│   ├── hooks/               App initialization, task, project, AI, and UI controllers
+│   ├── migrations/          Versioned local data migrations
+│   ├── runtime/             Web/Electron runtime detection and bridge helpers
+│   ├── services/            Persistence, AI, automation, search, archive, export
+│   ├── test/                Test setup
+│   ├── types/               Shared feature types
+│   └── utils/               Query, validation, search, debounce, storage helpers
+├── electron/                Electron main/preload TypeScript sources
+├── build/                   Icons and packaging assets
+├── dist/                    Generated Vite renderer output
+├── dist-electron/           Generated Electron main/preload output
+├── release/                 Generated packaged installer artifacts
+└── .github/                 CI, release, and release-drafter workflows
+```
+
+Generated output directories (`dist/`, `dist-electron/`, `release/`) should not
+be committed.
 
 ## Requirements
 
 - Node.js 20 or newer
-- Bun 1.3 or newer installed locally for Electron desktop development and packaging
 - npm
-- Windows is the primary packaged target in the current release workflow
+- Bun 1.3 or newer for Electron desktop development and packaging support
+- Windows for the current packaged release target
 
-## Development
-
-Install dependencies:
+## Install
 
 ```bash
 npm install
 ```
 
-Desktop Electron commands in this repo use the standard Electron CLI for development and packaging.
-The repo now uses the native TypeScript 7 beta compiler (`tsgo`) for app type-checking and Electron compilation.
+## Run The App
 
-Run the desktop app with Electron:
+Run the full desktop app:
 
 ```bash
 npm run dev
-# The dev server now defaults to port 4000
 ```
 
-Run the web renderer only:
+What this does:
+
+1. Starts the Vite renderer with `npm run dev:web`.
+2. Serves the renderer on `http://localhost:4000`.
+3. Waits for port `4000`.
+4. Compiles Electron main/preload code with `tsgo -p electron/tsconfig.json`.
+5. Launches Electron in development mode.
+
+Run only the web renderer:
 
 ```bash
 npm run dev:web
 ```
 
+Run the Vite preview server after a web build:
+
+```bash
+npm run preview
+```
+
 ## Build
 
-Build the renderer and Electron app:
+Build the renderer, Electron code, and packaged desktop app:
 
 ```bash
 npm run build
@@ -91,26 +176,30 @@ Build only the renderer:
 npm run build:web
 ```
 
-Create a packaged Electron release:
+Build only the Electron main/preload output:
 
 ```bash
-npm run build
+npm run build:electron
 ```
 
-Build outputs are written to:
+Build outputs:
 
-- `dist/` for the web renderer bundle
-- `dist-electron/` for the compiled Electron main/preload files
-- `release/` for packaged Electron installers/artifacts
+- `dist/` contains the Vite renderer bundle.
+- `dist-electron/` contains compiled Electron main/preload files.
+- `release/` contains electron-builder installer artifacts.
 
-Those directories are generated build output and should not be committed.
+## Test And Quality
 
-## Test
-
-Run the full test suite:
+Run the full Vitest suite once:
 
 ```bash
-npm test -- --run
+npm run test:run
+```
+
+Run Vitest in watch mode:
+
+```bash
+npm test
 ```
 
 Run coverage:
@@ -119,43 +208,105 @@ Run coverage:
 npm run test:coverage
 ```
 
-Run the TypeScript 7 beta checks:
+Run TypeScript checks for renderer and Electron code:
 
 ```bash
 npm run typecheck
 ```
 
-Lint:
+Run Biome checks:
 
 ```bash
 npm run lint
 ```
 
+Apply Biome fixes:
+
+```bash
+npm run lint:fix
+```
+
+Format supported source and documentation files:
+
+```bash
+npm run format
+```
+
+## AI Configuration
+
+AI settings are configured in **Settings > AI Settings**. Credentials and model
+choices stay local.
+
+Supported providers:
+
+- **Gemini** uses `@google/generative-ai` and defaults to the configured Gemini
+  model, with `gemini-3.1-flash-lite` as the service fallback.
+- **Ollama** supports local models through the app's Ollama provider path.
+
+AI capabilities include batch task extraction, task refinement, description
+polishing, subtask generation, duplicate analysis, metadata suggestions, image
+to task extraction, and conversational task assistant tool calls.
+
+## Local Persistence
+
+LiquiTask keeps data local by design.
+
+```mermaid
+flowchart LR
+  StorageService["storageService"] --> Cache["In-memory cache"]
+  StorageService --> LocalStorage["localStorage fallback"]
+  StorageService --> IndexedDB["IndexedDB\nlarge task/project data"]
+  StorageService --> NativeAPI["electronAPI.storage"]
+  NativeAPI --> ElectronIPC["Electron IPC handlers"]
+  ElectronIPC --> UserData["app.getPath('userData')\nelectron-store.json"]
+```
+
+Important behavior:
+
+- Electron runtime data is backed up through `electronAPI.storage`.
+- Browser-compatible fallback data is stored in localStorage.
+- Larger task and project collections are mirrored to IndexedDB when available.
+- Data migrations run during `storageService.initialize()`.
+- Workspace AI file access is limited to user-authorized directories and
+  markdown files through Electron IPC guards.
+
+## Keyboard Shortcuts
+
+- `Cmd/Ctrl + K` opens the command palette.
+- `Cmd/Ctrl + J` toggles the AI Task Assistant.
+- `Cmd/Ctrl + E` exports data.
+- `Cmd/Ctrl + B` toggles the sidebar.
+- `Cmd/Ctrl + Z` undoes the last action.
+- `C` creates a task.
+- `Escape` closes active overlays.
+
 ## Release Flow
 
 LiquiTask uses two GitHub Actions release paths:
 
-1. `Release Drafter` updates a draft release on every push to `main`.
-2. `Release` runs when a semantic version tag such as `v1.3.0` is pushed.
+1. `Release Drafter` keeps a draft release updated on pushes to `main`.
+2. `Release` runs when a semantic version tag such as `v2.4.1` is pushed.
 
-The tagged release workflow does the following:
+The tagged release workflow:
 
-1. Installs dependencies with `npm ci`
-2. Runs the full test suite
-3. Verifies that the git tag matches `package.json`
-4. Builds the Electron package
-5. Uploads the packaged Windows artifacts to the GitHub Release
+1. Installs dependencies with `npm ci`.
+2. Runs the full test suite.
+3. Verifies that the git tag matches `package.json`.
+4. Builds the Electron package.
+5. Uploads packaged Windows artifacts to the GitHub Release.
 
-Current release assets:
+Current package version: `2.4.1`.
 
-- `LiquiTask Setup 2.4.0.exe`
-- `LiquiTask Setup 2.4.0.exe.blockmap`
+Expected Windows release assets:
+
+- `LiquiTask-Setup-2.4.1.exe`
+- `LiquiTask-Setup-2.4.1.exe.blockmap`
 
 Create a release:
 
 ```bash
-git tag v2.4.0
-git push origin v2.4.0
+git tag v2.4.1
+git push origin v2.4.1
 ```
 
 Before tagging a new version, update:
@@ -163,56 +314,25 @@ Before tagging a new version, update:
 - `package.json`
 - `package-lock.json`
 
-## Patch Notes
-
-Patch notes are generated automatically with Release Drafter.
-
-Files involved:
+Patch notes are generated by Release Drafter using:
 
 - `.github/workflows/release-drafter.yml`
 - `.github/release-drafter.yml`
 - `.github/workflows/release.yml`
 
-Release Drafter behavior in this repo:
+## Development Notes
 
-- groups changes into Features, Fixes, Security, Documentation, and Maintenance
-- auto-labels some changes based on touched files
-- defaults unlabeled releases to a patch bump
-- keeps a draft release updated on `main`
-
-The final tagged release is still created by the `Release` workflow, which publishes the packaged assets.
-
-## Project Structure
-
-```text
-LiquiTask/
-├── components/              Shared UI layer used by the desktop app
-├── src/
-│   ├── bun/                 Electron desktop entrypoint
-│   ├── components/          Main React UI
-│   ├── constants/           Shared constants and keybindings
-│   ├── context/             React context providers
-│   ├── contexts/            Additional app contexts
-│   ├── hooks/               App controllers and UI hooks
-│   ├── migrations/          Data migration logic
-│   ├── runtime/             Runtime detection and Electron bridge
-│   ├── services/            Persistence, export, notifications, automation
-│   ├── test/                Test setup
-│   ├── types/               Shared types
-│   └── utils/               Parsers, query helpers, validation, search helpers
-├── build/                   Icons and packaging assets
-└── .github/                 CI, release, and code scanning workflows
-```
-
-## Keyboard Shortcuts
-
-- `Cmd/Ctrl + K` opens the command palette
-- `Cmd/Ctrl + J` toggles the AI Task Assistant
-- `Cmd/Ctrl + E` exports data
-- `Cmd/Ctrl + B` toggles the sidebar
-- `Cmd/Ctrl + Z` undoes the last action
-- `C` creates a task
-- `Escape` closes active overlays
+- Vite is configured in `vite.config.ts` with `server.port = 4000` and
+  `host = "0.0.0.0"`.
+- The renderer uses `base: "./"` so packaged Electron loads local assets
+  correctly.
+- Electron runs with `sandbox: true`, `contextIsolation: true`, and
+  `nodeIntegration: false`.
+- The preload bridge exposes only window controls, notifications, storage, and
+  authorized workspace file operations.
+- GitNexus maps live in `.claude/skills/generated/` and are useful before
+  making high-risk changes to services, hooks, settings, Electron, or runtime
+  code.
 
 ## License
 
