@@ -11,14 +11,19 @@ node_modules
 dist
 dist-ssr
 dist-electron
+build/*
+!build/icon.png
+build-electrobun
 release
 coverage/
+*.tsbuildinfo
 diff.txt
 test_full_log.txt
 test_log.txt
 ai_test_log.txt
 *_log.txt
 *_output.txt
+*_results.txt
 tsc_output.txt
 *.local
 
@@ -41,6 +46,8 @@ POWER_USER_AUDIT*.md
 test_output.txt
 .claude/
 .cursor/
+.kilo/
+.kilo/plans
 .worktrees/
 claude.md
 LIQUITASK_RESUME_POINTS.md
