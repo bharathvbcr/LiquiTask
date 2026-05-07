@@ -22,6 +22,82 @@ optional AI assistance through Gemini or Ollama.
   add, search history, custom fields, templates, import/export, and archive
   recovery.
 
+## Feature Map
+
+| Feature area   | What the app supports                                                                                                                          |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Task capture   | Modal creation, command-palette creation, quick-add parsing, image-to-task capture, bulk JSON import, AI smart import                          |
+| Planning views | Standard Kanban board, priority board, dashboard, calendar, Gantt, archive, saved views, search history                                        |
+| Task details   | Markdown summaries, subtasks, attachments, task links, tags, priority, due dates, time estimates, time spent, custom fields                    |
+| Organization   | Projects, project types, board columns, WIP limits, priority definitions, grouping, compact mode, sub-workspace visibility                     |
+| Automation     | Event rules for create/update/move/complete plus scheduled rules with filters and actions                                                      |
+| AI workflows   | Task extraction, refinement, subtask generation, metadata suggestions, duplicate detection, reorganization, project assignment, image analysis |
+| Productivity   | Command palette, global shortcuts, sidebar collapse, undo stack, bulk selection, bulk actions, virtualized lists                               |
+| Reporting      | Dashboard stats, risk analysis, time reporting, activity log records, CSV export                                                               |
+| Local data     | Native Electron JSON storage, IndexedDB mirroring, localStorage fallback, schema migrations, archive storage                                   |
+| Desktop        | Custom title bar, window controls, single-instance guard, system notifications, authorized workspace file access                               |
+
+## App Surfaces
+
+```mermaid
+flowchart TD
+  Shell["App.tsx"] --> Sidebar["Sidebar\nprojects, navigation, settings"]
+  Shell --> Header["AppHeader\nsearch, command actions, view controls"]
+  Shell --> Board["ProjectBoard\nstandard + priority boards"]
+  Shell --> Dashboard["Dashboard\nstats and work summary"]
+  Shell --> Calendar["CalendarView\ndue-date planning"]
+  Shell --> Gantt["GanttView\ntimeline planning"]
+  Shell --> Archive["ArchiveView\nrestore or delete archived tasks"]
+  Shell --> QuickAdd["QuickAddBar\nnatural language + image paste"]
+  Shell --> Modals["Task, project, settings,\nAI and bulk modals"]
+  Modals --> Settings["SettingsModal\ngeneral, workflow, priority,\nautomation, data, AI"]
+```
+
+## Task Features
+
+Tasks are richer than a title/status card. The active task shape includes:
+
+- Project and board status ownership.
+- Title, subtitle, summary, markdown-rendered descriptions, and activity
+  history.
+- Priority, tags, assignee, due date, completion timestamp, and ordering.
+- Subtasks with completion state.
+- Attachments, external links, and task-to-task links.
+- Time estimate and time spent tracking.
+- Custom field values driven by workspace definitions.
+- Recurring task configuration and next-occurrence handling.
+- Error logs for task-level diagnostics.
+
+## Capture And Import
+
+LiquiTask supports several capture paths:
+
+- **Quick Add** parses inline markers such as `!high`, `!medium`, `!low`,
+  `#project`, `+tag`, `~30m`, `~2h`, `@today`, `@tomorrow`, `@next week`, and
+  `@MM/DD`.
+- **Image paste** in Quick Add can analyze a screenshot or visual note and turn
+  it into a task draft with title, summary, priority, estimate, and tags.
+- **Command Palette** can create tasks directly from a typed query and ranks
+  commands with fuzzy matching plus recent usage.
+- **Manual bulk import** accepts structured task JSON and includes a downloadable
+  template.
+- **AI Smart Import** can map pasted CSV or JSON from tools such as Jira,
+  Trello, Linear, or Asana into LiquiTask tasks.
+- **Full backup restore** imports a LiquiTask JSON backup.
+
+## Planning And Navigation
+
+- **Kanban board** uses drag and drop through `@dnd-kit` with sortable columns
+  and task cards.
+- **Priority board** provides a priority-grouped planning mode.
+- **Calendar view** groups tasks by due date and includes AI scheduling hooks.
+- **Gantt view** renders timeline planning for dated work.
+- **Dashboard** summarizes workload and progress.
+- **Archive view** keeps completed or removed work recoverable.
+- **Saved views** preserve useful filters and date windows.
+- **Search history** keeps repeated searches fast to re-run.
+- **Virtualized task lists** keep long task collections usable.
+
 ## Stack
 
 | Area          | Technology                                                                 |
@@ -247,6 +323,66 @@ AI capabilities include batch task extraction, task refinement, description
 polishing, subtask generation, duplicate analysis, metadata suggestions, image
 to task extraction, and conversational task assistant tool calls.
 
+AI-specific surfaces:
+
+- **AI Task Assistant** opens with `Cmd/Ctrl + J` and can use task-aware tool
+  calls.
+- **AI Insights Panel** summarizes workspace-level guidance.
+- **AI Health Dashboard** checks provider configuration and operational status.
+- **Bulk AI Operations** runs AI-backed changes across selected tasks.
+- **AI Merge Duplicates** reviews duplicate groups and merge suggestions before
+  applying them.
+- **AI Reorganize** proposes task clusters and project changes with approval.
+- **AI Project Assignment** suggests which project should own imported or loose
+  tasks.
+- **AI Subtask Suggestions** converts task summaries into actionable checklists.
+- **AI Smart Import** maps external task exports into LiquiTask.
+
+Provider behavior:
+
+- Gemini requires a local API key and model name in settings.
+- Ollama uses a local base URL and model name, with settings support for model
+  pull/list/test operations where the provider exposes them.
+- Workspace file access is opt-in and scoped to authorized local directories.
+
+## Automation Rules
+
+Automation rules are configured in **Settings > Automation** and persisted with
+the rest of the local app data.
+
+Supported triggers:
+
+- `onCreate`
+- `onUpdate`
+- `onMove`
+- `onComplete`
+- `onSchedule`
+
+Supported actions:
+
+- Set a task field.
+- Add or remove a tag.
+- Move a task to a board column.
+- Set priority.
+- Send a notification.
+
+Rules can include advanced filter conditions through the query engine. Scheduled
+rules support daily, weekly, and monthly timing.
+
+## Settings
+
+Settings are organized by operational area:
+
+- **General** handles app-level preferences.
+- **Workflow** controls board columns, grouping, compact mode, and related task
+  workflow behavior.
+- **Priority** manages priority definitions, labels, colors, order, and reset.
+- **Data** handles JSON export, CSV export, backup restore, manual bulk import,
+  template download, AI smart import, and reset.
+- **Automation** manages event and scheduled rules.
+- **AI Settings** configures providers, model names, bulk operation behavior,
+  workspace access, and connection testing.
+
 ## Local Persistence
 
 LiquiTask keeps data local by design.
@@ -269,6 +405,36 @@ Important behavior:
 - Data migrations run during `storageService.initialize()`.
 - Workspace AI file access is limited to user-authorized directories and
   markdown files through Electron IPC guards.
+
+## Electron And Workspace Security
+
+Electron runs with:
+
+- `sandbox: true`
+- `contextIsolation: true`
+- `nodeIntegration: false`
+
+The renderer never receives direct Node.js access. The preload exposes a narrow
+`electronAPI` surface for:
+
+- Window controls.
+- Window-state listeners.
+- Native notifications.
+- Native storage operations.
+- Workspace directory selection.
+- Authorized markdown file reads/writes/searches.
+
+Workspace IPC handlers validate that file operations remain inside
+user-authorized directories and are limited to markdown files.
+
+## Generated And Local State
+
+- `dist/`, `dist-electron/`, and `release/` are build outputs.
+- `.gitnexus/` is local generated GitNexus state.
+- `.claude/skills/generated/` contains generated navigation maps for services,
+  hooks, components, settings, Electron, and runtime areas.
+- `node_modules/` is local dependency output.
+- User app data in Electron is written under `app.getPath("userData")`.
 
 ## Keyboard Shortcuts
 
