@@ -1,4 +1,5 @@
 import {
+  Archive,
   ArrowDown,
   ArrowUp,
   Box,
@@ -52,8 +53,8 @@ interface SidebarProps {
   onAddProject: (parentId?: string) => void;
   onDeleteProject: (id: string) => void;
   onOpenSettings: () => void;
-  currentView: "project" | "dashboard" | "gantt";
-  onChangeView: (view: "project" | "dashboard" | "gantt") => void;
+  currentView: "project" | "dashboard" | "gantt" | "archive";
+  onChangeView: (view: "project" | "dashboard" | "gantt" | "archive") => void;
   onTogglePin: (id: string) => void;
   onEditProject: (id: string, newName: string, newIcon: string, workspacePaths?: string[]) => void;
   onMoveProject?: (id: string, direction: "up" | "down") => void;
@@ -371,7 +372,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      onMoveProject(project.id, "up");
+                      onMoveProject?.(project.id, "up");
                       setActiveMenuId(null);
                     }}
                     className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
@@ -381,7 +382,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      onMoveProject(project.id, "down");
+                      onMoveProject?.(project.id, "down");
                       setActiveMenuId(null);
                     }}
                     className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
@@ -539,6 +540,41 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   {!isEffectivelyCollapsed && (
                     <span className="font-medium text-sm">Dashboard</span>
                   )}
+                </div>
+              </button>
+            </Tooltip>
+            <Tooltip
+              content="Open Archive"
+              position={isEffectivelyCollapsed ? "right" : "top"}
+              delay={300}
+            >
+              <button
+                type="button"
+                onClick={() => onChangeView("archive")}
+                aria-label="Open Archive"
+                onMouseEnter={(e) => {
+                  if (isEffectivelyCollapsed) {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setHoveredItem({
+                      label: "Archive",
+                      top: rect.top + rect.height / 2,
+                    });
+                  }
+                }}
+                onMouseLeave={() => setHoveredItem(null)}
+                className={`
+                group px-3 py-2.5 rounded-xl cursor-pointer transition-[background-color,color,transform] duration-300
+                flex w-full items-center relative overflow-hidden border border-transparent
+                ${isEffectivelyCollapsed ? "justify-center" : ""}
+                ${currentView === "archive" ? "bg-red-500/10 border-red-500/20 text-red-50" : "text-slate-400 hover:text-slate-100 hover:bg-white/5"}
+              `}
+              >
+                <div className="relative z-10 flex items-center gap-3">
+                  <Archive
+                    size={18}
+                    className={`shrink-0 transition-colors ${currentView === "archive" ? "text-red-400 drop-shadow-md" : "group-hover:text-red-400"}`}
+                  />
+                  {!isEffectivelyCollapsed && <span className="font-medium text-sm">Archive</span>}
                 </div>
               </button>
             </Tooltip>

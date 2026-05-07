@@ -9,7 +9,7 @@ interface KeyboardShortcutsProps {
   setIsAssistantOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setIsTaskModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setEditingTask: React.Dispatch<React.SetStateAction<Task | null>>;
-  searchInputRef: React.RefObject<HTMLInputElement>;
+  searchInputRef: React.RefObject<HTMLInputElement | null>;
   tasks: Task[];
   projects: Project[];
   addToast: (message: string, type?: ToastType) => void;
@@ -32,7 +32,14 @@ export const useGlobalKeyboardShortcuts = ({
   const { matches } = useKeybinding();
 
   useEffect(() => {
+    let lastEventSignature = "";
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const eventSignature = [e.timeStamp, e.key, e.ctrlKey, e.metaKey, e.shiftKey, e.altKey].join(
+        ":",
+      );
+      if (eventSignature === lastEventSignature) return;
+      lastEventSignature = eventSignature;
+
       const isInput = ["INPUT", "TEXTAREA"].includes((e.target as HTMLElement).tagName);
 
       if (matches("global:command-palette", e)) {
@@ -73,8 +80,12 @@ export const useGlobalKeyboardShortcuts = ({
         searchInputRef.current?.focus();
       }
     };
+    document.addEventListener("keydown", handleGlobalKeyDown);
     window.addEventListener("keydown", handleGlobalKeyDown);
-    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleGlobalKeyDown);
+      window.removeEventListener("keydown", handleGlobalKeyDown);
+    };
   }, [
     handleUndo,
     isCommandPaletteOpen,

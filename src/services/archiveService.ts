@@ -50,6 +50,13 @@ export class ArchiveService {
   }
 
   /**
+   * Archive a known active task.
+   */
+  async archiveTask(task: Task): Promise<void> {
+    await this.moveToArchive([task]);
+  }
+
+  /**
    * Search archived tasks
    */
   async searchArchive(query: string): Promise<Task[]> {

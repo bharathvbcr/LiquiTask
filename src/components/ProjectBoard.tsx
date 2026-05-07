@@ -4,11 +4,13 @@ import {
   MeasuringStrategy,
 } from "@dnd-kit/core";
 import type React from "react";
-import { lazy, Suspense, useCallback, useEffect, useRef } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef } from "react";
 
 import type { BoardColumn, PriorityDefinition, Project, Task } from "../../types";
 import { useBoardDnDController } from "../hooks/useBoardDnDController";
 import { useBoardKeyboardNav } from "../hooks/useBoardKeyboardNav";
+import { useBulkSelection } from "../hooks/useBulkSelection";
+import BulkActionsBar from "./BulkActionsBar";
 
 const StandardBoardView = lazy(() => import("./board/StandardBoardView"));
 const PriorityBoardView = lazy(() => import("./board/PriorityBoardView"));
@@ -32,6 +34,7 @@ interface ProjectBoardProps {
   onEditTask: (task: Task) => void;
   onUpdateTask: (task: Task) => void;
   onDeleteTask: (taskId: string) => void;
+  onArchiveTask?: (taskId: string) => void;
   getTasksByContext: (statusId: string, priorityId?: string) => Task[];
   isCompact?: boolean;
   onCopyTask?: (message: string) => void;
@@ -72,6 +75,7 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = (props) => {
     onEditTask,
     onUpdateTask,
     onDeleteTask,
+    onArchiveTask,
     onMoveBlocked,
     canMoveTask,
     getTasksByContext,
@@ -84,6 +88,25 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = (props) => {
   } = props;
 
   const boardRef = useRef<HTMLDivElement>(null);
+  const bulkSelection = useBulkSelection({ items: tasks });
+  const selectedTasks = useMemo(
+    () => tasks.filter((task) => bulkSelection.selectedIds.has(task.id)),
+    [tasks, bulkSelection.selectedIds],
+  );
+  const uniqueAssignees = useMemo(
+    () =>
+      Array.from(new Set(tasks.map((task) => task.assignee).filter(Boolean))).sort((a, b) =>
+        a.localeCompare(b),
+      ),
+    [tasks],
+  );
+  const availableTags = useMemo(
+    () =>
+      Array.from(new Set(tasks.flatMap((task) => task.tags ?? []))).sort((a, b) =>
+        a.localeCompare(b),
+      ),
+    [tasks],
+  );
   const showToast = useCallback(
     (msg: string, type: "success" | "error" | "info" = "info") => {
       addToast ? addToast(msg, type) : console.log(`[${type.toUpperCase()}] ${msg}`);
@@ -154,8 +177,8 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = (props) => {
   const measuringConfig = {
     droppable: { strategy: MeasuringStrategy.Always, frequency: 100 },
   };
-  const activeTask = activeDrag?.type === "task" ? (activeDrag.data as Task) : null;
-  const activeColumn = activeDrag?.type === "column" ? (activeDrag.data as BoardColumn) : null;
+  const activeTask = activeDrag?.type === "task" ? activeDrag.data : null;
+  const activeColumn = activeDrag?.type === "column" ? activeDrag.data : null;
 
   const commonProps = {
     sensors,
@@ -179,12 +202,31 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = (props) => {
     onEditTask,
     onUpdateTask,
     onDeleteTask,
+    selectedTaskIds: bulkSelection.selectedIds,
+    onToggleTaskSelection: bulkSelection.toggleSelect,
     getTasksByContext,
     onCopyTask,
     projectName,
     projects,
     onMoveToWorkspace,
   };
+
+  const updateSelectedTasks = useCallback(
+    (updater: (task: Task) => Task) => {
+      selectedTasks.forEach((task) => {
+        onUpdateTask(updater(task));
+      });
+    },
+    [onUpdateTask, selectedTasks],
+  );
+
+  const clearSelectionAfter = useCallback(
+    (action: () => void) => {
+      action();
+      bulkSelection.selectNone();
+    },
+    [bulkSelection],
+  );
 
   return (
     <Suspense fallback={<BoardLoadingFallback />}>
@@ -198,6 +240,96 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = (props) => {
           focusedColumnIndex={focusedColumnIndex}
         />
       )}
+      <BulkActionsBar
+        selectedCount={bulkSelection.selectedCount}
+        columns={columns}
+        assignees={uniqueAssignees}
+        priorities={priorities}
+        availableTags={availableTags}
+        projects={projects}
+        onMove={(columnId) =>
+          clearSelectionAfter(() => {
+            selectedTasks.forEach((task) => {
+              onMoveTask(task.id, columnId);
+            });
+            showToast(
+              `Moved ${selectedTasks.length} task${selectedTasks.length === 1 ? "" : "s"}`,
+              "success",
+            );
+          })
+        }
+        onAssign={(assignee) =>
+          clearSelectionAfter(() =>
+            updateSelectedTasks((task) => ({ ...task, assignee, updatedAt: new Date() })),
+          )
+        }
+        onDelete={() =>
+          clearSelectionAfter(() => {
+            selectedTasks.forEach((task) => {
+              onDeleteTask(task.id);
+            });
+          })
+        }
+        onSelectAll={bulkSelection.selectAll}
+        onSelectNone={bulkSelection.selectNone}
+        isAllSelected={bulkSelection.isAllSelected}
+        onSetPriority={(priorityId) =>
+          clearSelectionAfter(() =>
+            updateSelectedTasks((task) => ({
+              ...task,
+              priority: priorityId,
+              updatedAt: new Date(),
+            })),
+          )
+        }
+        onSetDueDate={(date) =>
+          clearSelectionAfter(() =>
+            updateSelectedTasks((task) => ({
+              ...task,
+              dueDate: date ?? undefined,
+              updatedAt: new Date(),
+            })),
+          )
+        }
+        onAddTag={(tag) =>
+          clearSelectionAfter(() =>
+            updateSelectedTasks((task) => ({
+              ...task,
+              tags: Array.from(new Set([...(task.tags ?? []), tag])),
+              updatedAt: new Date(),
+            })),
+          )
+        }
+        onRemoveTag={(tag) =>
+          clearSelectionAfter(() =>
+            updateSelectedTasks((task) => ({
+              ...task,
+              tags: (task.tags ?? []).filter((taskTag) => taskTag !== tag),
+              updatedAt: new Date(),
+            })),
+          )
+        }
+        onArchive={
+          onArchiveTask
+            ? () =>
+                clearSelectionAfter(() => {
+                  selectedTasks.forEach((task) => {
+                    onArchiveTask(task.id);
+                  });
+                })
+            : undefined
+        }
+        onMoveToWorkspace={
+          onMoveToWorkspace
+            ? (projectId) =>
+                clearSelectionAfter(() => {
+                  selectedTasks.forEach((task) => {
+                    onMoveToWorkspace(task.id, projectId);
+                  });
+                })
+            : undefined
+        }
+      />
     </Suspense>
   );
 };

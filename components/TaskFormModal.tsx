@@ -305,7 +305,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
       }
 
       if (suggestion.tags && suggestion.tags.length > 0) {
-        setFormData((f) => ({ ...f, subtitle: suggestion.tags?.[0] }));
+        setFormData((f) => ({ ...f, subtitle: suggestion.tags?.[0] ?? "" }));
       }
     } catch (e) {
       setAiError((e as Error).message);
@@ -536,6 +536,8 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
     setLinks(links.filter((l) => l.targetTaskId !== targetId));
   };
 
+  const defaultStatusId = columns[0]?.id ?? "Pending";
+
   const submitTask = useCallback(async () => {
     // Validation
     const newErrors: Record<string, string> = {};
@@ -554,11 +556,11 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
       parsedDate = new Date(y, m - 1, d);
     }
 
-    const taskData = {
+    const taskData: Partial<Task> = {
       ...initialData,
       ...formData,
       projectId: localProjectId,
-      status: formData.status || "Pending",
+      status: formData.status || defaultStatusId,
       createdAt: initialData ? initialData.createdAt : new Date(),
       dueDate: parsedDate,
       subtasks: subtasks,
@@ -567,6 +569,33 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
       links: links,
       timeEstimate: formData.timeEstimate,
     };
+
+    const buildPreviewTask = (draft: Partial<Task>): Task => ({
+      id: draft.id ?? initialData?.id ?? `preview-${Date.now()}`,
+      jobId: draft.jobId ?? initialData?.jobId ?? "PREVIEW",
+      projectId: draft.projectId ?? localProjectId,
+      title: draft.title ?? "",
+      subtitle: draft.subtitle ?? "",
+      summary: draft.summary ?? "",
+      assignee: draft.assignee ?? "",
+      priority: draft.priority ?? priorities[0]?.id ?? "medium",
+      status: draft.status ?? defaultStatusId,
+      createdAt: draft.createdAt ?? initialData?.createdAt ?? new Date(),
+      updatedAt: draft.updatedAt,
+      dueDate: draft.dueDate,
+      subtasks: draft.subtasks ?? [],
+      attachments: draft.attachments ?? [],
+      customFieldValues: draft.customFieldValues ?? {},
+      links: draft.links ?? [],
+      tags: draft.tags ?? [],
+      timeEstimate: draft.timeEstimate ?? 0,
+      timeSpent: draft.timeSpent ?? 0,
+      recurring: draft.recurring,
+      completedAt: draft.completedAt,
+      errorLogs: draft.errorLogs,
+      activity: draft.activity,
+      order: draft.order,
+    });
 
     // AI Processing
     const isNewTask = !initialData;
@@ -580,7 +609,10 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
             projects: allProjects,
             priorities: priorities,
           };
-          const suggestions = await aiService.suggestPriorities([taskData], context);
+          const suggestions = await aiService.suggestPriorities(
+            [buildPreviewTask(taskData)],
+            context,
+          );
           if (suggestions.length > 0 && suggestions[0].confidence > 0.6) {
             const suggestedPriorityId = suggestions[0].suggestedValue as string;
             const priorityDef = priorities.find((p) => p.id === suggestedPriorityId);
@@ -625,7 +657,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
             priorities: priorities,
           };
           const pairs = availableTasks.slice(0, 10).map((t) => ({
-            task1: taskData,
+            task1: buildPreviewTask(taskData),
             task2: t,
           }));
           const duplicates = await aiService.detectDuplicates(pairs, context);
@@ -650,7 +682,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
             priorities: priorities,
           };
           const redundancy = await aiService.analyzeRedundancy(
-            [...availableTasks, taskData],
+            [...availableTasks, buildPreviewTask(taskData)],
             context,
           );
           if (redundancy && redundancy.confidence > 0.7) {
@@ -676,6 +708,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
     onClose,
     aiSettings,
     priorities,
+    defaultStatusId,
     allProjects,
     availableTasks,
     addToast,
@@ -1277,7 +1310,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                           if (refined.summary)
                             setFormData((f) => ({
                               ...f,
-                              summary: refined.summary,
+                              summary: refined.summary ?? "",
                             }));
                         } catch (e) {
                           setAiError((e as Error).message);

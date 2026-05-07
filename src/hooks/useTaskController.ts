@@ -66,6 +66,36 @@ type SearchIndexServiceLike = {
   ) => Promise<void>;
 };
 
+const mergeTaskWithUpdates = (task: Task, updates: Partial<Task>, updatedAt: Date): Task => ({
+  ...task,
+  ...updates,
+  id: updates.id ?? task.id,
+  jobId: updates.jobId ?? task.jobId,
+  projectId: updates.projectId ?? task.projectId,
+  title: updates.title ?? task.title,
+  subtitle: updates.subtitle ?? task.subtitle,
+  summary: updates.summary ?? task.summary,
+  assignee: updates.assignee ?? task.assignee,
+  priority: updates.priority ?? task.priority,
+  status: updates.status ?? task.status,
+  createdAt: updates.createdAt ?? task.createdAt,
+  updatedAt,
+  dueDate: "dueDate" in updates ? updates.dueDate : task.dueDate,
+  subtasks: updates.subtasks ?? task.subtasks,
+  attachments: updates.attachments ?? task.attachments,
+  customFieldValues:
+    "customFieldValues" in updates ? updates.customFieldValues : task.customFieldValues,
+  links: "links" in updates ? updates.links : task.links,
+  tags: updates.tags ?? task.tags,
+  timeEstimate: updates.timeEstimate ?? task.timeEstimate,
+  timeSpent: updates.timeSpent ?? task.timeSpent,
+  recurring: "recurring" in updates ? updates.recurring : task.recurring,
+  completedAt: "completedAt" in updates ? updates.completedAt : task.completedAt,
+  errorLogs: "errorLogs" in updates ? updates.errorLogs : task.errorLogs,
+  activity: "activity" in updates ? updates.activity : task.activity,
+  order: "order" in updates ? updates.order : task.order,
+});
+
 interface TaskControllerProps {
   initialTasks: Task[];
   columns: BoardColumn[];
@@ -100,7 +130,9 @@ export const useTaskController = ({
 
   const augmentTaskSemantically = useCallback(
     async (task: Task) => {
-      if (!aiServiceRef.current || !searchIndexServiceRef.current) return;
+      if (!aiServiceRef?.current || !searchIndexServiceRef.current) return;
+
+      const currentAiService = aiServiceRef.current;
 
       const context: AIContext = {
         activeProjectId,
@@ -110,7 +142,7 @@ export const useTaskController = ({
 
       await searchIndexServiceRef.current.augmentTaskSemantically?.(
         task,
-        aiServiceRef.current,
+        currentAiService,
         context,
       );
     },
@@ -134,22 +166,22 @@ export const useTaskController = ({
     switch (action.type) {
       case "task-delete":
         if (action.task) {
-          setTasks((prev) => [...prev, action.task]);
-          searchIndexServiceRef.current?.updateTask?.(action.task);
+          const deletedTask = action.task;
+          setTasks((prev) => [...prev, deletedTask]);
+          searchIndexServiceRef.current?.updateTask?.(deletedTask);
           if (indexedDBService.isAvailable()) {
-            indexedDBService.saveTask(action.task).catch(console.error);
+            indexedDBService.saveTask(deletedTask).catch(console.error);
           }
-          addToast(`Restored "${action.task.title}"`, "success");
+          addToast(`Restored "${deletedTask.title}"`, "success");
         }
         break;
       case "task-update":
         if (action.previousState) {
-          setTasks((prev) =>
-            prev.map((t) => (t.id === action.previousState.id ? action.previousState : t)),
-          );
-          searchIndexServiceRef.current?.updateTask?.(action.previousState, action.task);
+          const previousState = action.previousState;
+          setTasks((prev) => prev.map((t) => (t.id === previousState.id ? previousState : t)));
+          searchIndexServiceRef.current?.updateTask?.(previousState, action.task);
           if (indexedDBService.isAvailable()) {
-            indexedDBService.saveTask(action.previousState).catch(console.error);
+            indexedDBService.saveTask(previousState).catch(console.error);
           }
           addToast("Change undone", "info");
         }
@@ -169,12 +201,11 @@ export const useTaskController = ({
         break;
       case "task-move":
         if (action.previousState) {
-          setTasks((prev) =>
-            prev.map((t) => (t.id === action.previousState.id ? action.previousState : t)),
-          );
-          searchIndexServiceRef.current?.updateTask?.(action.previousState, action.task);
+          const previousState = action.previousState;
+          setTasks((prev) => prev.map((t) => (t.id === previousState.id ? previousState : t)));
+          searchIndexServiceRef.current?.updateTask?.(previousState, action.task);
           if (indexedDBService.isAvailable()) {
-            indexedDBService.saveTask(action.previousState).catch(console.error);
+            indexedDBService.saveTask(previousState).catch(console.error);
           }
           addToast("Move undone", "info");
         }
@@ -199,11 +230,7 @@ export const useTaskController = ({
       if (!task) return;
 
       const previousTask = { ...task };
-      const updatedTask = {
-        ...task,
-        ...taskUpdates,
-        updatedAt: new Date(),
-      } as Task;
+      const updatedTask = mergeTaskWithUpdates(task, taskUpdates, new Date());
 
       pushUndo({
         type: "task-update",
@@ -343,7 +370,9 @@ export const useTaskController = ({
           const nextOccurrence = recurringService.calculateNextOccurrence(updatedTask.recurring);
           setTasks((prev) =>
             prev.map((t) =>
-              t.id === updatedTask.id ? { ...t, recurring: { ...t.recurring, nextOccurrence } } : t,
+              t.id === updatedTask.id && t.recurring
+                ? { ...t, recurring: { ...t.recurring, nextOccurrence } }
+                : t,
             ),
           );
         }
@@ -354,11 +383,14 @@ export const useTaskController = ({
 
       const now = new Date();
       const newTask: Task = {
-        ...(taskData as Task),
         id: `task-${Date.now()}`,
         jobId: `TSK-${Math.floor(Math.random() * 9000) + 1000}`,
         projectId: activeProjectId,
         title: taskData.title || "Untitled",
+        subtitle: taskData.subtitle || "",
+        summary: taskData.summary || "",
+        assignee: taskData.assignee || "",
+        priority: taskData.priority || "medium",
         status: taskData.status || columns[0]?.id || "Pending",
         createdAt: now,
         updatedAt: now,
@@ -373,7 +405,7 @@ export const useTaskController = ({
         activity: activityServiceRef.current
           ? [activityServiceRef.current.createActivity("create", "Task created")]
           : [],
-        recurring: taskData.recurring,
+        recurring: taskData.recurring ? { ...taskData.recurring } : undefined,
       };
 
       const recurringService = recurringTaskServiceRef.current;
@@ -420,31 +452,28 @@ export const useTaskController = ({
   const handleBulkCreateTasks = useCallback(
     (newTasksData: Partial<Task>[]) => {
       const now = new Date();
-      const createdTasks = newTasksData.map(
-        (taskData, idx) =>
-          ({
-            ...taskData,
-            id: `task-${Date.now()}-${idx}`,
-            jobId: `IMP-${Math.floor(Math.random() * 9000) + 1000}`,
-            projectId: activeProjectId,
-            title: taskData.title || "Untitled",
-            subtitle: taskData.subtitle || "",
-            summary: taskData.summary || "",
-            assignee: taskData.assignee || "",
-            priority: taskData.priority || "medium",
-            status: columns[0]?.id || "Pending",
-            createdAt: now,
-            updatedAt: now,
-            subtasks: taskData.subtasks || [],
-            attachments: [],
-            customFieldValues: {},
-            links: [],
-            tags: taskData.tags || [],
-            timeEstimate: taskData.timeEstimate || 0,
-            timeSpent: 0,
-            errorLogs: taskData.errorLogs || [],
-          }) as Task,
-      );
+      const createdTasks: Task[] = newTasksData.map((taskData, idx) => ({
+        ...taskData,
+        id: `task-${Date.now()}-${idx}`,
+        jobId: `IMP-${Math.floor(Math.random() * 9000) + 1000}`,
+        projectId: activeProjectId,
+        title: taskData.title || "Untitled",
+        subtitle: taskData.subtitle || "",
+        summary: taskData.summary || "",
+        assignee: taskData.assignee || "",
+        priority: taskData.priority || "medium",
+        status: columns[0]?.id || "Pending",
+        createdAt: now,
+        updatedAt: now,
+        subtasks: taskData.subtasks || [],
+        attachments: [],
+        customFieldValues: {},
+        links: [],
+        tags: taskData.tags || [],
+        timeEstimate: taskData.timeEstimate || 0,
+        timeSpent: 0,
+        errorLogs: taskData.errorLogs || [],
+      }));
 
       setTasks((prev) => [...prev, ...createdTasks]);
       createdTasks.forEach((task) => {
@@ -601,14 +630,15 @@ export const useTaskController = ({
       }
 
       // Auto-Pilot Subtask Engine
+      const currentAiService = aiServiceRef?.current;
       if (
         newStatus !== previousTask.status &&
         targetColumn.title.toLowerCase().includes("progress") &&
         updatedTask.subtasks.length === 0 &&
-        aiServiceRef.current
+        currentAiService
       ) {
         addToast("Auto-pilot: Generating subtasks...", "info");
-        aiServiceRef.current
+        currentAiService
           .generateSubtasks(updatedTask.title, updatedTask.summary)
           .then((subtaskTitles) => {
             if (subtaskTitles.length > 0) {

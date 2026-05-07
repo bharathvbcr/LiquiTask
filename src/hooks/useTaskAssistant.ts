@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { AIContext, AssistantMessage, Task, ToolCall } from "../../types";
 import { aiService } from "../services/aiService";
 
@@ -9,6 +9,87 @@ interface UseTaskAssistantProps {
   updateTask: (id: string, updates: Partial<Task>) => void;
   searchTasks: (query: string) => string[];
 }
+
+const MAX_TOOL_TURNS = 5;
+const MAX_REPEATED_TOOL_CALLS = 3;
+const AI_RESPONSE_TIMEOUT_MS = 45000;
+
+const normalizeToolValue = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value.map(normalizeToolValue);
+  }
+
+  if (value && typeof value === "object") {
+    return Object.keys(value as Record<string, unknown>)
+      .sort()
+      .reduce<Record<string, unknown>>((acc, key) => {
+        acc[key] = normalizeToolValue((value as Record<string, unknown>)[key]);
+        return acc;
+      }, {});
+  }
+
+  return value;
+};
+
+const getToolCallSignature = (toolCalls: ToolCall[]) =>
+  JSON.stringify(
+    toolCalls.map((toolCall) => ({
+      name: toolCall.name,
+      args: normalizeToolValue(toolCall.args),
+    })),
+  );
+
+const withTimeout = <T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string) =>
+  new Promise<T>((resolve, reject) => {
+    const timeoutId = globalThis.setTimeout(() => {
+      reject(new Error(timeoutMessage));
+    }, timeoutMs);
+
+    promise.then(
+      (value) => {
+        globalThis.clearTimeout(timeoutId);
+        resolve(value);
+      },
+      (error) => {
+        globalThis.clearTimeout(timeoutId);
+        reject(error);
+      },
+    );
+  });
+
+const formatAssistantError = (error: unknown): string => {
+  const rawMessage = error instanceof Error ? error.message.trim() : "";
+
+  if (!rawMessage) {
+    return "I couldn't complete that request because the AI assistant hit an unexpected error.";
+  }
+
+  if (/AI provider is not configured/i.test(rawMessage)) {
+    return "AI provider is not configured. Open Settings > AI and configure Gemini or Ollama.";
+  }
+
+  if (/Gemini API key is missing/i.test(rawMessage)) {
+    return "Gemini API key is missing. Open Settings > AI and add a valid API key.";
+  }
+
+  if (/Ollama model name is not configured/i.test(rawMessage)) {
+    return "Ollama model is not configured. Open Settings > AI and select an Ollama model.";
+  }
+
+  if (/configured AI provider does not support the assistant/i.test(rawMessage)) {
+    return "The configured AI provider does not support the assistant. Switch providers in Settings > AI.";
+  }
+
+  if (/Cannot reach Ollama|Ollama server unreachable|Ollama request failed/i.test(rawMessage)) {
+    return `${rawMessage} Check Settings > AI and confirm the Ollama server URL and model.`;
+  }
+
+  if (/timeout|timed out/i.test(rawMessage)) {
+    return `${rawMessage} If this keeps happening, verify your AI provider connection in Settings > AI.`;
+  }
+
+  return rawMessage.endsWith(".") ? rawMessage : `${rawMessage}.`;
+};
 
 export const useTaskAssistant = ({
   context,
@@ -21,6 +102,7 @@ export const useTaskAssistant = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [activeTool, setActiveTool] = useState<string | null>(null);
+  const runIdRef = useRef(0);
 
   type ToolExecutionResult = {
     success?: boolean;
@@ -42,6 +124,7 @@ export const useTaskAssistant = ({
       };
       const scopePaths = context.workspacePaths ?? [];
       setActiveTool(name);
+      const workspaceApi = window.electronAPI?.workspace;
 
       try {
         switch (name) {
@@ -67,12 +150,21 @@ export const useTaskAssistant = ({
             };
 
           case "search_workspace":
+            if (typeof toolArgs.query !== "string" || !toolArgs.query.trim()) {
+              return { error: "Tool search_workspace requires a query" };
+            }
+            if (!workspaceApi) {
+              return { error: "Workspace tools are unavailable in this environment" };
+            }
+            if (scopePaths.length === 0) {
+              return {
+                error:
+                  "No workspace folders are linked to this project. Use the folder button in the AI sidebar to link one.",
+              };
+            }
             setIsSearching(true);
             try {
-              const files =
-                typeof toolArgs.query === "string"
-                  ? await window.electronAPI?.workspace.searchFiles(toolArgs.query, scopePaths)
-                  : [];
+              const files = await workspaceApi.searchFiles(toolArgs.query, scopePaths);
               return { files: files ?? [] };
             } finally {
               setIsSearching(false);
@@ -82,7 +174,16 @@ export const useTaskAssistant = ({
             if (!toolArgs.path) {
               return { error: "Tool read_workspace_file requires a path" };
             }
-            const content = await window.electronAPI?.workspace.readFile(toolArgs.path, scopePaths);
+            if (!workspaceApi) {
+              return { error: "Workspace tools are unavailable in this environment" };
+            }
+            if (scopePaths.length === 0) {
+              return {
+                error:
+                  "No workspace folders are linked to this project. Use the folder button in the AI sidebar to link one.",
+              };
+            }
+            const content = await workspaceApi.readFile(toolArgs.path, scopePaths);
             return { content: content ?? "" };
           }
 
@@ -90,11 +191,16 @@ export const useTaskAssistant = ({
             if (!toolArgs.path || typeof toolArgs.content !== "string") {
               return { error: "Tool write_workspace_file requires path and content" };
             }
-            await window.electronAPI?.workspace.writeFile(
-              toolArgs.path,
-              toolArgs.content,
-              scopePaths,
-            );
+            if (!workspaceApi) {
+              return { error: "Workspace tools are unavailable in this environment" };
+            }
+            if (scopePaths.length === 0) {
+              return {
+                error:
+                  "No workspace folders are linked to this project. Use the folder button in the AI sidebar to link one.",
+              };
+            }
+            await workspaceApi.writeFile(toolArgs.path, toolArgs.content, scopePaths);
             return { success: true };
 
           default:
@@ -112,7 +218,9 @@ export const useTaskAssistant = ({
 
   const sendMessage = useCallback(
     async (content: string) => {
-      if (!content.trim()) return;
+      if (!content.trim() || isLoading) return;
+      const runId = ++runIdRef.current;
+      const isCurrentRun = () => runIdRef.current === runId;
 
       const userMsg: AssistantMessage = {
         id: Date.now().toString(),
@@ -128,21 +236,41 @@ export const useTaskAssistant = ({
 
       try {
         let turn = 0;
-        const MAX_TURNS = 5;
-        let finalContent = "";
+        let previousToolSignature: string | null = null;
+        let repeatedToolCount = 0;
 
-        while (turn < MAX_TURNS) {
+        while (turn < MAX_TOOL_TURNS) {
+          if (!isCurrentRun()) return;
+
           // Show RAG context indicator on the first turn (user message triggers context retrieval)
-          if (turn === 0) setIsSearching(true);
-          const response = await aiService.generateAgentResponse(
-            currentConversation,
-            context,
-            allTasks,
-          );
-          if (turn === 0) setIsSearching(false);
+          const isFirstTurn = turn === 0;
+          if (isFirstTurn) setIsSearching(true);
+
+          let response: Awaited<ReturnType<typeof aiService.generateAgentResponse>>;
+          try {
+            response = await withTimeout(
+              aiService.generateAgentResponse(currentConversation, context, allTasks),
+              AI_RESPONSE_TIMEOUT_MS,
+              `The AI assistant timed out after ${Math.floor(AI_RESPONSE_TIMEOUT_MS / 1000)} seconds.`,
+            );
+          } finally {
+            if (isFirstTurn) setIsSearching(false);
+          }
+
+          if (!isCurrentRun()) return;
 
           // If there are tool calls, we need another turn
           if (response.toolCalls && response.toolCalls.length > 0) {
+            const toolSignature = getToolCallSignature(response.toolCalls);
+            repeatedToolCount = toolSignature === previousToolSignature ? repeatedToolCount + 1 : 1;
+            previousToolSignature = toolSignature;
+
+            if (repeatedToolCount >= MAX_REPEATED_TOOL_CALLS) {
+              throw new Error(
+                `The AI assistant repeated the same tool call ${MAX_REPEATED_TOOL_CALLS} times and was stopped to prevent a loop.`,
+              );
+            }
+
             // 1. Add assistant msg with tool calls to history
             const assistantToolMsg: AssistantMessage = {
               id: `asst-${Date.now()}-${turn}`,
@@ -157,6 +285,7 @@ export const useTaskAssistant = ({
 
             // 2. Execute tools
             const toolResults = await Promise.all(response.toolCalls.map(executeTool));
+            if (!isCurrentRun()) return;
 
             // 3. Add function results to history
             const functionMsg: AssistantMessage = {
@@ -174,45 +303,60 @@ export const useTaskAssistant = ({
             setMessages(currentConversation);
 
             turn++;
-            // If no content but tools, we continue the loop
-            if (response.content) finalContent = response.content;
           } else {
-            // No more tool calls, we are done
-            finalContent = response.content;
+            previousToolSignature = null;
+            repeatedToolCount = 0;
 
+            // No more tool calls, we are done
             const finalMsg: AssistantMessage = {
               id: `final-${Date.now()}`,
               role: "assistant",
-              content: finalContent || "I've completed the requested actions.",
+              content:
+                response.content ||
+                "The AI assistant returned an empty response. Please try again with a more specific request.",
               timestamp: new Date(),
               status: "done",
             };
+            if (!isCurrentRun()) return;
             setMessages((prev) => [...prev, finalMsg]);
             break;
           }
         }
 
-        if (turn >= MAX_TURNS) {
-          console.warn("Reached max tool turns");
+        if (turn >= MAX_TOOL_TURNS) {
+          throw new Error(
+            `The AI assistant stopped after ${MAX_TOOL_TURNS} tool steps without finishing. Try a more specific request.`,
+          );
         }
       } catch (error) {
+        if (!isCurrentRun()) return;
         console.error("Assistant error:", error);
         const errorMsg: AssistantMessage = {
           id: `err-${Date.now()}`,
           role: "assistant",
-          content: "Sorry, I encountered an error while processing your request.",
+          content: formatAssistantError(error),
           timestamp: new Date(),
           status: "error",
         };
         setMessages((prev) => [...prev, errorMsg]);
       } finally {
-        setIsLoading(false);
+        if (isCurrentRun()) {
+          setIsSearching(false);
+          setActiveTool(null);
+          setIsLoading(false);
+        }
       }
     },
-    [messages, context, allTasks, executeTool],
+    [allTasks, context, executeTool, isLoading, messages],
   );
 
-  const clearChat = useCallback(() => setMessages([]), []);
+  const clearChat = useCallback(() => {
+    runIdRef.current += 1;
+    setMessages([]);
+    setIsLoading(false);
+    setIsSearching(false);
+    setActiveTool(null);
+  }, []);
 
   return { messages, sendMessage, isLoading, isSearching, activeTool, clearChat };
 };

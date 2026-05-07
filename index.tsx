@@ -4,6 +4,7 @@ import App from "./App";
 import { KeybindingProvider } from "./src/context/KeybindingContext";
 import { ConfirmationProvider } from "./src/contexts/ConfirmationContext";
 import "./index.css";
+import { ErrorBoundary } from "./src/components/ErrorBoundary";
 import { getRuntimeWindowControls } from "./src/runtime/runtimeEnvironment";
 
 const bootstrap = async () => {
@@ -22,7 +23,9 @@ const bootstrap = async () => {
     <React.StrictMode>
       <KeybindingProvider>
         <ConfirmationProvider>
-          <App />
+          <ErrorBoundary>
+            <App />
+          </ErrorBoundary>
         </ConfirmationProvider>
       </KeybindingProvider>
     </React.StrictMode>,

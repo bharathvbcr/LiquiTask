@@ -3,7 +3,7 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-
 import { CSS } from "@dnd-kit/utilities";
 import { AlertOctagon, ClipboardList, Inbox } from "lucide-react";
 import type React from "react";
-import type { BoardColumn, PriorityDefinition, Task } from "../../../types";
+import type { BoardColumn, PriorityDefinition, Project, Task } from "../../../types";
 import { useVirtualTaskList } from "../../hooks/useVirtualScroll";
 import { SortableTask } from "./SortableTask";
 
@@ -19,9 +19,13 @@ interface SortableColumnProps {
   isCompact?: boolean;
   onCopyTask?: (message: string) => void;
   projectName?: string;
+  projects?: Project[];
+  onMoveToWorkspace?: (taskId: string, projectId: string) => void;
   isHighlighted?: boolean;
   isFocusedColumn?: boolean;
   focusedTaskId?: string | null;
+  selectedTaskIds?: Set<string>;
+  onToggleTaskSelection?: (taskId: string, shiftKey?: boolean) => void;
 }
 
 export const SortableColumn: React.FC<SortableColumnProps> = ({
@@ -36,9 +40,13 @@ export const SortableColumn: React.FC<SortableColumnProps> = ({
   isCompact,
   onCopyTask,
   projectName,
+  projects = [],
+  onMoveToWorkspace,
   isHighlighted = false,
   isFocusedColumn = false,
   focusedTaskId = null,
+  selectedTaskIds,
+  onToggleTaskSelection,
 }) => {
   // Column header is draggable for reordering columns
   const {
@@ -170,7 +178,11 @@ export const SortableColumn: React.FC<SortableColumnProps> = ({
                       isCompact={isCompact}
                       onCopyTask={onCopyTask}
                       projectName={projectName}
+                      projects={projects}
+                      onMoveToWorkspace={onMoveToWorkspace}
                       isFocused={task.id === focusedTaskId}
+                      isSelected={selectedTaskIds?.has(task.id) ?? false}
+                      onToggleSelect={onToggleTaskSelection}
                     />
                   ))
                 ) : (
@@ -222,7 +234,11 @@ export const SortableColumn: React.FC<SortableColumnProps> = ({
                     isCompact={isCompact}
                     onCopyTask={onCopyTask}
                     projectName={projectName}
+                    projects={projects}
+                    onMoveToWorkspace={onMoveToWorkspace}
                     isFocused={task.id === focusedTaskId}
+                    isSelected={selectedTaskIds?.has(task.id) ?? false}
+                    onToggleSelect={onToggleTaskSelection}
                   />
                 ))
               ) : (

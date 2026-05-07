@@ -1,4 +1,4 @@
-import { Database, Flag, Kanban, Keyboard, Settings, Sparkles } from "lucide-react";
+import { Database, Flag, Kanban, Keyboard, Settings, Sparkles, Zap } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 import logo from "../src/assets/logo.png";
@@ -18,6 +18,7 @@ import type {
 } from "../types";
 import { ModalWrapper } from "./ModalWrapper";
 import { AiSettings } from "./settings/AiSettings";
+import { AutomationSettings } from "./settings/AutomationSettings";
 import { DataSettings } from "./settings/DataSettings";
 // Sub-components
 import { GeneralSettings } from "./settings/GeneralSettings";
@@ -90,10 +91,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState("general");
   const [localGrouping, setLocalGrouping] = useState<GroupingOption>(grouping);
-  const [localColumns, setLocalColumns] = useState<BoardColumn[]>([]);
+  const [localColumns, setLocalColumns] = useState<BoardColumn[]>(appData.columns || []);
   const [localPriorities, setLocalPriorities] = useState<PriorityDefinition[]>(
     appData.priorities || [],
   );
+
+  useEffect(() => {
+    setLocalColumns(appData.columns || []);
+  }, [appData.columns]);
 
   useEffect(() => {
     setLocalPriorities(appData.priorities || []);
@@ -195,6 +200,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     { id: "priorities", icon: <Flag size={16} />, label: "Priorities" },
     { id: "data", icon: <Database size={16} />, label: "Data" },
     { id: "shortcuts", icon: <Keyboard size={16} />, label: "Shortcuts" },
+    { id: "automation", icon: <Zap size={16} />, label: "Automation" },
     { id: "ai", icon: <Sparkles size={16} />, label: "AI Settings" },
   ];
 
@@ -309,6 +315,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               ))}
             </div>
+          )}
+          {activeTab === "automation" && (
+            <AutomationSettings
+              columns={appData.columns}
+              priorities={appData.priorities}
+              addToast={addToast}
+            />
           )}
           {activeTab === "ai" && (
             <AiSettings

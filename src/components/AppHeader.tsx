@@ -47,7 +47,7 @@ interface SearchHistoryApi {
 interface AppHeaderProps {
   isHeaderExpanded: boolean;
   sidebarOffset: number;
-  currentView: "project" | "dashboard" | "gantt";
+  currentView: "project" | "dashboard" | "gantt" | "archive";
   viewMode: "board" | "gantt" | "stats" | "calendar";
   currentProjectName: string;
   parentProjectName?: string;
@@ -165,9 +165,11 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           <h2 className="text-xl font-bold text-white tracking-tight drop-shadow-md text-glow truncate">
             {currentView === "dashboard"
               ? "Executive Dashboard"
-              : viewMode === "gantt"
-                ? "Gantt View"
-                : currentProjectName}
+              : currentView === "archive"
+                ? "Archive"
+                : viewMode === "gantt"
+                  ? "Gantt View"
+                  : currentProjectName}
           </h2>
           {parentProjectName && currentView === "project" && (
             <span className="text-[10px] text-slate-500 border border-white/5 bg-white/5 px-1.5 rounded uppercase tracking-wider">
@@ -200,9 +202,11 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             <h2 className="text-3xl font-bold text-white tracking-tight drop-shadow-md text-glow truncate">
               {currentView === "dashboard"
                 ? "Executive Dashboard"
-                : viewMode === "gantt"
-                  ? "Gantt View"
-                  : currentProjectName}
+                : currentView === "archive"
+                  ? "Archive"
+                  : viewMode === "gantt"
+                    ? "Gantt View"
+                    : currentProjectName}
             </h2>
             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
               {parentProjectName && currentView === "project" && (
@@ -213,9 +217,11 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               <p className="text-slate-400 text-sm font-medium">
                 {currentView === "dashboard"
                   ? "Cross-project Overview"
-                  : viewMode === "gantt"
-                    ? "Timeline & Dependencies"
-                    : `Project Board • ${currentProjectTaskCount} Active Tasks`}
+                  : currentView === "archive"
+                    ? "Archived Tasks"
+                    : viewMode === "gantt"
+                      ? "Timeline & Dependencies"
+                      : `Project Board • ${currentProjectTaskCount} Active Tasks`}
               </p>
             </div>
           </div>

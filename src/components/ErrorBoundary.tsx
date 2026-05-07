@@ -14,7 +14,6 @@ interface State {
 
 export class ErrorBoundary extends Component<Props, State> {
   public state: State;
-  public props: Readonly<Props>;
 
   constructor(props: Props) {
     super(props);

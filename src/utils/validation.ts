@@ -166,7 +166,7 @@ function parseDate(value: unknown): Date | undefined {
 }
 
 // URL validation and sanitization
-export function sanitizeUrl(url: string): string {
+export function sanitizeUrl(url: string | null | undefined): string {
   if (!url) return "";
   let sanitized = url.trim();
   // Remove trailing slashes

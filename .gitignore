@@ -36,6 +36,7 @@ tsc_output.txt
 # Agent and Reports
 .agent/
 .gemini/
+.devcouncil/
 POWER_USER_AUDIT*.md
 test_output.txt
 .claude/
@@ -43,3 +44,14 @@ test_output.txt
 .worktrees/
 claude.md
 LIQUITASK_RESUME_POINTS.md
+.gitnexus
+
+# Keep checked-in agent context and GitNexus-generated skills
+!CLAUDE.md
+!**/CLAUDE.md
+!.claude/
+!.claude/skills/
+!.claude/skills/generated/
+!.claude/skills/generated/**
+.claude/settings.local.json
+.claude/skills/gitnexus/

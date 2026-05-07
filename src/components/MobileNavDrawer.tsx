@@ -1,9 +1,17 @@
-import { ChevronDown, ChevronRight, Folder, LayoutDashboard, Settings, X } from "lucide-react";
+import {
+  Archive,
+  ChevronDown,
+  ChevronRight,
+  Folder,
+  LayoutDashboard,
+  Settings,
+  X,
+} from "lucide-react";
 import type React from "react";
 import { useEffect, useState } from "react";
 import type { Project } from "../../types";
 
-type NavigationView = "project" | "dashboard" | "gantt";
+type NavigationView = "project" | "dashboard" | "gantt" | "archive";
 
 interface MobileNavDrawerProps {
   isOpen: boolean;
@@ -127,6 +135,12 @@ export const MobileNavDrawer: React.FC<MobileNavDrawerProps> = ({
               label="Dashboard"
               isActive={currentView === "dashboard"}
               onClick={() => handleNavigate("dashboard")}
+            />
+            <NavButton
+              icon={<Archive size={18} />}
+              label="Archive"
+              isActive={currentView === "archive"}
+              onClick={() => handleNavigate("archive")}
             />
 
             {/* Projects Section */}

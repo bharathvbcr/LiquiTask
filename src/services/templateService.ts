@@ -12,6 +12,10 @@ export class TemplateService {
     this.templates = templates;
   }
 
+  private persistTemplates(): void {
+    storageService.set(STORAGE_KEYS.TASK_TEMPLATES, this.templates);
+  }
+
   /**
    * Get all templates
    */
@@ -75,6 +79,7 @@ export class TemplateService {
     };
 
     this.templates.push(template);
+    this.persistTemplates();
     return template;
   }
 
@@ -83,6 +88,7 @@ export class TemplateService {
    */
   deleteTemplate(templateId: string): void {
     this.templates = this.templates.filter((t) => t.id !== templateId);
+    this.persistTemplates();
   }
 
   /**
@@ -92,6 +98,7 @@ export class TemplateService {
     const index = this.templates.findIndex((t) => t.id === templateId);
     if (index !== -1) {
       this.templates[index] = { ...this.templates[index], ...updates };
+      this.persistTemplates();
     }
   }
 
@@ -168,6 +175,7 @@ export class TemplateService {
         variables: result.variables as string[],
       };
       this.templates.push(template);
+      this.persistTemplates();
       return template;
     } catch (e) {
       console.error("AI template generation failed:", e);

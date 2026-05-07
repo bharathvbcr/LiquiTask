@@ -18,7 +18,7 @@ import { indexedDBService } from "../services/indexedDBService";
 import storageService from "../services/storageService";
 import type { FilterGroup } from "../types/queryTypes";
 
-type CurrentView = "project" | "dashboard" | "gantt";
+type CurrentView = "project" | "dashboard" | "gantt" | "archive";
 type ViewMode = "board" | "gantt" | "stats" | "calendar";
 
 type NotificationTask = {
@@ -76,6 +76,7 @@ type SearchIndexServiceLike = {
 type TemplateServiceLike = {
   loadTemplates: (templates: TaskTemplate[]) => void;
   getAllTemplates?: () => TaskTemplate[];
+  createFromTemplate?: (templateId: string, variables?: Record<string, string>) => Partial<Task>;
 };
 
 type RecurringTaskServiceLike = {
@@ -178,13 +179,14 @@ export const useAppInitialization = ({
           );
       }
       if (data.tasks) {
-        setTasks(data.tasks);
+        const loadedTasks = data.tasks;
+        setTasks(loadedTasks);
         import("../services/searchIndexService").then(({ searchIndexService }) => {
           searchIndexServiceRef.current = searchIndexService;
-          searchIndexService.buildIndex(data.tasks);
+          searchIndexService.buildIndex(loadedTasks);
         });
         if (indexedDBService.isAvailable())
-          indexedDBService.saveTasks(data.tasks).catch(console.error);
+          indexedDBService.saveTasks(loadedTasks).catch(console.error);
       }
       if (data.activeProjectId) setActiveProjectId(data.activeProjectId);
       if (data.sidebarCollapsed !== undefined) setIsSidebarCollapsed(data.sidebarCollapsed);
@@ -200,12 +202,12 @@ export const useAppInitialization = ({
 
       import("../services/automationService").then(({ automationService }) => {
         automationServiceRef.current = automationService;
-        automationService.loadRules(storageService.get("liquitask-automation-rules", []));
+        automationService.loadRules(storageService.get(STORAGE_KEYS.AUTOMATION_RULES, []));
       });
       import("../services/templateService").then(({ templateService }) => {
         templateServiceRef.current = templateService;
         templateService.loadTemplates(
-          storageService.get("liquitask-templates", []) as TaskTemplate[],
+          storageService.get(STORAGE_KEYS.TASK_TEMPLATES, []) as TaskTemplate[],
         );
       });
       import("../services/activityService").then(({ activityService }) => {

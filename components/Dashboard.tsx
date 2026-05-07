@@ -38,6 +38,7 @@ interface DashboardProps {
   onEditTask: (task: Task) => void;
   onUpdateTask: (task: Task) => void;
   onDeleteTask: (taskId: string) => void;
+  onArchiveTask?: (taskId: string) => void;
   onMoveTask: (taskId: string, newStatus: string, newPriority?: string, newOrder?: number) => void;
   onUpdateColumns?: (cols: BoardColumn[]) => void;
   getTasksByContext?: (statusId: string, priorityId?: string) => Task[];
@@ -62,6 +63,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   activeProjectId = "",
   onEditTask,
   onDeleteTask,
+  onArchiveTask,
   onMoveTask,
   onUpdateTask,
   onUpdateColumns,
@@ -315,6 +317,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 onEditTask={onEditTask}
                 onUpdateTask={onUpdateTask}
                 onDeleteTask={onDeleteTask}
+                onArchiveTask={onArchiveTask}
                 addToast={addToast}
                 getTasksByContext={effectiveGetTasksByContext}
                 isCompact={isCompact}

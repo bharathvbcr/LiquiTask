@@ -30,20 +30,23 @@ export class TimeReportingService {
     // Filter by date range if provided
     let filteredTasks = tasks;
     if (options.dateRange) {
+      const { start, end } = options.dateRange;
       filteredTasks = tasks.filter((task) => {
         const taskDate = task.completedAt || task.createdAt;
-        return taskDate >= options.dateRange?.start && taskDate <= options.dateRange?.end;
+        return taskDate >= start && taskDate <= end;
       });
     }
 
     // Filter by project if provided
     if (options.projectIds && options.projectIds.length > 0) {
-      filteredTasks = filteredTasks.filter((t) => options.projectIds?.includes(t.projectId));
+      const { projectIds } = options;
+      filteredTasks = filteredTasks.filter((t) => projectIds.includes(t.projectId));
     }
 
     // Filter by assignee if provided
     if (options.assignees && options.assignees.length > 0) {
-      filteredTasks = filteredTasks.filter((t) => options.assignees?.includes(t.assignee));
+      const { assignees } = options;
+      filteredTasks = filteredTasks.filter((t) => assignees.includes(t.assignee));
     }
 
     // Calculate totals

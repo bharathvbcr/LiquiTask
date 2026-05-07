@@ -1,4 +1,4 @@
-import { AlertCircle, CheckCircle, Info, X } from "lucide-react";
+import { AlertCircle, AlertTriangle, CheckCircle, Info, X } from "lucide-react";
 import type React from "react";
 import { useEffect } from "react";
 import type { ToastMessage } from "../types";
@@ -22,6 +22,8 @@ export const Toast: React.FC<ToastProps> = ({ toast, onClose }) => {
         return "bg-[#050a05]/95 border-emerald-500/30 text-emerald-200 shadow-[0_0_20px_rgba(16,185,129,0.15)]";
       case "error":
         return "bg-[#0a0505]/95 border-red-500/30 text-red-200 shadow-[0_0_20px_rgba(239,68,68,0.15)]";
+      case "warning":
+        return "bg-[#0a0803]/95 border-amber-500/30 text-amber-100 shadow-[0_0_20px_rgba(245,158,11,0.15)]";
       default:
         return "bg-[#05050a]/95 border-blue-500/30 text-blue-200 shadow-[0_0_20px_rgba(59,130,246,0.15)]";
     }
@@ -33,6 +35,8 @@ export const Toast: React.FC<ToastProps> = ({ toast, onClose }) => {
         return <CheckCircle size={18} className="text-emerald-400" />;
       case "error":
         return <AlertCircle size={18} className="text-red-400" />;
+      case "warning":
+        return <AlertTriangle size={18} className="text-amber-400" />;
       default:
         return <Info size={18} className="text-blue-400" />;
     }

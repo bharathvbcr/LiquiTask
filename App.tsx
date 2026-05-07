@@ -20,6 +20,7 @@ import { useTaskAssistant } from "./src/hooks/useTaskAssistant";
 import { useTaskController } from "./src/hooks/useTaskController";
 import { getRuntimeState } from "./src/runtime/runtimeEnvironment";
 import { aiService } from "./src/services/aiService";
+import { archiveService } from "./src/services/archiveService";
 import { indexedDBService } from "./src/services/indexedDBService";
 import storageService from "./src/services/storageService";
 import type { FilterGroup } from "./src/types/queryTypes";
@@ -101,9 +102,24 @@ const Dashboard = lazy(() =>
 );
 const GanttView = lazy(() => import("./src/components/GanttView"));
 const ProjectBoard = lazy(() => import("./src/components/ProjectBoard"));
+const ArchiveView = lazy(() =>
+  import("./src/components/ArchiveView").then((module) => ({
+    default: module.ArchiveView,
+  })),
+);
+const QuickAddBar = lazy(() =>
+  import("./src/components/QuickAddBar").then((module) => ({
+    default: module.QuickAddBar,
+  })),
+);
 const CommandPalette = lazy(() =>
   import("./src/components/CommandPalette").then((module) => ({
     default: module.CommandPalette,
+  })),
+);
+const KeyboardShortcutsModal = lazy(() =>
+  import("./src/components/KeyboardShortcutsModal").then((module) => ({
+    default: module.KeyboardShortcutsModal,
   })),
 );
 const AppHeader = lazy(() =>
@@ -290,9 +306,11 @@ type AutomationServiceHandle = {
 type TemplateServiceHandle = {
   loadTemplates: (templates: TaskTemplate[]) => void;
   getAllTemplates?: () => TaskTemplate[];
+  createFromTemplate?: (templateId: string, variables?: Record<string, string>) => Partial<Task>;
 };
 
 type AdvancedFilterExecutor = (tasks: Task[], group: FilterGroup) => Task[];
+type AppView = "project" | "dashboard" | "gantt" | "archive";
 
 const App: React.FC = () => {
   const { confirm } = useConfirmation();
@@ -308,7 +326,7 @@ const App: React.FC = () => {
   const [isCompactView, setIsCompactView] = useState<boolean>(false);
   const [showSubWorkspaceTasks, setShowSubWorkspaceTasks] = useState<boolean>(false);
   const [isHeaderExpanded, setIsHeaderExpanded] = useState<boolean>(false);
-  const [currentView, setCurrentView] = useState<"project" | "dashboard" | "gantt">("project");
+  const [currentView, setCurrentView] = useState<AppView>("project");
   const [viewMode, setViewMode] = useState<"board" | "gantt" | "stats" | "calendar">("board");
   const [searchQuery, setSearchQuery] = useState("");
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -318,6 +336,8 @@ const App: React.FC = () => {
   const [creatingSubProjectFor, setCreatingSubProjectFor] = useState<string | undefined>(undefined);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
+  const [isKeyboardShortcutsOpen, setIsKeyboardShortcutsOpen] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isAiInsightsOpen, setIsAiInsightsOpen] = useState(false);
@@ -518,6 +538,23 @@ const App: React.FC = () => {
     isCommandPaletteOpen,
   });
 
+  useEffect(() => {
+    const handleShortcutHelp = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const isTextInput =
+        target &&
+        (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) || target.isContentEditable);
+
+      if (event.key === "?" && !isTextInput) {
+        event.preventDefault();
+        setIsKeyboardShortcutsOpen(true);
+      }
+    };
+
+    window.addEventListener("keydown", handleShortcutHelp);
+    return () => window.removeEventListener("keydown", handleShortcutHelp);
+  }, []);
+
   // Saved Views
   const { views, activeViewId, createView, applyView, deleteView } = useSavedViews();
 
@@ -696,6 +733,7 @@ const App: React.FC = () => {
       isTaskModalOpen ||
       isSettingsModalOpen ||
       isCommandPaletteOpen ||
+      isKeyboardShortcutsOpen ||
       isAiInsightsOpen ||
       isBulkAIOperationsOpen ||
       isAiMergeModalOpen ||
@@ -763,6 +801,15 @@ const App: React.FC = () => {
         },
       },
       {
+        id: "action:quick-add",
+        label: "Quick Add Task",
+        category: "action",
+        description: "Open natural language quick task entry",
+        keywords: ["add", "quick", "task", "capture"],
+        aliases: ["quick add", "capture task"],
+        action: () => setIsQuickAddOpen(true),
+      },
+      {
         id: "action:undo",
         label: "Undo Last Action",
         category: "action",
@@ -815,6 +862,60 @@ const App: React.FC = () => {
         keywords: ["settings", "preferences", "config"],
         aliases: ["preferences", "options", "preferences panel"],
         action: () => setIsSettingsModalOpen(true),
+      },
+      {
+        id: "action:keyboard-shortcuts",
+        label: "Keyboard Shortcuts",
+        category: "action",
+        description: "Show available keyboard shortcuts",
+        keywords: ["keyboard", "shortcuts", "help", "keys"],
+        aliases: ["shortcuts", "help"],
+        action: () => setIsKeyboardShortcutsOpen(true),
+      },
+      {
+        id: "action:export-time-csv",
+        label: "Export Time Report CSV",
+        category: "action",
+        description: "Download task time estimates and actuals as CSV",
+        keywords: ["time", "report", "csv", "export", "spent", "estimate"],
+        aliases: ["time csv", "export time"],
+        action: async () => {
+          const { timeReportingService } = await import("./src/services/timeReportingService");
+          const csv = timeReportingService.exportTimeDataToCSV(tasks, projects);
+          const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = "liquitask-time-report.csv";
+          link.click();
+          URL.revokeObjectURL(url);
+          addToast("Exported time report CSV", "success");
+        },
+      },
+      {
+        id: "action:export-time-json",
+        label: "Export Time Report JSON",
+        category: "action",
+        description: "Download grouped task time report as JSON",
+        keywords: ["time", "report", "json", "export", "analytics"],
+        aliases: ["time json", "export time json"],
+        action: async () => {
+          const { timeReportingService } = await import("./src/services/timeReportingService");
+          const report = timeReportingService.generateTimeReport(
+            tasks,
+            { groupBy: "project" },
+            projects,
+          );
+          const json = timeReportingService.exportTimeDataToJSON(report);
+          const url = URL.createObjectURL(
+            new Blob([json], { type: "application/json;charset=utf-8" }),
+          );
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = "liquitask-time-report.json";
+          link.click();
+          URL.revokeObjectURL(url);
+          addToast("Exported time report JSON", "success");
+        },
       },
       {
         id: "action:bulk-ai-operations",
@@ -975,6 +1076,15 @@ const App: React.FC = () => {
         },
       },
       {
+        id: "view:archive",
+        label: "Archive View",
+        category: "view",
+        description: "Browse and restore archived tasks",
+        keywords: ["archive", "archived", "restore", "deleted"],
+        aliases: ["archived tasks", "restore tasks"],
+        action: () => setCurrentView("archive"),
+      },
+      {
         id: "viewmode:board",
         label: "Board Mode",
         category: "view",
@@ -1022,9 +1132,35 @@ const App: React.FC = () => {
         },
       }));
 
-    return [...topProjectActions, ...baseActions].sort((a, b) => a.label.localeCompare(b.label));
+    const templateActions: CommandAction[] = (templateServiceRef.current?.getAllTemplates?.() ?? [])
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .slice(0, 12)
+      .map((template) => ({
+        id: `template:${template.id}`,
+        label: `Template: ${template.name}`,
+        category: "action",
+        description: template.description || "Create a task from a saved template",
+        keywords: ["template", "create", "task", template.name.toLowerCase()],
+        aliases: [template.name.toLowerCase(), `template ${template.name.toLowerCase()}`],
+        action: () => {
+          try {
+            const draft = templateServiceRef.current?.createFromTemplate?.(template.id) ?? {};
+            handleCreateOrUpdateTask({ ...draft, projectId: activeProjectId }, null);
+            addToast(`Created task from "${template.name}"`, "success");
+          } catch (error) {
+            addToast(error instanceof Error ? error.message : "Failed to apply template", "error");
+          }
+        },
+      }));
+
+    return [...topProjectActions, ...templateActions, ...baseActions].sort((a, b) =>
+      a.label.localeCompare(b.label),
+    );
   }, [
+    activeProjectId,
     addToast,
+    handleCreateOrUpdateTask,
     handleAiInsights,
     handleAiPrioritize,
     handleSuggestNextTask,
@@ -1097,6 +1233,22 @@ const App: React.FC = () => {
     if (indexedDBService.isAvailable())
       indexedDBService.saveColumns(newColumns).catch(console.error);
   };
+
+  const handleArchiveTaskInternal = useCallback(
+    async (taskId: string) => {
+      const task = tasks.find((t) => t.id === taskId);
+      if (!task) return;
+
+      await archiveService.archiveTask(task);
+      setTasks((prev) => prev.filter((t) => t.id !== taskId));
+      searchIndexServiceRef.current?.removeTask?.(task);
+      if (indexedDBService.isAvailable()) {
+        indexedDBService.deleteTask(taskId).catch(console.error);
+      }
+      addToast(`Archived "${task.title}"`, "info");
+    },
+    [tasks, addToast, setTasks],
+  );
 
   const handleRequestNotificationPermission = useCallback(async () => {
     let granted: boolean | string = false;
@@ -1202,7 +1354,7 @@ const App: React.FC = () => {
                 ? projects.find((p) => p.id === activeProject.parentId)?.name
                 : undefined
             }
-            currentProjectPinned={activeProject.pinned}
+            currentProjectPinned={activeProject.pinned ?? false}
             currentProjectTaskCount={currentProjectTasks.length}
             canUndo={canUndo}
             isCompactView={isCompactView}
@@ -1267,7 +1419,23 @@ const App: React.FC = () => {
             className="h-full"
           >
             <Suspense fallback={<ViewLoadingFallback />}>
-              {currentView === "dashboard" ? (
+              {currentView === "archive" ? (
+                <ArchiveView
+                  onUnarchive={(restoredTasks) => {
+                    setTasks((prev) => [...prev, ...restoredTasks]);
+                    restoredTasks.forEach((task) => {
+                      searchIndexServiceRef.current?.updateTask?.(task);
+                      if (indexedDBService.isAvailable()) {
+                        indexedDBService.saveTask(task).catch(console.error);
+                      }
+                    });
+                    addToast(`Restored ${restoredTasks.length} task(s)`, "success");
+                  }}
+                  onDelete={(taskIds) => {
+                    addToast(`Deleted ${taskIds.length} archived task(s)`, "info");
+                  }}
+                />
+              ) : currentView === "dashboard" ? (
                 <Dashboard
                   tasks={filteredTasks}
                   projects={projects}
@@ -1280,6 +1448,7 @@ const App: React.FC = () => {
                     setIsTaskModalOpen(true);
                   }}
                   onDeleteTask={handleDeleteTaskInternal}
+                  onArchiveTask={handleArchiveTaskInternal}
                   onMoveTask={moveTask}
                   onUpdateTask={handleUpdateTask}
                   onUpdateColumns={handleUpdateColumns}
@@ -1294,6 +1463,9 @@ const App: React.FC = () => {
                       jobId: "",
                       projectId: activeProjectId,
                       title: "",
+                      subtitle: "",
+                      summary: "",
+                      assignee: "",
                       priority: priorities[0]?.id || "medium",
                       status: columns[0]?.id || "Pending",
                       createdAt: new Date(),
@@ -1303,7 +1475,7 @@ const App: React.FC = () => {
                       tags: [],
                       timeEstimate: 0,
                       timeSpent: 0,
-                    } as Task);
+                    });
                     setIsTaskModalOpen(true);
                   }}
                   viewMode={viewMode}
@@ -1338,6 +1510,7 @@ const App: React.FC = () => {
                   }}
                   onUpdateTask={handleUpdateTask}
                   onDeleteTask={handleDeleteTaskInternal}
+                  onArchiveTask={handleArchiveTaskInternal}
                   addToast={addToast}
                   getTasksByContext={getTasksByContext}
                   isCompact={isCompactView}
@@ -1359,6 +1532,33 @@ const App: React.FC = () => {
           <Toast key={toast.id} toast={toast} onClose={removeToast} />
         ))}
       </div>
+
+      {isQuickAddOpen && (
+        <Suspense fallback={null}>
+          <QuickAddBar
+            isVisible={isQuickAddOpen}
+            onClose={() => setIsQuickAddOpen(false)}
+            projects={projects}
+            onAddTask={(title, options) => {
+              const targetProject = options?.projectId
+                ? projects.find((project) => project.id === options.projectId)
+                : undefined;
+              handleCreateOrUpdateTask(
+                {
+                  title,
+                  projectId: targetProject?.id ?? activeProjectId,
+                  priority: options?.priority,
+                  dueDate: options?.dueDate,
+                  timeEstimate: options?.timeEstimate,
+                  tags: options?.tags,
+                  summary: options?.summary,
+                },
+                null,
+              );
+            }}
+          />
+        </Suspense>
+      )}
 
       {isTaskModalOpen && (
         <Suspense fallback={<ModalLoadingFallback />}>
@@ -1454,6 +1654,15 @@ const App: React.FC = () => {
         </Suspense>
       )}
 
+      {isKeyboardShortcutsOpen && (
+        <Suspense fallback={<ModalLoadingFallback />}>
+          <KeyboardShortcutsModal
+            isOpen={isKeyboardShortcutsOpen}
+            onClose={() => setIsKeyboardShortcutsOpen(false)}
+          />
+        </Suspense>
+      )}
+
       {isAiMergeModalOpen && (
         <Suspense fallback={<ModalLoadingFallback />}>
           <AIMergeDuplicatesModal
@@ -1461,7 +1670,7 @@ const App: React.FC = () => {
             onClose={() => setIsAiMergeModalOpen(false)}
             allTasks={tasks}
             onUpdateTask={handleUpdateTask}
-            onArchiveTask={handleDeleteTaskInternal}
+            onArchiveTask={handleArchiveTaskInternal}
             addToast={addToast}
           />
         </Suspense>
@@ -1487,7 +1696,7 @@ const App: React.FC = () => {
             onClose={() => setIsAiSubtaskModalOpen(false)}
             allTasks={tasks}
             onUpdateTask={handleUpdateTask}
-            onArchiveTask={handleDeleteTaskInternal}
+            onArchiveTask={handleArchiveTaskInternal}
             addToast={addToast}
           />
         </Suspense>
@@ -1545,7 +1754,7 @@ const App: React.FC = () => {
             onClose={() => setIsBulkAIOperationsOpen(false)}
             allTasks={tasks}
             onUpdateTask={handleUpdateTask}
-            onArchiveTask={handleDeleteTaskInternal}
+            onArchiveTask={handleArchiveTaskInternal}
             addToast={addToast}
           />
         </Suspense>
@@ -1558,7 +1767,7 @@ const App: React.FC = () => {
             onClose={() => setIsAutoOrganizeOpen(false)}
             allTasks={tasks}
             onUpdateTask={handleUpdateTask}
-            onArchiveTask={handleDeleteTaskInternal}
+            onArchiveTask={handleArchiveTaskInternal}
             onMoveTask={handleMoveTaskToWorkspace}
             addToast={addToast}
           />

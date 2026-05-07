@@ -46,6 +46,8 @@ interface StandardBoardViewProps {
   onEditTask: (task: Task) => void;
   onUpdateTask: (task: Task) => void;
   onDeleteTask: (taskId: string) => void;
+  selectedTaskIds?: Set<string>;
+  onToggleTaskSelection?: (taskId: string, shiftKey?: boolean) => void;
   getTasksByContext: (statusId: string, priorityId?: string) => Task[];
   onCopyTask?: (message: string) => void;
   projectName?: string;
@@ -78,6 +80,8 @@ const StandardBoardView: React.FC<StandardBoardViewProps> = ({
   onEditTask,
   onUpdateTask,
   onDeleteTask,
+  selectedTaskIds,
+  onToggleTaskSelection,
   getTasksByContext,
   onCopyTask,
   projectName,
@@ -117,9 +121,13 @@ const StandardBoardView: React.FC<StandardBoardViewProps> = ({
                   isCompact={isCompact}
                   onCopyTask={onCopyTask}
                   projectName={projectName}
+                  projects={projects}
+                  onMoveToWorkspace={onMoveToWorkspace}
                   isHighlighted={isHighlighted}
                   isFocusedColumn={isFocusedColumn}
                   focusedTaskId={focusedTaskId}
+                  selectedTaskIds={selectedTaskIds}
+                  onToggleTaskSelection={onToggleTaskSelection}
                 />
               );
             })}
@@ -150,6 +158,8 @@ const StandardBoardView: React.FC<StandardBoardViewProps> = ({
                 isCompact={isCompact}
                 projects={projects}
                 onMoveToWorkspace={onMoveToWorkspace}
+                isSelected={selectedTaskIds?.has(activeTask.id) ?? false}
+                onToggleSelect={onToggleTaskSelection}
               />
             </div>
           )}

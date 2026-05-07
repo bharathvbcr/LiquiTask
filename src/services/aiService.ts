@@ -392,8 +392,9 @@ When asked about tasks or files, use the provided tools. Be concise and professi
       }
     }
 
+    type GeminiStartChatParams = NonNullable<Parameters<typeof model.startChat>[0]>;
     const chat = model.startChat({
-      history: history as unknown as Parameters<typeof model.startChat>[0]["history"],
+      history: history as unknown as GeminiStartChatParams["history"],
     });
 
     const lastMessage = messages[messages.length - 1];
@@ -428,7 +429,7 @@ When asked about tasks or files, use the provided tools. Be concise and professi
 
     const result = await chat.sendMessage(sendContent as Parameters<typeof chat.sendMessage>[0]);
     const response = result.response;
-    const toolCalls = response.functionCalls ? response.functionCalls() : [];
+    const toolCalls = response.functionCalls?.() ?? [];
 
     return {
       content: response.text() || "",
@@ -543,7 +544,7 @@ Today's Date: ${new Date().toISOString()}`;
     const userMessage = `Instruction: "${input}"\n\nDraft to refine:\n${JSON.stringify(draft, null, 2)}`;
 
     try {
-      return await this.request(systemInstruction, userMessage);
+      return (await this.request(systemInstruction, userMessage)) as Partial<AITaskSchema>;
     } catch (e: unknown) {
       if (
         e instanceof Error &&
@@ -1191,7 +1192,10 @@ Tasks:\n${taskDetails}`;
 
     const workloadInfo = allTasks
       .filter((t) => t.dueDate && !t.completedAt)
-      .map((t) => `"${t.title}" due: ${new Date(t.dueDate).toLocaleDateString()}`)
+      .map((t) => {
+        const dueDate = t.dueDate;
+        return `"${t.title}" due: ${new Date(dueDate ?? t.createdAt).toLocaleDateString()}`;
+      })
       .join("\n");
 
     const prompt = `Suggest optimal due date for this task considering workload. Return JSON:

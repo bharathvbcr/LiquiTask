@@ -19,6 +19,8 @@ interface SortableTaskProps {
   projects?: Project[];
   onMoveToWorkspace?: (taskId: string, projectId: string) => void;
   isFocused?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (taskId: string, shiftKey?: boolean) => void;
 }
 
 export const SortableTask: React.FC<SortableTaskProps> = ({
@@ -28,6 +30,8 @@ export const SortableTask: React.FC<SortableTaskProps> = ({
   projects,
   onMoveToWorkspace,
   isFocused = false,
+  isSelected = false,
+  onToggleSelect,
   ...props
 }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -59,6 +63,8 @@ export const SortableTask: React.FC<SortableTaskProps> = ({
         projects={projects}
         onMoveToWorkspace={onMoveToWorkspace}
         isFocused={isFocused}
+        isSelected={isSelected}
+        onToggleSelect={onToggleSelect}
       />
     </div>
   );

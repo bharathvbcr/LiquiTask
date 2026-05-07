@@ -5,7 +5,7 @@ import { Tooltip } from "./Tooltip";
 export type ViewMode = "board" | "gantt" | "stats" | "calendar";
 
 interface ViewSwitcherProps {
-  currentView: "project" | "dashboard" | "gantt";
+  currentView: "project" | "dashboard" | "gantt" | "archive";
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
   isCompact?: boolean;

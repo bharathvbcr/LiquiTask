@@ -2,7 +2,7 @@
   "name": "liquitask",
   "productName": "LiquiTask",
   "private": true,
-  "version": "2.4.0",
+  "version": "2.4.1",
   "description": "A premium Kanban task management desktop app with a stunning liquid glass aesthetic",
   "author": {
     "name": "LiquidTask",
@@ -13,10 +13,11 @@
   "scripts": {
     "dev": "concurrently -k \"npm run dev:web\" \"npm run dev:electron\"",
     "dev:web": "vite",
-    "dev:electron": "wait-on tcp:4000 && tsc -p electron/tsconfig.json && cross-env NODE_ENV=development electron .",
+    "dev:electron": "wait-on tcp:4000 && tsgo -p electron/tsconfig.json && cross-env NODE_ENV=development electron .",
     "build": "npm run build:web && npm run build:electron && electron-builder",
     "build:web": "vite build",
-    "build:electron": "tsc -p electron/tsconfig.json",
+    "build:electron": "tsgo -p electron/tsconfig.json",
+    "typecheck": "tsgo --noEmit -p tsconfig.json && tsgo --noEmit -p electron/tsconfig.json",
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest --run",
@@ -39,6 +40,7 @@
     "zod": "^4.3.5"
   },
   "devDependencies": {
+    "@typescript/native-preview": "7.0.0-dev.20260421.2",
     "@biomejs/biome": "^2.4.6",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.4.0",
@@ -60,7 +62,7 @@
     "sharp": "^0.34.5",
     "svgo": "^4.0.1",
     "tailwindcss": "^3.4.0",
-    "typescript": "~5.8.2",
+    "typescript": "npm:@typescript/typescript6@6.0.0",
     "vite": "^7.3.1",
     "vite-plugin-image-optimizer": "^2.0.3",
     "vite-plugin-pwa": "^1.2.0",

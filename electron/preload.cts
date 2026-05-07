@@ -11,10 +11,18 @@ ipcRenderer.on("windowStateChanged", (_, { isMaximized }) => {
 });
 
 contextBridge.exposeInMainWorld("electronAPI", {
-  minimize: () => ipcRenderer.send("minimizeWindow"),
-  maximize: () => ipcRenderer.send("maximizeWindow"),
-  restore: () => ipcRenderer.send("restoreWindow"),
-  close: () => ipcRenderer.send("closeWindow"),
+  minimize: async () => {
+    ipcRenderer.send("minimizeWindow");
+  },
+  maximize: async () => {
+    ipcRenderer.send("maximizeWindow");
+  },
+  restore: async () => {
+    ipcRenderer.send("restoreWindow");
+  },
+  close: async () => {
+    ipcRenderer.send("closeWindow");
+  },
   isMaximized: () => ipcRenderer.invoke("isWindowMaximized"),
   onWindowStateChange: (callback: WindowStateListener) => {
     listeners.add(callback);
@@ -22,8 +30,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
       listeners.delete(callback);
     };
   },
-  showNotification: (options: { title: string; body: string; silent?: boolean }) =>
-    ipcRenderer.send("showNotification", options),
+  showNotification: async (options: { title: string; body: string; silent?: boolean }) => {
+    ipcRenderer.send("showNotification", options);
+  },
   storage: {
     get: (key: string) =>
       ipcRenderer.invoke("storageGet", key).catch((err) => {
@@ -72,7 +81,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
     searchFiles: (query: string, scopePaths?: string[]) =>
       ipcRenderer.invoke("searchWorkspaceFiles", query, scopePaths).catch((err) => {
         console.error("Failed to search workspace files:", err);
-        return [];
+        throw err;
       }),
   },
 });

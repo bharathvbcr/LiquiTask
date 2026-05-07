@@ -12,11 +12,17 @@ import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { useCallback, useState } from "react";
 import type { BoardColumn, Task } from "../../types";
 
-interface ActiveDrag {
-  type: "task" | "column";
-  id: string;
-  data: Task | BoardColumn;
-}
+type ActiveDrag =
+  | {
+      type: "task";
+      id: string;
+      data: Task;
+    }
+  | {
+      type: "column";
+      id: string;
+      data: BoardColumn;
+    };
 
 interface DropTarget {
   status: string;
@@ -191,7 +197,7 @@ export const useBoardDnDController = ({
       if (activeDrag.type === "column") {
         handleColumnReorder(activeDrag.id, overId);
       } else if (activeDrag.type === "task") {
-        handleTaskDrop(activeDrag.data as Task, overId);
+        handleTaskDrop(activeDrag.data, overId);
       }
 
       setActiveDrag(null);

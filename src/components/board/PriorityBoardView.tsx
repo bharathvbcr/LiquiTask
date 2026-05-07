@@ -44,6 +44,8 @@ interface PriorityBoardViewProps {
   onEditTask: (task: Task) => void;
   onUpdateTask: (task: Task) => void;
   onDeleteTask: (taskId: string) => void;
+  selectedTaskIds?: Set<string>;
+  onToggleTaskSelection?: (taskId: string, shiftKey?: boolean) => void;
   getTasksByContext: (statusId: string, priorityId?: string) => Task[];
   onCopyTask?: (message: string) => void;
   projectName?: string;
@@ -75,6 +77,8 @@ const PriorityBoardView: React.FC<PriorityBoardViewProps> = ({
   onEditTask,
   onUpdateTask,
   onDeleteTask,
+  selectedTaskIds,
+  onToggleTaskSelection,
   getTasksByContext,
   onCopyTask,
   projectName,
@@ -169,6 +173,8 @@ const PriorityBoardView: React.FC<PriorityBoardViewProps> = ({
                           projects={projects}
                           onMoveToWorkspace={onMoveToWorkspace}
                           isFocused={task.id === focusedTaskId}
+                          isSelected={selectedTaskIds?.has(task.id) ?? false}
+                          onToggleSelect={onToggleTaskSelection}
                         />
                       ))}
                     </SortableContext>
@@ -212,6 +218,8 @@ const PriorityBoardView: React.FC<PriorityBoardViewProps> = ({
                 projectName={projectName}
                 projects={projects}
                 onMoveToWorkspace={onMoveToWorkspace}
+                isSelected={selectedTaskIds?.has(activeTask.id) ?? false}
+                onToggleSelect={onToggleTaskSelection}
               />
             </div>
           )}

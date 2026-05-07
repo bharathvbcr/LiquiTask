@@ -97,6 +97,81 @@ describe("useTaskAssistant Hook", () => {
     expect(mockSearchFiles).toHaveBeenCalledWith("test", ["C:/workspace/project-a"]);
   });
 
+  it("resets loading state and shows actionable provider errors", async () => {
+    mockGenerateAgentResponse.mockRejectedValueOnce(new Error("Gemini API key is missing"));
+
+    const { result } = renderHook(() => useTaskAssistant(mockProps));
+
+    await act(async () => {
+      await result.current.sendMessage("Hello");
+    });
+
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.isSearching).toBe(false);
+    expect(result.current.messages).toHaveLength(2);
+    expect(result.current.messages[1].role).toBe("assistant");
+    expect(result.current.messages[1].status).toBe("error");
+    expect(result.current.messages[1].content).toContain("Gemini API key is missing");
+  });
+
+  it("stops repeated tool-call loops with a clear error", async () => {
+    mockGenerateAgentResponse.mockResolvedValue({
+      content: "",
+      toolCalls: [{ name: "search_workspace", args: { query: "loop" } }],
+    });
+    mockSearchFiles.mockResolvedValue([]);
+
+    const { result } = renderHook(() => useTaskAssistant(mockProps));
+
+    await act(async () => {
+      await result.current.sendMessage("Search forever");
+    });
+
+    const lastMessage = result.current.messages[result.current.messages.length - 1];
+
+    expect(mockGenerateAgentResponse).toHaveBeenCalledTimes(3);
+    expect(mockSearchFiles).toHaveBeenCalledTimes(2);
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.isSearching).toBe(false);
+    expect(lastMessage.role).toBe("assistant");
+    expect(lastMessage.status).toBe("error");
+    expect(lastMessage.content).toContain("repeated the same tool call");
+  });
+
+  it("ignores stale responses after the chat is cleared mid-request", async () => {
+    let resolveResponse: ((value: { content: string; toolCalls: never[] }) => void) | undefined;
+
+    mockGenerateAgentResponse.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveResponse = resolve;
+        }),
+    );
+
+    const { result } = renderHook(() => useTaskAssistant(mockProps));
+
+    let pendingSend: Promise<void> | undefined;
+
+    act(() => {
+      pendingSend = result.current.sendMessage("Hello");
+    });
+
+    expect(result.current.isLoading).toBe(true);
+
+    act(() => {
+      result.current.clearChat();
+    });
+
+    await act(async () => {
+      resolveResponse?.({ content: "Late response", toolCalls: [] });
+      await pendingSend;
+    });
+
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.isSearching).toBe(false);
+    expect(result.current.messages).toHaveLength(0);
+  });
+
   it("handles clearing chat", async () => {
     mockGenerateAgentResponse.mockResolvedValueOnce({
       content: "Response",

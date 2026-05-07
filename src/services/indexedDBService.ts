@@ -281,9 +281,10 @@ export class IndexedDBService {
    * Generic get all
    */
   private async getAll(storeName: string): Promise<unknown[]> {
-    if (!this.db) return [];
+    const db = this.db;
+    if (!db) return [];
     return new Promise((resolve, reject) => {
-      const transaction = this.db?.transaction([storeName], "readonly");
+      const transaction = db.transaction([storeName], "readonly");
       const store = transaction.objectStore(storeName);
       const request = store.getAll();
 
@@ -301,9 +302,10 @@ export class IndexedDBService {
    * Generic put
    */
   private async put(storeName: string, item: unknown): Promise<void> {
-    if (!this.db) return;
+    const db = this.db;
+    if (!db) return;
     return new Promise((resolve, reject) => {
-      const transaction = this.db?.transaction([storeName], "readwrite");
+      const transaction = db.transaction([storeName], "readwrite");
       const store = transaction.objectStore(storeName);
       const serialized = this.serializeDates(item);
       const request = store.put(serialized);
@@ -317,9 +319,10 @@ export class IndexedDBService {
    * Generic delete
    */
   private async delete(storeName: string, key: string): Promise<void> {
-    if (!this.db) return;
+    const db = this.db;
+    if (!db) return;
     return new Promise((resolve, reject) => {
-      const transaction = this.db?.transaction([storeName], "readwrite");
+      const transaction = db.transaction([storeName], "readwrite");
       const store = transaction.objectStore(storeName);
       const request = store.delete(key);
 

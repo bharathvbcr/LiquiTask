@@ -16,6 +16,7 @@ export const STORAGE_KEYS = {
   VIEW_MODE: "liquitask-view-mode",
   CURRENT_VIEW: "liquitask-current-view",
   COMMAND_HISTORY: "liquitask-command-history",
+  AUTOMATION_RULES: "liquitask-automation-rules",
   // Migration system keys
   DATA_VERSION: "liquitask-data-version",
   BACKUPS: "liquitask-backups",

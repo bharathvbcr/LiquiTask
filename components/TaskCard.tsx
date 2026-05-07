@@ -17,6 +17,7 @@ import {
   Lock,
   Paperclip,
   Pencil,
+  Square,
   Trash2,
 } from "lucide-react";
 import type React from "react";
@@ -29,6 +30,8 @@ import type { PriorityDefinition, Project, Task } from "../types";
 import { Tooltip } from "./Tooltip";
 
 const MarkdownRenderer = lazy(() => import("../src/components/MarkdownRenderer"));
+const TaskQuickView = lazy(() => import("../src/components/TaskQuickView"));
+const TimeTracker = lazy(() => import("../src/components/TimeTracker"));
 
 interface TaskCardProps {
   task: Task;
@@ -45,6 +48,8 @@ interface TaskCardProps {
   projects?: Project[];
   onMoveToWorkspace?: (taskId: string, projectId: string) => void;
   isFocused?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (taskId: string, shiftKey?: boolean) => void;
 }
 
 export const TaskCard: React.FC<TaskCardProps> = ({
@@ -62,8 +67,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   projects = [],
   onMoveToWorkspace,
   isFocused = false,
+  isSelected = false,
+  onToggleSelect,
 }) => {
   const [isSubtasksExpanded, setIsSubtasksExpanded] = useState(false);
+  const [quickViewPosition, setQuickViewPosition] = useState<{ x: number; y: number } | null>(null);
 
   const {
     contextMenuVisible,
@@ -110,10 +118,15 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   };
 
   const blockingTasks =
-    (task.links
+    task.links
       ?.filter((l) => l.type === "blocked-by")
       .map((l) => allTasks.find((t) => t.id === l.targetTaskId))
-      .filter((t) => t && t.status !== "Completed" && t.status !== "Delivered") as Task[]) || [];
+      .filter(
+        (linkedTask): linkedTask is Task =>
+          linkedTask !== undefined &&
+          linkedTask.status !== "Completed" &&
+          linkedTask.status !== "Delivered",
+      ) ?? [];
 
   const isBlocked = blockingTasks.length > 0;
   const blockerIds = blockingTasks.map((t) => t.jobId).join(", ");
@@ -128,12 +141,35 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           border border-white/10 hover:border-white/20
           ${isBlocked ? "border-l-2 border-l-red-500/50" : ""}
           ${isFocused ? "ring-2 ring-red-500/70 shadow-[0_0_20px_rgba(239,68,68,0.4)] scale-[1.02]" : ""}
+          ${isSelected ? "ring-2 ring-cyan-400/80 border-cyan-400/50 shadow-[0_0_24px_rgba(34,211,238,0.22)]" : ""}
           hover:shadow-lg hover:scale-[1.01]
         `}
       >
         {/* Header */}
         <div className={`flex justify-between items-center ${isCompact ? "mb-2" : "mb-3"}`}>
           <div className="flex items-center gap-2">
+            {onToggleSelect && (
+              <Tooltip content={isSelected ? "Deselect task" : "Select task"} position="top">
+                <button
+                  type="button"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onToggleSelect(task.id, e.shiftKey);
+                  }}
+                  aria-label={isSelected ? "Deselect task" : "Select task"}
+                  aria-pressed={isSelected}
+                  className={`flex h-7 w-7 items-center justify-center rounded-lg border transition-colors ${
+                    isSelected
+                      ? "border-cyan-400/70 bg-cyan-400/15 text-cyan-200"
+                      : "border-white/10 bg-black/30 text-slate-400 hover:text-white"
+                  }`}
+                >
+                  {isSelected ? <CheckSquare size={14} /> : <Square size={14} />}
+                </button>
+              </Tooltip>
+            )}
             <div
               className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-transparent"
               style={{
@@ -177,6 +213,18 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                   className="p-1.5 text-slate-400 hover:text-white rounded-md transition-colors"
                 >
                   <Pencil size={12} />
+                </button>
+              </Tooltip>
+              <Tooltip content="Quick view" position="top">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setQuickViewPosition({ x: e.clientX + 12, y: e.clientY + 12 });
+                  }}
+                  aria-label="Open task quick view"
+                  className="p-1.5 text-slate-400 hover:text-white rounded-md transition-colors"
+                >
+                  <Info size={12} />
                 </button>
               </Tooltip>
               <Tooltip content="Delete task" position="top">
@@ -366,6 +414,19 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             )}
 
             {/* Footer */}
+            <div className="mb-3">
+              <Suspense fallback={null}>
+                <TimeTracker
+                  task={task}
+                  isCompact={true}
+                  onSaveTime={(taskId, timeSpent) => {
+                    if (taskId === task.id) {
+                      onUpdateTask({ ...task, timeSpent, updatedAt: new Date() });
+                    }
+                  }}
+                />
+              </Suspense>
+            </div>
             <div className="flex items-center justify-between mt-auto pt-3 border-t border-white/5">
               <div className="flex items-center gap-2 text-xs">
                 <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-900 to-slate-800 flex items-center justify-center border border-white/10">
@@ -468,6 +529,20 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           </button>
         </div>
       )}
+      {quickViewPosition && (
+        <Suspense fallback={null}>
+          <TaskQuickView
+            task={task}
+            priorities={priorities}
+            position={quickViewPosition}
+            onClose={() => setQuickViewPosition(null)}
+            onOpenFull={(selectedTask) => {
+              setQuickViewPosition(null);
+              onEditTask(selectedTask);
+            }}
+          />
+        </Suspense>
+      )}
     </>
   );
 };
@@ -477,6 +552,7 @@ export const MemoizedTaskCard = memo(TaskCard, (prev, next) => {
     prev.task.id === next.task.id &&
     prev.task.updatedAt === next.task.updatedAt &&
     prev.isFocused === next.isFocused &&
+    prev.isSelected === next.isSelected &&
     prev.isCompact === next.isCompact
   );
 });

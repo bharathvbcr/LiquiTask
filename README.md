@@ -40,7 +40,7 @@ AI settings are managed in **Settings > AI Settings**. You can configure your pr
 ## Stack
 
 - React 19
-- TypeScript
+- TypeScript 7 beta (`tsgo`) with TypeScript 6 compatibility for tooling
 - Vite
 - Electron
 - Tailwind CSS
@@ -62,6 +62,7 @@ npm install
 ```
 
 Desktop Electron commands in this repo use the standard Electron CLI for development and packaging.
+The repo now uses the native TypeScript 7 beta compiler (`tsgo`) for app type-checking and Electron compilation.
 
 Run the desktop app with Electron:
 
@@ -90,16 +91,17 @@ Build only the renderer:
 npm run build:web
 ```
 
-Create a stable Electron package:
+Create a packaged Electron release:
 
 ```bash
-npm run package
+npm run build
 ```
 
-Electron outputs are written to:
+Build outputs are written to:
 
-- `build-electron/`
-- `artifacts-electron/`
+- `dist/` for the web renderer bundle
+- `dist-electron/` for the compiled Electron main/preload files
+- `release/` for packaged Electron installers/artifacts
 
 Those directories are generated build output and should not be committed.
 
@@ -115,6 +117,12 @@ Run coverage:
 
 ```bash
 npm run test:coverage
+```
+
+Run the TypeScript 7 beta checks:
+
+```bash
+npm run typecheck
 ```
 
 Lint:
