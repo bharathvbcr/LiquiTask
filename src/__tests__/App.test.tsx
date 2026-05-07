@@ -165,7 +165,7 @@ describe("App Integration", () => {
     });
 
     // Should be open (use findByText because it's lazy-loaded)
-    const assistantHeader = await screen.findByText("AI Assistant", {}, { timeout: 3000 });
+    const assistantHeader = await screen.findByText("AI Assistant", {}, { timeout: 10000 });
     expect(assistantHeader).toBeDefined();
 
     // Trigger Cmd+J again

@@ -2,7 +2,7 @@
   "name": "liquitask",
   "productName": "LiquiTask",
   "private": true,
-  "version": "2.4.1",
+  "version": "2.4.2",
   "description": "A premium Kanban task management desktop app with a stunning liquid glass aesthetic",
   "author": {
     "name": "LiquidTask",
@@ -89,6 +89,24 @@
           ]
         }
       ]
+    },
+    "mac": {
+      "icon": "build/icon.png",
+      "category": "public.app-category.productivity",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "dmg": {
+      "title": "${productName} ${version}",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,
