@@ -11,22 +11,23 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  NODE_OPTIONS: --no-deprecation
 
 jobs:
   build:
     runs-on: windows-2025-vs2026
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --loglevel=error --fund=false
 
       - name: Run Type Check
         run: npm run typecheck
