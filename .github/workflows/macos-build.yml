@@ -17,10 +17,10 @@ jobs:
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
@@ -38,7 +38,7 @@ jobs:
         run: npm run build:mac
 
       - name: Upload macOS DMGs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: liquitask-macos-dmgs
           path: release/*.dmg
