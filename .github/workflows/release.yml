@@ -36,7 +36,7 @@ jobs:
             release-files: release/*.exe
           - name: macOS
             os: macos-latest
-            package-command: npm run build:web && npm run build:electron && npx electron-builder --mac dmg --x64 --arm64
+            package-command: npm run build:mac
             artifact-name: liquitask-release-macos
             artifact-path: release/*.dmg
             release-files: release/*.dmg
@@ -76,7 +76,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Install dependencies
         run: npm ci

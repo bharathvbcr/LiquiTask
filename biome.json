@@ -49,6 +49,7 @@
       "!build",
       "!build-electrobun",
       "!release",
+      "!.gitnexus",
       "!.worktrees"
     ]
   },
