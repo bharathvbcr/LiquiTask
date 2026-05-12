@@ -43,6 +43,9 @@ jobs:
             release-files: release/*.dmg
 
     steps:
+      - name: Configure git default branch
+        run: git config --global init.defaultBranch main
+
       - name: Checkout source
         uses: actions/checkout@v6
         with:

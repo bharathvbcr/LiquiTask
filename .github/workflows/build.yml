@@ -18,6 +18,9 @@ jobs:
     runs-on: windows-2025-vs2026
 
     steps:
+      - name: Configure git default branch
+        run: git config --global init.defaultBranch main
+
       - uses: actions/checkout@v6
 
       - name: Setup Node.js

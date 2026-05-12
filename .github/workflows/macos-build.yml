@@ -17,6 +17,9 @@ jobs:
     runs-on: macos-latest
 
     steps:
+      - name: Configure git default branch
+        run: git config --global init.defaultBranch main
+
       - name: Checkout source
         uses: actions/checkout@v6
 
