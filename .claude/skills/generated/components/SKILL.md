@@ -1,11 +1,11 @@
 ---
 name: components
-description: "Skill for the Components area of LiquiTask. 142 symbols across 39 files."
+description: "Skill for the Components area of LiquiTask. 137 symbols across 38 files."
 ---
 
 # Components
 
-142 symbols | 39 files | Cohesion: 85%
+137 symbols | 38 files | Cohesion: 86%
 
 ## When to Use
 
@@ -17,13 +17,13 @@ description: "Skill for the Components area of LiquiTask. 142 symbols across 39 
 
 | File | Symbols |
 |------|---------|
-| `components/TaskFormModal.tsx` | TaskFormModal, handleAddSubtask, handleUpdateSubtask, handleRemoveSubtask, toggleSubtask (+9) |
+| `components/TaskFormModal.tsx` | TaskFormModal, handleAddSubtask, handleUpdateSubtask, handleRemoveSubtask, toggleSubtask (+8) |
 | `src/components/CommandPalette.tsx` | sortCandidates, groupByCategory, CommandPalette, getCategoryIcon, getCategoryLabel (+6) |
-| `src/components/CalendarView.tsx` | normalizeDate, getDateKey, CalendarView, handleAiSchedule, navigate (+4) |
+| `src/components/CalendarView.tsx` | CalendarView, navigate, isToday, isCurrentMonth, getPriorityColor (+4) |
 | `src/components/AutoOrganizePanel.tsx` | applyPendingChanges, AutoOrganizePanel, toggleExpand, renderPreviewTab, renderHistoryTab (+3) |
 | `src/components/InlineEditable.tsx` | handleSave, handleCancel, handleKeyDown, handleBlur, InlineSelect (+3) |
-| `src/services/aiService.ts` | analyzeRedundancy, getOrganizeHistory, saveOrganizeHistory, refineTaskDraft, generateSubtasks (+2) |
 | `src/components/FilterBuilder.tsx` | genId, updateGroup, addRule, addGroup, removeRuleOrGroup (+2) |
+| `src/services/aiService.ts` | refineTaskDraft, suggestMetadata, analyzeRedundancy, getOrganizeHistory, saveOrganizeHistory (+1) |
 | `src/components/AIReorganizeModal.tsx` | AIReorganizeModal, toggleApproval, updateProjectName, applyApprovedClusters, getRandomColor |
 | `src/components/SkeletonLoader.tsx` | getSkeletonKeys, SkeletonSidebar, SkeletonDashboardStats, SkeletonList, SkeletonLoader |
 | `src/components/QuickAddBar.tsx` | handlePaste, parseQuickTask, QuickAddBar, handleSubmit |
@@ -58,10 +58,10 @@ Start here when exploring this area:
 | `handleUpdateSubtask` | Function | `components/TaskFormModal.tsx` | 225 |
 | `handleRemoveSubtask` | Function | `components/TaskFormModal.tsx` | 229 |
 | `toggleSubtask` | Function | `components/TaskFormModal.tsx` | 233 |
+| `handleSuggestMetadata` | Function | `components/TaskFormModal.tsx` | 281 |
+| `handleAiRefine` | Function | `components/TaskFormModal.tsx` | 316 |
 | `handleAddLink` | Function | `components/TaskFormModal.tsx` | 487 |
 | `handleRemoveAttachment` | Function | `components/TaskFormModal.tsx` | 517 |
-| `handleRemoveTaskLink` | Function | `components/TaskFormModal.tsx` | 534 |
-| `buildPreviewTask` | Function | `components/TaskFormModal.tsx` | 572 |
 
 ## Execution Flows
 

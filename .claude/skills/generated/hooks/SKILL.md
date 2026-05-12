@@ -1,11 +1,11 @@
 ---
 name: hooks
-description: "Skill for the Hooks area of LiquiTask. 35 symbols across 19 files."
+description: "Skill for the Hooks area of LiquiTask. 30 symbols across 15 files."
 ---
 
 # Hooks
 
-35 symbols | 19 files | Cohesion: 89%
+30 symbols | 15 files | Cohesion: 87%
 
 ## When to Use
 
@@ -21,12 +21,12 @@ description: "Skill for the Hooks area of LiquiTask. 35 symbols across 19 files.
 | `src/services/searchIndexService.ts` | updateTask, removeTask, removeFromMap, addTask, addToIndex |
 | `src/hooks/useSavedViews.ts` | useSavedViews, getDefaultViews, getWeekStart, getWeekEnd |
 | `src/hooks/useTimer.ts` | useTimer, formatMinutes, secondsToMinutes |
-| `src/components/board/PriorityBoardView.tsx` | getDropZoneId, PriorityBoardView |
 | `src/components/TimeTracker.tsx` | TimeTracker, handleSave |
-| `App.tsx` | getTasksByContext |
+| `src/components/TaskQuickView.tsx` | TaskQuickView |
 | `src/hooks/useBulkSelection.ts` | useBulkSelection |
 | `src/hooks/useBoardKeyboardNav.ts` | useBoardKeyboardNav |
-| `src/hooks/useBoardDnDController.ts` | useBoardDnDController |
+| `src/components/ProjectBoard.tsx` | ProjectBoard |
+| `src/utils/taskToJson.ts` | taskToJson |
 
 ## Entry Points
 
@@ -34,9 +34,9 @@ Start here when exploring this area:
 
 - **`removeFromMap`** (Function) — `src/services/searchIndexService.ts:205`
 - **`useTaskAssistant`** (Function) — `src/hooks/useTaskAssistant.ts:93`
-- **`isCurrentRun`** (Function) — `src/hooks/useTaskAssistant.ts:222`
-- **`useBulkSelection`** (Function) — `src/hooks/useBulkSelection.ts:19`
-- **`useBoardKeyboardNav`** (Function) — `src/hooks/useBoardKeyboardNav.ts:35`
+- **`isCurrentRun`** (Function) — `src/hooks/useTaskAssistant.ts:256`
+- **`useTimer`** (Function) — `src/hooks/useTimer.ts:19`
+- **`formatMinutes`** (Function) — `src/hooks/useTimer.ts:128`
 
 ## Key Symbols
 
@@ -44,11 +44,7 @@ Start here when exploring this area:
 |--------|------|------|------|
 | `removeFromMap` | Function | `src/services/searchIndexService.ts` | 205 |
 | `useTaskAssistant` | Function | `src/hooks/useTaskAssistant.ts` | 93 |
-| `isCurrentRun` | Function | `src/hooks/useTaskAssistant.ts` | 222 |
-| `useBulkSelection` | Function | `src/hooks/useBulkSelection.ts` | 19 |
-| `useBoardKeyboardNav` | Function | `src/hooks/useBoardKeyboardNav.ts` | 35 |
-| `useBoardDnDController` | Function | `src/hooks/useBoardDnDController.ts` | 47 |
-| `ProjectBoard` | Function | `src/components/ProjectBoard.tsx` | 65 |
+| `isCurrentRun` | Function | `src/hooks/useTaskAssistant.ts` | 256 |
 | `useTimer` | Function | `src/hooks/useTimer.ts` | 19 |
 | `formatMinutes` | Function | `src/hooks/useTimer.ts` | 128 |
 | `secondsToMinutes` | Function | `src/hooks/useTimer.ts` | 139 |
@@ -56,12 +52,16 @@ Start here when exploring this area:
 | `handleSave` | Function | `src/components/TimeTracker.tsx` | 29 |
 | `TaskQuickView` | Function | `src/components/TaskQuickView.tsx` | 13 |
 | `useSavedViews` | Function | `src/hooks/useSavedViews.ts` | 7 |
+| `useBulkSelection` | Function | `src/hooks/useBulkSelection.ts` | 19 |
+| `useBoardKeyboardNav` | Function | `src/hooks/useBoardKeyboardNav.ts` | 35 |
+| `ProjectBoard` | Function | `src/components/ProjectBoard.tsx` | 65 |
+| `taskToJson` | Function | `src/utils/taskToJson.ts` | 6 |
+| `useTaskCardContextMenu` | Function | `src/hooks/useTaskCardContextMenu.ts` | 11 |
 | `useVirtualTaskList` | Function | `src/hooks/useVirtualScroll.ts` | 8 |
 | `SortableColumn` | Function | `src/components/board/SortableColumn.tsx` | 30 |
-| `useTaskCardContextMenu` | Function | `src/hooks/useTaskCardContextMenu.ts` | 11 |
-| `taskToJson` | Function | `src/utils/taskToJson.ts` | 6 |
 | `useFocusTrap` | Function | `src/hooks/useFocusTrap.ts` | 12 |
 | `Modal` | Function | `src/components/common/Modal.tsx` | 16 |
+| `updateTask` | Method | `src/services/searchIndexService.ts` | 194 |
 
 ## Execution Flows
 
