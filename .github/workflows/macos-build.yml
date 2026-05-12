@@ -38,7 +38,7 @@ jobs:
         run: npm run build:mac
 
       - name: Upload macOS DMGs
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: liquitask-macos-dmgs
           path: release/*.dmg
