@@ -25,6 +25,7 @@ import { indexedDBService } from "./src/services/indexedDBService";
 import storageService from "./src/services/storageService";
 import type { FilterGroup } from "./src/types/queryTypes";
 import { debounce } from "./src/utils/debounce";
+import { buildTaskContextIndex, getTasksFromContextIndex } from "./src/utils/taskContextIndex";
 import { filterTasksBySearch } from "./src/utils/taskSearch";
 import type {
   ActivityItem,
@@ -559,17 +560,27 @@ const App: React.FC = () => {
   const { views, activeViewId, createView, applyView, deleteView } = useSavedViews();
 
   // Task Filtering (needed by AI handlers)
-  // Pre-calculate project hierarchy for fast filtering (Optimization similar to Pydantic V2 indexing)
+  // Pre-calculate project hierarchy for fast workspace filtering.
   const descendantProjectsMap = useMemo(() => {
-    const map = new Map<string, Set<string>>();
+    const descendantsByProject = new Map<string, Set<string>>();
+    const childrenByParent = new Map<string, Project[]>();
 
-    // Helper to get all descendants for a project
+    for (const project of projects) {
+      if (!project.parentId) continue;
+      const siblings = childrenByParent.get(project.parentId);
+      if (siblings) {
+        siblings.push(project);
+      } else {
+        childrenByParent.set(project.parentId, [project]);
+      }
+    }
+
     const getDescendants = (id: string): Set<string> => {
-      const existingDescendants = map.get(id);
+      const existingDescendants = descendantsByProject.get(id);
       if (existingDescendants) return existingDescendants;
 
       const descendants = new Set<string>();
-      const children = projects.filter((p) => p.parentId === id);
+      const children = childrenByParent.get(id) ?? [];
 
       for (const child of children) {
         descendants.add(child.id);
@@ -579,7 +590,7 @@ const App: React.FC = () => {
         }
       }
 
-      map.set(id, descendants);
+      descendantsByProject.set(id, descendants);
       return descendants;
     };
 
@@ -587,7 +598,7 @@ const App: React.FC = () => {
       getDescendants(project.id);
     }
 
-    return map;
+    return descendantsByProject;
   }, [projects]);
 
   const filteredTasks = useMemo(() => {
@@ -1219,13 +1230,16 @@ const App: React.FC = () => {
     return count;
   }, [filters, activeFilterGroup]);
 
-  const getTasksByContext = (statusId: string, priorityId?: string) => {
-    return currentProjectTasks
-      .filter(
-        (task) => task.status === statusId && (priorityId ? task.priority === priorityId : true),
-      )
-      .sort((a, b) => (a.order ?? a.createdAt.getTime()) - (b.order ?? b.createdAt.getTime()));
-  };
+  const taskContextIndex = useMemo(
+    () => buildTaskContextIndex(currentProjectTasks),
+    [currentProjectTasks],
+  );
+
+  const getTasksByContext = useCallback(
+    (statusId: string, priorityId?: string) =>
+      getTasksFromContextIndex(taskContextIndex, statusId, priorityId),
+    [taskContextIndex],
+  );
 
   const handleUpdateColumns = (newColumns: BoardColumn[]) => {
     if (!Array.isArray(newColumns)) return;

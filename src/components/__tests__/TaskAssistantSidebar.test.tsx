@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TaskAssistantSidebar } from "../TaskAssistantSidebar";
 
@@ -14,6 +14,11 @@ describe("TaskAssistantSidebar Component", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    Object.defineProperty(window, "electronAPI", {
+      configurable: true,
+      writable: true,
+      value: undefined,
+    });
     // Mock scrollIntoView
     window.HTMLElement.prototype.scrollIntoView = vi.fn();
   });
@@ -85,5 +90,34 @@ describe("TaskAssistantSidebar Component", () => {
     render(<TaskAssistantSidebar {...defaultProps} messages={messages} />);
     expect(screen.getByText("Tell me more")).toBeDefined();
     expect(screen.getByText("What's next?")).toBeDefined();
+  });
+
+  it("shows global workspace context when the active project has no linked folders", async () => {
+    Object.defineProperty(window, "electronAPI", {
+      configurable: true,
+      writable: true,
+      value: {
+        workspace: {
+          getPaths: vi.fn().mockResolvedValue(["C:/repos/liquitask"]),
+          selectDirectory: vi.fn(),
+          setPaths: vi.fn(),
+          readFile: vi.fn(),
+          writeFile: vi.fn(),
+          searchFiles: vi.fn(),
+        },
+      },
+    });
+
+    render(
+      <TaskAssistantSidebar
+        {...defaultProps}
+        activeProject={{ id: "project-1", name: "Compiler Work", type: "default" }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Global Context:")).toBeInTheDocument();
+    });
+    expect(screen.getByText("liquitask")).toBeInTheDocument();
   });
 });

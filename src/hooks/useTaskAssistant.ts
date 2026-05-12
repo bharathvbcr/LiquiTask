@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AIContext, AssistantMessage, Task, ToolCall } from "../../types";
 import { aiService } from "../services/aiService";
 
@@ -102,7 +102,41 @@ export const useTaskAssistant = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [activeTool, setActiveTool] = useState<string | null>(null);
+  const [globalWorkspacePaths, setGlobalWorkspacePaths] = useState<string[]>([]);
   const runIdRef = useRef(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    window.electronAPI?.workspace
+      ?.getPaths()
+      .then((paths) => {
+        if (!cancelled) {
+          setGlobalWorkspacePaths(Array.isArray(paths) ? paths : []);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setGlobalWorkspacePaths([]);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const effectiveWorkspacePaths = useMemo(() => {
+    const projectPaths = context.workspacePaths ?? [];
+    return projectPaths.length > 0 ? projectPaths : globalWorkspacePaths;
+  }, [context.workspacePaths, globalWorkspacePaths]);
+
+  const effectiveContext = useMemo(
+    () => ({
+      ...context,
+      workspacePaths: effectiveWorkspacePaths,
+    }),
+    [context, effectiveWorkspacePaths],
+  );
 
   type ToolExecutionResult = {
     success?: boolean;
@@ -122,7 +156,7 @@ export const useTaskAssistant = ({
         path?: string;
         content?: string;
       };
-      const scopePaths = context.workspacePaths ?? [];
+      const scopePaths = effectiveContext.workspacePaths ?? [];
       setActiveTool(name);
       const workspaceApi = window.electronAPI?.workspace;
 
@@ -159,7 +193,7 @@ export const useTaskAssistant = ({
             if (scopePaths.length === 0) {
               return {
                 error:
-                  "No workspace folders are linked to this project. Use the folder button in the AI sidebar to link one.",
+                  "No workspace folders are available. Use the folder button in the AI sidebar to link one.",
               };
             }
             setIsSearching(true);
@@ -180,7 +214,7 @@ export const useTaskAssistant = ({
             if (scopePaths.length === 0) {
               return {
                 error:
-                  "No workspace folders are linked to this project. Use the folder button in the AI sidebar to link one.",
+                  "No workspace folders are available. Use the folder button in the AI sidebar to link one.",
               };
             }
             const content = await workspaceApi.readFile(toolArgs.path, scopePaths);
@@ -197,7 +231,7 @@ export const useTaskAssistant = ({
             if (scopePaths.length === 0) {
               return {
                 error:
-                  "No workspace folders are linked to this project. Use the folder button in the AI sidebar to link one.",
+                  "No workspace folders are available. Use the folder button in the AI sidebar to link one.",
               };
             }
             await workspaceApi.writeFile(toolArgs.path, toolArgs.content, scopePaths);
@@ -213,7 +247,7 @@ export const useTaskAssistant = ({
         setActiveTool(null);
       }
     },
-    [context, addTask, updateTask, searchTasks],
+    [effectiveContext.workspacePaths, addTask, updateTask, searchTasks],
   );
 
   const sendMessage = useCallback(
@@ -249,7 +283,7 @@ export const useTaskAssistant = ({
           let response: Awaited<ReturnType<typeof aiService.generateAgentResponse>>;
           try {
             response = await withTimeout(
-              aiService.generateAgentResponse(currentConversation, context, allTasks),
+              aiService.generateAgentResponse(currentConversation, effectiveContext, allTasks),
               AI_RESPONSE_TIMEOUT_MS,
               `The AI assistant timed out after ${Math.floor(AI_RESPONSE_TIMEOUT_MS / 1000)} seconds.`,
             );
@@ -347,7 +381,7 @@ export const useTaskAssistant = ({
         }
       }
     },
-    [allTasks, context, executeTool, isLoading, messages],
+    [allTasks, effectiveContext, executeTool, isLoading, messages],
   );
 
   const clearChat = useCallback(() => {

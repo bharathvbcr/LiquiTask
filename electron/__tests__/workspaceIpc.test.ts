@@ -30,6 +30,19 @@ const resolveWorkspaceScope = (authorizedPaths: string[], requestedScopePaths?: 
   return requestedScopePaths.filter((scopePath) => isPathAuthorized(scopePath, authorizedPaths));
 };
 
+const SUPPORTED_WORKSPACE_FILE_EXTENSIONS = new Set([".json", ".md", ".py", ".ts", ".tsx"]);
+const SUPPORTED_WORKSPACE_FILE_NAMES = new Set([".gitignore", "dockerfile", "makefile"]);
+const SKIPPED_WORKSPACE_DIR_NAMES = new Set([".git", "build", "dist", "node_modules", "release"]);
+
+const isWorkspaceTextFile = (filePath: string): boolean => {
+  const fileName = path.basename(filePath).toLowerCase();
+  if (SUPPORTED_WORKSPACE_FILE_NAMES.has(fileName)) return true;
+  return SUPPORTED_WORKSPACE_FILE_EXTENSIONS.has(path.extname(fileName));
+};
+
+const isSkippedWorkspaceDirectory = (dirName: string): boolean =>
+  SKIPPED_WORKSPACE_DIR_NAMES.has(dirName.toLowerCase());
+
 const isPathAuthorizedForScope = (
   filePath: string,
   authorizedPaths: string[],
@@ -118,5 +131,27 @@ describe("Workspace IPC Path Authorization", () => {
         ["/workspace/private"],
       ),
     ).toBe(false);
+  });
+
+  it("allows common source and project text files in workspace tools", () => {
+    expect(isWorkspaceTextFile("/workspace/app/src/App.tsx")).toBe(true);
+    expect(isWorkspaceTextFile("/workspace/app/scripts/migrate.py")).toBe(true);
+    expect(isWorkspaceTextFile("/workspace/app/package.json")).toBe(true);
+    expect(isWorkspaceTextFile("/workspace/app/.gitignore")).toBe(true);
+    expect(isWorkspaceTextFile("/workspace/app/Dockerfile")).toBe(true);
+  });
+
+  it("blocks binary and secret-like files from workspace tools", () => {
+    expect(isWorkspaceTextFile("/workspace/app/.env")).toBe(false);
+    expect(isWorkspaceTextFile("/workspace/app/cert.pem")).toBe(false);
+    expect(isWorkspaceTextFile("/workspace/app/screenshot.png")).toBe(false);
+    expect(isWorkspaceTextFile("/workspace/app/archive.zip")).toBe(false);
+  });
+
+  it("skips generated and dependency directories during workspace search", () => {
+    expect(isSkippedWorkspaceDirectory("node_modules")).toBe(true);
+    expect(isSkippedWorkspaceDirectory(".git")).toBe(true);
+    expect(isSkippedWorkspaceDirectory("dist")).toBe(true);
+    expect(isSkippedWorkspaceDirectory("src")).toBe(false);
   });
 });

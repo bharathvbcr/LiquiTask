@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 import type React from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AssistantMessage, Project } from "../../types";
 import MarkdownRenderer from "./MarkdownRenderer";
 
@@ -56,6 +56,8 @@ export const TaskAssistantSidebar: React.FC<TaskAssistantSidebarProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const projectPaths = activeProject?.workspacePaths ?? [];
+  const effectiveContextPaths = projectPaths.length > 0 ? projectPaths : globalPaths;
+  const contextLabel = projectPaths.length > 0 ? "In Context:" : "Global Context:";
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -112,7 +114,10 @@ export const TaskAssistantSidebar: React.FC<TaskAssistantSidebarProps> = ({
     );
   };
 
-  const unlinkedGlobalPaths = globalPaths.filter((p) => !projectPaths.includes(p));
+  const unlinkedGlobalPaths = useMemo(
+    () => globalPaths.filter((p) => !projectPaths.includes(p)),
+    [globalPaths, projectPaths],
+  );
 
   const SUGGESTIONS = ["Tell me more", "Explain this", "What's next?", "Show blockers"];
 
@@ -255,12 +260,12 @@ export const TaskAssistantSidebar: React.FC<TaskAssistantSidebarProps> = ({
         )}
 
         {/* Active Context Indicator (when panel is closed) */}
-        {!showPathPanel && projectPaths.length > 0 && (
+        {!showPathPanel && effectiveContextPaths.length > 0 && (
           <div className="px-6 py-3 border-b border-white/5 flex items-center gap-2 flex-wrap bg-white/[0.01]">
             <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold shrink-0">
-              In Context:
+              {contextLabel}
             </span>
-            {projectPaths.map((p) => (
+            {effectiveContextPaths.map((p) => (
               <span
                 key={p}
                 className="flex items-center gap-1.5 px-2.5 py-1 bg-red-500/5 border border-red-500/10 rounded-lg text-[10px] text-red-400/80 font-mono truncate max-w-[140px] hover:border-red-500/30 transition-colors cursor-default"

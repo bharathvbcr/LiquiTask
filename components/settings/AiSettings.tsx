@@ -509,8 +509,8 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
             <h4 className="text-sm font-bold text-white">Workspace Integration</h4>
           </div>
           <p className="text-[10px] text-slate-500 mb-2">
-            Allow the AI to read and write .md files in these directories for external task
-            tracking.
+            Allow the AI to read and write supported text and source-code files in these
+            directories.
             <span className="ml-1 text-cyan-500/70 italic">Saves automatically.</span>
           </p>
 

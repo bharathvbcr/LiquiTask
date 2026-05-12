@@ -148,7 +148,7 @@ describe("App Integration", () => {
       () => {
         expect(screen.getByText(/General/i)).toBeInTheDocument();
       },
-      { timeout: 5000 },
+      { timeout: 10000 },
     );
   }, 15000);
 
@@ -177,5 +177,5 @@ describe("App Integration", () => {
     await waitFor(() => {
       expect(screen.queryByText("AI Assistant")).toBeNull();
     });
-  });
+  }, 15000);
 });

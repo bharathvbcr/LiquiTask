@@ -11,13 +11,14 @@ import {
   TrendingUp,
 } from "lucide-react";
 import type React from "react";
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { CalendarView } from "../src/components/CalendarView";
 import GanttView from "../src/components/GanttView";
 import ProjectBoard from "../src/components/ProjectBoard";
 import type { ViewMode } from "../src/components/ViewSwitcher";
 import { ViewTransition } from "../src/components/ViewTransition";
+import { buildTaskContextIndex, getTasksFromContextIndex } from "../src/utils/taskContextIndex";
 import type {
   AISuggestion,
   BoardColumn,
@@ -82,63 +83,74 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [internalViewMode, setInternalViewMode] = useState<ViewMode>("stats");
   const viewMode = externalViewMode !== undefined ? externalViewMode : internalViewMode;
   const setViewMode = onViewModeChange || setInternalViewMode;
-  const getTaskPriorityLevel = (task: Task) => {
-    const p = priorities.find((p) => p.id === task.priority);
-    return p ? p.level : 99;
-  };
+  const priorityLevelById = useMemo(
+    () => new Map(priorities.map((priority) => [priority.id, priority.level])),
+    [priorities],
+  );
 
-  const highPriorityTasks = tasks
-    .filter((t) => {
-      const level = getTaskPriorityLevel(t);
-      return level <= 2 && t.status !== "Delivered" && t.status !== "Completed";
-    })
-    .sort((a, b) => {
-      const levelA = getTaskPriorityLevel(a);
-      const levelB = getTaskPriorityLevel(b);
-      // Sort by priority level (ascending - lower level = higher priority)
-      if (levelA !== levelB) {
-        return levelA - levelB;
+  const projectNameById = useMemo(
+    () => new Map(projects.map((project) => [project.id, project.name])),
+    [projects],
+  );
+
+  const getProjectName = useCallback(
+    (id: string) => projectNameById.get(id) || "Unknown Project",
+    [projectNameById],
+  );
+
+  const { highPriorityTasks, upcomingTasks, stats } = useMemo(() => {
+    const now = new Date();
+    let active = 0;
+    let completed = 0;
+    const highPriority: Task[] = [];
+    const upcoming: Task[] = [];
+
+    for (const task of tasks) {
+      const isDelivered = task.status === "Delivered";
+      const isCompleted = task.status === "Completed";
+      const priorityLevel = priorityLevelById.get(task.priority) ?? 99;
+
+      if (!isDelivered) active += 1;
+      if (isDelivered) completed += 1;
+      if (priorityLevel <= 2 && !isDelivered && !isCompleted) {
+        highPriority.push(task);
       }
-      // If same priority, sort by due date (earlier dates first)
+
+      if (task.dueDate && !isDelivered) {
+        const due = new Date(task.dueDate);
+        const diffDays = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        if (diffDays >= 0 && diffDays <= 3) {
+          upcoming.push(task);
+        }
+      }
+    }
+
+    const compareByPriorityThenDueDate = (a: Task, b: Task) => {
+      const levelA = priorityLevelById.get(a.priority) ?? 99;
+      const levelB = priorityLevelById.get(b.priority) ?? 99;
+      if (levelA !== levelB) return levelA - levelB;
       if (a.dueDate && b.dueDate) {
         return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
       }
       if (a.dueDate) return -1;
       if (b.dueDate) return 1;
       return 0;
-    });
+    };
 
-  const upcomingTasks = tasks
-    .filter((t) => {
-      if (!t.dueDate || t.status === "Delivered") return false;
-      const today = new Date();
-      const due = new Date(t.dueDate);
-      const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-      return diffDays >= 0 && diffDays <= 3;
-    })
-    .sort((a, b) => {
-      // First sort by priority level (ascending - lower level = higher priority)
-      const levelA = getTaskPriorityLevel(a);
-      const levelB = getTaskPriorityLevel(b);
-      if (levelA !== levelB) {
-        return levelA - levelB;
-      }
-      // Then sort by due date (earlier dates first)
-      if (a.dueDate && b.dueDate) {
-        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
-      }
-      return 0;
-    });
+    highPriority.sort(compareByPriorityThenDueDate);
+    upcoming.sort(compareByPriorityThenDueDate);
 
-  const stats = {
-    total: tasks.length,
-    active: tasks.filter((t) => t.status !== "Delivered").length,
-    high: highPriorityTasks.length,
-    completed: tasks.filter((t) => t.status === "Delivered").length,
-  };
-
-  const getProjectName = (id: string) =>
-    projects.find((p) => p.id === id)?.name || "Unknown Project";
+    return {
+      highPriorityTasks: highPriority,
+      upcomingTasks: upcoming,
+      stats: {
+        total: tasks.length,
+        active,
+        high: highPriority.length,
+        completed,
+      },
+    };
+  }, [tasks, priorityLevelById]);
 
   const handleAddTask = (date: Date) => {
     if (onCreateTask) {
@@ -167,27 +179,27 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
   };
 
-  // Helper function for Board/Gantt views
-  const getTasksByContextDefault = (statusId: string, priorityId?: string) => {
-    return tasks
-      .filter((task) => {
-        const statusMatch = task.status === statusId;
-        const priorityMatch = priorityId ? task.priority === priorityId : true;
-        return statusMatch && priorityMatch;
-      })
-      .sort((a, b) => {
-        const orderA = a.order ?? a.createdAt.getTime();
-        const orderB = b.order ?? b.createdAt.getTime();
-        return orderA - orderB;
-      });
-  };
+  const activeProject = useMemo(
+    () =>
+      projects.find((p) => p.id === activeProjectId) ||
+      projects[0] || { name: "All Projects", id: "" },
+    [activeProjectId, projects],
+  );
+  const currentProjectTasks = useMemo(
+    () => (activeProjectId ? tasks.filter((t) => t.projectId === activeProjectId) : tasks),
+    [activeProjectId, tasks],
+  );
+  const defaultTaskContextIndex = useMemo(
+    () => buildTaskContextIndex(currentProjectTasks),
+    [currentProjectTasks],
+  );
+  const getTasksByContextDefault = useCallback(
+    (statusId: string, priorityId?: string) =>
+      getTasksFromContextIndex(defaultTaskContextIndex, statusId, priorityId),
+    [defaultTaskContextIndex],
+  );
 
   const effectiveGetTasksByContext = getTasksByContext || getTasksByContextDefault;
-  const activeProject = projects.find((p) => p.id === activeProjectId) ||
-    projects[0] || { name: "All Projects", id: "" };
-  const currentProjectTasks = activeProjectId
-    ? tasks.filter((t) => t.projectId === activeProjectId)
-    : tasks;
 
   return (
     <div className="h-full w-full space-y-6 flex flex-col">

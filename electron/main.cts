@@ -6,6 +6,83 @@ const DEFAULT_DEV_SERVER_URL = "http://localhost:4000";
 const APP_NAME = "LiquiTask";
 const MAX_WORKSPACE_SEARCH_RESULTS = 20;
 const MAX_WORKSPACE_FILE_SIZE_BYTES = 256 * 1024;
+const SUPPORTED_WORKSPACE_FILE_EXTENSIONS = new Set([
+  ".c",
+  ".cc",
+  ".cpp",
+  ".cs",
+  ".css",
+  ".cts",
+  ".astro",
+  ".cfg",
+  ".conf",
+  ".dart",
+  ".go",
+  ".gradle",
+  ".gql",
+  ".graphql",
+  ".h",
+  ".hpp",
+  ".html",
+  ".java",
+  ".js",
+  ".json",
+  ".jsonc",
+  ".jsx",
+  ".kt",
+  ".kts",
+  ".less",
+  ".log",
+  ".lua",
+  ".md",
+  ".mdx",
+  ".mjs",
+  ".mts",
+  ".php",
+  ".properties",
+  ".ps1",
+  ".py",
+  ".r",
+  ".rb",
+  ".rs",
+  ".sass",
+  ".scala",
+  ".scss",
+  ".sh",
+  ".sql",
+  ".svelte",
+  ".swift",
+  ".toml",
+  ".ts",
+  ".tsx",
+  ".txt",
+  ".vue",
+  ".xml",
+  ".yaml",
+  ".yml",
+]);
+const SUPPORTED_WORKSPACE_FILE_NAMES = new Set([
+  ".dockerignore",
+  ".gitignore",
+  "dockerfile",
+  "makefile",
+  "procfile",
+]);
+const SKIPPED_WORKSPACE_DIR_NAMES = new Set([
+  ".git",
+  ".hg",
+  ".svn",
+  ".turbo",
+  ".vite",
+  ".yarn",
+  "build",
+  "coverage",
+  "dist",
+  "dist-electron",
+  "node_modules",
+  "out",
+  "release",
+]);
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -232,7 +309,14 @@ const resolveWorkspaceScope = (authorizedPaths: string[], requestedScopePaths?: 
   return requestedScopePaths.filter((scopePath) => isPathAuthorized(scopePath, authorizedPaths));
 };
 
-const isMarkdownFile = (filePath: string) => path.extname(filePath).toLowerCase() === ".md";
+const isWorkspaceTextFile = (filePath: string) => {
+  const fileName = path.basename(filePath).toLowerCase();
+  if (SUPPORTED_WORKSPACE_FILE_NAMES.has(fileName)) return true;
+  return SUPPORTED_WORKSPACE_FILE_EXTENSIONS.has(path.extname(fileName));
+};
+
+const isSkippedWorkspaceDirectory = (dirName: string) =>
+  SKIPPED_WORKSPACE_DIR_NAMES.has(dirName.toLowerCase());
 
 const createSnippet = (content: string, query: string) => {
   const normalizedContent = content.replace(/\s+/g, " ").trim();
@@ -255,15 +339,21 @@ ipcMain.handle("readWorkspaceFile", async (_, filePath: string, requestedScopePa
   const data = await readStorage();
   const paths = resolveWorkspaceScope((data.workspacePaths as string[]) || [], requestedScopePaths);
 
-  if (!isMarkdownFile(filePath)) {
-    throw new Error(`Workspace file reads are limited to markdown files: ${filePath}`);
+  if (!isWorkspaceTextFile(filePath)) {
+    throw new Error(`Workspace file reads are limited to supported text/source files: ${filePath}`);
   }
 
   if (!isPathAuthorized(filePath, paths)) {
     throw new Error(`Unauthorized access to file: ${filePath}`);
   }
 
-  return fs.readFile(path.normalize(filePath), "utf-8");
+  const normalizedPath = path.normalize(filePath);
+  const stats = await fs.stat(normalizedPath);
+  if (stats.size > MAX_WORKSPACE_FILE_SIZE_BYTES) {
+    throw new Error(`Workspace file is too large to read safely: ${filePath}`);
+  }
+
+  return fs.readFile(normalizedPath, "utf-8");
 });
 
 ipcMain.handle(
@@ -275,19 +365,25 @@ ipcMain.handle(
       requestedScopePaths,
     );
 
-    if (!isMarkdownFile(filePath)) {
-      throw new Error(`Workspace file writes are limited to markdown files: ${filePath}`);
+    if (!isWorkspaceTextFile(filePath)) {
+      throw new Error(
+        `Workspace file writes are limited to supported text/source files: ${filePath}`,
+      );
     }
 
     if (!isPathAuthorized(filePath, paths)) {
       throw new Error(`Unauthorized write access to file: ${filePath}`);
     }
 
+    if (Buffer.byteLength(content, "utf8") > MAX_WORKSPACE_FILE_SIZE_BYTES) {
+      throw new Error(`Workspace file is too large to write safely: ${filePath}`);
+    }
+
     await fs.writeFile(path.normalize(filePath), content, "utf-8");
   },
 );
 
-async function findMarkdownMatches(
+async function findWorkspaceFileMatches(
   dir: string,
   query: string,
   results: Array<{ path: string; snippet: string }> = [],
@@ -301,8 +397,11 @@ async function findMarkdownMatches(
 
       const fullPath = path.join(dir, entry.name);
       if (entry.isDirectory()) {
-        await findMarkdownMatches(fullPath, query, results);
-      } else if (entry.isFile() && entry.name.toLowerCase().endsWith(".md")) {
+        if (isSkippedWorkspaceDirectory(entry.name)) {
+          continue;
+        }
+        await findWorkspaceFileMatches(fullPath, query, results);
+      } else if (entry.isFile() && isWorkspaceTextFile(fullPath)) {
         const normalizedQuery = query.toLowerCase();
         const filenameMatches = entry.name.toLowerCase().includes(normalizedQuery);
 
@@ -348,7 +447,7 @@ ipcMain.handle("searchWorkspaceFiles", async (_, query: string, requestedScopePa
     if (allResults.length >= MAX_WORKSPACE_SEARCH_RESULTS) {
       break;
     }
-    await findMarkdownMatches(path.normalize(workspacePath), normalizedQuery, allResults);
+    await findWorkspaceFileMatches(path.normalize(workspacePath), normalizedQuery, allResults);
   }
 
   return allResults;

@@ -367,7 +367,7 @@ describe("AiService", () => {
       expect(mockStartChat).toHaveBeenCalled();
     });
 
-    it("generateAgentResponse formats history correctly with function results", async () => {
+    it("generateAgentResponse formats Gemini tool-result history with function role", async () => {
       mockSendMessage.mockResolvedValueOnce({
         response: {
           text: () => "Task created.",
@@ -403,8 +403,10 @@ describe("AiService", () => {
       expect(history[0].role).toBe("user");
       expect(history[1].role).toBe("model");
       expect(history[1].parts[1].functionCall).toBeDefined(); // text at parts[0], functionCall at parts[1]
-      expect(history[2].role).toBe("user"); // function results map to Gemini "user" role
-      expect(history[2].parts[1].functionResponse).toBeDefined(); // text at parts[0], functionResponse at parts[1]
+      expect(history[2].role).toBe("function");
+      expect(history[2].parts).toEqual([
+        { functionResponse: { name: "create_task", response: { id: "p1" } } },
+      ]);
     });
   });
 });

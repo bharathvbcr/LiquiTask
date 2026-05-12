@@ -12,9 +12,11 @@ vi.mock("../../services/aiService", () => ({
 
 // Mock Electron API
 const mockSearchFiles = vi.fn();
+const mockGetPaths = vi.fn();
 vi.stubGlobal("window", {
   electronAPI: {
     workspace: {
+      getPaths: mockGetPaths,
       searchFiles: mockSearchFiles,
       readFile: vi.fn(),
       writeFile: vi.fn(),
@@ -30,7 +32,7 @@ describe("useTaskAssistant Hook", () => {
       projects: [],
       priorities: [],
       customFields: [],
-      workspacePaths: ["C:/workspace/project-a"],
+      workspacePaths: ["C:/workspace/project-a", "D:/workspace/project-b"],
     },
     allTasks: [],
     addTask: vi.fn(),
@@ -40,6 +42,7 @@ describe("useTaskAssistant Hook", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetPaths.mockResolvedValue(["C:/workspace/global"]);
   });
 
   it("manages basic chat history", async () => {
@@ -94,7 +97,55 @@ describe("useTaskAssistant Hook", () => {
     expect(result.current.messages[2].role).toBe("function");
     expect(result.current.messages[3].content).toBe("I found 2 files.");
 
-    expect(mockSearchFiles).toHaveBeenCalledWith("test", ["C:/workspace/project-a"]);
+    expect(mockSearchFiles).toHaveBeenCalledWith("test", [
+      "C:/workspace/project-a",
+      "D:/workspace/project-b",
+    ]);
+  });
+
+  it("falls back to globally configured folders when the project has no linked folders", async () => {
+    mockGetPaths.mockResolvedValueOnce(["C:/workspace/global-a", "D:/notes/global-b"]);
+    mockGenerateAgentResponse.mockResolvedValueOnce({
+      content: "",
+      toolCalls: [{ name: "search_workspace", args: { query: "roadmap" } }],
+    });
+    mockGenerateAgentResponse.mockResolvedValueOnce({
+      content: "I found a matching note.",
+      toolCalls: [],
+    });
+    mockSearchFiles.mockResolvedValueOnce([
+      { path: "D:/notes/global-b/roadmap.md", snippet: "roadmap details" },
+    ]);
+
+    const { result } = renderHook(() =>
+      useTaskAssistant({
+        ...mockProps,
+        context: { ...mockProps.context, workspacePaths: [] },
+      }),
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(mockGetPaths).toHaveBeenCalled();
+
+    await act(async () => {
+      await result.current.sendMessage("Search roadmap");
+    });
+
+    expect(mockSearchFiles).toHaveBeenCalledWith("roadmap", [
+      "C:/workspace/global-a",
+      "D:/notes/global-b",
+    ]);
+    expect(mockGenerateAgentResponse).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.objectContaining({
+        workspacePaths: ["C:/workspace/global-a", "D:/notes/global-b"],
+      }),
+      [],
+    );
+    expect(result.current.messages.at(-1)?.content).toBe("I found a matching note.");
   });
 
   it("resets loading state and shows actionable provider errors", async () => {

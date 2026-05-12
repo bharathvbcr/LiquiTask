@@ -13,6 +13,7 @@ import type {
   ToastType,
 } from "../../types";
 import { STORAGE_KEYS } from "../constants";
+import { archiveService } from "../services/archiveService";
 import type { AutomationRule, AutomationTrigger, TaskContext } from "../services/automationService";
 import { indexedDBService } from "../services/indexedDBService";
 import storageService from "../services/storageService";
@@ -150,7 +151,6 @@ export const useAppInitialization = ({
         console.warn("[Storage] IndexedDB initialization failed:", error);
       }
 
-      const { archiveService } = await import("../services/archiveService");
       await archiveService.initialize();
       await storageService.initialize();
       const data = storageService.getAllData();

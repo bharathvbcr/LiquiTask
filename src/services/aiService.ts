@@ -307,7 +307,8 @@ Today's Date: ${new Date().toISOString()}.`;
           },
           {
             name: "search_workspace",
-            description: "Search for .md files in the connected workspace folders",
+            description:
+              "Search for supported text and source-code files in the connected workspace folders",
             parameters: {
               type: "object",
               properties: {
@@ -318,7 +319,7 @@ Today's Date: ${new Date().toISOString()}.`;
           },
           {
             name: "read_workspace_file",
-            description: "Read the contents of a file from the workspace",
+            description: "Read a supported text or source-code file from the workspace",
             parameters: {
               type: "object",
               properties: {
@@ -329,7 +330,7 @@ Today's Date: ${new Date().toISOString()}.`;
           },
           {
             name: "write_workspace_file",
-            description: "Write or update a file in the workspace",
+            description: "Write or update a supported text or source-code file in the workspace",
             parameters: {
               type: "object",
               properties: {
@@ -347,7 +348,7 @@ Today's Date: ${new Date().toISOString()}.`;
       context.projects.find((p) => p.id === context.activeProjectId)?.name || "None";
     const workspaceContext = context.workspacePaths?.length
       ? `Linked Workspace Folders: ${context.workspacePaths.join(", ")}`
-      : "No workspace folders linked to this project.";
+      : "No workspace folders available.";
     const systemInstruction = `You are the LiquiTask AI Assistant. You help users manage their tasks and workspace.
 
 Today's Date: ${new Date().toISOString()}
@@ -355,7 +356,7 @@ Active Project: ${activeProjectName}
 Available Priorities: ${context.priorities.map((p) => p.id).join(", ")}
 ${workspaceContext}
 
-When asked about tasks or files, use the provided tools. Be concise and professional.`;
+When asked about tasks or workspace files, use the provided tools. They can search, read, and update supported text/source-code files in linked folders. Be concise and professional.`;
 
     type GeminiModelOptions = Parameters<typeof genAI.getGenerativeModel>[0];
     const model = genAI.getGenerativeModel({
@@ -364,10 +365,12 @@ When asked about tasks or files, use the provided tools. Be concise and professi
       systemInstruction,
     });
 
-    // Build chat history — Gemini requires alternating user/model roles.
-    // function-role messages (tool results) map to role "user" with functionResponse parts.
-    // assistant messages with toolCalls map to role "model" with functionCall parts only.
-    const history: Array<{ role: "user" | "model"; parts: Array<Record<string, unknown>> }> = [];
+    // Build chat history. Gemini accepts tool results only as role "function"
+    // messages with functionResponse parts.
+    const history: Array<{
+      role: "user" | "model" | "function";
+      parts: Array<Record<string, unknown>>;
+    }> = [];
     for (const m of messages.slice(0, -1)) {
       if (m.role === "user") {
         history.push({ role: "user", parts: [{ text: m.content || "" }] });
@@ -380,15 +383,12 @@ When asked about tasks or files, use the provided tools. Be concise and professi
         }
         history.push({ role: "model", parts });
       } else if (m.role === "function") {
-        const parts: Array<Record<string, unknown>> = [{ text: m.content || "" }];
-        if (m.toolResults && m.toolResults.length > 0) {
-          parts.push(
-            ...m.toolResults.map((tr) => ({
-              functionResponse: { name: tr.name, response: tr.result ?? {} },
-            })),
-          );
+        const parts = (m.toolResults ?? []).map((tr) => ({
+          functionResponse: { name: tr.name, response: tr.result ?? {} },
+        }));
+        if (parts.length > 0) {
+          history.push({ role: "function", parts });
         }
-        history.push({ role: "user", parts });
       }
     }
 
@@ -714,9 +714,9 @@ Today's Date: ${new Date().toISOString()}`;
 - create_task: {"title": string, "summary"?: string, "priority"?: string, "tags"?: string[]}
 - update_task: {"id": string, "status"?: string, "priority"?: string, "summary"?: string}
 - search_tasks: {"query": string}
-- search_workspace: {"query": string}
-- read_workspace_file: {"path": string}
-- write_workspace_file: {"path": string, "content": string}
+- search_workspace: {"query": string} searches supported text/source-code files
+- read_workspace_file: {"path": string} reads a supported text/source-code file
+- write_workspace_file: {"path": string, "content": string} writes a supported text/source-code file
 
 To call a tool, respond ONLY with this JSON (no other text):
 {"tool_call": {"name": "TOOL_NAME", "args": {...}}}
@@ -727,7 +727,7 @@ Otherwise respond with plain text.`;
       context.projects.find((p) => p.id === context.activeProjectId)?.name || "None";
     const workspaceContextOllama = context.workspacePaths?.length
       ? `Linked Workspace Folders: ${context.workspacePaths.join(", ")}`
-      : "No workspace folders linked to this project.";
+      : "No workspace folders available.";
     const systemInstruction = `You are the LiquiTask AI Assistant. You help users manage their tasks and workspace.
 Today's Date: ${new Date().toISOString()}
 Active Project: ${activeProjectNameOllama}
