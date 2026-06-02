@@ -7,7 +7,7 @@ import logo from "./src/assets/logo.png";
 // Power User Features
 import type { CommandAction } from "./src/components/CommandPalette";
 import { ViewTransition } from "./src/components/ViewTransition";
-import { STORAGE_KEYS } from "./src/constants";
+import { FEATURE_FLAGS, STORAGE_KEYS } from "./src/constants";
 import { useConfirmation } from "./src/contexts/ConfirmationContext";
 import { useAiKeyboardShortcuts } from "./src/hooks/useAiKeyboardShortcuts";
 import { useAppInitialization } from "./src/hooks/useAppInitialization";
@@ -195,6 +195,7 @@ const SIDEBAR_EXPANDED_WIDTH = 320;
 const SIDEBAR_COLLAPSED_WIDTH = 72;
 const SIDEBAR_OFFSET_DELTA = SIDEBAR_EXPANDED_WIDTH - SIDEBAR_COLLAPSED_WIDTH;
 const _CONTENT_LEFT_OFFSET = 104;
+const isAiAssistantSidebarEnabled = FEATURE_FLAGS.AI_ASSISTANT_SIDEBAR_ENABLED;
 
 const ViewLoadingFallback: React.FC = () => (
   <div className="h-full w-full flex items-center justify-center text-slate-500">
@@ -354,6 +355,11 @@ const App: React.FC = () => {
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [nextTaskSuggestion, setNextTaskSuggestion] = useState<AISuggestion | null>(null);
+
+  const setAiAssistantOpen = (value: boolean | ((prev: boolean) => boolean)) => {
+    if (!isAiAssistantSidebarEnabled) return;
+    setIsAssistantOpen(value);
+  };
 
   // AI Settings
   const [aiSettings, setAiSettings] = useState({
@@ -529,7 +535,7 @@ const App: React.FC = () => {
     handleUndo,
     setIsCommandPaletteOpen,
     setIsSidebarCollapsed,
-    setIsAssistantOpen,
+    setIsAssistantOpen: setAiAssistantOpen,
     setIsTaskModalOpen,
     setEditingTask,
     searchInputRef,
@@ -829,15 +835,19 @@ const App: React.FC = () => {
         aliases: ["reverse", "go back"],
         action: handleUndo,
       },
-      {
-        id: "action:toggle-assistant",
-        label: isAssistantOpen ? "Close AI Assistant" : "Open AI Assistant",
-        category: "action",
-        description: `${isAssistantOpen ? "Hide" : "Reveal"} right conversational AI sidebar`,
-        keywords: ["ai", "assistant", "chat", "help", "bot"],
-        aliases: ["toggle assistant", "chat bot", "ai chat"],
-        action: () => setIsAssistantOpen((prev) => !prev),
-      },
+      ...(isAiAssistantSidebarEnabled
+        ? ([
+            {
+              id: "action:toggle-assistant",
+              label: isAssistantOpen ? "Close AI Assistant" : "Open AI Assistant",
+              category: "action",
+              description: `${isAssistantOpen ? "Hide" : "Reveal"} right conversational AI sidebar`,
+              keywords: ["ai", "assistant", "chat", "help", "bot"],
+              aliases: ["toggle assistant", "chat bot", "ai chat"],
+              action: () => setAiAssistantOpen((prev) => !prev),
+            } as CommandAction,
+          ] as CommandAction[])
+        : []),
       {
         id: "action:toggle-sidebar",
         label: isSidebarCollapsed ? "Show Sidebar" : "Hide Sidebar",
@@ -1421,7 +1431,9 @@ const App: React.FC = () => {
               setIsNaturalLanguageSearch(!isNaturalLanguageSearch)
             }
             onOpenMobileNav={() => setIsMobileNavOpen(true)}
-            onToggleAssistant={() => setIsAssistantOpen((prev) => !prev)}
+            onToggleAssistant={
+              isAiAssistantSidebarEnabled ? () => setAiAssistantOpen((prev) => !prev) : undefined
+            }
           />
         </Suspense>
 
@@ -1788,27 +1800,29 @@ const App: React.FC = () => {
         </Suspense>
       )}
 
-      <Suspense fallback={null}>
-        <AIRightRail
-          isOpen={isAssistantOpen}
-          onToggle={() => setIsAssistantOpen((prev) => !prev)}
-          isLoading={isAssistantLoading}
-        />
-        {isAssistantOpen && (
-          <TaskAssistantSidebar
+      {isAiAssistantSidebarEnabled && (
+        <Suspense fallback={null}>
+          <AIRightRail
             isOpen={isAssistantOpen}
-            onClose={() => setIsAssistantOpen(false)}
-            messages={assistantMessages}
-            onSendMessage={handleSendAssistantMessage}
+            onToggle={() => setAiAssistantOpen((prev) => !prev)}
             isLoading={isAssistantLoading}
-            isSearching={isAssistantSearching}
-            activeTool={assistantActiveTool}
-            onClearChat={handleClearAssistantChat}
-            activeProject={activeProject}
-            onUpdateProjectPaths={handleUpdateProjectPaths}
           />
-        )}
-      </Suspense>
+          {isAssistantOpen && (
+            <TaskAssistantSidebar
+              isOpen={isAssistantOpen}
+              onClose={() => setAiAssistantOpen(false)}
+              messages={assistantMessages}
+              onSendMessage={handleSendAssistantMessage}
+              isLoading={isAssistantLoading}
+              isSearching={isAssistantSearching}
+              activeTool={assistantActiveTool}
+              onClearChat={handleClearAssistantChat}
+              activeProject={activeProject}
+              onUpdateProjectPaths={handleUpdateProjectPaths}
+            />
+          )}
+        </Suspense>
+      )}
     </div>
   );
 };

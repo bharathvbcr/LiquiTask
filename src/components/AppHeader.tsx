@@ -90,7 +90,7 @@ interface AppHeaderProps {
   isNaturalLanguageSearch?: boolean;
   onToggleNaturalLanguageSearch?: () => void;
   onOpenMobileNav?: () => void;
-  onToggleAssistant: () => void;
+  onToggleAssistant?: () => void;
 }
 
 export const AppHeader: React.FC<AppHeaderProps> = ({
@@ -280,14 +280,16 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               <Brain size={18} />
             </button>
           )}
-          <button
-            onClick={onToggleAssistant}
-            className="p-2.5 rounded-xl transition-all text-slate-400 hover:text-cyan-400 hover:bg-cyan-500/10 relative group"
-            title="AI Assistant (Ctrl+J) - Chat with AI to manage your workspace"
-            aria-label="AI Assistant"
-          >
-            <MessageSquare size={18} />
-          </button>
+          {onToggleAssistant && (
+            <button
+              onClick={onToggleAssistant}
+              className="p-2.5 rounded-xl transition-all text-slate-400 hover:text-cyan-400 hover:bg-cyan-500/10 relative group"
+              title="AI Assistant (Ctrl+J) - Chat with AI to manage your workspace"
+              aria-label="AI Assistant"
+            >
+              <MessageSquare size={18} />
+            </button>
+          )}
           <button
             onClick={onToggleFilter}
             className={`p-2.5 rounded-xl transition-all relative group ${isFilterOpen ? "text-red-400 bg-red-500/10 border border-red-500/20" : "text-slate-400 hover:text-white hover:bg-white/10"}`}

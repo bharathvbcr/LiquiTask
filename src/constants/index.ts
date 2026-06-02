@@ -28,6 +28,10 @@ export const STORAGE_KEYS = {
   AI_ORGANIZE_CACHE: "liquitask-ai-organize-cache",
 } as const;
 
+export const FEATURE_FLAGS = {
+  AI_ASSISTANT_SIDEBAR_ENABLED: false,
+} as const;
+
 // Default column configuration
 export const DEFAULT_COLUMNS = [
   { id: "Pending", title: "Pending", color: "#64748b", wipLimit: 0 },

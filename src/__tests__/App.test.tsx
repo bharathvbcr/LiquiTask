@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../../App";
 import { KeybindingProvider } from "../context/KeybindingContext";
@@ -74,6 +74,8 @@ describe("App Integration", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    window.desktopAPI = undefined;
+    window.electronAPI = undefined;
     vi.spyOn(console, "warn").mockImplementation(() => {});
     mockInitialize.mockResolvedValue(undefined);
     mockGetAllData.mockReturnValue(mockData);
@@ -86,6 +88,7 @@ describe("App Integration", () => {
   });
 
   afterEach(() => {
+    cleanup();
     vi.restoreAllMocks();
   });
 
@@ -152,30 +155,22 @@ describe("App Integration", () => {
     );
   }, 15000);
 
-  it("toggles AI Assistant with Cmd+J", async () => {
+  it("does not reveal AI Assistant UI when sidebar feature flag is disabled", async () => {
     await renderApp();
     await waitFor(() => expect(screen.queryByText(/Loading/i)).not.toBeInTheDocument());
 
-    // Initially closed
+    // Feature-flagged UI should stay hidden while disabled
     expect(screen.queryByText("AI Assistant")).toBeNull();
+    expect(screen.queryByLabelText(/AI Assistant/i)).toBeNull();
 
-    // Trigger Cmd+J (or Ctrl+J) on document which is where the hook listens
+    // Trigger Cmd/Ctrl+J on document where the hook listens
     await act(async () => {
       fireEvent.keyDown(document, { key: "j", ctrlKey: true });
     });
 
-    // Should be open (use findByText because it's lazy-loaded)
-    const assistantHeader = await screen.findByText("AI Assistant", {}, { timeout: 10000 });
-    expect(assistantHeader).toBeDefined();
-
-    // Trigger Cmd+J again
-    await act(async () => {
-      fireEvent.keyDown(document, { key: "j", ctrlKey: true });
-    });
-
-    // Should be closed
     await waitFor(() => {
       expect(screen.queryByText("AI Assistant")).toBeNull();
+      expect(screen.queryByLabelText(/AI Assistant/i)).toBeNull();
     });
   }, 15000);
 });
