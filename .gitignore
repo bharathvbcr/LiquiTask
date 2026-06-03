@@ -1,11 +1,15 @@
-# Logs
-logs
+# Logs and Dumps
+logs/
+**/logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+dump/
+**/dump/
+*.dump
 
 node_modules
 dist
@@ -38,27 +42,39 @@ tsc_output.txt
 *.sln
 *.sw?
 
-# Agent and Reports
+# Agent, Conductor, and Reports
 .agent/
+agent/
+**/agent/
 .gemini/
 .devcouncil/
-POWER_USER_AUDIT*.md
-test_output.txt
 .claude/
+claude/
+**/claude/
 .cursor/
+cursor/
+**/cursor/
 .kilo/
 .kilo/plans
 .worktrees/
-claude.md
-LIQUITASK_RESUME_POINTS.md
 .gitnexus
+.gitnexus/
+**/.gitnexus/
+conductor/
+.conductor/
+**/conductor/
+**/_conductor/
+POWER_USER_AUDIT*.md
+test_output.txt
+LIQUITASK_RESUME_POINTS.md
+AGENTS.md
+CLAUDE.md
+**/CLAUDE.md
 
-# Keep checked-in agent context and GitNexus-generated skills
-!CLAUDE.md
-!**/CLAUDE.md
-!.claude/
-!.claude/skills/
-!.claude/skills/generated/
-!.claude/skills/generated/**
-.claude/settings.local.json
-.claude/skills/gitnexus/
+# Stale/Unneeded Tauri Port
+docs/
+src-tauri/
+src/runtime/__tests__/tauriConfigParity.test.ts
+src/runtime/__tests__/tauriDesktopBridge.test.ts
+src/runtime/tauriDesktopBridge.ts
+
