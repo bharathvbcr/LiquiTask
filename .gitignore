@@ -64,12 +64,19 @@ conductor/
 .conductor/
 **/conductor/
 **/_conductor/
-POWER_USER_AUDIT*.md
-test_output.txt
-LIQUITASK_RESUME_POINTS.md
+*AUDIT*.md
+**/*AUDIT*.md
+*RESUME_POINTS.md
+**/*RESUME_POINTS.md
 AGENTS.md
+**/AGENTS.md
 CLAUDE.md
 **/CLAUDE.md
+*plan.md
+**/*plan.md
+*report.md
+**/*report.md
+test_output.txt
 
 # Stale/Unneeded Tauri Port
 docs/
