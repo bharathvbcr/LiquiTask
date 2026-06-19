@@ -1,5 +1,5 @@
 import type React from "react";
-import { forwardRef } from "react";
+import { forwardRef, useId } from "react";
 
 interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "size"> {
   label?: string;
@@ -11,7 +11,11 @@ interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ label, error, icon, rightElement, className = "", size = "md", id, ...props }, ref) => {
-    const inputId = id || props.name;
+    const generatedId = useId();
+    const inputId = id || props.name || generatedId;
+    const errorId = `${inputId}-error`;
+    const describedBy =
+      [error ? errorId : null, props["aria-describedby"]].filter(Boolean).join(" ") || undefined;
 
     const sizeStyles = {
       sm: "px-3 py-1.5 text-xs rounded-lg",
@@ -45,6 +49,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             ${props.disabled ? "opacity-50 cursor-not-allowed" : ""}
           `}
             {...props}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={describedBy}
           />
           {rightElement && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500">
@@ -53,7 +59,11 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           )}
         </div>
         {error && (
-          <p className="text-xs text-red-400 pl-1 animate-in slide-in-from-top-1 fade-in">
+          <p
+            id={errorId}
+            role="alert"
+            className="text-xs text-red-400 pl-1 animate-in slide-in-from-top-1 fade-in"
+          >
             {error}
           </p>
         )}

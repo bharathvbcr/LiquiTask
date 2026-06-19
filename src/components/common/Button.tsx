@@ -64,6 +64,7 @@ export const Button: React.FC<ButtonProps> = ({
     <button
       className={`${baseStyles} ${sizeStyles[size]} ${getVariantStyles()} ${fullWidth ? "w-full" : ""} ${className}`}
       disabled={disabled || isLoading}
+      aria-busy={isLoading || undefined}
       {...props}
     >
       {variant === "primary" && !disabled && (

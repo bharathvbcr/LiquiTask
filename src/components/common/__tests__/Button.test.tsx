@@ -108,4 +108,12 @@ describe("Button", () => {
     );
     expect(screen.queryByTestId("test-icon")).not.toBeInTheDocument();
   });
+
+  it("should expose aria-busy to assistive tech while loading", () => {
+    const { rerender } = render(<Button isLoading>Saving</Button>);
+    expect(screen.getByRole("button")).toHaveAttribute("aria-busy", "true");
+
+    rerender(<Button>Save</Button>);
+    expect(screen.getByRole("button")).not.toHaveAttribute("aria-busy");
+  });
 });
