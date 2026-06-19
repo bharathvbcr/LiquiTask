@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CustomFieldDefinition, Task } from "../../../types";
 import { exportService } from "../exportService";
 
@@ -209,6 +209,101 @@ describe("exportService", () => {
 
       expect(parsed.exportedAt).toBeDefined();
       expect(new Date(parsed.exportedAt)).toBeInstanceOf(Date);
+    });
+  });
+
+  describe("exportToICS", () => {
+    const makeTask = (overrides: Partial<Task> = {}): Task => ({
+      id: "task-1",
+      jobId: "TSK-1001",
+      projectId: "p1",
+      title: "Test Task",
+      subtitle: "",
+      summary: "",
+      assignee: "",
+      priority: "high",
+      status: "Pending",
+      createdAt: new Date("2024-01-01"),
+      dueDate: new Date("2024-01-15T09:30:00Z"),
+      subtasks: [],
+      attachments: [],
+      tags: [],
+      timeEstimate: 0,
+      timeSpent: 0,
+      ...overrides,
+    });
+
+    let captured = "";
+    let downloadSpy: ReturnType<typeof vi.spyOn>;
+    beforeEach(() => {
+      captured = "";
+      downloadSpy = vi.spyOn(exportService, "downloadFile").mockImplementation((content) => {
+        captured = content;
+      });
+    });
+    afterEach(() => {
+      downloadSpy.mockRestore();
+    });
+
+    it("should emit a valid VCALENDAR/VTODO structure", () => {
+      exportService.exportToICS([makeTask()]);
+      expect(captured).toContain("BEGIN:VCALENDAR");
+      expect(captured).toContain("BEGIN:VTODO");
+      expect(captured).toContain("UID:task-1@liquitask");
+      expect(captured).toContain("DUE:20240115T093000Z");
+      expect(captured).toContain("SUMMARY:Test Task");
+      expect(captured).toContain("END:VTODO");
+      expect(captured).toContain("END:VCALENDAR");
+      // CRLF line endings per spec.
+      expect(captured).toContain("\r\n");
+    });
+
+    it("should skip tasks without a due date", () => {
+      exportService.exportToICS([makeTask({ dueDate: undefined })]);
+      expect(captured).not.toContain("BEGIN:VTODO");
+    });
+
+    it("should map task priority to the iCal PRIORITY scale", () => {
+      exportService.exportToICS([makeTask({ priority: "high" })]);
+      expect(captured).toContain("PRIORITY:1");
+
+      exportService.exportToICS([makeTask({ priority: "medium" })]);
+      expect(captured).toContain("PRIORITY:5");
+
+      exportService.exportToICS([makeTask({ priority: "low" })]);
+      expect(captured).toContain("PRIORITY:9");
+    });
+
+    it("should omit PRIORITY for unknown priority values", () => {
+      exportService.exportToICS([makeTask({ priority: "p2-custom" })]);
+      expect(captured).not.toContain("PRIORITY:");
+    });
+
+    it("should export tags as CATEGORIES", () => {
+      exportService.exportToICS([makeTask({ tags: ["urgent", "backend"] })]);
+      expect(captured).toContain("CATEGORIES:urgent,backend");
+    });
+
+    it("should escape special characters in summary and categories", () => {
+      exportService.exportToICS([makeTask({ title: "Fix; merge, conflict", tags: ["a,b"] })]);
+      expect(captured).toContain("SUMMARY:Fix\\; merge\\, conflict");
+      // A comma inside a tag is escaped so it is not read as a category separator.
+      expect(captured).toContain("CATEGORIES:a\\,b");
+    });
+
+    it("should mark completed tasks with STATUS:COMPLETED", () => {
+      exportService.exportToICS([makeTask({ status: "Completed" })]);
+      expect(captured).toContain("STATUS:COMPLETED");
+    });
+
+    it("should fold lines longer than 75 octets", () => {
+      const longSummary = "x".repeat(200);
+      exportService.exportToICS([makeTask({ summary: longSummary })]);
+      const lines = captured.split("\r\n");
+      // Every emitted line must respect the 75-octet limit.
+      expect(lines.every((line) => line.length <= 75)).toBe(true);
+      // Continuation lines begin with a single space.
+      expect(lines.some((line) => line.startsWith(" "))).toBe(true);
     });
   });
 

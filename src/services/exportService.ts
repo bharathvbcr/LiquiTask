@@ -238,15 +238,23 @@ Generated: {{date}}
       if (!task.dueDate) return;
 
       const dueDate = new Date(task.dueDate);
-      const dueDateStr = `${dueDate.toISOString().replace(/[-:]/g, "").split(".")[0]}Z`;
+      const dueDateStr = this.formatICSDate(dueDate);
 
       icsLines.push("BEGIN:VTODO");
       icsLines.push(`UID:${task.id}@liquitask`);
-      icsLines.push(`DTSTAMP:${new Date().toISOString().replace(/[-:]/g, "").split(".")[0]}Z`);
+      icsLines.push(`DTSTAMP:${this.formatICSDate(new Date())}`);
       icsLines.push(`DUE:${dueDateStr}`);
       icsLines.push(`SUMMARY:${this.escapeICS(task.title)}`);
       if (task.summary) {
         icsLines.push(`DESCRIPTION:${this.escapeICS(task.summary)}`);
+      }
+      const priority = this.mapICSPriority(task.priority);
+      if (priority !== undefined) {
+        icsLines.push(`PRIORITY:${priority}`);
+      }
+      if (task.tags && task.tags.length > 0) {
+        // Each category is escaped; the comma separator between categories is literal.
+        icsLines.push(`CATEGORIES:${task.tags.map((tag) => this.escapeICS(tag)).join(",")}`);
       }
       icsLines.push(`STATUS:${task.status === "Completed" ? "COMPLETED" : "NEEDS-ACTION"}`);
       icsLines.push("END:VTODO");
@@ -254,8 +262,44 @@ Generated: {{date}}
 
     icsLines.push("END:VCALENDAR");
 
-    const icsContent = icsLines.join("\r\n");
+    // RFC 5545 requires lines longer than 75 octets to be folded.
+    const icsContent = icsLines.map((line) => this.foldICSLine(line)).join("\r\n");
     this.downloadFile(icsContent, filename, "text/calendar;charset=utf-8");
+  }
+
+  // Format a date as an ICS UTC timestamp (e.g. 20240115T093000Z)
+  private formatICSDate(date: Date): string {
+    return `${date.toISOString().replace(/[-:]/g, "").split(".")[0]}Z`;
+  }
+
+  // Map a task priority to the iCal PRIORITY scale (1 = highest, 9 = lowest).
+  // Returns undefined for unknown values so PRIORITY is simply omitted.
+  private mapICSPriority(priority?: string): number | undefined {
+    switch ((priority || "").toLowerCase()) {
+      case "high":
+      case "urgent":
+        return 1;
+      case "medium":
+      case "normal":
+        return 5;
+      case "low":
+        return 9;
+      default:
+        return undefined;
+    }
+  }
+
+  // Fold a single content line to <=75 characters per RFC 5545 section 3.1.
+  // Continuation lines are prefixed with a single space.
+  private foldICSLine(line: string): string {
+    if (line.length <= 75) return line;
+    const segments: string[] = [line.slice(0, 75)];
+    let index = 75;
+    while (index < line.length) {
+      segments.push(` ${line.slice(index, index + 74)}`);
+      index += 74;
+    }
+    return segments.join("\r\n");
   }
 
   // Escape text for ICS format
@@ -264,7 +308,7 @@ Generated: {{date}}
       .replace(/\\/g, "\\\\")
       .replace(/;/g, "\\;")
       .replace(/,/g, "\\,")
-      .replace(/\n/g, "\\n");
+      .replace(/\r\n|\r|\n/g, "\\n");
   }
 }
 
