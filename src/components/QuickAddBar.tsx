@@ -5,6 +5,7 @@ import type { PriorityDefinition, Project } from "../../types";
 import { STORAGE_KEYS } from "../constants";
 import { aiService } from "../services/aiService";
 import storageService from "../services/storageService";
+import { parseQuickTask } from "../utils/taskParser";
 import { Button } from "./common/Button";
 
 interface QuickAddBarProps {
@@ -22,93 +23,6 @@ interface QuickAddBarProps {
   isVisible: boolean;
   onClose: () => void;
   projects?: Array<{ id: string; name: string }>;
-}
-
-interface ParsedTask {
-  title: string;
-  priority?: string;
-  dueDate?: Date;
-  projectName?: string;
-  timeEstimate?: number; // in minutes
-  tags: string[];
-}
-
-// Enhanced natural language parsing for quick task entry
-function parseQuickTask(input: string): ParsedTask {
-  let title = input;
-  let priority: string | undefined;
-  let dueDate: Date | undefined;
-  let projectName: string | undefined;
-  let timeEstimate: number | undefined;
-  const tags: string[] = [];
-
-  // Parse priority markers (!h, !m, !l, !high, !medium, !low)
-  if (input.includes("!high") || input.includes("!h")) {
-    priority = "high";
-    title = title.replace(/!high|!h/gi, "").trim();
-  } else if (input.includes("!medium") || input.includes("!m")) {
-    priority = "medium";
-    title = title.replace(/!medium|!m/gi, "").trim();
-  } else if (input.includes("!low") || input.includes("!l")) {
-    priority = "low";
-    title = title.replace(/!low|!l/gi, "").trim();
-  }
-
-  // Parse project (#projectname)
-  const projectMatch = input.match(/#([a-zA-Z0-9_-]+)/);
-  if (projectMatch) {
-    projectName = projectMatch[1];
-    title = title.replace(projectMatch[0], "").trim();
-  }
-
-  // Parse time estimate (~2h, ~30m, ~1.5h)
-  const timeMatch = input.match(/~(\d+(?:\.\d+)?)(h|m)/i);
-  if (timeMatch) {
-    const value = parseFloat(timeMatch[1]);
-    const unit = timeMatch[2].toLowerCase();
-    timeEstimate = unit === "h" ? value * 60 : value; // Convert to minutes
-    title = title.replace(timeMatch[0], "").trim();
-  }
-
-  // Parse tags (+tag)
-  const tagMatches = input.matchAll(/\+([a-zA-Z0-9_-]+)/g);
-  for (const match of tagMatches) {
-    tags.push(match[1]);
-    title = title.replace(match[0], "").trim();
-  }
-
-  // Parse due date patterns (@today, @tomorrow, @nextweek, @MM/DD)
-  const today = new Date();
-  const todayMatch = input.match(/(@today|@tod)/i);
-  const tomorrowMatch = input.match(/(@tomorrow|@tom)/i);
-  const nextWeekMatch = input.match(/@next\s*week/i);
-  const dateMatch = input.match(/@(\d{1,2})\/(\d{1,2})/); // @MM/DD format
-
-  if (todayMatch) {
-    dueDate = today;
-    title = title.replace(todayMatch[0], "").trim();
-  } else if (tomorrowMatch) {
-    dueDate = new Date(today);
-    dueDate.setDate(today.getDate() + 1);
-    title = title.replace(tomorrowMatch[0], "").trim();
-  } else if (nextWeekMatch) {
-    dueDate = new Date(today);
-    dueDate.setDate(today.getDate() + 7);
-    title = title.replace(nextWeekMatch[0], "").trim();
-  } else if (dateMatch) {
-    const month = parseInt(dateMatch[1], 10) - 1;
-    const day = parseInt(dateMatch[2], 10);
-    dueDate = new Date(today.getFullYear(), month, day);
-    if (dueDate < today) {
-      dueDate.setFullYear(today.getFullYear() + 1);
-    }
-    title = title.replace(dateMatch[0], "").trim();
-  }
-
-  // Clean up any extra whitespace
-  title = title.replace(/\s+/g, " ").trim();
-
-  return { title, priority, dueDate, projectName, timeEstimate, tags };
 }
 
 export const QuickAddBar: React.FC<QuickAddBarProps> = ({ onAddTask, isVisible, onClose }) => {
@@ -341,6 +255,7 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({ onAddTask, isVisible, 
                   <Hint label="!l" description="Low" />
                   <Hint label="@today" description="Due today" />
                   <Hint label="@tom" description="Tomorrow" />
+                  <Hint label="@fri" description="Weekday" />
                   <Hint label="@1/15" description="MM/DD" />
                   <Hint label="#project" description="Project" />
                   <Hint label="+tag" description="Add tag" />

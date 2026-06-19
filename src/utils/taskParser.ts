@@ -9,6 +9,24 @@ export interface ParsedTask {
   tags: string[];
 }
 
+// Weekday names (and common short forms) mapped to their day index (0 = Sunday).
+const WEEKDAYS: Array<{ pattern: RegExp; day: number }> = [
+  { pattern: /@(sunday|sun)\b/i, day: 0 },
+  { pattern: /@(monday|mon)\b/i, day: 1 },
+  { pattern: /@(tuesday|tues|tue)\b/i, day: 2 },
+  { pattern: /@(wednesday|wed)\b/i, day: 3 },
+  { pattern: /@(thursday|thurs|thur|thu)\b/i, day: 4 },
+  { pattern: /@(friday|fri)\b/i, day: 5 },
+  { pattern: /@(saturday|sat)\b/i, day: 6 },
+];
+
+// Strip the time-of-day component so date comparisons happen at day granularity.
+function startOfDay(date: Date): Date {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
 export function parseQuickTask(input: string): ParsedTask {
   let title = input;
   let priority: string | undefined;
@@ -21,9 +39,9 @@ export function parseQuickTask(input: string): ParsedTask {
   if (input.match(/!(high|h)\b/i)) {
     priority = "high";
     title = title.replace(/!(high|h)\b/gi, "");
-  } else if (input.match(/!(medium|m)\b/i)) {
+  } else if (input.match(/!(medium|med|m)\b/i)) {
     priority = "medium";
-    title = title.replace(/!(medium|m)\b/gi, "");
+    title = title.replace(/!(medium|med|m)\b/gi, "");
   } else if (input.match(/!(low|l)\b/i)) {
     priority = "low";
     title = title.replace(/!(low|l)\b/gi, "");
@@ -36,12 +54,16 @@ export function parseQuickTask(input: string): ParsedTask {
     title = title.replace(projectMatch[0], "");
   }
 
-  // Parse time estimate (~2h, ~30m, ~1.5h)
-  const timeMatch = input.match(/~(\d+(?:\.\d+)?)(h|m)/i);
-  if (timeMatch) {
+  // Parse time estimate (~2h, ~30m, ~1.5h, ~1h30m)
+  const combinedTimeMatch = input.match(/~(\d+)h(\d+)m\b/i);
+  const timeMatch = input.match(/~(\d+(?:\.\d+)?)(h|m)\b/i);
+  if (combinedTimeMatch) {
+    timeEstimate = parseInt(combinedTimeMatch[1], 10) * 60 + parseInt(combinedTimeMatch[2], 10);
+    title = title.replace(combinedTimeMatch[0], "");
+  } else if (timeMatch) {
     const value = parseFloat(timeMatch[1]);
     const unit = timeMatch[2].toLowerCase();
-    timeEstimate = unit === "h" ? value * 60 : value; // Convert to minutes
+    timeEstimate = unit === "h" ? Math.round(value * 60) : value; // Convert to minutes
     title = title.replace(timeMatch[0], "");
   }
 
@@ -52,12 +74,15 @@ export function parseQuickTask(input: string): ParsedTask {
     title = title.replace(match[0], "");
   }
 
-  // Parse due date patterns (@today, @tomorrow, @nextweek, @MM/DD)
-  const today = new Date();
+  // Parse due date patterns. Order matters: relative keywords, then weekdays,
+  // then explicit @MM/DD and @MM/DD/YYYY formats.
+  const today = startOfDay(new Date());
   const todayMatch = input.match(/(@today|@tod)\b/i);
   const tomorrowMatch = input.match(/(@tomorrow|@tom)\b/i);
-  const nextWeekMatch = input.match(/@next\s*week/i);
+  const nextWeekMatch = input.match(/@next\s*week\b/i);
+  const fullDateMatch = input.match(/@(\d{1,2})\/(\d{1,2})\/(\d{2,4})/); // @MM/DD/YYYY
   const dateMatch = input.match(/@(\d{1,2})\/(\d{1,2})/); // @MM/DD format
+  const weekday = WEEKDAYS.find(({ pattern }) => pattern.test(input));
 
   if (todayMatch) {
     dueDate = today;
@@ -70,11 +95,29 @@ export function parseQuickTask(input: string): ParsedTask {
     dueDate = new Date(today);
     dueDate.setDate(today.getDate() + 7);
     title = title.replace(nextWeekMatch[0], "");
+  } else if (weekday) {
+    // Resolve to the next upcoming occurrence of the named weekday. If today is
+    // that weekday, interpret it as the same day next week (use @today for today).
+    const match = input.match(weekday.pattern);
+    let diff = weekday.day - today.getDay();
+    if (diff <= 0) diff += 7;
+    dueDate = new Date(today);
+    dueDate.setDate(today.getDate() + diff);
+    if (match) title = title.replace(match[0], "");
+  } else if (fullDateMatch) {
+    const month = parseInt(fullDateMatch[1], 10) - 1;
+    const day = parseInt(fullDateMatch[2], 10);
+    let year = parseInt(fullDateMatch[3], 10);
+    if (year < 100) year += 2000; // normalize 2-digit years
+    dueDate = new Date(year, month, day);
+    title = title.replace(fullDateMatch[0], "");
   } else if (dateMatch) {
     const month = parseInt(dateMatch[1], 10) - 1;
     const day = parseInt(dateMatch[2], 10);
     dueDate = new Date(today.getFullYear(), month, day);
-    if (dueDate < today) {
+    // If the date already passed this year, assume the user means next year.
+    // Compare at day granularity so "today" is not pushed to next year.
+    if (startOfDay(dueDate) < today) {
       dueDate.setFullYear(today.getFullYear() + 1);
     }
     title = title.replace(dateMatch[0], "");
