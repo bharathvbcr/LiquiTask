@@ -393,5 +393,5 @@ export const useTaskAssistant = ({
     setActiveTool(null);
   }, []);
 
-  return { messages, sendMessage, isLoading, isSearching, activeTool, clearChat };
+  return { messages, sendMessage, isLoading, isSearching, activeTool, clearChat, globalWorkspacePaths, setGlobalWorkspacePaths };
 };

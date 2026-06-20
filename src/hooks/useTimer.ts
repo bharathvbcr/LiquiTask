@@ -72,11 +72,14 @@ export function useTimer(options: UseTimerOptions = {}): UseTimerReturn {
     };
   }, [isRunning, onTick]);
 
+  const secondsRef = useRef(seconds);
+  secondsRef.current = seconds;
+
   // Auto-save interval
   useEffect(() => {
     if (isRunning && autoSaveInterval > 0 && onAutoSave) {
       autoSaveRef.current = setInterval(() => {
-        onAutoSave(seconds);
+        onAutoSave(secondsRef.current);
       }, autoSaveInterval * 1000);
     }
 
@@ -86,7 +89,7 @@ export function useTimer(options: UseTimerOptions = {}): UseTimerReturn {
         autoSaveRef.current = null;
       }
     };
-  }, [isRunning, autoSaveInterval, onAutoSave, seconds]);
+  }, [isRunning, autoSaveInterval, onAutoSave]);
 
   // Persist timer state when tab is hidden/shown
   useEffect(() => {

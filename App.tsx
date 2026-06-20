@@ -517,6 +517,8 @@ const App: React.FC = () => {
     isSearching: isAssistantSearching,
     activeTool: assistantActiveTool,
     clearChat: handleClearAssistantChat,
+    globalWorkspacePaths: assistantGlobalPaths,
+    setGlobalWorkspacePaths: setAssistantGlobalPaths,
   } = useTaskAssistant({
     context: {
       activeProjectId,
@@ -1820,6 +1822,8 @@ const App: React.FC = () => {
               onClearChat={handleClearAssistantChat}
               activeProject={activeProject}
               onUpdateProjectPaths={handleUpdateProjectPaths}
+              globalPaths={assistantGlobalPaths}
+              onGlobalPathsChange={setAssistantGlobalPaths}
             />
           )}
         </Suspense>

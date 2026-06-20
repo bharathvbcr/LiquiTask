@@ -23,9 +23,12 @@ export const TitleBar: React.FC = () => {
   const handleMaximize = async () => {
     if (!controls) return;
     const isCurrentlyMaximized = await controls.isMaximized();
-    await controls.maximize();
-    const nowMaximized = await controls.isMaximized();
-    setIsMaximized(typeof nowMaximized === "boolean" ? nowMaximized : !isCurrentlyMaximized);
+    if (isCurrentlyMaximized) {
+      await controls.restore();
+    } else {
+      await controls.maximize();
+    }
+    setIsMaximized(!isCurrentlyMaximized);
   };
   const handleClose = async () => {
     await controls?.close();

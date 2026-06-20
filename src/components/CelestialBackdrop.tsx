@@ -27,7 +27,7 @@ export const CelestialBackdrop: React.FC = () => {
         // Realistic Sun
         <>
           {/* Main big glow */}
-          <div className="absolute top-[-20%] right-[-10%] w-[1200px] h-[1200px] bg-amber-500/20 rounded-full blur-[150px] mix-blend-screen animate-pulse-slow" />
+          <div className="absolute top-[-20%] right-[-10%] w-[1200px] h-[1200px] bg-amber-500/20 rounded-full blur-[150px] animate-pulse-slow" />
 
           {/* Core sun body */}
           <div className="absolute top-[5%] right-[10%] w-[150px] h-[150px] bg-gradient-to-br from-white via-yellow-100 to-amber-300 rounded-full blur-[2px] shadow-[0_0_120px_60px_rgba(251,191,36,0.6)] mix-blend-screen" />
@@ -42,7 +42,7 @@ export const CelestialBackdrop: React.FC = () => {
         // Realistic Moon
         <>
           {/* Main big night glow */}
-          <div className="absolute top-[-20%] left-[-10%] w-[1000px] h-[1000px] bg-indigo-500/10 rounded-full blur-[120px] mix-blend-screen animate-pulse-slow" />
+          <div className="absolute top-[-20%] left-[-10%] w-[1000px] h-[1000px] bg-indigo-500/10 rounded-full blur-[120px] animate-pulse-slow" />
 
           {/* Core moon body */}
           <div className="absolute top-[10%] left-[15%] w-[120px] h-[120px] bg-gradient-to-br from-slate-100 via-slate-300 to-slate-500 rounded-full shadow-[0_0_100px_30px_rgba(199,210,254,0.4)] mix-blend-screen overflow-hidden">

@@ -31,6 +31,8 @@ interface TaskAssistantSidebarProps {
   onClearChat: () => void;
   activeProject?: Project;
   onUpdateProjectPaths?: (projectId: string, paths: string[]) => void;
+  globalPaths?: string[];
+  onGlobalPathsChange?: (paths: string[]) => void;
 }
 
 const QUICK_ACTIONS = [
@@ -50,9 +52,10 @@ export const TaskAssistantSidebar: React.FC<TaskAssistantSidebarProps> = ({
   onClearChat,
   activeProject,
   onUpdateProjectPaths,
+  globalPaths = [],
+  onGlobalPathsChange,
 }) => {
   const [input, setInput] = useState("");
-  const [globalPaths, setGlobalPaths] = useState<string[]>([]);
   const [showPathPanel, setShowPathPanel] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -69,15 +72,6 @@ export const TaskAssistantSidebar: React.FC<TaskAssistantSidebarProps> = ({
     scrollToBottom();
   }, [isLoading, isOpen, messages.length, scrollToBottom]);
 
-  useEffect(() => {
-    if (isOpen) {
-      getDesktopApi()
-        ?.workspace.getPaths()
-        .then(setGlobalPaths)
-        .catch(() => {});
-    }
-  }, [isOpen]);
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim() && !isLoading) {
@@ -91,11 +85,10 @@ export const TaskAssistantSidebar: React.FC<TaskAssistantSidebarProps> = ({
     const path = await workspaceApi?.selectDirectory();
     if (!path || !activeProject || !onUpdateProjectPaths) return;
 
-    // Ensure it's in the global pool
     if (!globalPaths.includes(path)) {
       const updated = [...globalPaths, path];
       await workspaceApi?.setPaths(updated).catch(() => {});
-      setGlobalPaths(updated);
+      onGlobalPathsChange?.(updated);
     }
 
     if (!projectPaths.includes(path)) {

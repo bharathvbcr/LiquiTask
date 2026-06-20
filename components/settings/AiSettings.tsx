@@ -168,6 +168,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
           storageService.set(STORAGE_KEYS.AI_CONFIG, migrated);
           return migrated;
         });
+        storageService.remove(STORAGE_KEYS.GEMINI_API_KEY);
       }
     }
   }, [fetchModels]);

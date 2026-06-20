@@ -6,6 +6,11 @@ import {
   getRuntimeState,
   getRuntimeWindowControls,
   initializeDesktopBridge,
+  isDesktop,
+  isElectron,
+  isTauri,
+  isWeb,
+  showRuntimeWindow,
 } from "../runtimeEnvironment";
 
 describe("runtimeEnvironment", () => {
@@ -85,5 +90,24 @@ describe("runtimeEnvironment", () => {
     expect(window.electronAPI.close).toHaveBeenCalled();
     expect(window.electronAPI.onWindowStateChange).toHaveBeenCalled();
     expect(listenerCleanup).toHaveBeenCalled();
+  });
+
+  it("isWeb returns true and isElectron/isDesktop/isTauri return false in web mode", () => {
+    expect(isWeb()).toBe(true);
+    expect(isElectron()).toBe(false);
+    expect(isDesktop()).toBe(false);
+    expect(isTauri()).toBe(false);
+  });
+
+  it("isElectron and isDesktop return true when bridge is present", () => {
+    window.electronAPI = {} as DesktopAPI;
+    expect(isElectron()).toBe(true);
+    expect(isDesktop()).toBe(true);
+    expect(isWeb()).toBe(false);
+  });
+
+  it("showRuntimeWindow does not throw and returns undefined", () => {
+    expect(() => showRuntimeWindow()).not.toThrow();
+    expect(showRuntimeWindow()).toBeUndefined();
   });
 });
