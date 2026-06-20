@@ -1228,9 +1228,12 @@ Current Workload:\n${workloadInfo}\n\nTask ID: ${strippedTask.id} | Priority: ${
       const aiResponse = refined as AIRefineResponse;
       return {
         taskId: task.id,
-        suggestedDueDate: (aiResponse.suggestedDueDate as string | undefined)
-          ? new Date(aiResponse.suggestedDueDate as string)
-          : undefined,
+        suggestedDueDate: (() => {
+          const raw = aiResponse.suggestedDueDate as string | undefined;
+          if (!raw) return undefined;
+          const d = new Date(raw);
+          return Number.isFinite(d.getTime()) ? d : undefined;
+        })(),
         suggestedTimeEstimate: aiResponse.suggestedTimeEstimate as number | undefined,
         conflicts: (aiResponse.conflicts as string[]) ?? [],
         reasoning: (aiResponse.reasoning as string) ?? "AI schedule suggestion",

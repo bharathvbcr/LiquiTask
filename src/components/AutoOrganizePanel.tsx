@@ -98,6 +98,7 @@ export const AutoOrganizePanel: React.FC<AutoOrganizePanelProps> = ({
   const [progress, setProgress] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<AutoOrganizeResult | null>(null);
   const [expandedChanges, setExpandedChanges] = useState<Set<string>>(new Set());
+  const [selectedChanges, setSelectedChanges] = useState<Set<string>>(new Set());
 
   const loadConfig = useCallback(() => {
     setConfig(aiService.getAutoOrganizeConfig());
@@ -157,7 +158,7 @@ export const AutoOrganizePanel: React.FC<AutoOrganizePanelProps> = ({
   const applyPendingChanges = async () => {
     if (!lastResult) return;
     const pending = lastResult.changes.filter((c) => c.status === "pending-review");
-    const toApply = pending.filter((c) => expandedChanges.has(c.id));
+    const toApply = pending.filter((c) => selectedChanges.has(c.id));
 
     if (toApply.length === 0) {
       addToast("No changes selected to apply", "info");
@@ -184,7 +185,7 @@ export const AutoOrganizePanel: React.FC<AutoOrganizePanelProps> = ({
   const rejectPendingChanges = () => {
     if (!lastResult) return;
     const pending = lastResult.changes.filter((c) => c.status === "pending-review");
-    const toReject = pending.filter((c) => expandedChanges.has(c.id));
+    const toReject = pending.filter((c) => selectedChanges.has(c.id));
 
     const updatedChanges = lastResult.changes.map((c) =>
       toReject.find((tc) => tc.id === c.id) ? { ...c, status: "rejected" as const } : c,
@@ -195,6 +196,15 @@ export const AutoOrganizePanel: React.FC<AutoOrganizePanelProps> = ({
 
   const toggleExpand = (id: string) => {
     setExpandedChanges((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelected = (id: string) => {
+    setSelectedChanges((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -368,7 +378,7 @@ export const AutoOrganizePanel: React.FC<AutoOrganizePanelProps> = ({
               onClick={applyPendingChanges}
               className="flex-1 px-3 py-2 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-medium hover:bg-emerald-500/30 transition-all"
             >
-              Apply Selected ({expandedChanges.size})
+              Apply Selected ({selectedChanges.size})
             </button>
             <button
               onClick={rejectPendingChanges}
@@ -393,6 +403,8 @@ export const AutoOrganizePanel: React.FC<AutoOrganizePanelProps> = ({
                     color: "text-slate-400",
                   };
                   const isExpanded = expandedChanges.has(change.id);
+                  const isPending = change.status === "pending-review";
+                  const isSelected = selectedChanges.has(change.id);
                   return (
                     <div
                       key={change.id}
@@ -402,6 +414,16 @@ export const AutoOrganizePanel: React.FC<AutoOrganizePanelProps> = ({
                         onClick={() => toggleExpand(change.id)}
                         className="w-full flex items-center gap-3 p-3 text-left hover:bg-white/5 transition-all"
                       >
+                        {isPending && (
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={() => toggleSelected(change.id)}
+                            className="shrink-0 accent-emerald-500"
+                            aria-label={`Select change: ${change.reasoning.substring(0, 40)}`}
+                          />
+                        )}
                         <span className={`text-xs font-medium ${typeMeta.color}`}>
                           {typeMeta.label}
                         </span>

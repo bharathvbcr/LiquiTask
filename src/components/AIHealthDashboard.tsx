@@ -45,10 +45,12 @@ export const AIHealthDashboard: React.FC<AIHealthDashboardProps> = ({
   const [insights, setInsights] = useState<AIInsight[]>([]);
   const [metrics, setMetrics] = useState<HealthMetric[]>([]);
   const [loading, setLoading] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
+  const [isExportingDaily, setIsExportingDaily] = useState(false);
+  const [isExportingWeekly, setIsExportingWeekly] = useState(false);
 
   const handleExportReport = async (period: "daily" | "weekly") => {
-    setIsExporting(true);
+    const setExporting = period === "daily" ? setIsExportingDaily : setIsExportingWeekly;
+    setExporting(true);
     addToast(`Generating ${period} report...`, "info");
     try {
       const { aiSummaryService } = await import("../services/aiSummaryService");
@@ -61,7 +63,7 @@ export const AIHealthDashboard: React.FC<AIHealthDashboardProps> = ({
       console.error("Report generation failed:", e);
       addToast(`Failed to generate ${period} report`, "error");
     } finally {
-      setIsExporting(false);
+      setExporting(false);
     }
   };
 
@@ -195,10 +197,10 @@ export const AIHealthDashboard: React.FC<AIHealthDashboardProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={() => handleExportReport("daily")}
-              disabled={isExporting}
+              disabled={isExportingDaily}
               className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-lg text-xs font-bold transition-all border border-blue-500/20 disabled:opacity-50"
             >
-              {isExporting ? (
+              {isExportingDaily ? (
                 <Loader2 size={14} className="animate-spin" />
               ) : (
                 <Download size={14} />
@@ -207,10 +209,10 @@ export const AIHealthDashboard: React.FC<AIHealthDashboardProps> = ({
             </button>
             <button
               onClick={() => handleExportReport("weekly")}
-              disabled={isExporting}
+              disabled={isExportingWeekly}
               className="flex items-center gap-2 px-3 py-1.5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 rounded-lg text-xs font-bold transition-all border border-purple-500/20 disabled:opacity-50"
             >
-              {isExporting ? (
+              {isExportingWeekly ? (
                 <Loader2 size={14} className="animate-spin" />
               ) : (
                 <Download size={14} />

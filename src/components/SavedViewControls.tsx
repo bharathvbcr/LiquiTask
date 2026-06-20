@@ -24,6 +24,7 @@ export const SavedViewControls: React.FC<SavedViewControlsProps> = ({
   const [isCreating, setIsCreating] = useState(false);
   const [newViewName, setNewViewName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
   const triggerRef = useRef<HTMLDivElement>(null);
 
@@ -156,19 +157,37 @@ export const SavedViewControls: React.FC<SavedViewControlsProps> = ({
 
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         {!view.isDefault && (
-                          <Button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onDeleteView(view.id);
-                            }}
-                            variant="danger"
-                            size="sm"
-                            className="p-1.5 h-auto"
-                            aria-label={`Delete view "${view.name}"`}
-                            title="Delete View"
-                          >
-                            <Trash2 size={12} />
-                          </Button>
+                          confirmDeleteId === view.id ? (
+                            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                              <Button
+                                onClick={(e) => { e.stopPropagation(); onDeleteView(view.id); setConfirmDeleteId(null); }}
+                                variant="danger"
+                                size="sm"
+                                className="px-2 py-1 h-auto text-[10px]"
+                              >
+                                Delete
+                              </Button>
+                              <Button
+                                onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null); }}
+                                variant="secondary"
+                                size="sm"
+                                className="px-2 py-1 h-auto text-[10px]"
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(view.id); }}
+                              variant="danger"
+                              size="sm"
+                              className="p-1.5 h-auto"
+                              aria-label={`Delete view "${view.name}"`}
+                              title="Delete View"
+                            >
+                              <Trash2 size={12} />
+                            </Button>
+                          )
                         )}
                       </div>
                     </div>

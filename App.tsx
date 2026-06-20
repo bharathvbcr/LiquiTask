@@ -1229,6 +1229,9 @@ const App: React.FC = () => {
   useEffect(() => {
     if (isLoaded) debouncedSaveTasks(tasks);
   }, [tasks, debouncedSaveTasks, isLoaded]);
+  useEffect(() => () => debouncedSaveColumns.cancel(), [debouncedSaveColumns]);
+  useEffect(() => () => debouncedSaveProjects.cancel(), [debouncedSaveProjects]);
+  useEffect(() => () => debouncedSaveTasks.cancel(), [debouncedSaveTasks]);
   useEffect(() => {
     if (isLoaded) storageService.set(STORAGE_KEYS.ACTIVE_PROJECT, activeProjectId);
   }, [activeProjectId, isLoaded]);

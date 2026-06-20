@@ -99,6 +99,10 @@ export const AutomationRuleEditor: React.FC<AutomationRuleEditorProps> = ({
       setErrors({ name: "Rule name is required" });
       return;
     }
+    if (actions.length === 0) {
+      setErrors({ actions: "Add at least one action before saving." });
+      return;
+    }
 
     const newRule: AutomationRule = {
       id: rule?.id || `rule-${Date.now()}`,

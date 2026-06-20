@@ -21,6 +21,7 @@ export const filterTasksBySearch = (
       task.title.toLowerCase().includes(normalizedQuery) ||
       task.subtitle?.toLowerCase().includes(normalizedQuery) ||
       task.summary?.toLowerCase().includes(normalizedQuery) ||
-      task.jobId.toLowerCase().includes(normalizedQuery),
+      task.jobId.toLowerCase().includes(normalizedQuery) ||
+      task.tags?.some((tag) => tag.toLowerCase().includes(normalizedQuery)),
   );
 };

@@ -33,14 +33,11 @@ export class MigrationService {
     try {
       const stored = localStorage.getItem(STORAGE_KEYS.BACKUPS);
       if (stored) {
-        const parsed = JSON.parse(stored) as Array<{
-          id: string;
-          data: MigratableAppData;
-          info: BackupInfo;
-        }>;
+        // Only metadata is persisted — actual backup data is kept in-memory only
+        const parsed = JSON.parse(stored) as Array<{ id: string; info: BackupInfo }>;
         parsed.forEach((backup) => {
           this.backups.set(backup.id, {
-            data: backup.data,
+            data: {} as MigratableAppData,
             info: {
               ...backup.info,
               timestamp: new Date(backup.info.timestamp),
@@ -53,14 +50,11 @@ export class MigrationService {
     }
   }
 
-  /**
-   * Save backups to storage
-   */
   private saveBackupsToStorage(): void {
     try {
-      const backupArray = Array.from(this.backups.entries()).map(([id, { data, info }]) => ({
+      // Only persist backup metadata — never write task/project data to localStorage
+      const backupArray = Array.from(this.backups.entries()).map(([id, { info }]) => ({
         id,
-        data,
         info,
       }));
       localStorage.setItem(STORAGE_KEYS.BACKUPS, JSON.stringify(backupArray));

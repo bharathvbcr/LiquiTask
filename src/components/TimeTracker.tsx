@@ -1,5 +1,6 @@
 import { Clock, Pause, Play, RotateCcw, Save } from "lucide-react";
 import type React from "react";
+import { useEffect, useRef } from "react";
 import type { Task } from "../../types";
 import { useConfirmation } from "../contexts/ConfirmationContext";
 import { formatMinutes, secondsToMinutes, useTimer } from "../hooks/useTimer";
@@ -19,13 +20,24 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({
   // Convert existing time spent (minutes) to seconds for initial value
   const initialSeconds = (task.timeSpent || 0) * 60;
 
-  const { seconds, isRunning, start, pause, reset, formattedTime } = useTimer({
+  const { seconds, isRunning, start, pause, reset, setSeconds, formattedTime } = useTimer({
     initialSeconds,
     autoSaveInterval: 60, // Auto-save every minute
     onAutoSave: (secs) => {
       onSaveTime(task.id, secondsToMinutes(secs));
     },
+    timerId: task.id,
   });
+
+  // Reset timer when the task changes so stale time isn't shown for a new task
+  const prevTaskIdRef = useRef(task.id);
+  useEffect(() => {
+    if (prevTaskIdRef.current !== task.id) {
+      prevTaskIdRef.current = task.id;
+      pause();
+      setSeconds((task.timeSpent || 0) * 60);
+    }
+  }, [task.id, task.timeSpent, pause, setSeconds]);
 
   const handleSave = () => {
     onSaveTime(task.id, secondsToMinutes(seconds));

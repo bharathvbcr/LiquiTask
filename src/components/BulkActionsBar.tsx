@@ -65,8 +65,9 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
   if (selectedCount === 0) return null;
 
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const date = e.target.value ? new Date(e.target.value) : null;
-    onSetDueDate(date);
+    if (!e.target.value) { onSetDueDate(null); setShowDatePicker(false); return; }
+    const [year, month, day] = e.target.value.split("-").map(Number);
+    onSetDueDate(new Date(year, month - 1, day)); // local midnight avoids UTC off-by-one
     setShowDatePicker(false);
   };
 

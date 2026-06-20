@@ -31,6 +31,7 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({ onAddTask, isVisible, 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiSummary, setAiSummary] = useState<string | undefined>();
   const inputRef = useRef<HTMLInputElement>(null);
+  const isSubmittingRef = useRef(false);
 
   useEffect(() => {
     if (isVisible && inputRef.current) {
@@ -118,21 +119,25 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({ onAddTask, isVisible, 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() && !imagePreview) return;
-
-    const parsed = parseQuickTask(input || "Task from Image");
-    if (parsed.title) {
-      onAddTask(parsed.title, {
-        priority: parsed.priority,
-        dueDate: parsed.dueDate,
-        timeEstimate: parsed.timeEstimate,
-        tags: parsed.tags,
-        summary: aiSummary,
-      });
-      setInput("");
-      setImagePreview(null);
-      setAiSummary(undefined);
-      onClose();
+    if (isSubmittingRef.current || (!input.trim() && !imagePreview)) return;
+    isSubmittingRef.current = true;
+    try {
+      const parsed = parseQuickTask(input || "Task from Image");
+      if (parsed.title) {
+        onAddTask(parsed.title, {
+          priority: parsed.priority,
+          dueDate: parsed.dueDate,
+          timeEstimate: parsed.timeEstimate,
+          tags: parsed.tags,
+          summary: aiSummary,
+        });
+        setInput("");
+        setImagePreview(null);
+        setAiSummary(undefined);
+        onClose();
+      }
+    } finally {
+      isSubmittingRef.current = false;
     }
   };
 

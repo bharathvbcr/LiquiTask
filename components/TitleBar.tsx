@@ -28,7 +28,7 @@ export const TitleBar: React.FC = () => {
     } else {
       await controls.maximize();
     }
-    setIsMaximized(!isCurrentlyMaximized);
+    // Let onWindowStateChange update state — don't set it here to avoid race
   };
   const handleClose = async () => {
     await controls?.close();

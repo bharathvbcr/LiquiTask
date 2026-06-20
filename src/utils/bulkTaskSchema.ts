@@ -172,13 +172,13 @@ export function validateBulkTasks(jsonString: string): ValidationResult {
     // Validate timeEstimate if provided
     let timeEstimate = 0;
     if (taskObj.timeEstimate !== undefined) {
-      if (typeof taskObj.timeEstimate !== "number" || taskObj.timeEstimate < 0) {
+      if (typeof taskObj.timeEstimate !== "number" || taskObj.timeEstimate < 0 || !Number.isFinite(taskObj.timeEstimate)) {
         return {
           valid: false,
-          error: `${prefix}: "timeEstimate" must be a positive number (minutes).`,
+          error: `${prefix}: "timeEstimate" must be a non-negative finite number (minutes).`,
         };
       }
-      timeEstimate = taskObj.timeEstimate;
+      timeEstimate = Math.round(taskObj.timeEstimate); // enforce integer minutes
     }
 
     // Validate subtasks if provided
@@ -205,7 +205,7 @@ export function validateBulkTasks(jsonString: string): ValidationResult {
           };
         }
         subtasks.push({
-          id: `subtask-${Date.now()}-${j}`,
+          id: `subtask-${Date.now()}-${i}-${j}`, // include task index to avoid same-ms collision
           title: sub.title.trim(),
           completed: Boolean(sub.completed),
         });

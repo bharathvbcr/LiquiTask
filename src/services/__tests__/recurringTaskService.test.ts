@@ -100,7 +100,7 @@ describe("RecurringTaskService", () => {
         },
       };
 
-      service.start([task]);
+      service.start(() => [task]);
 
       expect(mockOnCreate).toHaveBeenCalled();
       expect(mockOnUpdate).toHaveBeenCalled();
@@ -140,7 +140,7 @@ describe("RecurringTaskService", () => {
         },
       };
 
-      service.start([task]);
+      service.start(() => [task]);
       expect(mockOnCreate).not.toHaveBeenCalled();
     });
   });
