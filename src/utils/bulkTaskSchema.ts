@@ -179,6 +179,12 @@ export function validateBulkTasks(jsonString: string): ValidationResult {
         };
       }
       timeEstimate = Math.round(taskObj.timeEstimate); // enforce integer minutes
+      if (timeEstimate > 100000) {
+        return {
+          valid: false,
+          error: `${prefix}: "timeEstimate" must not exceed 100000 minutes (~69 days).`,
+        };
+      }
     }
 
     // Validate subtasks if provided
@@ -205,7 +211,7 @@ export function validateBulkTasks(jsonString: string): ValidationResult {
           };
         }
         subtasks.push({
-          id: `subtask-${Date.now()}-${i}-${j}`, // include task index to avoid same-ms collision
+          id: crypto.randomUUID(),
           title: sub.title.trim(),
           completed: Boolean(sub.completed),
         });

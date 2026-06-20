@@ -145,19 +145,25 @@ class AISummaryService {
         recommendations.push("All tasks are on track. Keep up the good work!");
     }
 
+    const upThreshold = period === "daily" ? 3 : 14;
+    const downThreshold = period === "daily" ? 1 : 5;
     const trend: "up" | "down" | "stable" =
-      completedThisPeriod.length > 5 ? "up" : completedThisPeriod.length < 2 ? "down" : "stable";
+      completedThisPeriod.length > upThreshold
+        ? "up"
+        : completedThisPeriod.length < downThreshold
+          ? "down"
+          : "stable";
 
     return {
       date: now,
       period,
       overview: {
         totalTasks: allTasks.length,
-        completedTasks: completedTasks.length,
+        completedTasks: completedThisPeriod.length,
         overdueTasks: overdueTasks.length,
         newTasksThisPeriod: newTasksThisPeriod.length,
         completionRate:
-          allTasks.length > 0 ? Math.round((completedTasks.length / allTasks.length) * 100) : 0,
+          allTasks.length > 0 ? Math.round((completedThisPeriod.length / allTasks.length) * 100) : 0,
       },
       productivity: {
         tasksCompleted: completedThisPeriod.length,

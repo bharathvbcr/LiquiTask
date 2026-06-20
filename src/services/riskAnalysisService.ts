@@ -127,7 +127,7 @@ class RiskAnalysisService {
       const reasons: string[] = [];
 
       // Risk 1: Overdue or near deadline
-      if (task.dueDate && task.status !== "completed") {
+      if (task.dueDate && task.status !== "Completed") {
         const due = new Date(task.dueDate);
         const diff = (due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
         if (diff < 0) {

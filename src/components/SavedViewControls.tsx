@@ -65,6 +65,7 @@ export const SavedViewControls: React.FC<SavedViewControlsProps> = ({
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setIsOpen(false);
+        triggerRef.current?.querySelector("button")?.focus();
       }
     };
 
@@ -88,6 +89,9 @@ export const SavedViewControls: React.FC<SavedViewControlsProps> = ({
       <Button
         onClick={() => setIsOpen(!isOpen)}
         variant="secondary"
+        aria-expanded={isOpen}
+        aria-haspopup="menu"
+        aria-controls="saved-views-menu"
         className={`flex items-center gap-2 min-w-[180px] justify-between px-4 py-2 text-sm font-medium transition-colors ${
           activeView
             ? "bg-blue-500/10 border-blue-500/30 text-blue-400 ring-1 ring-blue-500/30"
@@ -106,8 +110,11 @@ export const SavedViewControls: React.FC<SavedViewControlsProps> = ({
         typeof document !== "undefined" &&
         createPortal(
           <>
-            <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
+            <div className="fixed inset-0 z-40" onClick={() => { setIsOpen(false); triggerRef.current?.querySelector("button")?.focus(); }} />
             <div
+              role="menu"
+              id="saved-views-menu"
+              aria-label="Saved views"
               style={menuStyle}
               className="bg-[#0a0e17] border border-white/10 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100 origin-top-right"
             >
@@ -118,6 +125,7 @@ export const SavedViewControls: React.FC<SavedViewControlsProps> = ({
                   <input
                     type="text"
                     placeholder="Search views..."
+                    aria-label="Search saved views"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full bg-black/20 border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500/50"
@@ -131,9 +139,12 @@ export const SavedViewControls: React.FC<SavedViewControlsProps> = ({
                   <div className="p-4 text-center text-xs text-slate-500">No views found</div>
                 ) : (
                   filteredViews.map((view) => (
-                    <div
+                    <button
                       key={view.id}
-                      className={`group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors ${view.id === activeViewId ? "bg-blue-500/10" : "hover:bg-white/5"}`}
+                      type="button"
+                      role="menuitem"
+                      aria-current={view.id === activeViewId ? "true" : undefined}
+                      className={`group flex items-center justify-between w-full text-left bg-transparent border-0 p-2 rounded-lg transition-colors ${view.id === activeViewId ? "bg-blue-500/10" : "hover:bg-white/5"}`}
                       onClick={() => {
                         onApplyView(view.id);
                         setIsOpen(false);
@@ -141,7 +152,7 @@ export const SavedViewControls: React.FC<SavedViewControlsProps> = ({
                     >
                       <div className="flex items-center gap-2 overflow-hidden">
                         {view.id === activeViewId && (
-                          <Check size={14} className="text-blue-400 shrink-0" />
+                          <Check size={14} className="text-blue-400 shrink-0" aria-hidden="true" />
                         )}
                         <span
                           className={`text-sm truncate ${view.id === activeViewId ? "text-blue-400 font-medium" : "text-slate-300"}`}
@@ -155,7 +166,7 @@ export const SavedViewControls: React.FC<SavedViewControlsProps> = ({
                         )}
                       </div>
 
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
                         {!view.isDefault && (
                           confirmDeleteId === view.id ? (
                             <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -190,7 +201,7 @@ export const SavedViewControls: React.FC<SavedViewControlsProps> = ({
                           )
                         )}
                       </div>
-                    </div>
+                    </button>
                   ))
                 )}
               </div>
@@ -204,6 +215,7 @@ export const SavedViewControls: React.FC<SavedViewControlsProps> = ({
                       value={newViewName}
                       onChange={(e) => setNewViewName(e.target.value)}
                       placeholder="View Name..."
+                      aria-label="New view name"
                       className="flex-1 bg-black/20 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500/50"
                     />
                     <Button

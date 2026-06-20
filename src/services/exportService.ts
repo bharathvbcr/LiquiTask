@@ -58,7 +58,7 @@ class ExportService {
   // Generate CSV content from tasks
   exportToCSV(
     tasks: Task[],
-    columns: string[] = DEFAULT_CSV_COLUMNS,
+    columns: string[] = SANITISED_CSV_COLUMNS,
     projectMap?: Map<string, string>,
   ): string {
     const header = columns.map((col) => this.formatColumnHeader(col)).join(",");
@@ -131,6 +131,9 @@ class ExportService {
 
   // Escape a value for CSV (handle commas, quotes, newlines)
   private escapeCSV(value: string): string {
+    if (/^[=+\-@\t\r]/.test(value)) {
+      value = "'" + value;
+    }
     if (value.includes(",") || value.includes('"') || value.includes("\n")) {
       return `"${value.replace(/"/g, '""')}"`;
     }
@@ -246,16 +249,16 @@ Generated: {{date}}
           : defaultTemplate.split("{{#tasks}}")[1].split("{{/tasks}}")[0];
 
         taskMd = taskMd
-          .replace(/\{\{title\}\}/g, task.title)
-          .replace(/\{\{jobId\}\}/g, task.jobId)
-          .replace(/\{\{status\}\}/g, task.status)
-          .replace(/\{\{priority\}\}/g, task.priority)
-          .replace(/\{\{assignee\}\}/g, task.assignee || "Unassigned")
+          .replace(/\{\{title\}\}/g, this.escapeMarkdown(task.title))
+          .replace(/\{\{jobId\}\}/g, this.escapeMarkdown(task.jobId))
+          .replace(/\{\{status\}\}/g, this.escapeMarkdown(task.status))
+          .replace(/\{\{priority\}\}/g, this.escapeMarkdown(task.priority))
+          .replace(/\{\{assignee\}\}/g, this.escapeMarkdown(task.assignee || "Unassigned"))
           .replace(
             /\{\{dueDate\}\}/g,
             task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "No date",
           )
-          .replace(/\{\{summary\}\}/g, task.summary || "");
+          .replace(/\{\{summary\}\}/g, this.escapeMarkdown(task.summary || ""));
 
         return taskMd;
       })
@@ -341,6 +344,10 @@ Generated: {{date}}
       index += 74;
     }
     return segments.join("\r\n");
+  }
+
+  private escapeMarkdown(text: string): string {
+    return text.replace(/[\\`*_{}[\]()#+\-.!|<>&]/g, '\\$&');
   }
 
   // Escape text for ICS format

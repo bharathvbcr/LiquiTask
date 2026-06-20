@@ -1,6 +1,6 @@
 import { Brain, CheckCircle2, FolderOpen, Loader2, Sparkles } from "lucide-react";
 import type React from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ModalWrapper } from "../../components/ModalWrapper";
 import type { PriorityDefinition, Project, Task, TaskCluster } from "../../types";
 import { STORAGE_KEYS } from "../constants";
@@ -34,6 +34,20 @@ export const AIReorganizeModal: React.FC<AIReorganizeModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [applying, setApplying] = useState(false);
   const [progress, setProgress] = useState({ processed: 0, total: 0 });
+  const isMountedRef = useRef(true);
+  const applyingRef = useRef(false);
+  const onCloseRef = useRef(onClose);
+  const addToastRef = useRef(addToast);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+  useEffect(() => { addToastRef.current = addToast; }, [addToast]);
 
   const loadClusters = useCallback(async () => {
     setLoading(true);
@@ -50,12 +64,14 @@ export const AIReorganizeModal: React.FC<AIReorganizeModalProps> = ({
       };
 
       const taskClusters = await aiService.clusterTasks(allTasks, context, (processed, total) => {
-        setProgress({ processed, total });
+        if (isMountedRef.current) setProgress({ processed, total });
       });
 
+      if (!isMountedRef.current) return;
+
       if (taskClusters.length === 0) {
-        addToast("No task clusters found for reorganization", "info");
-        onClose();
+        addToastRef.current("No task clusters found for reorganization", "info");
+        onCloseRef.current();
         return;
       }
 
@@ -67,13 +83,14 @@ export const AIReorganizeModal: React.FC<AIReorganizeModalProps> = ({
         })),
       );
     } catch (error) {
+      if (!isMountedRef.current) return;
       console.error("Failed to cluster tasks:", error);
-      addToast("Failed to analyze task clusters", "error");
-      onClose();
+      addToastRef.current("Failed to analyze task clusters", "error");
+      onCloseRef.current();
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) setLoading(false);
     }
-  }, [allTasks, addToast, onClose]);
+  }, [allTasks]);
 
   useEffect(() => {
     if (isOpen) {
@@ -96,9 +113,13 @@ export const AIReorganizeModal: React.FC<AIReorganizeModalProps> = ({
   };
 
   const applyApprovedClusters = async () => {
+    if (applyingRef.current) return;
+    applyingRef.current = true;
+
     const approvedClusters = clusters.filter((c) => c.approved);
 
     if (approvedClusters.length === 0) {
+      applyingRef.current = false;
       addToast("No clusters approved for reorganization", "warning");
       return;
     }
@@ -135,12 +156,13 @@ export const AIReorganizeModal: React.FC<AIReorganizeModalProps> = ({
           `Successfully reorganized ${successCount} cluster${successCount > 1 ? "s" : ""} into new projects`,
           "success",
         );
-        loadClusters(); // Refresh to show remaining clusters
+        if (isMountedRef.current) loadClusters();
       }
     } catch (error) {
       console.error("Failed to apply reorganization:", error);
       addToast("Failed to apply some reorganizations", "error");
     } finally {
+      applyingRef.current = false;
       setApplying(false);
     }
   };

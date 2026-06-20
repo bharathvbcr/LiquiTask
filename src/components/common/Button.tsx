@@ -24,6 +24,7 @@ export const Button: React.FC<ButtonProps> = ({
   fullWidth = false,
   className = "",
   disabled,
+  onClick,
   ...props
 }) => {
   const baseStyles =
@@ -54,38 +55,46 @@ export const Button: React.FC<ButtonProps> = ({
 
   const content = (
     <div className={`flex items-center gap-2 ${variant === "primary" ? "relative z-10" : ""}`}>
-      {isLoading && <Loader2 className="animate-spin" size={size === "sm" ? 14 : 18} />}
-      {!isLoading && icon && <span className="flex-shrink-0">{icon}</span>}
-      <span>{children}</span>
+      {isLoading && (
+        <>
+          <Loader2 className="animate-spin" size={size === "sm" ? 14 : 18} aria-hidden="true" />
+          <span className="sr-only">Loading</span>
+        </>
+      )}
+      {!isLoading && icon && <span className="flex-shrink-0" aria-hidden="true">{icon}</span>}
+      {children}
     </div>
   );
 
   return (
     <button
       className={`${baseStyles} ${sizeStyles[size]} ${getVariantStyles()} ${fullWidth ? "w-full" : ""} ${className}`}
-      disabled={disabled || isLoading}
+      disabled={disabled}
+      aria-disabled={isLoading ? true : undefined}
       aria-busy={isLoading || undefined}
+      onClick={isLoading ? (e) => e.preventDefault() : onClick}
       {...props}
     >
       {variant === "primary" && !disabled && (
         <>
           {/* Base Liquid Layer */}
           <div
+            aria-hidden="true"
             className={`absolute inset-0 bg-gradient-to-br ${color === "blue" ? "from-blue-600 to-blue-800" : "from-red-700 to-red-900"} z-0`}
           ></div>
 
           {/* Viscous Ripple Overlay */}
-          <div className="absolute inset-0 z-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+          <div aria-hidden="true" className="absolute inset-0 z-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
             <div
               className={`absolute inset-0 ${color === "blue" ? "bg-blue-500/30" : "bg-red-600/30"} mix-blend-overlay animate-ripple`}
             ></div>
           </div>
 
           {/* Shine Effect */}
-          <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/20 to-transparent z-0 pointer-events-none opacity-50"></div>
+          <div aria-hidden="true" className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/20 to-transparent z-0 pointer-events-none opacity-50"></div>
 
           {/* Bottom Highlight */}
-          <div className="absolute bottom-0 left-0 w-full h-1/3 bg-gradient-to-t from-black/20 to-transparent z-0 pointer-events-none"></div>
+          <div aria-hidden="true" className="absolute bottom-0 left-0 w-full h-1/3 bg-gradient-to-t from-black/20 to-transparent z-0 pointer-events-none"></div>
         </>
       )}
       {content}

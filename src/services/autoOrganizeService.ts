@@ -76,7 +76,6 @@ class AutoOrganizeService {
       ],
     ];
 
-    let processedCount = 0;
     const totalPhases = phaseGroups.flat().length;
 
     for (let groupIndex = 0; groupIndex < phaseGroups.length; groupIndex++) {
@@ -94,13 +93,11 @@ class AutoOrganizeService {
           const phaseChanges = await phase.run();
           // Increment and report progress only after the phase finishes so the value is accurate
           const completedSoFar = groupIndex * group.length + phaseIndex + 1;
-          processedCount++;
           onProgress?.(phase.key, (completedSoFar / totalPhases) * 100);
           return phaseChanges;
         } catch (e) {
           console.error(`Auto-organize phase ${phase.key} failed:`, e);
           const completedSoFar = groupIndex * group.length + phaseIndex + 1;
-          processedCount++;
           onProgress?.(phase.key, (completedSoFar / totalPhases) * 100);
           return [];
         }
@@ -233,7 +230,8 @@ class AutoOrganizeService {
           if (!task) continue;
 
           const newTags = Array.from(new Set([...task.tags, ...cluster.suggestedTags]));
-          const tagsChanged = newTags.length !== task.tags.length;
+          const originalTagSet = new Set(task.tags);
+          const tagsChanged = newTags.some(t => !originalTagSet.has(t));
 
           if (tagsChanged && cluster.confidence >= config.autoApplyThreshold) {
             changes.push({
@@ -285,7 +283,8 @@ class AutoOrganizeService {
         if (!task) continue;
 
         const newTags = Array.from(new Set([...task.tags, ...suggestion.suggestedTags]));
-        const tagsChanged = newTags.length !== task.tags.length;
+        const originalTagSet = new Set(task.tags);
+        const tagsChanged = newTags.some(t => !originalTagSet.has(t));
 
         if (tagsChanged && suggestion.confidence >= config.autoApplyThreshold) {
           changes.push({

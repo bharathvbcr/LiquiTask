@@ -15,9 +15,9 @@ function evaluateRule(task: Task, rule: FilterRule): boolean {
       case "title":
         taskValue = task.title;
         break;
-      case "description":
+      case "summary":
         taskValue = task.summary;
-        break; // mapping summary to description
+        break;
       case "assignee":
         taskValue = task.assignee;
         break;
@@ -59,7 +59,10 @@ function evaluateRule(task: Task, rule: FilterRule): boolean {
     const dateValue = new Date(taskValue as string | number | Date);
     const ruleDate = new Date(String(ruleValue as string | number | Date));
 
-    if (Number.isNaN(dateValue.getTime()) || Number.isNaN(ruleDate.getTime())) return false;
+    if (Number.isNaN(dateValue.getTime()) || Number.isNaN(ruleDate.getTime())) {
+      console.warn(`[queryEngine] Invalid date in filter rule — field: ${rule.field}, value: ${String(ruleValue)}`);
+      return false;
+    }
 
     // Strip time for comparisons if ruleValue doesn't seem to have time?
     // For now, simple timestamp comparison
@@ -69,7 +72,7 @@ function evaluateRule(task: Task, rule: FilterRule): boolean {
       case "after":
         return dateValue > ruleDate;
       case "equals":
-        return dateValue.toDateString() === ruleDate.toDateString();
+        return dateValue.toISOString().slice(0, 10) === ruleDate.toISOString().slice(0, 10);
       default:
         return false;
     }
@@ -87,6 +90,8 @@ function evaluateRule(task: Task, rule: FilterRule): boolean {
         return !array.some((item) => item.toLowerCase().includes(strRuleValue));
       case "equals":
         return array.some((item) => item.toLowerCase() === strRuleValue);
+      case "not-equals":
+        return !array.some((item) => item.toLowerCase() === strRuleValue);
       case "is-empty":
         return array.length === 0;
       case "is-not-empty":
@@ -126,8 +131,8 @@ function evaluateRule(task: Task, rule: FilterRule): boolean {
         const MAX_REGEX_LENGTH = 200;
         if (pattern.length > MAX_REGEX_LENGTH) return false;
         // Detect nested-quantifier shapes: quantified group/class followed by
-        // another quantifier — covers (x+)+, (x*)*, [x+]+, etc.
-        const reDoSPattern = /(\(([^()]*[+*][^()]*)\)|(\[[^\]]*\]))[+*?]\s*[+*?]|(\(([^()]+)\))[+*]\s*[+*]/;
+        // another quantifier — covers (x+)+, (x*)*, [x+]+, (a{2})+, (a+){2,3}, etc.
+        const reDoSPattern = /(\(([^()]*(?:[+*]|\{[0-9,]+\})[^()]*)\)|(\[[^\]]*\]))(?:[+*?]|\{[0-9,]+\})|(\(([^()]+)\))(?:[+*]|\{[0-9,]+\})(?:[+*]|\{[0-9,]+\})/;
         if (reDoSPattern.test(pattern)) return false;
         const regex = new RegExp(pattern, "i");
         return regex.test(String(taskValue));
@@ -135,11 +140,18 @@ function evaluateRule(task: Task, rule: FilterRule): boolean {
         return false; // Invalid regex
       }
     }
-    // Numeric comparisons (attempt parse)
-    case "greater-than":
-      return parseFloat(strTaskValue) > parseFloat(strRuleValue);
-    case "less-than":
-      return parseFloat(strTaskValue) < parseFloat(strRuleValue);
+    case "greater-than": {
+      const numTask = parseFloat(strTaskValue);
+      const numRule = parseFloat(strRuleValue);
+      if (Number.isNaN(numTask) || Number.isNaN(numRule)) return false;
+      return numTask > numRule;
+    }
+    case "less-than": {
+      const numTask = parseFloat(strTaskValue);
+      const numRule = parseFloat(strRuleValue);
+      if (Number.isNaN(numTask) || Number.isNaN(numRule)) return false;
+      return numTask < numRule;
+    }
     default:
       return false;
   }

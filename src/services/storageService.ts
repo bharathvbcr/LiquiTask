@@ -1,10 +1,12 @@
 import type {
+  ActivityItem,
   BoardColumn,
   CustomFieldDefinition,
   MigratableAppData,
   PriorityDefinition,
   Project,
   ProjectType,
+  RecurringConfig,
   Task,
 } from "../../types";
 import {
@@ -52,7 +54,7 @@ function parseTasks(data: Record<string, unknown>[]): Task[] {
       jobId: t.jobId as string,
       projectId: t.projectId as string,
       title: (t.title as string) || "",
-      subtitle: (t.subtitle as string) || "",
+      subtitle: (t.subtitle as string | undefined) || undefined,
       summary: (t.summary as string) || "",
       assignee: (t.assignee as string) || "",
       priority: (t.priority as string) || "medium",
@@ -60,6 +62,7 @@ function parseTasks(data: Record<string, unknown>[]): Task[] {
       createdAt: new Date(t.createdAt as string | number | Date),
       updatedAt: t.updatedAt ? new Date(t.updatedAt as string | number | Date) : undefined,
       dueDate: t.dueDate ? new Date(t.dueDate as string | number | Date) : undefined,
+      completedAt: t.completedAt ? new Date(t.completedAt as string | number | Date) : undefined,
       subtasks: (t.subtasks as Task["subtasks"]) || [],
       attachments: (t.attachments as Task["attachments"]) || [],
       customFieldValues: (t.customFieldValues as Task["customFieldValues"]) || {},
@@ -68,6 +71,23 @@ function parseTasks(data: Record<string, unknown>[]): Task[] {
       timeEstimate: (t.timeEstimate as number) || 0,
       timeSpent: (t.timeSpent as number) || 0,
       errorLogs: errorLogs,
+      recurring: t.recurring
+        ? {
+            ...(t.recurring as RecurringConfig),
+            endDate: (t.recurring as Record<string, unknown>).endDate
+              ? new Date((t.recurring as Record<string, unknown>).endDate as string)
+              : undefined,
+            nextOccurrence: (t.recurring as Record<string, unknown>).nextOccurrence
+              ? new Date((t.recurring as Record<string, unknown>).nextOccurrence as string)
+              : undefined,
+          }
+        : undefined,
+      activity: Array.isArray(t.activity)
+        ? (t.activity as Record<string, unknown>[]).map((item) => ({
+            ...(item as unknown as ActivityItem),
+            timestamp: new Date(item.timestamp as string | number | Date),
+          }))
+        : undefined,
     };
   });
 }
@@ -226,6 +246,12 @@ class StorageService {
   private static readonly SENSITIVE_KEYS: Set<string> = new Set([
     STORAGE_KEYS.AI_CONFIG,
     STORAGE_KEYS.GEMINI_API_KEY,
+    STORAGE_KEYS.SEARCH_HISTORY,
+    STORAGE_KEYS.COMMAND_HISTORY,
+    STORAGE_KEYS.AI_SEMANTIC_CACHE,
+    STORAGE_KEYS.AUTO_ORGANIZE_HISTORY,
+    STORAGE_KEYS.AI_ORGANIZE_CACHE,
+    STORAGE_KEYS.BACKUPS,
   ]);
 
   async set<T>(key: string, value: T): Promise<void> {

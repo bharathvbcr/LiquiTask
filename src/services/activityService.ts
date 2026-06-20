@@ -46,7 +46,7 @@ export const activityService = {
         ),
       );
     }
-    if (changes.assignee && changes.assignee !== task.assignee) {
+    if (changes.assignee !== undefined && changes.assignee !== task.assignee) {
       activities.push(
         this.createActivity(
           "update",
@@ -69,7 +69,7 @@ export const activityService = {
         this.createActivity("update", `Description updated`, "summary", undefined, undefined),
       );
     }
-    if (changes.dueDate) {
+    if ('dueDate' in changes) {
       const oldDate = task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "No date";
       const newDate = changes.dueDate ? new Date(changes.dueDate).toLocaleDateString() : "No date";
       if (oldDate !== newDate) {

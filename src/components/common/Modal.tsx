@@ -1,8 +1,9 @@
 import { X } from "lucide-react";
 import type React from "react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { acquireScrollLock, releaseScrollLock } from "../../utils/scrollLock";
 
 export interface ModalProps {
   isOpen: boolean;
@@ -23,7 +24,8 @@ export const Modal: React.FC<ModalProps> = ({
   size = "lg",
   showCloseButton = true,
 }) => {
-  useFocusTrap(isOpen, onClose);
+  const modalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(isOpen, modalRef, onClose);
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -31,11 +33,11 @@ export const Modal: React.FC<ModalProps> = ({
     };
     if (isOpen) {
       window.addEventListener("keydown", handleEsc);
-      document.body.style.overflow = "hidden";
+      acquireScrollLock();
     }
     return () => {
       window.removeEventListener("keydown", handleEsc);
-      document.body.style.overflow = "unset";
+      if (isOpen) releaseScrollLock();
     };
   }, [isOpen, onClose]);
 
@@ -60,6 +62,7 @@ export const Modal: React.FC<ModalProps> = ({
 
       {/* Modal Content */}
       <div
+        ref={modalRef}
         data-modal
         className={`
             relative w-full ${sizeClasses[size]} 

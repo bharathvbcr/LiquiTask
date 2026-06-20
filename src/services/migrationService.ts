@@ -130,6 +130,11 @@ export class MigrationService {
       return null;
     }
 
+    if (Object.keys(backup.data).length === 0) {
+      console.error(`Backup ${backupId} has no restorable data (metadata-only entry from a prior session)`);
+      return null;
+    }
+
     this.logMigration(`Restored from backup: ${backupId}`);
     return JSON.parse(JSON.stringify(backup.data));
   }

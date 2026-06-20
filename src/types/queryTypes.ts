@@ -22,7 +22,7 @@ export type ComparisonOperator =
 // Fields available for filtering
 export type FilterableField =
   | "title"
-  | "description"
+  | "summary"
   | "assignee"
   | "priority"
   | "status"
@@ -38,6 +38,7 @@ export interface FilterRule {
   field: FilterableField;
   customFieldId?: string; // Only if field === 'customField'
   operator: ComparisonOperator;
+  /** For date fields (dueDate, createdAt), value must be an ISO 8601 date string (e.g. "2024-01-15"). An invalid string silently excludes all tasks. */
   value: string | number | boolean | null;
 }
 

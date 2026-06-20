@@ -311,7 +311,7 @@ ${task.summary ? `Summary: ${task.summary}` : ""}
    */
   getStats() {
     return {
-      totalWords: this.index.titleIndex.size + this.index.summaryIndex.size,
+      totalWords: new Set([...this.index.titleIndex.keys(), ...this.index.summaryIndex.keys()]).size,
       totalTags: this.index.tagIndex.size,
       totalAssignees: this.index.assigneeIndex.size,
       totalJobIds: this.index.jobIdIndex.size,
@@ -421,6 +421,13 @@ ${task.summary ? `Summary: ${task.summary}` : ""}
     }
 
     this.semanticCache[taskId] = normalizedKeywords;
+    const keys = Object.keys(this.semanticCache);
+    if (keys.length > MAX_SEMANTIC_CACHE_ENTRIES) {
+      const evictCount = keys.length - MAX_SEMANTIC_CACHE_ENTRIES;
+      for (let i = 0; i < evictCount; i++) {
+        this.clearSemanticKeywords(keys[i]);
+      }
+    }
     normalizedKeywords.forEach((keyword) => {
       this.addToIndex(this.index.semanticIndex, keyword, taskId);
     });

@@ -6,6 +6,16 @@ import type {
   Task,
 } from "../../types";
 
+const DATE_FIELDS = new Set([
+  "createdAt",
+  "updatedAt",
+  "dueDate",
+  "completedAt",
+  "timestamp",
+  "nextOccurrence",
+  "endDate",
+]);
+
 const DB_NAME = "LiquiTaskDB";
 const DB_VERSION = 1;
 
@@ -113,6 +123,9 @@ export class IndexedDBService {
           }
         });
       };
+    });
+    this.initPromise.catch(() => {
+      this.initPromise = null;
     });
 
     return this.initPromise;
@@ -425,38 +438,23 @@ export class IndexedDBService {
   private deserializeDates(obj: unknown): unknown {
     if (obj === null || obj === undefined) return obj;
     if (Array.isArray(obj)) return obj.map((item) => this.deserializeDates(item));
+    if (typeof obj !== "object") return obj;
 
-    if (typeof obj === "object") {
-      const result: Record<string, unknown> = {};
-      const record = obj as Record<string, unknown>;
+    const result: Record<string, unknown> = {};
+    const record = obj as Record<string, unknown>;
 
-      for (const key in record) {
-        if (Object.hasOwn(record, key)) {
-          const value = record[key];
-          // Check if this looks like a date field
-          if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
-            const dateFields = [
-              "createdAt",
-              "updatedAt",
-              "dueDate",
-              "completedAt",
-              "timestamp",
-              "nextOccurrence",
-              "endDate",
-            ];
-            if (dateFields.includes(key)) {
-              result[key] = new Date(value);
-            } else {
-              result[key] = this.deserializeDates(value);
-            }
-          } else {
-            result[key] = this.deserializeDates(value);
-          }
-        }
+    for (const key of Object.keys(record)) {
+      const value = record[key];
+      if (key === "customFieldValues") {
+        result[key] = value;
+      } else if (DATE_FIELDS.has(key) && typeof value === "string" && value.length > 0) {
+        const d = new Date(value);
+        result[key] = isNaN(d.getTime()) ? value : d;
+      } else {
+        result[key] = this.deserializeDates(value);
       }
-      return result;
     }
-    return obj;
+    return result;
   }
 
   /**

@@ -177,7 +177,7 @@ class NotificationService {
     if (tasks.length === 1) {
       this.show({
         title: "⚠️ Overdue Task",
-        body: `"${tasks[0].title}" is past due!`,
+        body: 'A task is past due',
       });
     } else {
       this.show({
@@ -208,6 +208,15 @@ class NotificationService {
     const check = () => {
       const tasks = getTasks();
       const { overdue } = this.checkOverdueTasks(tasks);
+
+      const activeIds = new Set(
+        tasks
+          .filter((t) => t.status !== "Done" && !t.completedAt)
+          .map((t) => t.id)
+      );
+      for (const id of this.notifiedOverdueIds) {
+        if (!activeIds.has(id)) this.notifiedOverdueIds.delete(id);
+      }
 
       // Only notify for newly overdue tasks
       const newlyOverdue = overdue.filter((t) => !this.notifiedOverdueIds.has(t.id));

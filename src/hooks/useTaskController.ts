@@ -38,7 +38,7 @@ type AutomationServiceLike = {
     event: AutomationTrigger,
     context: TaskContext,
     allTasks: Task[],
-    options?: { onNotify?: (message: string) => void },
+    options?: { onNotify?: (message: string) => void; columns?: BoardColumn[] },
   ) => Partial<Task> | null;
 };
 
@@ -127,10 +127,7 @@ export const useTaskController = ({
   const undoStack = useRef<UndoAction[]>([]);
   const [canUndo, setCanUndo] = useState(false);
   const MAX_UNDO = 20;
-  // Monotonically-increasing counter used to cancel in-flight async work (e.g.
-  // auto-pilot subtask generation) when the owning component unmounts or the
-  // task is superseded before the promise resolves.
-  const autoPilotRunIdRef = useRef(0);
+  const autoPilotRunIdsRef = useRef<Map<string, number>>(new Map());
 
   const augmentTaskSemantically = useCallback(
     async (task: Task) => {
@@ -245,6 +242,9 @@ export const useTaskController = ({
         previousState: previousTask,
       });
       setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
+      if (indexedDBService.isAvailable()) {
+        indexedDBService.saveTask(updatedTask).catch(console.error);
+      }
       searchIndexServiceRef.current?.updateTask?.(updatedTask, previousTask);
       augmentTaskSemantically(updatedTask);
     },
@@ -352,6 +352,7 @@ export const useTaskController = ({
             changedFields: Object.keys(updates),
           },
           tasks,
+          { columns },
         );
         if (automationUpdates) {
           updatedTask = { ...updatedTask, ...automationUpdates };
@@ -426,6 +427,7 @@ export const useTaskController = ({
         "onCreate",
         { newTask },
         tasks,
+        { columns },
       );
       if (automationUpdates) {
         Object.assign(newTask, automationUpdates);
@@ -605,6 +607,7 @@ export const useTaskController = ({
         "onMove",
         { previousTask, newTask: updatedTask },
         tasks,
+        { columns },
       );
       if (automationUpdates) {
         updatedTask = { ...updatedTask, ...automationUpdates };
@@ -618,6 +621,7 @@ export const useTaskController = ({
           "onComplete",
           { previousTask, newTask: updatedTask },
           tasks,
+          { columns },
         );
         if (completeUpdates) {
           updatedTask = { ...updatedTask, ...completeUpdates };
@@ -645,16 +649,14 @@ export const useTaskController = ({
         currentAiService
       ) {
         addToast("Auto-pilot: Generating subtasks...", "info");
-        // Capture the current run-id so the callback can verify it is still
-        // the most-recent launch and the component has not unmounted.
-        autoPilotRunIdRef.current += 1;
-        const capturedRunId = autoPilotRunIdRef.current;
+        const prevRunId = autoPilotRunIdsRef.current.get(taskId) ?? 0;
+        const capturedRunId = prevRunId + 1;
+        autoPilotRunIdsRef.current.set(taskId, capturedRunId);
         currentAiService
           .generateSubtasks(updatedTask.title, updatedTask.summary)
           .then((subtaskTitles) => {
-            // Bail out if this launch was superseded (e.g. component unmounted
-            // or the task was already deleted while the request was in-flight).
-            if (capturedRunId !== autoPilotRunIdRef.current) return;
+            if (autoPilotRunIdsRef.current.get(taskId) !== capturedRunId) return;
+            autoPilotRunIdsRef.current.delete(taskId);
             if (subtaskTitles.length > 0) {
               const newSubtasks = subtaskTitles.map((title, i) => ({
                 id: `ai-st-${Date.now()}-${i}`,
@@ -678,6 +680,7 @@ export const useTaskController = ({
             }
           })
           .catch((e) => {
+            autoPilotRunIdsRef.current.delete(taskId);
             console.error("Auto-pilot failed:", e);
           });
       }

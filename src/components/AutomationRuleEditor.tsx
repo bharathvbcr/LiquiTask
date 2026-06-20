@@ -110,7 +110,7 @@ export const AutomationRuleEditor: React.FC<AutomationRuleEditorProps> = ({
       enabled,
       trigger,
       conditions: conditions.rules.length > 0 ? conditions : undefined,
-      actions,
+      actions: actions as AutomationRule["actions"],
     };
 
     onSave(newRule);

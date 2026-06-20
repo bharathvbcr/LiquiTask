@@ -1,4 +1,4 @@
-import {
+﻿import {
   ArrowRight,
   Brain,
   CheckCircle2,
@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 import type React from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { AutoOrganizeConfig, AutoOrganizeResult, Task } from "../../types";
 import { aiService } from "../services/aiService";
 import { autoOrganizeService } from "../services/autoOrganizeService";
@@ -99,6 +99,9 @@ export const AutoOrganizePanel: React.FC<AutoOrganizePanelProps> = ({
   const [lastResult, setLastResult] = useState<AutoOrganizeResult | null>(null);
   const [expandedChanges, setExpandedChanges] = useState<Set<string>>(new Set());
   const [selectedChanges, setSelectedChanges] = useState<Set<string>>(new Set());
+  const panelRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = useRef<HTMLElement | null>(null);
 
   const loadConfig = useCallback(() => {
     setConfig(aiService.getAutoOrganizeConfig());
@@ -113,12 +116,45 @@ export const AutoOrganizePanel: React.FC<AutoOrganizePanelProps> = ({
 
   useEffect(() => {
     if (isOpen) {
+      triggerRef.current = document.activeElement as HTMLElement;
       loadConfig();
       loadHistory();
+      closeButtonRef.current?.focus();
+    } else {
+      triggerRef.current?.focus();
     }
   }, [isOpen, loadConfig, loadHistory]);
 
   if (!isOpen) return null;
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Escape") {
+      onClose();
+      return;
+    }
+    if (e.key !== "Tab") return;
+    const panel = panelRef.current;
+    if (!panel) return;
+    const focusable = Array.from(
+      panel.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      ),
+    ).filter((el) => !el.hasAttribute("disabled"));
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey) {
+      if (document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  };
 
   const saveConfig = (updated: AutoOrganizeConfig) => {
     setConfig(updated);
@@ -224,6 +260,7 @@ export const AutoOrganizePanel: React.FC<AutoOrganizePanelProps> = ({
             const enabled = config.operations[key as keyof typeof config.operations];
             return (
               <button
+                aria-pressed={enabled}
                 key={key}
                 onClick={() => toggleOperation(key as keyof AutoOrganizeConfig["operations"])}
                 className={`p-3 rounded-lg border text-left transition-all ${
@@ -297,6 +334,8 @@ export const AutoOrganizePanel: React.FC<AutoOrganizePanelProps> = ({
           {(["manual", "onCreate", "hourly", "daily", "weekly"] as const).map((s) => (
             <button
               key={s}
+              aria-pressed={config.schedule === s}
+              type="button"
               onClick={() => saveConfig({ ...config, schedule: s })}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                 config.schedule === s
@@ -408,40 +447,45 @@ export const AutoOrganizePanel: React.FC<AutoOrganizePanelProps> = ({
                   return (
                     <div
                       key={change.id}
-                      className="rounded-lg border border-white/5 bg-white/[0.02] overflow-hidden"
+                      className="rounded-lg border border-white/5 bg-white/[0.02] overflow-hidden flex flex-col"
                     >
-                      <button
-                        onClick={() => toggleExpand(change.id)}
-                        className="w-full flex items-center gap-3 p-3 text-left hover:bg-white/5 transition-all"
-                      >
+                      <div className="flex items-center">
                         {isPending && (
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onClick={(e) => e.stopPropagation()}
-                            onChange={() => toggleSelected(change.id)}
-                            className="shrink-0 accent-emerald-500"
-                            aria-label={`Select change: ${change.reasoning.substring(0, 40)}`}
-                          />
+                          <div className="pl-3 shrink-0">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleSelected(change.id)}
+                              className="accent-emerald-500"
+                              aria-label={`Select change: ${change.reasoning.substring(0, 40)}`}
+                            />
+                          </div>
                         )}
-                        <span className={`text-xs font-medium ${typeMeta.color}`}>
-                          {typeMeta.label}
-                        </span>
-                        <span className="text-xs text-slate-300 flex-1 truncate">
-                          {change.reasoning.substring(0, 80)}
-                          {change.reasoning.length > 80 ? "..." : ""}
-                        </span>
-                        <span className="text-[10px] font-mono text-slate-500">
-                          {Math.round(change.confidence * 100)}%
-                        </span>
-                        {isExpanded ? (
-                          <ChevronDown size={12} className="text-slate-500" />
-                        ) : (
-                          <ChevronRight size={12} className="text-slate-500" />
-                        )}
-                      </button>
+                        <button
+                          onClick={() => toggleExpand(change.id)}
+                          aria-expanded={isExpanded}
+                          aria-controls={`change-detail-${change.id}`}
+                          className="flex-1 flex items-center gap-3 p-3 text-left hover:bg-white/5 transition-all"
+                        >
+                          <span className={`text-xs font-medium ${typeMeta.color}`}>
+                            {typeMeta.label}
+                          </span>
+                          <span className="text-xs text-slate-300 flex-1 truncate">
+                            {change.reasoning.substring(0, 80)}
+                            {change.reasoning.length > 80 ? "..." : ""}
+                          </span>
+                          <span className="text-[10px] font-mono text-slate-500">
+                            {Math.round(change.confidence * 100)}%
+                          </span>
+                          {isExpanded ? (
+                            <ChevronDown size={12} className="text-slate-500" />
+                          ) : (
+                            <ChevronRight size={12} className="text-slate-500" />
+                          )}
+                        </button>
+                      </div>
                       {isExpanded && (
-                        <div className="px-3 pb-3 text-xs text-slate-400 space-y-2 border-t border-white/5 pt-2">
+                        <div id={`change-detail-${change.id}`} className="px-3 pb-3 text-xs text-slate-400 space-y-2 border-t border-white/5 pt-2">
                           <p>{change.reasoning}</p>
                           {change.clusterTheme && (
                             <p className="text-purple-400">Cluster: {change.clusterTheme}</p>
@@ -509,28 +553,45 @@ export const AutoOrganizePanel: React.FC<AutoOrganizePanelProps> = ({
 
   return (
     <div className="fixed inset-0 z-[75] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden shadow-2xl animate-in zoom-in-95 flex flex-col">
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="auto-organize-title"
+        onKeyDown={handleKeyDown}
+        className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden shadow-2xl animate-in zoom-in-95 flex flex-col"
+      >
         <div className="flex items-center justify-between p-6 border-b border-white/10 shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-cyan-500/20 text-cyan-400">
               <Sparkles size={20} />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white">AI Auto-Organize</h2>
+              <h2 id="auto-organize-title" className="text-lg font-bold text-white">AI Auto-Organize</h2>
               <p className="text-xs text-slate-400">
                 Smart task grouping, merging, and categorization
               </p>
             </div>
           </div>
           <button
+            ref={closeButtonRef}
             onClick={onClose}
+            aria-label="Close dialog"
             className="p-2 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
           >
             <X size={16} />
           </button>
         </div>
 
-        <div className="flex border-b border-white/10 shrink-0">
+        <div
+          aria-live="polite"
+          aria-atomic="true"
+          className="sr-only"
+        >
+          {progress ?? ""}
+        </div>
+
+        <div role="tablist" className="flex border-b border-white/10 shrink-0">
           {[
             { id: "configure" as TabId, label: "Configure", icon: <Settings size={12} /> },
             {
@@ -542,6 +603,10 @@ export const AutoOrganizePanel: React.FC<AutoOrganizePanelProps> = ({
           ].map((tab) => (
             <button
               key={tab.id}
+              id={tab.id + "-tab"}
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              aria-controls={tab.id + "-panel"}
               onClick={() => setActiveTab(tab.id)}
               className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-medium transition-all border-b-2 ${
                 activeTab === tab.id
@@ -555,7 +620,12 @@ export const AutoOrganizePanel: React.FC<AutoOrganizePanelProps> = ({
           ))}
         </div>
 
-        <div className="overflow-y-auto flex-1 p-6">
+        <div
+          role="tabpanel"
+          id={activeTab + "-panel"}
+          aria-labelledby={activeTab + "-tab"}
+          tabIndex={-1}
+          className="overflow-y-auto flex-1 p-6">
           {activeTab === "configure" && renderConfigureTab()}
           {activeTab === "preview" && renderPreviewTab()}
           {activeTab === "history" && renderHistoryTab()}
@@ -564,3 +634,4 @@ export const AutoOrganizePanel: React.FC<AutoOrganizePanelProps> = ({
     </div>
   );
 };
+

@@ -629,7 +629,7 @@ ipcMain.handle("searchWorkspaceFiles", async (event, query: string, requestedSco
   const data = await readStorage();
   const paths = resolveWorkspaceScope((data.workspacePaths as string[]) || [], requestedScopePaths);
   const normalizedQuery = query.trim().toLowerCase();
-  if (!normalizedQuery) {
+  if (normalizedQuery.length < 2) {
     return [];
   }
 

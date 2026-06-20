@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useFocusTrap } from "../hooks/useFocusTrap";
 import { type ParsedTask, parseQuickTask } from "../utils/taskParser";
 
 type CommandActionKeywordSet = string[];
@@ -195,6 +196,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<Element | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useFocusTrap(isOpen, dialogRef);
 
   // Parse query for task creation
   const parsedTask = useMemo(() => {
@@ -234,10 +239,14 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   // Reset state when opening/closing
   useEffect(() => {
     if (isOpen) {
+      triggerRef.current = document.activeElement;
       setQuery("");
       setSelectedIndex(0);
       const t = setTimeout(() => inputRef.current?.focus(), 0);
       return () => clearTimeout(t);
+    } else {
+      (triggerRef.current as HTMLElement | null)?.focus();
+      triggerRef.current = null;
     }
   }, [isOpen]);
 
@@ -373,12 +382,28 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
 
       <div className="fixed top-[20%] left-1/2 -translate-x-1/2 w-full max-w-xl z-50 animate-in zoom-in-95 fade-in duration-150">
-        <div className="mx-4 liquid-surface overflow-hidden liquid-topline">
+        <div
+          ref={dialogRef}
+          className="mx-4 liquid-surface overflow-hidden liquid-topline"
+          data-modal
+          role="dialog"
+          aria-modal="true"
+          aria-label="Command palette"
+        >
           <div className="flex items-center gap-3 p-4 border-b border-white/5">
             <Search size={20} className="text-red-400 shrink-0" />
             <input
               ref={inputRef}
               type="text"
+              role="combobox"
+              aria-expanded={true}
+              aria-autocomplete="list"
+              aria-controls="cmd-listbox"
+              aria-activedescendant={
+                filteredActions[selectedIndex]
+                  ? `cmd-option-${filteredActions[selectedIndex].id}`
+                  : undefined
+              }
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -396,7 +421,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             </button>
           </div>
 
-          <div ref={listRef} className="max-h-[50vh] overflow-y-auto custom-scrollbar">
+          <div
+            ref={listRef}
+            id="cmd-listbox"
+            role="listbox"
+            className="max-h-[50vh] overflow-y-auto custom-scrollbar"
+          >
             {filteredActions.length === 0 ? (
               <div className="p-8 text-center text-slate-500">
                 No commands found for &quot;{query}&quot;
@@ -407,9 +437,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                   if (categoryActions.length === 0) return null;
 
                   return (
-                    <div key={category} className="py-2">
+                    <div key={category} role="group" aria-label={getCategoryLabel(category)} className="py-2">
                       <div className="flex items-center gap-2 px-4 py-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                        {getCategoryIcon(category)}
+                        <span aria-hidden="true">{getCategoryIcon(category)}</span>
                         {getCategoryLabel(category)}
                       </div>
                       {categoryActions.map((action) => {
@@ -420,6 +450,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                         return (
                           <button
                             key={action.id}
+                            id={`cmd-option-${action.id}`}
+                            role="option"
+                            aria-selected={isSelected}
                             data-index={globalIndex}
                             onClick={() => executeAction(action)}
                             className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-all rounded-xl mx-1 ${

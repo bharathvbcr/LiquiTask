@@ -54,8 +54,11 @@ export function getMigrationsFrom(fromVersion: string): Migration[] {
  * Returns: -1 if a < b, 0 if a === b, 1 if a > b
  */
 export function compareVersions(a: string, b: string): number {
-  const partsA = a.split(".").map(Number);
-  const partsB = b.split(".").map(Number);
+  if (!/^\d+(\.\d+)*$/.test(a) || !/^\d+(\.\d+)*$/.test(b)) {
+    throw new Error(`Invalid version format: "${a}" or "${b}"`);
+  }
+  const partsA = a.split(".").map((s) => parseInt(s, 10));
+  const partsB = b.split(".").map((s) => parseInt(s, 10));
 
   for (let i = 0; i < Math.max(partsA.length, partsB.length); i++) {
     const numA = partsA[i] || 0;

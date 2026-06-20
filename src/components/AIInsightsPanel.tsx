@@ -107,6 +107,18 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ allTasks, isOp
               <Loader2 size={24} className="animate-spin text-cyan-400" />
               <span className="ml-3 text-slate-400">Generating AI insights...</span>
             </div>
+          ) : error ? (
+            <div className="text-center py-12 text-red-400">
+              <AlertTriangle size={48} className="mx-auto mb-4 opacity-70" />
+              <p className="mb-4">{error}</p>
+              <button
+                onClick={loadInsights}
+                className="flex items-center gap-2 mx-auto px-4 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 text-sm"
+              >
+                <RefreshCw size={14} />
+                Retry
+              </button>
+            </div>
           ) : insights.length === 0 ? (
             <div className="text-center py-12 text-slate-500">
               <Brain size={48} className="mx-auto mb-4 opacity-50" />

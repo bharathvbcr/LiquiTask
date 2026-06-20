@@ -1,3 +1,4 @@
+/** Intentionally `string` — status maps to a user-configurable column ID (e.g. `col-${Date.now()}`), so a literal union would reject valid dynamic columns. */
 export type TaskStatus = string;
 
 export type GroupingOption = "none" | "priority";
@@ -97,7 +98,7 @@ export interface Task {
   jobId: string;
   projectId: string;
   title: string;
-  subtitle: string;
+  subtitle?: string;
   summary: string;
   assignee: string;
   priority: string;
@@ -203,15 +204,13 @@ export interface RedundancyAnalysis {
   suggestedAction: "archive" | "convert-to-subtask" | "update" | "delete";
 }
 
-export interface AISuggestion {
-  id: string;
-  type: "priority" | "tag" | "project" | "due-date" | "subtask" | "assignment";
-  taskId: string;
-  suggestedValue: unknown;
-  currentValue: unknown;
-  confidence: number;
-  reasoning: string;
-}
+export type AISuggestion =
+  | { id: string; type: "priority";   taskId: string; suggestedValue: string;            currentValue: string;            confidence: number; reasoning: string }
+  | { id: string; type: "tag";        taskId: string; suggestedValue: string | string[]; currentValue: string | string[]; confidence: number; reasoning: string }
+  | { id: string; type: "project";    taskId: string; suggestedValue: string;            currentValue: string;            confidence: number; reasoning: string }
+  | { id: string; type: "due-date";   taskId: string; suggestedValue: string | Date;     currentValue: string | Date;     confidence: number; reasoning: string }
+  | { id: string; type: "subtask";    taskId: string; suggestedValue: string;            currentValue: string;            confidence: number; reasoning: string }
+  | { id: string; type: "assignment"; taskId: string; suggestedValue: string;            currentValue: string | undefined; confidence: number; reasoning: string };
 
 export interface AICategorySuggestion {
   taskId: string;

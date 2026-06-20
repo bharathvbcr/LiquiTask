@@ -384,6 +384,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               onClick={onOpenCommandPalette}
               className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all shrink-0"
               title="Command Palette (Cmd+K) - Quick actions, navigation, and shortcuts"
+              aria-haspopup="dialog"
             >
               <Command size={14} />
             </button>

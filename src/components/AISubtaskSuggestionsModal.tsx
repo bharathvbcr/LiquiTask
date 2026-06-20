@@ -53,12 +53,15 @@ export const AISubtaskSuggestionsModal: React.FC<AISubtaskSuggestionsModalProps>
           approved: false,
         }));
 
+      if (!isMountedRef.current) return;
       setSuggestions(subtaskSuggestions);
     } catch (error) {
+      if (!isMountedRef.current) return;
       console.error("Failed to analyze subtask suggestions:", error);
       addToast("Failed to analyze subtask suggestions", "error");
       onClose();
     } finally {
+      if (!isMountedRef.current) return;
       setLoading(false);
     }
   }, [allTasks, addToast, onClose]);
@@ -112,7 +115,7 @@ export const AISubtaskSuggestionsModal: React.FC<AISubtaskSuggestionsModalProps>
 
         const entry = byParent.get(parentTask.id)!;
         entry.newSubtasks.push({
-          id: `st-ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: crypto.randomUUID(),
           title: childTask.title,
           completed: false,
         });

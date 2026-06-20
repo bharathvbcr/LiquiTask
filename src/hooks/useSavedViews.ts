@@ -1,14 +1,22 @@
 import { useCallback, useEffect, useState } from "react";
+import { STORAGE_KEYS } from "../constants";
 import type { FilterState, SavedView } from "../../types";
 import type { FilterGroup } from "../types/queryTypes";
 
-const STORAGE_KEY = "liquitask_saved_views";
 const MAX_VIEWS = 20;
 
 export function useSavedViews() {
   const [views, setViews] = useState<SavedView[]>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const OLD_KEY = "liquitask_saved_views";
+      if (!localStorage.getItem(STORAGE_KEYS.SAVED_VIEWS)) {
+        const legacy = localStorage.getItem(OLD_KEY);
+        if (legacy) {
+          localStorage.setItem(STORAGE_KEYS.SAVED_VIEWS, legacy);
+          localStorage.removeItem(OLD_KEY);
+        }
+      }
+      const saved = localStorage.getItem(STORAGE_KEYS.SAVED_VIEWS);
       if (saved) {
         const parsed = JSON.parse(saved);
         return parsed.map((view: SavedView) => ({
@@ -27,7 +35,7 @@ export function useSavedViews() {
   // Persist to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(views));
+      localStorage.setItem(STORAGE_KEYS.SAVED_VIEWS, JSON.stringify(views));
     } catch (e) {
       console.error("Failed to save views:", e);
     }

@@ -45,12 +45,12 @@ export const InlineEditable: React.FC<InlineEditableProps> = ({
   };
 
   const handleSave = () => {
+    savedRef.current = true;
     if (!editValue.trim()) {
       handleCancel();
       return;
     }
     if (editValue.trim() !== value) {
-      savedRef.current = true;
       onSave(editValue.trim());
     }
     setIsEditing(false);
@@ -103,7 +103,8 @@ export const InlineEditable: React.FC<InlineEditableProps> = ({
 
   return (
     <span
-      onClick={handleStartEdit}
+      onClick={(e) => { e.stopPropagation(); handleStartEdit(); }}
+      onDoubleClick={(e) => e.stopPropagation()}
       className={`cursor-text hover:bg-white/5 rounded px-1 py-0.5 transition-colors ${className}`}
       title="Click to edit"
     >
@@ -141,7 +142,7 @@ export const InlineSelect: React.FC<InlineSelectProps> = ({
     }
   }, [isOpen]);
 
-  const currentOption = options.find((opt) => opt.id === value) || options[0];
+  const currentOption = options.find((opt) => opt.id === value) ?? options[0] ?? { id: '', label: '—', color: undefined };
 
   const handleSelect = (optionId: string) => {
     if (optionId !== value) {
@@ -208,6 +209,10 @@ export const InlineDatePicker: React.FC<InlineDatePickerProps> = ({
       return () => document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    setTempDate(value ? value.toISOString().split("T")[0] : "");
+  }, [value]);
 
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const dateStr = e.target.value;

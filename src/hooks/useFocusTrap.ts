@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { type RefObject, useEffect, useRef } from "react";
 
 const FOCUSABLE_SELECTORS = [
   "a[href]",
@@ -10,7 +10,7 @@ const FOCUSABLE_SELECTORS = [
   "[contenteditable]",
 ].join(", ");
 
-export function useFocusTrap(isActive: boolean, onClose?: () => void) {
+export function useFocusTrap(isActive: boolean, containerRef: RefObject<HTMLElement | null>, onClose?: () => void) {
   const triggerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -19,14 +19,9 @@ export function useFocusTrap(isActive: boolean, onClose?: () => void) {
     triggerRef.current = document.activeElement as HTMLElement;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && onClose) {
-        onClose();
-        return;
-      }
-
       if (e.key !== "Tab") return;
 
-      const modal = document.querySelector("[data-modal]") as HTMLElement;
+      const modal = containerRef.current;
       if (!modal) return;
 
       const focusableElements = Array.from(
@@ -54,7 +49,7 @@ export function useFocusTrap(isActive: boolean, onClose?: () => void) {
     document.addEventListener("keydown", handleKeyDown);
 
     const timerId = setTimeout(() => {
-      const modal = document.querySelector("[data-modal]") as HTMLElement;
+      const modal = containerRef.current;
       if (modal) {
         const focusableElements = Array.from(
           modal.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTORS),
@@ -66,7 +61,7 @@ export function useFocusTrap(isActive: boolean, onClose?: () => void) {
     return () => {
       clearTimeout(timerId);
       document.removeEventListener("keydown", handleKeyDown);
-      triggerRef.current?.focus();
+      if (triggerRef.current && document.contains(triggerRef.current)) { triggerRef.current.focus(); }
     };
-  }, [isActive, onClose]);
+  }, [isActive, containerRef]);
 }

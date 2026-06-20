@@ -32,14 +32,7 @@ export const useGlobalKeyboardShortcuts = ({
   const { matches } = useKeybinding();
 
   useEffect(() => {
-    let lastEventSignature = "";
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      const eventSignature = [e.timeStamp, e.key, e.ctrlKey, e.metaKey, e.shiftKey, e.altKey].join(
-        ":",
-      );
-      if (eventSignature === lastEventSignature) return;
-      lastEventSignature = eventSignature;
-
       const isInput = ["INPUT", "TEXTAREA"].includes((e.target as HTMLElement).tagName);
 
       if (matches("global:command-palette", e)) {

@@ -72,7 +72,7 @@ const dropAnimation: DropAnimation = {
 };
 
 const measuringConfig = {
-  droppable: { strategy: MeasuringStrategy.Always, frequency: 100 },
+  droppable: { strategy: MeasuringStrategy.WhileDragging, frequency: 60 },
 };
 
 export const ProjectBoard: React.FC<ProjectBoardProps> = (props) => {
@@ -100,7 +100,7 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = (props) => {
   } = props;
 
   const boardRef = useRef<HTMLDivElement>(null);
-  const bulkSelection = useBulkSelection({ items: tasks });
+  const { selectNone, ...bulkSelection } = useBulkSelection({ items: tasks });
   const selectedTasks = useMemo(
     () => tasks.filter((task) => bulkSelection.selectedIds.has(task.id)),
     [tasks, bulkSelection.selectedIds],
@@ -224,9 +224,9 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = (props) => {
   const clearSelectionAfter = useCallback(
     (action: () => void) => {
       action();
-      bulkSelection.selectNone();
+      selectNone();
     },
-    [bulkSelection],
+    [selectNone],
   );
 
   return (
@@ -272,7 +272,7 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = (props) => {
           })
         }
         onSelectAll={bulkSelection.selectAll}
-        onSelectNone={bulkSelection.selectNone}
+        onSelectNone={selectNone}
         isAllSelected={bulkSelection.isAllSelected}
         onSetPriority={(priorityId) =>
           clearSelectionAfter(() =>

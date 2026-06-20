@@ -111,11 +111,15 @@ export class RecurringTaskService {
     // Create the new task
     this.onCreateTask(newTask);
 
-    // Update the original task's nextOccurrence
+    // Update the original task's nextOccurrence (and disable if past endDate)
+    const endDate = originalTask.recurring.endDate ? new Date(originalTask.recurring.endDate) : null;
+    const nextOcc = this.calculateNextOccurrence(originalTask.recurring, now);
+    const shouldDisable = endDate !== null && nextOcc > endDate;
     this.onUpdateTask(originalTask.id, {
       recurring: {
         ...originalTask.recurring,
-        nextOccurrence: newTask.recurring?.nextOccurrence,
+        nextOccurrence: shouldDisable ? undefined : nextOcc,
+        enabled: shouldDisable ? false : originalTask.recurring.enabled,
       },
     });
   }
@@ -140,8 +144,7 @@ export class RecurringTaskService {
           // Find next day this week
           const nextDayThisWeek = sortedDays.find((day) => day > currentDay);
           if (nextDayThisWeek !== undefined) {
-            // Still within the current week — no extra interval weeks needed
-            next.setDate(next.getDate() + (nextDayThisWeek - currentDay));
+            next.setDate(next.getDate() + (nextDayThisWeek - currentDay) + (config.interval - 1) * 7);
           } else {
             // Next occurrence is in a future week; apply the full interval so
             // e.g. "every 2 weeks on Monday" skips the intermediate week(s).
@@ -181,10 +184,9 @@ export class RecurringTaskService {
         break;
     }
 
-    // Check if endDate is set and we've passed it
-    if (config.endDate && next > config.endDate) {
-      // Recurrence has ended, disable it
-      return next; // Return the date but caller should disable
+    const endDate = config.endDate ? new Date(config.endDate) : null;
+    if (endDate && next > endDate) {
+      return next;
     }
 
     return next;

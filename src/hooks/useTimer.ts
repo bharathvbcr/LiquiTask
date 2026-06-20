@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 interface UseTimerOptions {
   initialSeconds?: number;
@@ -27,16 +27,16 @@ export function useTimer(options: UseTimerOptions = {}): UseTimerReturn {
   const autoSaveRef = useRef<NodeJS.Timeout | null>(null);
 
   // Format seconds as HH:MM:SS
-  const formattedTime = useCallback((secs: number): string => {
-    const hours = Math.floor(secs / 3600);
-    const minutes = Math.floor((secs % 3600) / 60);
-    const remainingSeconds = secs % 60;
+  const formattedTime = useMemo((): string => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const remainingSeconds = seconds % 60;
 
     if (hours > 0) {
       return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${remainingSeconds.toString().padStart(2, "0")}`;
     }
     return `${minutes.toString().padStart(2, "0")}:${remainingSeconds.toString().padStart(2, "0")}`;
-  }, []);
+  }, [seconds]);
 
   const start = useCallback(() => {
     if (!isRunning) {
@@ -132,7 +132,7 @@ export function useTimer(options: UseTimerOptions = {}): UseTimerReturn {
     pause,
     reset,
     setSeconds,
-    formattedTime: formattedTime(seconds),
+    formattedTime,
   };
 }
 

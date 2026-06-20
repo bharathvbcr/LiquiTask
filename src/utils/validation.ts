@@ -73,7 +73,7 @@ export const TaskSchema: z.ZodType<Task> = z
       .default({}) as z.ZodType<Record<string, string | number>>,
     links: z.array(TaskLinkSchema).default([]),
     tags: z.array(z.string().trim()).default([]),
-    timeEstimate: z.number().min(0).default(0),
+    timeEstimate: z.number().min(0).max(100000).default(0),
     timeSpent: z.number().min(0).default(0),
     recurring: RecurringConfigSchema,
     completedAt: z.coerce.date().optional(),

@@ -257,8 +257,8 @@ class TaskCleanupService {
 
   async analyzeRedundancy(allTasks: Task[]): Promise<RedundancyAnalysis[]> {
     const analyses: RedundancyAnalysis[] = [];
-    const completedTasks = allTasks.filter((t) => t.status === "completed" || t.completedAt);
-    const activeTasks = allTasks.filter((t) => t.status !== "completed" && !t.completedAt);
+    const completedTasks = allTasks.filter((t) => t.status === "Completed" || t.completedAt);
+    const activeTasks = allTasks.filter((t) => t.status !== "Completed" && !t.completedAt);
     const now = new Date();
 
     for (const task of activeTasks) {

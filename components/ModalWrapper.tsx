@@ -1,6 +1,8 @@
 import { X } from "lucide-react";
 import type React from "react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { useFocusTrap } from "../src/hooks/useFocusTrap";
+import { acquireScrollLock, releaseScrollLock } from "../src/utils/scrollLock";
 import { Tooltip } from "./Tooltip";
 
 interface ModalWrapperProps {
@@ -22,6 +24,9 @@ export const ModalWrapper: React.FC<ModalWrapperProps> = ({
   logo,
   size = "lg",
 }) => {
+  const modalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(isOpen, modalRef);
+
   // Close on Escape key and lock body scroll while open
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -29,13 +34,11 @@ export const ModalWrapper: React.FC<ModalWrapperProps> = ({
     };
     if (isOpen) {
       window.addEventListener("keydown", handleEsc);
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
+      acquireScrollLock();
     }
     return () => {
       window.removeEventListener("keydown", handleEsc);
-      document.body.style.overflow = "";
+      if (isOpen) releaseScrollLock();
     };
   }, [isOpen, onClose]);
 
@@ -58,12 +61,18 @@ export const ModalWrapper: React.FC<ModalWrapperProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
+        aria-hidden="true"
         className="absolute inset-0 bg-[#020000]/80 backdrop-blur-md transition-opacity animate-in fade-in duration-300"
         onClick={onClose}
       ></div>
 
       {/* Modal Content */}
       <div
+        ref={modalRef}
+        data-modal
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-title"
         className={`relative w-full ${sizeClasses[size]} liquid-glass flex flex-col transform transition-all animate-in zoom-in-95 duration-300 border border-red-500/20 shadow-[0_0_50px_rgba(0,0,0,0.9)] max-h-[85vh]`}
       >
         {/* Decorative Header Glow */}
@@ -86,7 +95,7 @@ export const ModalWrapper: React.FC<ModalWrapperProps> = ({
                 </div>
               )}
               <div>
-                <h3 className="text-2xl font-bold text-white tracking-tight text-glow">{title}</h3>
+                <h3 id="modal-title" className="text-2xl font-bold text-white tracking-tight text-glow">{title}</h3>
               </div>
             </div>
             <Tooltip content="Close" position="top">

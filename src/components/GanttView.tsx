@@ -153,31 +153,25 @@ export const GanttView: React.FC<GanttViewProps> = ({ tasks, priorities, onEditT
           <p className="text-sm text-slate-400">AI-powered timeline risk & dependency analysis</p>
         </div>
         <div className="flex items-center gap-4">
-          <label className="sr-only">Start Date</label>
           <input
             type="date"
             value={selectedDateRange.start.toISOString().split("T")[0]}
-            onChange={(e) =>
-              setSelectedDateRange((prev) => ({
-                ...prev,
-                start: new Date(e.target.value),
-              }))
-            }
+            onChange={(e) => {
+              const [y, m, d] = e.target.value.split('-').map(Number);
+              setSelectedDateRange((prev) => ({ ...prev, start: new Date(y, m - 1, d) }));
+            }}
             className="bg-black/40 border border-white/10 rounded px-3 py-2 text-sm text-slate-300 [color-scheme:dark]"
             aria-label="Start date"
             title="Start date"
           />
           <span className="text-slate-400">to</span>
-          <label className="sr-only">End Date</label>
           <input
             type="date"
             value={selectedDateRange.end.toISOString().split("T")[0]}
-            onChange={(e) =>
-              setSelectedDateRange((prev) => ({
-                ...prev,
-                end: new Date(e.target.value),
-              }))
-            }
+            onChange={(e) => {
+              const [y, m, d] = e.target.value.split('-').map(Number);
+              setSelectedDateRange((prev) => ({ ...prev, end: new Date(y, m - 1, d) }));
+            }}
             className="bg-black/40 border border-white/10 rounded px-3 py-2 text-sm text-slate-300 [color-scheme:dark]"
             aria-label="End date"
             title="End date"
@@ -287,13 +281,16 @@ export const GanttView: React.FC<GanttViewProps> = ({ tasks, priorities, onEditT
                     const depTask = ganttTasks.find((t) => t.id === dep.id);
                     if (!depTask) return null;
                     const depStyle = getTaskStyle(depTask);
+                    const connectorLeft = parseFloat(String(depStyle.left)) + parseFloat(String(depStyle.width));
+                    const connectorWidth = parseFloat(String(style.left)) - connectorLeft;
+                    if (connectorWidth <= 0) return null;
                     return (
                       <div
                         key={dep.id}
                         className="absolute top-0 left-0 w-0.5 bg-red-400 opacity-50"
                         style={{
-                          left: `${parseFloat(String(depStyle.left)) + parseFloat(String(depStyle.width))}px`,
-                          width: `${parseFloat(String(style.left)) - parseFloat(String(depStyle.left)) - parseFloat(String(depStyle.width))}px`,
+                          left: `${connectorLeft}px`,
+                          width: `${connectorWidth}px`,
                           height: "2px",
                           top: "50%",
                         }}

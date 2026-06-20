@@ -311,12 +311,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <input
                     type="text"
                     value={(keys as string[]).join(", ")}
-                    onChange={(e) =>
-                      updateKeybinding(
+                    onChange={(e) => {
+                      const conflict = updateKeybinding(
                         id,
                         e.target.value.split(",").map((k) => k.trim()),
-                      )
-                    }
+                      );
+                      if (conflict) addToast(conflict, "error");
+                    }}
                     className="bg-black/20 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-300 w-48 text-right"
                   />
                 </div>

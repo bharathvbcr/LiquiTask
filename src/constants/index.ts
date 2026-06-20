@@ -26,6 +26,7 @@ export const STORAGE_KEYS = {
   AI_SEMANTIC_CACHE: "liquitask-ai-semantic-cache",
   AUTO_ORGANIZE_HISTORY: "liquitask-auto-organize-history",
   AI_ORGANIZE_CACHE: "liquitask-ai-organize-cache",
+  SAVED_VIEWS: "liquitask-saved-views",
 } as const;
 
 export const FEATURE_FLAGS = {

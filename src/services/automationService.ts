@@ -1,4 +1,4 @@
-import type { Task } from "../../types";
+import type { BoardColumn, Task } from "../../types";
 import type { FilterGroup } from "../types/queryTypes";
 import { executeAdvancedFilter } from "../utils/queryEngine";
 
@@ -17,11 +17,11 @@ export interface AutomationRule {
   enabled: boolean;
   trigger: AutomationTrigger;
   conditions?: FilterGroup; // Optional filter conditions
-  actions: Array<{
-    type: AutomationAction;
-    field?: string; // For setField
-    value: unknown;
-  }>;
+  actions: Array<
+    | { type: 'addTag' | 'removeTag' | 'notify'; value: string }
+    | { type: 'moveToColumn' | 'setPriority'; value: string }
+    | { type: 'setField'; field: string; value: unknown }
+  >;
   schedule?: {
     frequency: "daily" | "weekly" | "monthly";
     time: string; // HH:mm format
@@ -46,10 +46,9 @@ const MUTABLE_TASK_FIELDS = new Set<string>([
   "assignee",
   "summary",
   "title",
+  "subtitle",
   "timeEstimate",
   "dueDate",
-  "description",
-  "label",
 ]);
 
 export class AutomationService {
@@ -132,6 +131,7 @@ export class AutomationService {
     allTasks: Task[],
     options?: {
       onNotify?: (message: string) => void;
+      columns?: BoardColumn[];
     },
   ): Partial<Task> | null {
     const matchingRules = this.rules.filter(
@@ -169,10 +169,14 @@ export class AutomationService {
             }
             break;
           case "moveToColumn":
-            updates.status = action.value as string;
+            if (typeof action.value === "string") {
+              updates.status = action.value;
+            }
             break;
           case "setPriority":
-            updates.priority = action.value as string;
+            if (typeof action.value === "string") {
+              updates.priority = action.value;
+            }
             break;
           case "notify":
             if (typeof action.value === "string") {

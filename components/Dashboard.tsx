@@ -110,13 +110,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
       const isCompleted = task.status === "Completed";
       const priorityLevel = priorityLevelById.get(task.priority) ?? 99;
 
-      if (!isDelivered) active += 1;
+      if (!isDelivered && !isCompleted) active += 1;
       if (isDelivered) completed += 1;
       if (priorityLevel <= 2 && !isDelivered && !isCompleted) {
         highPriority.push(task);
       }
 
-      if (task.dueDate && !isDelivered) {
+      if (task.dueDate && !isDelivered && !isCompleted) {
         const due = new Date(task.dueDate);
         const diffDays = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
         if (diffDays >= 0 && diffDays <= 3) {
@@ -160,7 +160,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       const newTask: Task = {
         id: `temp-${Date.now()}`,
         jobId: "",
-        projectId: projects[0]?.id || "",
+        projectId: activeProjectId || projects[0]?.id || (console.warn("handleAddTask: no valid projectId available; task will be saved with empty projectId"), ""),
         title: "",
         subtitle: "",
         summary: "",

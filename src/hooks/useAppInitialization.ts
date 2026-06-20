@@ -182,13 +182,16 @@ export const useAppInitialization = ({
             console.error,
           );
       }
+      const serviceImports: Promise<void>[] = [];
       if (data.tasks) {
         const loadedTasks = data.tasks;
         setTasks(loadedTasks);
-        import("../services/searchIndexService").then(({ searchIndexService }) => {
-          searchIndexServiceRef.current = searchIndexService;
-          searchIndexService.buildIndex(loadedTasks);
-        });
+        serviceImports.push(
+          import("../services/searchIndexService").then(({ searchIndexService }) => {
+            searchIndexServiceRef.current = searchIndexService;
+            searchIndexService.buildIndex(loadedTasks);
+          })
+        );
         if (indexedDBService.isAvailable())
           indexedDBService.saveTasks(loadedTasks).catch(console.error);
       }
@@ -204,22 +207,25 @@ export const useAppInitialization = ({
       const savedCurrentView = storageService.get(STORAGE_KEYS.CURRENT_VIEW, "project");
       if (savedCurrentView) setCurrentView(savedCurrentView);
 
-      import("../services/automationService").then(({ automationService }) => {
-        automationServiceRef.current = automationService;
-        automationService.loadRules(storageService.get(STORAGE_KEYS.AUTOMATION_RULES, []));
-      });
-      import("../services/templateService").then(({ templateService }) => {
-        templateServiceRef.current = templateService;
-        templateService.loadTemplates(
-          storageService.get(STORAGE_KEYS.TASK_TEMPLATES, []) as TaskTemplate[],
-        );
-      });
-      import("../services/activityService").then(({ activityService }) => {
-        activityServiceRef.current = activityService;
-      });
-      import("../utils/queryEngine").then(({ executeAdvancedFilter }) => {
-        advancedFilterExecutorRef.current = executeAdvancedFilter;
-      });
+      serviceImports.push(
+        import("../services/automationService").then(({ automationService }) => {
+          automationServiceRef.current = automationService;
+          automationService.loadRules(storageService.get(STORAGE_KEYS.AUTOMATION_RULES, []));
+        }),
+        import("../services/templateService").then(({ templateService }) => {
+          templateServiceRef.current = templateService;
+          templateService.loadTemplates(
+            storageService.get(STORAGE_KEYS.TASK_TEMPLATES, []) as TaskTemplate[],
+          );
+        }),
+        import("../services/activityService").then(({ activityService }) => {
+          activityServiceRef.current = activityService;
+        }),
+        import("../utils/queryEngine").then(({ executeAdvancedFilter }) => {
+          advancedFilterExecutorRef.current = executeAdvancedFilter;
+        })
+      );
+      await Promise.all(serviceImports);
       setIsLoaded(true);
     };
 

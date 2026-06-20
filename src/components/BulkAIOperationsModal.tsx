@@ -71,6 +71,7 @@ export const BulkAIOperationsModal: React.FC<BulkAIOperationsModalProps> = ({
       run: async () => {
         const duplicates = await taskCleanupService.detectDuplicates(allTasks);
         let success = 0;
+        let mergedGroups = 0;
         for (const group of duplicates) {
           if (group.tasks.length >= 2) {
             const suggestion = await taskCleanupService.suggestMerge(group);
@@ -78,11 +79,14 @@ export const BulkAIOperationsModal: React.FC<BulkAIOperationsModalProps> = ({
               onArchiveTask(id);
               success++;
             }
+            if (suggestion.archiveTaskIds.length > 0) {
+              mergedGroups++;
+            }
           }
         }
         return {
           success,
-          skipped: allTasks.length - success,
+          skipped: duplicates.length - mergedGroups,
           message: `Found and merged ${success} duplicate(s)`,
         };
       },
@@ -226,12 +230,15 @@ export const BulkAIOperationsModal: React.FC<BulkAIOperationsModalProps> = ({
       .join("\n")}\n`;
     const blob = new Blob([report], { type: "text/markdown" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `liquitask-ai-report-${new Date().toISOString().split("T")[0]}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
-    addToast("Report exported as Markdown", "success");
+    try {
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `liquitask-ai-report-${new Date().toISOString().split("T")[0]}.md`;
+      a.click();
+      addToast("Report exported as Markdown", "success");
+    } finally {
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+    }
   };
 
   return (

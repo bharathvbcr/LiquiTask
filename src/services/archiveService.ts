@@ -58,6 +58,7 @@ export class ArchiveService {
    * Archive a known active task.
    */
   async archiveTask(task: Task): Promise<void> {
+    if (this.archivedTasks.some(t => t.id === task.id)) return;
     await this.moveToArchive([task]);
   }
 

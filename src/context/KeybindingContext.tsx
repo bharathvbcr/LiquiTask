@@ -5,7 +5,7 @@ import storageService from "../services/storageService";
 
 interface KeybindingContextValue {
   keybindings: KeybindingMap;
-  updateKeybinding: (actionId: string, keys: string[]) => void;
+  updateKeybinding: (actionId: string, keys: string[]) => string | null;
   resetKeybindings: () => void;
   matches: (actionId: string, event: KeyboardEvent | React.KeyboardEvent) => boolean;
   getLabel: (actionId: string) => string;
@@ -25,13 +25,20 @@ export const KeybindingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setKeybindings({ ...DEFAULT_KEYBINDINGS, ...stored });
   }, []);
 
-  const updateKeybinding = useCallback((actionId: string, keys: string[]) => {
+  const updateKeybinding = useCallback((actionId: string, keys: string[]): string | null => {
+    const conflictEntry = Object.entries(keybindings).find(
+      ([id, combos]) => id !== actionId && (combos as string[]).some(c => keys.includes(c))
+    );
+    if (conflictEntry) {
+      return `"${conflictEntry[0]}" already uses that shortcut`;
+    }
     setKeybindings((prev) => {
       const next = { ...prev, [actionId]: keys };
       storageService.set(STORAGE_KEY, next);
       return next;
     });
-  }, []);
+    return null;
+  }, [keybindings]);
 
   const resetKeybindings = useCallback(() => {
     setKeybindings(DEFAULT_KEYBINDINGS);

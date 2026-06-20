@@ -21,7 +21,7 @@ import {
   Trash2,
 } from "lucide-react";
 import type React from "react";
-import { lazy, memo, Suspense, useState } from "react";
+import { lazy, memo, Suspense, useEffect, useState } from "react";
 import { InlineDatePicker, InlineEditable, InlineSelect } from "../src/components/InlineEditable";
 import { useTaskCardContextMenu } from "../src/hooks/useTaskCardContextMenu";
 import { getSafeExternalUrl } from "../src/utils/safeUrl";
@@ -32,6 +32,37 @@ import { Tooltip } from "./Tooltip";
 const MarkdownRenderer = lazy(() => import("../src/components/MarkdownRenderer"));
 const TaskQuickView = lazy(() => import("../src/components/TaskQuickView"));
 const TimeTracker = lazy(() => import("../src/components/TimeTracker"));
+
+interface SubtaskTitleInputProps {
+  subtask: { id: string; title: string; completed: boolean };
+  onCommit: (id: string, title: string) => void;
+}
+
+const SubtaskTitleInput: React.FC<SubtaskTitleInputProps> = ({ subtask, onCommit }) => {
+  const [value, setValue] = useState(subtask.title);
+
+  useEffect(() => { setValue(subtask.title); }, [subtask.title]);
+
+  const commit = () => {
+    const trimmed = value.trim();
+    if (trimmed && trimmed !== subtask.title) {
+      onCommit(subtask.id, trimmed);
+    } else {
+      setValue(subtask.title);
+    }
+  };
+
+  return (
+    <input
+      type="text"
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commit(); } }}
+      className={`bg-transparent border-none outline-none text-xs w-full p-0.5 rounded ${subtask.completed ? 'text-slate-400 line-through' : 'text-slate-300'}`}
+    />
+  );
+};
 
 interface TaskCardProps {
   task: Task;
@@ -89,6 +120,15 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     onCopyTask,
     onMoveToWorkspace,
   });
+
+  useEffect(() => {
+    if (!contextMenuVisible) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setContextMenuVisible(false);
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [contextMenuVisible, setContextMenuVisible]);
 
   const handleSubtaskToggle = (e: React.MouseEvent, subtaskId: string) => {
     e.stopPropagation();
@@ -267,7 +307,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           {!isCompact && (
             <p className="text-xs text-slate-400 font-semibold uppercase">
               <InlineEditable
-                value={task.subtitle}
+                value={task.subtitle ?? ""}
                 onSave={(ns) => onUpdateTask({ ...task, subtitle: ns })}
                 placeholder="Add subtitle..."
               />
@@ -399,12 +439,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                         >
                           <Check size={10} />
                         </button>
-                        <input
-                          type="text"
-                          value={s.title}
-                          onChange={(e) => handleSubtaskTitleChange(s.id, e.target.value)}
-                          className={`bg-transparent border-none outline-none text-xs w-full p-0.5 rounded ${s.completed ? "text-slate-400 line-through" : "text-slate-300"}`}
-                        />
+                        <SubtaskTitleInput subtask={s} onCommit={handleSubtaskTitleChange} />
                       </div>
                     ))}
                   </div>
@@ -468,6 +503,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       {/* Context Menu */}
       {contextMenuVisible && (
         <div
+          role="menu"
           className="fixed z-[100] bg-[#1a0a0a] border border-red-500/30 rounded-xl shadow-2xl py-2 min-w-[200px]"
           style={{
             left: `${contextMenuPosition.x}px`,
@@ -482,7 +518,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               onMouseEnter={handleWorkspaceSubmenuEnter}
               onMouseLeave={handleWorkspaceSubmenuLeave}
             >
-              <button className="w-full px-4 py-2.5 text-left text-sm text-slate-200 hover:bg-red-500/20 flex items-center justify-between">
+              <button role="menuitem" className="w-full px-4 py-2.5 text-left text-sm text-slate-200 hover:bg-red-500/20 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Folder size={14} className="text-red-400" />
                   <span>Move to Workspace</span>
@@ -496,6 +532,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                     .map((p) => (
                       <button
                         key={p.id}
+                        role="menuitem"
                         onClick={() => handleMoveToWorkspace(p.id)}
                         className="w-full px-4 py-2.5 text-left text-sm hover:bg-red-500/20 flex items-center gap-2"
                       >
@@ -508,6 +545,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             </div>
           )}
           <button
+            role="menuitem"
             onClick={handleCopyAsJson}
             className="w-full px-4 py-2.5 text-left text-sm hover:bg-red-500/20 flex items-center gap-2"
           >
@@ -515,11 +553,17 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             <span>Copy as JSON</span>
           </button>
           <button
+            role="menuitem"
             onClick={async () => {
-              const { templateService } = await import("../src/services/templateService");
-              templateService.saveAsTemplate(task, `Template: ${task.title}`);
-              onCopyTask?.("Task saved as template");
-              setContextMenuVisible(false);
+              try {
+                const { templateService } = await import("../src/services/templateService");
+                templateService.saveAsTemplate(task, `Template: ${task.title}`);
+                onCopyTask?.("Task saved as template");
+              } catch {
+                onCopyTask?.("Failed to save template");
+              } finally {
+                setContextMenuVisible(false);
+              }
             }}
             className="w-full px-4 py-2.5 text-left text-sm hover:bg-red-500/20 flex items-center gap-2"
           >
@@ -552,6 +596,9 @@ export const MemoizedTaskCard = memo(TaskCard, (prev, next) => {
     prev.task.updatedAt === next.task.updatedAt &&
     prev.isFocused === next.isFocused &&
     prev.isSelected === next.isSelected &&
-    prev.isCompact === next.isCompact
+    prev.isCompact === next.isCompact &&
+    prev.priorities === next.priorities &&
+    prev.allTasks === next.allTasks &&
+    prev.projects === next.projects
   );
 });

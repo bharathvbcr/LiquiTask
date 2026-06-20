@@ -58,8 +58,12 @@ export function parseQuickTask(input: string): ParsedTask {
   const combinedTimeMatch = input.match(/~(\d+)h(\d+)m\b/i);
   const timeMatch = input.match(/~(\d+(?:\.\d+)?)(h|m)\b/i);
   if (combinedTimeMatch) {
-    timeEstimate = parseInt(combinedTimeMatch[1], 10) * 60 + parseInt(combinedTimeMatch[2], 10);
-    title = title.replace(combinedTimeMatch[0], "");
+    const hVal = parseInt(combinedTimeMatch[1], 10);
+    const mVal = parseInt(combinedTimeMatch[2], 10);
+    if (mVal <= 59) {
+      timeEstimate = hVal * 60 + mVal;
+      title = title.replace(combinedTimeMatch[0], "");
+    }
   } else if (timeMatch) {
     const value = parseFloat(timeMatch[1]);
     const unit = timeMatch[2].toLowerCase();
@@ -109,16 +113,24 @@ export function parseQuickTask(input: string): ParsedTask {
     const day = parseInt(fullDateMatch[2], 10);
     let year = parseInt(fullDateMatch[3], 10);
     if (year < 100) year += 2000; // normalize 2-digit years
-    dueDate = new Date(year, month, day);
+    if (month >= 0 && month <= 11 && day >= 1 && day <= 31) {
+      dueDate = new Date(year, month, day);
+      if (dueDate.getMonth() !== month) dueDate = undefined;
+    }
     title = title.replace(fullDateMatch[0], "");
   } else if (dateMatch) {
     const month = parseInt(dateMatch[1], 10) - 1;
     const day = parseInt(dateMatch[2], 10);
-    dueDate = new Date(today.getFullYear(), month, day);
-    // If the date already passed this year, assume the user means next year.
-    // Compare at day granularity so "today" is not pushed to next year.
-    if (startOfDay(dueDate) < today) {
-      dueDate.setFullYear(today.getFullYear() + 1);
+    if (month >= 0 && month <= 11 && day >= 1 && day <= 31) {
+      dueDate = new Date(today.getFullYear(), month, day);
+      if (dueDate.getMonth() !== month) {
+        dueDate = undefined;
+      } else {
+        if (startOfDay(dueDate) < today) {
+          dueDate.setFullYear(today.getFullYear() + 1);
+          if (dueDate.getMonth() !== month) dueDate = undefined;
+        }
+      }
     }
     title = title.replace(dateMatch[0], "");
   }
