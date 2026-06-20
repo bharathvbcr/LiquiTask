@@ -36,6 +36,22 @@ export interface TaskContext {
   changedFields?: string[];
 }
 
+/**
+ * Explicit allowlist of task fields that automation rules are permitted to mutate.
+ * Internal/integrity fields (id, projectId, createdAt, completedAt, activity,
+ * errorLogs, etc.) are intentionally excluded to prevent corruption by
+ * user-defined or AI-generated automation rules.
+ */
+const MUTABLE_TASK_FIELDS = new Set<string>([
+  "assignee",
+  "summary",
+  "title",
+  "timeEstimate",
+  "dueDate",
+  "description",
+  "label",
+]);
+
 export class AutomationService {
   private rules: AutomationRule[] = [];
   private scheduleInterval: NodeJS.Timeout | null = null;
@@ -138,7 +154,7 @@ export class AutomationService {
       rule.actions.forEach((action) => {
         switch (action.type) {
           case "setField":
-            if (action.field) {
+            if (action.field && MUTABLE_TASK_FIELDS.has(action.field)) {
               (updates as Record<string, unknown>)[action.field] = action.value;
             }
             break;

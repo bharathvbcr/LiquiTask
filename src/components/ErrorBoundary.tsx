@@ -1,5 +1,5 @@
 import { AlertTriangle, Home, RefreshCw } from "lucide-react";
-import { Component, type ErrorInfo, type ReactNode } from "react";
+import { Component, type ErrorInfo, type ReactNode, Suspense } from "react";
 
 interface Props {
   children: ReactNode;
@@ -116,4 +116,49 @@ export class ErrorBoundary extends Component<Props, State> {
 
     return this.props.children;
   }
+}
+
+// Lightweight sub-tree boundary: renders a minimal inline error card instead of
+// taking down the whole app. Use this to wrap individual panels or widgets.
+interface PanelBoundaryProps {
+  name: string;
+  children: ReactNode;
+}
+
+class PanelBoundaryInner extends Component<PanelBoundaryProps, { hasError: boolean }> {
+  public state = { hasError: false };
+
+  static getDerivedStateFromError(): { hasError: boolean } {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo): void {
+    console.error(`[PanelBoundary:${this.props.name}]`, error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+          <AlertTriangle size={14} />
+          <span>{this.props.name} failed to render.</span>
+          <button
+            onClick={() => this.setState({ hasError: false })}
+            className="ml-auto underline text-xs"
+          >
+            Retry
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export function PanelBoundary({ name, children }: PanelBoundaryProps) {
+  return (
+    <PanelBoundaryInner name={name}>
+      <Suspense fallback={null}>{children}</Suspense>
+    </PanelBoundaryInner>
+  );
 }

@@ -124,7 +124,7 @@ export const AIMergeDuplicatesModal: React.FC<AIMergeDuplicatesModalProps> = ({
           `Successfully merged ${successCount} duplicate group${successCount > 1 ? "s" : ""}`,
           "success",
         );
-        loadDuplicates(); // Refresh to show remaining duplicates
+        await loadDuplicates(); // Refresh to show remaining duplicates
       }
     } catch (error) {
       console.error("Failed to apply merges:", error);

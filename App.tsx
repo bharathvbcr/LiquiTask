@@ -261,7 +261,7 @@ type NotificationServiceHandle = {
 };
 
 type RecurringTaskServiceHandle = {
-  start: (tasks: Task[]) => void;
+  start: (getTasks: () => Task[]) => void;
   stop: () => void;
   updateNextOccurrence: (task: Task) => void;
   calculateNextOccurrence: (config: RecurringConfig, fromDate?: Date) => Date;
@@ -332,6 +332,7 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>("project");
   const [viewMode, setViewMode] = useState<"board" | "gantt" | "stats" | "calendar">("board");
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -610,10 +611,18 @@ const App: React.FC = () => {
     return descendantsByProject;
   }, [projects]);
 
+  // Debounce search query to avoid blocking the main thread on every keystroke
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   const filteredTasks = useMemo(() => {
     let result = tasks;
-    if (searchQuery.trim()) {
-      result = filterTasksBySearch(tasks, searchQuery, searchIndexServiceRef.current);
+    if (debouncedSearchQuery.trim()) {
+      result = filterTasksBySearch(tasks, debouncedSearchQuery, searchIndexServiceRef.current);
     }
     if (filters.assignee)
       result = result.filter((t) =>
@@ -625,7 +634,7 @@ const App: React.FC = () => {
         : result;
     }
     return result;
-  }, [tasks, searchQuery, filters, activeFilterGroup]);
+  }, [tasks, debouncedSearchQuery, filters, activeFilterGroup]);
 
   const currentProjectTasks = useMemo(() => {
     if (showSubWorkspaceTasks) {

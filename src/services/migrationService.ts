@@ -266,9 +266,9 @@ export class MigrationService {
       const logs = JSON.parse(existingLog) as string[];
       logs.push(logEntry);
 
-      // Keep only last 100 log entries
-      while (logs.length > 100) {
-        logs.shift();
+      // Keep only last 100 log entries — slice is O(n) once vs shift's O(n) per excess entry
+      if (logs.length > 100) {
+        logs.splice(0, logs.length - 100);
       }
 
       localStorage.setItem(STORAGE_KEYS.MIGRATION_LOG, JSON.stringify(logs));

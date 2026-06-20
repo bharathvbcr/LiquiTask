@@ -429,9 +429,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   </h2>
                 </div>
                 <div className="space-y-6">
-                  {upcomingTasks.length === 0 ? (
+                  {highPriorityTasks.length === 0 ? (
                     <div className="p-10 border border-dashed border-white/10 rounded-3xl text-center text-slate-300 text-sm bg-white/5 backdrop-blur-sm">
-                      No upcoming deadlines in the next 3 days.
+                      No urgent high-priority tasks.
                     </div>
                   ) : (
                     highPriorityTasks.map((task) => (

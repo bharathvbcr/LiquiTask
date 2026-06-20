@@ -48,7 +48,7 @@ type AiServiceLike = {
 };
 
 type RecurringTaskServiceLike = {
-  start: (tasks: Task[]) => void;
+  start: (getTasks: () => Task[]) => void;
   stop: () => void;
   updateNextOccurrence: (task: Task) => void;
   calculateNextOccurrence: (config: RecurringConfig, fromDate?: Date) => Date;
@@ -127,6 +127,10 @@ export const useTaskController = ({
   const undoStack = useRef<UndoAction[]>([]);
   const [canUndo, setCanUndo] = useState(false);
   const MAX_UNDO = 20;
+  // Monotonically-increasing counter used to cancel in-flight async work (e.g.
+  // auto-pilot subtask generation) when the owning component unmounts or the
+  // task is superseded before the promise resolves.
+  const autoPilotRunIdRef = useRef(0);
 
   const augmentTaskSemantically = useCallback(
     async (task: Task) => {
@@ -188,14 +192,17 @@ export const useTaskController = ({
         break;
       case "task-create":
         if (action.taskId) {
-          const createdTask = tasks.find((t) => t.id === action.taskId);
-          setTasks((prev) => prev.filter((t) => t.id !== action.taskId));
-          if (createdTask) {
-            searchIndexServiceRef.current?.removeTask?.(createdTask);
-            if (indexedDBService.isAvailable()) {
-              indexedDBService.deleteTask(createdTask.id).catch(console.error);
+          const undoTaskId = action.taskId;
+          setTasks((prev) => {
+            const createdTask = prev.find((t) => t.id === undoTaskId);
+            if (createdTask) {
+              searchIndexServiceRef.current?.removeTask?.(createdTask);
+              if (indexedDBService.isAvailable()) {
+                indexedDBService.deleteTask(createdTask.id).catch(console.error);
+              }
             }
-          }
+            return prev.filter((t) => t.id !== undoTaskId);
+          });
           addToast("Task creation undone", "info");
         }
         break;
@@ -211,7 +218,7 @@ export const useTaskController = ({
         }
         break;
     }
-  }, [addToast, searchIndexServiceRef, tasks]);
+  }, [addToast, searchIndexServiceRef]);
 
   const handleUpdateTask = useCallback(
     (taskOrId: Task | string, updates?: Partial<Task>) => {
@@ -638,9 +645,16 @@ export const useTaskController = ({
         currentAiService
       ) {
         addToast("Auto-pilot: Generating subtasks...", "info");
+        // Capture the current run-id so the callback can verify it is still
+        // the most-recent launch and the component has not unmounted.
+        autoPilotRunIdRef.current += 1;
+        const capturedRunId = autoPilotRunIdRef.current;
         currentAiService
           .generateSubtasks(updatedTask.title, updatedTask.summary)
           .then((subtaskTitles) => {
+            // Bail out if this launch was superseded (e.g. component unmounted
+            // or the task was already deleted while the request was in-flight).
+            if (capturedRunId !== autoPilotRunIdRef.current) return;
             if (subtaskTitles.length > 0) {
               const newSubtasks = subtaskTitles.map((title, i) => ({
                 id: `ai-st-${Date.now()}-${i}`,

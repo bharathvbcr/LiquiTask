@@ -21,9 +21,11 @@ export class RecurringTaskService {
 
   /**
    * Start the recurring task scheduler
-   * Checks every 5 minutes for tasks that need to be generated
+   * Checks every 5 minutes for tasks that need to be generated.
+   * Accepts a live getter so the scheduler always operates on the current
+   * task list rather than a stale snapshot captured at startup.
    */
-  start(tasks: Task[]): void {
+  start(getTasks: () => Task[]): void {
     if (this.isRunning) {
       this.stop();
     }
@@ -31,12 +33,12 @@ export class RecurringTaskService {
     this.isRunning = true;
 
     // Check immediately on start
-    this.checkAndGenerate(tasks);
+    this.checkAndGenerate(getTasks());
 
-    // Then check every 5 minutes
+    // Then check every 5 minutes, fetching the live task list each time
     this.checkInterval = setInterval(
       () => {
-        this.checkAndGenerate(tasks);
+        this.checkAndGenerate(getTasks());
       },
       5 * 60 * 1000,
     ); // 5 minutes
@@ -138,11 +140,13 @@ export class RecurringTaskService {
           // Find next day this week
           const nextDayThisWeek = sortedDays.find((day) => day > currentDay);
           if (nextDayThisWeek !== undefined) {
+            // Still within the current week — no extra interval weeks needed
             next.setDate(next.getDate() + (nextDayThisWeek - currentDay));
           } else {
-            // Next occurrence is next week
+            // Next occurrence is in a future week; apply the full interval so
+            // e.g. "every 2 weeks on Monday" skips the intermediate week(s).
             const daysUntilNext = 7 - currentDay + sortedDays[0];
-            next.setDate(next.getDate() + daysUntilNext);
+            next.setDate(next.getDate() + daysUntilNext + (config.interval - 1) * 7);
           }
         } else {
           // Default: same day of week, every N weeks
@@ -229,7 +233,7 @@ export const recurringTaskService = {
   get instance() {
     return _recurringTaskService;
   },
-  start: (tasks: Task[]) => _recurringTaskService?.start(tasks),
+  start: (getTasks: () => Task[]) => _recurringTaskService?.start(getTasks),
   stop: () => _recurringTaskService?.stop(),
   calculateNextOccurrence: (config: RecurringConfig, fromDate?: Date) =>
     _recurringTaskService?.calculateNextOccurrence(config, fromDate),

@@ -97,7 +97,7 @@ export function useTimer(options: UseTimerOptions = {}): UseTimerReturn {
       if (document.hidden && isRunning) {
         // Store the current time when tab becomes hidden
         sessionStorage.setItem("timer-hidden-at", Date.now().toString());
-        sessionStorage.setItem("timer-seconds-at-hide", seconds.toString());
+        sessionStorage.setItem("timer-seconds-at-hide", secondsRef.current.toString());
       } else if (!document.hidden) {
         // Calculate elapsed time when tab becomes visible
         const hiddenAt = sessionStorage.getItem("timer-hidden-at");
@@ -115,7 +115,7 @@ export function useTimer(options: UseTimerOptions = {}): UseTimerReturn {
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [isRunning, seconds]);
+  }, [isRunning]);
 
   return {
     seconds,

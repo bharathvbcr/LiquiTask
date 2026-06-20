@@ -1,11 +1,12 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { app, BrowserWindow, dialog, ipcMain, Notification } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Notification, session } from "electron";
 
 const DEFAULT_DEV_SERVER_URL = "http://localhost:4000";
 const APP_NAME = "LiquiTask";
 const MAX_WORKSPACE_SEARCH_RESULTS = 20;
 const MAX_WORKSPACE_FILE_SIZE_BYTES = 256 * 1024;
+const MAX_STORAGE_SIZE_BYTES = 10_000_000;
 const SUPPORTED_WORKSPACE_FILE_EXTENSIONS = new Set([
   ".c",
   ".cc",
@@ -84,6 +85,15 @@ const SKIPPED_WORKSPACE_DIR_NAMES = new Set([
   "release",
 ]);
 
+// Dangerous prototype keys that must never be used as storage keys
+const FORBIDDEN_STORAGE_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
+// Regex for valid storage keys
+const VALID_STORAGE_KEY_RE = /^[a-zA-Z0-9_:\-.]{1,256}$/;
+
+// Write queue to serialise all mutating storage operations (fix #1)
+let writeQueue: Promise<void> = Promise.resolve();
+
 let mainWindow: BrowserWindow | null = null;
 
 // Single Instance Protection
@@ -109,20 +119,54 @@ const readStorage = async (): Promise<Record<string, unknown>> => {
   try {
     const raw = await fs.readFile(getStorageFilePath(), "utf8");
     const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-      ? (parsed as Record<string, unknown>)
-      : {};
+    // Use Object.create(null) to avoid inherited prototype keys (fix #4)
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const store = Object.create(null) as Record<string, unknown>;
+      for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+        store[k] = v;
+      }
+      return store;
+    }
+    return Object.create(null) as Record<string, unknown>;
   } catch (error: unknown) {
     if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
-      return {};
+      return Object.create(null) as Record<string, unknown>;
     }
     throw error;
   }
 };
 
 const writeStorage = async (data: Record<string, unknown>) => {
+  // Guard against excessively large storage (fix #4)
+  const serialised = JSON.stringify(data, null, 2);
+  if (serialised.length > MAX_STORAGE_SIZE_BYTES) {
+    throw new Error("Storage size limit exceeded");
+  }
   await fs.mkdir(path.dirname(getStorageFilePath()), { recursive: true });
-  await fs.writeFile(getStorageFilePath(), JSON.stringify(data, null, 2), "utf8");
+  await fs.writeFile(getStorageFilePath(), serialised, "utf8");
+};
+
+/** Validate a renderer-supplied storage key (fix #4) */
+const validateStorageKey = (key: unknown): string => {
+  if (typeof key !== "string") throw new Error("Storage key must be a string");
+  if (!VALID_STORAGE_KEY_RE.test(key)) throw new Error(`Invalid storage key: ${key}`);
+  if (FORBIDDEN_STORAGE_KEYS.has(key)) throw new Error(`Forbidden storage key: ${key}`);
+  return key;
+};
+
+/** Verify that the IPC message originates from the trusted renderer (fix #8) */
+const assertTrustedSender = (event: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent) => {
+  const isDev = process.env.NODE_ENV === "development";
+  try {
+    const senderUrl = new URL(event.senderFrame?.url ?? "");
+    const isAllowed = isDev
+      ? senderUrl.hostname === "localhost"
+      : senderUrl.protocol === "file:";
+    if (!isAllowed) throw new Error("Untrusted sender");
+  } catch (err) {
+    // If URL parsing fails, the sender is not trusted
+    throw new Error("Untrusted sender");
+  }
 };
 
 const emitWindowState = () => {
@@ -156,10 +200,41 @@ function createWindow() {
     },
   });
 
+  // Set Content-Security-Policy on all responses (fix #2)
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        "Content-Security-Policy": [
+          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://generativelanguage.googleapis.com",
+        ],
+      },
+    });
+  });
+
+  // Navigation guard: prevent the renderer from navigating to external URLs (fix #3)
+  mainWindow.webContents.on("will-navigate", (event, url) => {
+    try {
+      const parsedUrl = new URL(url);
+      const allowed = isDev
+        ? parsedUrl.hostname === "localhost"
+        : parsedUrl.protocol === "file:";
+      if (!allowed) event.preventDefault();
+    } catch {
+      event.preventDefault();
+    }
+  });
+
+  // Deny all new-window requests (fix #3)
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+
   if (isDev) {
     const devUrl = process.env.VITE_DEV_SERVER_URL || DEFAULT_DEV_SERVER_URL;
     mainWindow.loadURL(devUrl);
-    mainWindow.webContents.openDevTools();
+    // Only open DevTools when actually running in dev mode and not packaged (fix #10)
+    if (!app.isPackaged) {
+      mainWindow.webContents.openDevTools();
+    }
   } else {
     mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
   }
@@ -231,30 +306,54 @@ ipcMain.handle("isWindowMaximized", () => {
   return mainWindow && !mainWindow.isDestroyed() ? mainWindow.isMaximized() : false;
 });
 
-ipcMain.handle("storageGet", async (_, key: string) => {
+ipcMain.handle("storageGet", async (event, key: string) => {
+  assertTrustedSender(event); // fix #8
+  const validKey = validateStorageKey(key); // fix #4
   const data = await readStorage();
-  return data[key];
+  return data[validKey];
 });
 
-ipcMain.handle("storageSet", async (_, key: string, value: unknown) => {
-  const data = await readStorage();
-  data[key] = value;
-  await writeStorage(data);
+ipcMain.handle("storageSet", async (event, key: string, value: unknown) => {
+  assertTrustedSender(event); // fix #8
+  const validKey = validateStorageKey(key); // fix #4
+
+  // Serialise all mutating writes through the write queue (fix #1)
+  writeQueue = writeQueue.then(async () => {
+    const data = await readStorage();
+    data[validKey] = value;
+    await writeStorage(data);
+  });
+  await writeQueue;
 });
 
-ipcMain.handle("storageDelete", async (_, key: string) => {
-  const data = await readStorage();
-  delete data[key];
-  await writeStorage(data);
+ipcMain.handle("storageDelete", async (event, key: string) => {
+  assertTrustedSender(event); // fix #8
+  const validKey = validateStorageKey(key); // fix #4
+
+  // Serialise all mutating writes through the write queue (fix #1)
+  writeQueue = writeQueue.then(async () => {
+    const data = await readStorage();
+    delete data[validKey];
+    await writeStorage(data);
+  });
+  await writeQueue;
 });
 
-ipcMain.handle("storageClear", async () => {
-  await writeStorage({});
+ipcMain.handle("storageClear", async (event) => {
+  assertTrustedSender(event); // fix #8
+
+  // Serialise through the write queue (fix #1)
+  writeQueue = writeQueue.then(async () => {
+    await writeStorage(Object.create(null) as Record<string, unknown>);
+  });
+  await writeQueue;
 });
 
-ipcMain.handle("storageHas", async (_, key: string) => {
+ipcMain.handle("storageHas", async (event, key: string) => {
+  assertTrustedSender(event); // fix #8
+  const validKey = validateStorageKey(key); // fix #4
   const data = await readStorage();
-  return Object.hasOwn(data, key);
+  return Object.hasOwn(data, validKey);
 });
 
 // Workspace IPC Handlers
@@ -272,15 +371,44 @@ ipcMain.handle("selectWorkspaceDirectory", async () => {
   return result.filePaths[0];
 });
 
-ipcMain.handle("getWorkspacePaths", async () => {
+ipcMain.handle("getWorkspacePaths", async (event) => {
+  assertTrustedSender(event); // fix #8
   const data = await readStorage();
   return (data.workspacePaths as string[]) || [];
 });
 
-ipcMain.handle("setWorkspacePaths", async (_, paths: string[]) => {
-  const data = await readStorage();
-  data.workspacePaths = paths;
-  await writeStorage(data);
+/** Validate a renderer-supplied workspace path array (fix #5) */
+const validateWorkspacePaths = (paths: unknown): string[] => {
+  if (!Array.isArray(paths)) throw new Error("workspacePaths must be an array");
+  if (paths.length > 20) throw new Error("workspacePaths exceeds maximum of 20 entries");
+
+  return paths.map((p, i) => {
+    if (typeof p !== "string") throw new Error(`workspacePaths[${i}] must be a string`);
+    if (p.length > 512) throw new Error(`workspacePaths[${i}] path is too long`);
+    if (!path.isAbsolute(p)) throw new Error(`workspacePaths[${i}] must be an absolute path`);
+
+    // Reject filesystem root paths
+    const normalized = path.normalize(p);
+    const parsed = path.parse(normalized);
+    if (normalized === parsed.root) {
+      throw new Error(`workspacePaths[${i}] must not be the filesystem root`);
+    }
+
+    return p;
+  });
+};
+
+ipcMain.handle("setWorkspacePaths", async (event, paths: string[]) => {
+  assertTrustedSender(event); // fix #8
+  const validPaths = validateWorkspacePaths(paths); // fix #5
+
+  // Serialise through the write queue (fix #1)
+  writeQueue = writeQueue.then(async () => {
+    const data = await readStorage();
+    data.workspacePaths = validPaths;
+    await writeStorage(data);
+  });
+  await writeQueue;
 });
 
 const isPathAuthorized = (filePath: string, authorizedPaths: string[]) => {
@@ -335,7 +463,8 @@ const createSnippet = (content: string, query: string) => {
   return normalizedContent.slice(start, end);
 };
 
-ipcMain.handle("readWorkspaceFile", async (_, filePath: string, requestedScopePaths?: string[]) => {
+ipcMain.handle("readWorkspaceFile", async (event, filePath: string, requestedScopePaths?: string[]) => {
+  assertTrustedSender(event); // fix #8
   const data = await readStorage();
   const paths = resolveWorkspaceScope((data.workspacePaths as string[]) || [], requestedScopePaths);
 
@@ -347,18 +476,24 @@ ipcMain.handle("readWorkspaceFile", async (_, filePath: string, requestedScopePa
     throw new Error(`Unauthorized access to file: ${filePath}`);
   }
 
-  const normalizedPath = path.normalize(filePath);
-  const stats = await fs.stat(normalizedPath);
+  // Resolve symlinks to canonical path before final read to prevent symlink escapes (fix #6)
+  const resolvedPath = await fs.realpath(filePath);
+  if (!isPathAuthorized(resolvedPath, paths)) {
+    throw new Error(`Unauthorized access to resolved file path: ${resolvedPath}`);
+  }
+
+  const stats = await fs.stat(resolvedPath);
   if (stats.size > MAX_WORKSPACE_FILE_SIZE_BYTES) {
     throw new Error(`Workspace file is too large to read safely: ${filePath}`);
   }
 
-  return fs.readFile(normalizedPath, "utf-8");
+  return fs.readFile(resolvedPath, "utf-8");
 });
 
 ipcMain.handle(
   "writeWorkspaceFile",
-  async (_, filePath: string, content: string, requestedScopePaths?: string[]) => {
+  async (event, filePath: string, content: string, requestedScopePaths?: string[]) => {
+    assertTrustedSender(event); // fix #8
     const data = await readStorage();
     const paths = resolveWorkspaceScope(
       (data.workspacePaths as string[]) || [],
@@ -379,7 +514,22 @@ ipcMain.handle(
       throw new Error(`Workspace file is too large to write safely: ${filePath}`);
     }
 
-    await fs.writeFile(path.normalize(filePath), content, "utf-8");
+    // Resolve the parent directory via realpath, then reconstruct the target
+    // path. For files that do not exist yet, resolve the parent directory. (fix #6)
+    let resolvedPath: string;
+    try {
+      resolvedPath = await fs.realpath(filePath);
+    } catch {
+      // File doesn't exist yet — resolve the parent directory
+      const parent = await fs.realpath(path.dirname(filePath));
+      resolvedPath = path.join(parent, path.basename(filePath));
+    }
+
+    if (!isPathAuthorized(resolvedPath, paths)) {
+      throw new Error(`Unauthorized write access to resolved file path: ${resolvedPath}`);
+    }
+
+    await fs.writeFile(resolvedPath, content, "utf-8");
   },
 );
 
@@ -387,8 +537,14 @@ async function findWorkspaceFileMatches(
   dir: string,
   query: string,
   results: Array<{ path: string; snippet: string }> = [],
+  visited: Set<string> = new Set(), // fix #11: track visited real paths to detect cycles
 ) {
   try {
+    // Resolve symlinks before recursing to detect directory cycles (fix #11)
+    const realDir = await fs.realpath(dir);
+    if (visited.has(realDir)) return results;
+    visited.add(realDir);
+
     const entries = await fs.readdir(dir, { withFileTypes: true });
     for (const entry of entries) {
       if (results.length >= MAX_WORKSPACE_SEARCH_RESULTS) {
@@ -400,7 +556,7 @@ async function findWorkspaceFileMatches(
         if (isSkippedWorkspaceDirectory(entry.name)) {
           continue;
         }
-        await findWorkspaceFileMatches(fullPath, query, results);
+        await findWorkspaceFileMatches(fullPath, query, results, visited);
       } else if (entry.isFile() && isWorkspaceTextFile(fullPath)) {
         const normalizedQuery = query.toLowerCase();
         const filenameMatches = entry.name.toLowerCase().includes(normalizedQuery);
@@ -433,7 +589,8 @@ async function findWorkspaceFileMatches(
   return results;
 }
 
-ipcMain.handle("searchWorkspaceFiles", async (_, query: string, requestedScopePaths?: string[]) => {
+ipcMain.handle("searchWorkspaceFiles", async (event, query: string, requestedScopePaths?: string[]) => {
+  assertTrustedSender(event); // fix #8
   const data = await readStorage();
   const paths = resolveWorkspaceScope((data.workspacePaths as string[]) || [], requestedScopePaths);
   const normalizedQuery = query.trim().toLowerCase();
@@ -442,23 +599,31 @@ ipcMain.handle("searchWorkspaceFiles", async (_, query: string, requestedScopePa
   }
 
   const allResults: Array<{ path: string; snippet: string }> = [];
+  const visited = new Set<string>(); // shared across all workspace roots
 
   for (const workspacePath of paths) {
     if (allResults.length >= MAX_WORKSPACE_SEARCH_RESULTS) {
       break;
     }
-    await findWorkspaceFileMatches(path.normalize(workspacePath), normalizedQuery, allResults);
+    await findWorkspaceFileMatches(path.normalize(workspacePath), normalizedQuery, allResults, visited);
   }
 
   return allResults;
 });
 
-ipcMain.on("showNotification", (_, options: { title: string; body: string; silent?: boolean }) => {
+ipcMain.on("showNotification", (event, options: { title: string; body: string; silent?: boolean }) => {
+  assertTrustedSender(event); // fix #8
+
+  // Validate and sanitise title/body before constructing Notification (fix #7)
+  if (typeof options?.title !== "string" || typeof options?.body !== "string") return;
+  const title = options.title.slice(0, 256);
+  const body = options.body.slice(0, 1024);
+
   if (!Notification.isSupported()) return;
 
   new Notification({
-    title: options.title,
-    body: options.body,
+    title,
+    body,
     silent: options.silent,
   }).show();
 });

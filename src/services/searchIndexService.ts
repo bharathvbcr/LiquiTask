@@ -11,6 +11,15 @@ interface SearchIndex {
   semanticIndex: Map<string, Set<string>>;
 }
 
+/** Reverse lookup: taskId -> tokens indexed in each forward index */
+interface TaskTokenRecord {
+  titleTokens: string[];
+  tagTokens: string[];
+  assigneeTokens: string[];
+  jobIdTokens: string[];
+  summaryTokens: string[];
+}
+
 const SEARCH_STOP_WORDS = new Set([
   "a",
   "an",
@@ -32,7 +41,21 @@ const SEARCH_STOP_WORDS = new Set([
   "with",
 ]);
 
+/** Maximum number of task entries kept in the semantic cache */
+const MAX_SEMANTIC_CACHE_ENTRIES = 500;
+
+/** Semantic cache entries older than this are discarded on load */
+const SEMANTIC_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+/** In-memory representation: taskId -> keyword array (derived from persisted form) */
 type SemanticCache = Record<string, string[]>;
+
+/** Persisted representation: includes a timestamp for TTL enforcement */
+interface PersistedSemanticCacheEntry {
+  keywords: string[];
+  timestamp: number;
+}
+type PersistedSemanticCache = Record<string, PersistedSemanticCacheEntry>;
 
 type RelevantContextOptions = {
   limit?: number;
@@ -52,6 +75,13 @@ export class SearchIndexService {
     summaryIndex: new Map(),
     semanticIndex: new Map(),
   };
+
+  /**
+   * Reverse lookup from taskId to the tokens that were added for that task.
+   * Allows removeTask to delete only the relevant keys instead of scanning
+   * every entry in each forward-index Map.
+   */
+  private taskTokens: Map<string, TaskTokenRecord> = new Map();
 
   private semanticCache: SemanticCache = {};
 
@@ -203,26 +233,48 @@ export class SearchIndexService {
    * Remove task from index
    */
   removeTask(task: Task): void {
-    const removeFromMap = (map: Map<string, Set<string>>) => {
-      map.forEach((ids, key) => {
-        ids.delete(task.id);
-        if (ids.size === 0) {
-          map.delete(key);
+    // Use the reverse index to remove only the tokens that belong to this task,
+    // avoiding a full O(M) scan of every key in each forward-index Map.
+    const removeFromMap = (map: Map<string, Set<string>>, tokens: string[]) => {
+      for (const token of tokens) {
+        const ids = map.get(token);
+        if (ids) {
+          ids.delete(task.id);
+          if (ids.size === 0) {
+            map.delete(token);
+          }
         }
-      });
+      }
     };
 
-    removeFromMap(this.index.titleIndex);
-    removeFromMap(this.index.tagIndex);
-    removeFromMap(this.index.assigneeIndex);
-    removeFromMap(this.index.jobIdIndex);
-    removeFromMap(this.index.summaryIndex);
-    removeFromMap(this.index.semanticIndex);
+    const record = this.taskTokens.get(task.id);
+    if (record) {
+      removeFromMap(this.index.titleIndex, record.titleTokens);
+      removeFromMap(this.index.tagIndex, record.tagTokens);
+      removeFromMap(this.index.assigneeIndex, record.assigneeTokens);
+      removeFromMap(this.index.jobIdIndex, record.jobIdTokens);
+      removeFromMap(this.index.summaryIndex, record.summaryTokens);
+      this.taskTokens.delete(task.id);
+    }
+
+    // Semantic tokens are tracked separately via clearSemanticKeywords
+    this.clearSemanticKeywords(task.id);
 
     if (this.semanticCache[task.id]) {
       delete this.semanticCache[task.id];
       this.persistSemanticCache();
     }
+  }
+
+  /**
+   * Clear the entire semantic keyword cache and remove it from storage.
+   * Should be called when the user disables AI features.
+   */
+  clearSemanticCache(): void {
+    // Remove all semantic index entries
+    this.index.semanticIndex.clear();
+    this.semanticCache = {};
+    storageService.remove(STORAGE_KEYS.AI_SEMANTIC_CACHE);
   }
 
   /**
@@ -281,35 +333,54 @@ ${task.summary ? `Summary: ${task.summary}` : ""}
       summaryIndex: new Map(),
       semanticIndex: new Map(),
     };
+    this.taskTokens = new Map();
   }
 
   private addTask(task: Task): void {
-    this.tokenize(task.title, { keepStopWords: true }).forEach((word) => {
+    const titleTokens = this.tokenize(task.title, { keepStopWords: true });
+    titleTokens.forEach((word) => {
       this.addToIndex(this.index.titleIndex, word, task.id);
     });
 
+    const tagTokens: string[] = [];
     task.tags.forEach((tag) => {
       this.tokenize(tag, { keepStopWords: true }).forEach((word) => {
+        tagTokens.push(word);
         this.addToIndex(this.index.tagIndex, word, task.id);
       });
     });
 
+    const assigneeTokens: string[] = [];
     if (task.assignee) {
       this.tokenize(task.assignee, { keepStopWords: true }).forEach((word) => {
+        assigneeTokens.push(word);
         this.addToIndex(this.index.assigneeIndex, word, task.id);
       });
     }
 
+    const jobIdTokens: string[] = [];
     if (task.jobId) {
       const jobIdLower = task.jobId.toLowerCase().trim();
+      jobIdTokens.push(jobIdLower);
       this.addToIndex(this.index.jobIdIndex, jobIdLower, task.id);
     }
 
+    const summaryTokens: string[] = [];
     if (task.summary) {
       this.tokenize(task.summary, { keepStopWords: true }).forEach((word) => {
+        summaryTokens.push(word);
         this.addToIndex(this.index.summaryIndex, word, task.id);
       });
     }
+
+    // Record all tokens in the reverse index for O(k) removal later
+    this.taskTokens.set(task.id, {
+      titleTokens,
+      tagTokens,
+      assigneeTokens,
+      jobIdTokens,
+      summaryTokens,
+    });
 
     (this.semanticCache[task.id] ?? []).forEach((keyword) => {
       this.addToIndex(this.index.semanticIndex, keyword, task.id);

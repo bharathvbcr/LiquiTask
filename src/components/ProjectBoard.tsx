@@ -63,6 +63,18 @@ const kanbanCollisionDetection: CollisionDetection = (args) => {
   return pointerCollisions.length > 0 ? pointerCollisions : closestCorners(args);
 };
 
+const dropAnimation: DropAnimation = {
+  duration: 250,
+  easing: "cubic-bezier(0.18, 0.67, 0.6, 1.22)",
+  sideEffects: defaultDropAnimationSideEffects({
+    styles: { active: { opacity: "0.4" } },
+  }),
+};
+
+const measuringConfig = {
+  droppable: { strategy: MeasuringStrategy.Always, frequency: 100 },
+};
+
 export const ProjectBoard: React.FC<ProjectBoardProps> = (props) => {
   const {
     columns = [],
@@ -166,17 +178,6 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = (props) => {
     return () => board.removeEventListener("keydown", handleKeyDown);
   }, [keyboardHandlers]);
 
-  const dropAnimation: DropAnimation = {
-    duration: 250,
-    easing: "cubic-bezier(0.18, 0.67, 0.6, 1.22)",
-    sideEffects: defaultDropAnimationSideEffects({
-      styles: { active: { opacity: "0.4" } },
-    }),
-  };
-
-  const measuringConfig = {
-    droppable: { strategy: MeasuringStrategy.Always, frequency: 100 },
-  };
   const activeTask = activeDrag?.type === "task" ? activeDrag.data : null;
   const activeColumn = activeDrag?.type === "column" ? activeDrag.data : null;
 

@@ -53,7 +53,7 @@ export function useFocusTrap(isActive: boolean, onClose?: () => void) {
 
     document.addEventListener("keydown", handleKeyDown);
 
-    setTimeout(() => {
+    const timerId = setTimeout(() => {
       const modal = document.querySelector("[data-modal]") as HTMLElement;
       if (modal) {
         const focusableElements = Array.from(
@@ -64,6 +64,7 @@ export function useFocusTrap(isActive: boolean, onClose?: () => void) {
     }, 50);
 
     return () => {
+      clearTimeout(timerId);
       document.removeEventListener("keydown", handleKeyDown);
       triggerRef.current?.focus();
     };

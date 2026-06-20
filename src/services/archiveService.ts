@@ -27,8 +27,13 @@ export class ArchiveService {
     const archiveDate = new Date(now.getTime() - config.autoArchiveAfterDays * 24 * 60 * 60 * 1000);
 
     const toArchive = tasks.filter((task) => {
-      if (config.archiveCompleted && task.status === "Completed") return true;
-      if (task.completedAt && task.completedAt < archiveDate) return true;
+      if (
+        config.archiveCompleted &&
+        task.status === "Completed" &&
+        task.completedAt &&
+        new Date(task.completedAt) < archiveDate
+      )
+        return true;
       return false;
     });
 

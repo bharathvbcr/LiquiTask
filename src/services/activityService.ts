@@ -58,19 +58,15 @@ export const activityService = {
       );
     }
     if (changes.title && changes.title !== task.title) {
+      // Omit oldValue for title to avoid accumulating full edit history of sensitive content
       activities.push(
-        this.createActivity("update", `Title changed`, "title", task.title, changes.title),
+        this.createActivity("update", `Title changed`, "title", undefined, undefined),
       );
     }
     if (changes.summary && changes.summary !== task.summary) {
+      // Omit oldValue and newValue for summary to avoid storing full description history
       activities.push(
-        this.createActivity(
-          "update",
-          `Description updated`,
-          "summary",
-          task.summary,
-          changes.summary,
-        ),
+        this.createActivity("update", `Description updated`, "summary", undefined, undefined),
       );
     }
     if (changes.dueDate) {
@@ -94,10 +90,12 @@ export const activityService = {
       activities.push(this.createActivity("create", "Task created"));
     }
 
+    // Cap the activity log at 200 entries to prevent unbounded memory/storage growth
+    const MAX_ACTIVITY_ENTRIES = 200;
     return {
       ...task,
       ...changes,
-      activity: [...(task.activity || []), ...activities],
+      activity: [...(task.activity || []), ...activities].slice(-MAX_ACTIVITY_ENTRIES),
     };
   },
 };

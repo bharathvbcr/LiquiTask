@@ -100,11 +100,19 @@ export const useTaskAssistant = ({
   searchTasks,
 }: UseTaskAssistantProps) => {
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
+  const messagesRef = useRef<AssistantMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [activeTool, setActiveTool] = useState<string | null>(null);
   const [globalWorkspacePaths, setGlobalWorkspacePaths] = useState<string[]>([]);
   const runIdRef = useRef(0);
+
+  // Keep messagesRef in sync with messages state so sendMessage always reads
+  // the latest conversation history, even when called before a prior setState
+  // has propagated (stale closure guard).
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   useEffect(() => {
     let cancelled = false;
@@ -265,7 +273,10 @@ export const useTaskAssistant = ({
         status: "done",
       };
 
-      let currentConversation = [...messages, userMsg];
+      // Read from ref so we always have the latest conversation history,
+      // even if a prior sendMessage call has not yet flushed its setState.
+      let currentConversation = [...messagesRef.current, userMsg];
+      messagesRef.current = currentConversation;
       setMessages(currentConversation);
       setIsLoading(true);
 
@@ -382,11 +393,12 @@ export const useTaskAssistant = ({
         }
       }
     },
-    [allTasks, effectiveContext, executeTool, isLoading, messages],
+    [allTasks, effectiveContext, executeTool, isLoading],
   );
 
   const clearChat = useCallback(() => {
     runIdRef.current += 1;
+    messagesRef.current = [];
     setMessages([]);
     setIsLoading(false);
     setIsSearching(false);

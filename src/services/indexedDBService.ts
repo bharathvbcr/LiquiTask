@@ -194,15 +194,23 @@ export class IndexedDBService {
     const transaction = this.db.transaction(["tasks"], "readwrite");
     const store = transaction.objectStore("tasks");
 
-    await Promise.all(
-      tasks.map((task) => {
-        return new Promise<void>((resolve, reject) => {
-          const request = store.put(task);
-          request.onsuccess = () => resolve();
-          request.onerror = () => reject(request.error);
-        });
-      }),
-    );
+    // Resolve only after the transaction fully commits, not just when individual
+    // puts fire onsuccess. An IDBTransaction can still abort after per-record
+    // successes (e.g. on quota exceeded), so we must wait for oncomplete.
+    return new Promise<void>((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error ?? new DOMException("Transaction aborted", "AbortError"));
+
+      tasks.forEach((task) => {
+        const request = store.put(this.serializeDates(task));
+        request.onerror = () => {
+          // Individual record error — the transaction will also fire onerror,
+          // but surface the per-record error for better diagnostics.
+          reject(request.error);
+        };
+      });
+    });
   }
 
   /**
@@ -234,7 +242,7 @@ export class IndexedDBService {
    */
   async saveColumns(columns: BoardColumn[]): Promise<void> {
     if (!this.db) return;
-    await this.saveAll("columns", columns);
+    await this.syncAll("columns", columns as unknown as Array<Record<string, unknown>>, "id");
   }
 
   /**
@@ -250,7 +258,7 @@ export class IndexedDBService {
    */
   async savePriorities(priorities: PriorityDefinition[]): Promise<void> {
     if (!this.db) return;
-    await this.saveAll("priorities", priorities);
+    await this.syncAll("priorities", priorities as unknown as Array<Record<string, unknown>>, "id");
   }
 
   /**
@@ -266,7 +274,7 @@ export class IndexedDBService {
    */
   async saveCustomFields(fields: CustomFieldDefinition[]): Promise<void> {
     if (!this.db) return;
-    await this.saveAll("customFields", fields);
+    await this.syncAll("customFields", fields as unknown as Array<Record<string, unknown>>, "id");
   }
 
   /**
@@ -332,31 +340,75 @@ export class IndexedDBService {
   }
 
   /**
-   * Save all items in a store
+   * Save all items in a store using targeted put() calls per item.
+   *
+   * Rationale: the previous clear()+Promise.all(put()) pattern had two problems:
+   *   1. It re-wrote every record on every call, even for a single-field edit.
+   *   2. Promise.all resolved before transaction.oncomplete, so callers could
+   *      receive a resolved promise while the DB had silently rolled back.
+   *
+   * This implementation issues one put() per item inside a single transaction
+   * and resolves only after transaction.oncomplete.  Keys not present in
+   * `items` are left untouched (callers that need deletion should use delete()).
    */
   private async saveAll(storeName: string, items: unknown[]): Promise<void> {
     if (!this.db) return;
     const transaction = this.db.transaction([storeName], "readwrite");
     const store = transaction.objectStore(storeName);
 
-    // Clear existing
-    await new Promise<void>((resolve, reject) => {
-      const clearRequest = store.clear();
-      clearRequest.onsuccess = () => resolve();
-      clearRequest.onerror = () => reject(clearRequest.error);
-    });
+    return new Promise<void>((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error ?? new DOMException("Transaction aborted", "AbortError"));
 
-    // Add all items
-    await Promise.all(
-      items.map((item) => {
-        return new Promise<void>((resolve, reject) => {
-          const serialized = this.serializeDates(item);
-          const request = store.put(serialized);
-          request.onsuccess = () => resolve();
+      items.forEach((item) => {
+        const request = store.put(this.serializeDates(item));
+        request.onerror = () => reject(request.error);
+      });
+    });
+  }
+
+  /**
+   * Sync a full replacement set for a store: puts all supplied items and
+   * removes any stored keys that are no longer present.  This is the safe
+   * alternative to the old clear()+putAll() pattern when callers genuinely
+   * need a full replacement (e.g. saveColumns / savePriorities).
+   */
+  private async syncAll(
+    storeName: string,
+    items: Array<Record<string, unknown>>,
+    keyPath: string,
+  ): Promise<void> {
+    if (!this.db) return;
+    const transaction = this.db.transaction([storeName], "readwrite");
+    const store = transaction.objectStore(storeName);
+
+    return new Promise<void>((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error ?? new DOMException("Transaction aborted", "AbortError"));
+
+      // First pass: collect existing keys, then put new items and delete stale ones.
+      const keysRequest = store.getAllKeys();
+      keysRequest.onerror = () => reject(keysRequest.error);
+      keysRequest.onsuccess = () => {
+        const newKeys = new Set(items.map((i) => i[keyPath] as IDBValidKey));
+        const existingKeys = keysRequest.result as IDBValidKey[];
+
+        // Delete keys that no longer exist in the new set.
+        existingKeys.forEach((key) => {
+          if (!newKeys.has(key)) {
+            store.delete(key).onerror = (e) => reject((e.target as IDBRequest).error);
+          }
+        });
+
+        // Upsert all items.
+        items.forEach((item) => {
+          const request = store.put(this.serializeDates(item));
           request.onerror = () => reject(request.error);
         });
-      }),
-    );
+      };
+    });
   }
 
   /**
@@ -422,23 +474,99 @@ export class IndexedDBService {
   }
 
   /**
-   * Clear all data (for testing/reset)
+   * Clear all data (for testing/reset).
+   * Resolves only after the transaction fully commits.
    */
   async clearAll(): Promise<void> {
     if (!this.db) return;
     const storeNames = Array.from(this.db.objectStoreNames);
     const transaction = this.db.transaction(storeNames, "readwrite");
 
-    await Promise.all(
-      storeNames.map((storeName) => {
-        return new Promise<void>((resolve, reject) => {
-          const store = transaction.objectStore(storeName);
-          const request = store.clear();
-          request.onsuccess = () => resolve();
-          request.onerror = () => reject(request.error);
-        });
-      }),
-    );
+    return new Promise<void>((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error ?? new DOMException("Transaction aborted", "AbortError"));
+
+      storeNames.forEach((storeName) => {
+        const request = transaction.objectStore(storeName).clear();
+        request.onerror = () => reject(request.error);
+      });
+    });
+  }
+
+  /**
+   * Purge archived tasks older than `retentionDays` (default: 90 days).
+   *
+   * PRIVACY NOTE: IndexedDB stores all task data — titles, assignees, due
+   * dates, custom fields — in plaintext on disk at the Chromium profile path.
+   * This data is NOT removed when the Electron app is uninstalled.  Call this
+   * method periodically (e.g. on app startup) to enforce a retention policy.
+   *
+   * For full data removal use clearAllLocalData() and instruct the user to
+   * delete the Chromium profile directory manually after uninstalling.
+   */
+  async purgeOldArchivedTasks(retentionDays = 90): Promise<number> {
+    if (!this.db) return 0;
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - retentionDays);
+    const cutoffMs = cutoff.getTime();
+
+    const transaction = this.db.transaction(["archivedTasks"], "readwrite");
+    const store = transaction.objectStore("archivedTasks");
+
+    return new Promise<number>((resolve, reject) => {
+      let deletedCount = 0;
+
+      transaction.oncomplete = () => resolve(deletedCount);
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error ?? new DOMException("Transaction aborted", "AbortError"));
+
+      const cursorRequest = store.openCursor();
+      cursorRequest.onerror = () => reject(cursorRequest.error);
+      cursorRequest.onsuccess = () => {
+        const cursor = cursorRequest.result;
+        if (!cursor) return; // done — transaction.oncomplete fires next
+
+        const record = cursor.value as Record<string, unknown>;
+        const completedAt = record["completedAt"];
+        let recordTime: number | null = null;
+
+        if (completedAt instanceof Date) {
+          recordTime = completedAt.getTime();
+        } else if (typeof completedAt === "string") {
+          recordTime = new Date(completedAt).getTime();
+        } else if (typeof completedAt === "number") {
+          recordTime = completedAt;
+        }
+
+        if (recordTime !== null && recordTime < cutoffMs) {
+          const delReq = cursor.delete();
+          delReq.onerror = () => reject(delReq.error);
+          delReq.onsuccess = () => { deletedCount++; };
+        }
+
+        cursor.continue();
+      };
+    });
+  }
+
+  /**
+   * Erase all locally stored data across every object store.
+   *
+   * IMPORTANT — UNINSTALL DATA PERSISTENCE WARNING:
+   * Uninstalling the Electron app does NOT automatically delete the IndexedDB
+   * files on disk.  They live inside the Chromium user-data directory, e.g.:
+   *   • macOS:   ~/Library/Application Support/<AppName>/IndexedDB/
+   *   • Windows: %APPDATA%\<AppName>\IndexedDB\
+   *   • Linux:   ~/.config/<AppName>/IndexedDB/
+   * To permanently remove all data, call this method before uninstalling, or
+   * delete the Chromium profile directory manually after uninstalling.
+   *
+   * For encryption-at-rest of sensitive fields, evaluate Electron's
+   * safeStorage API or a SQLCipher-backed storage adapter.
+   */
+  async clearAllLocalData(): Promise<void> {
+    await this.clearAll();
   }
 
   /**

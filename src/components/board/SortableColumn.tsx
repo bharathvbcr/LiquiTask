@@ -2,7 +2,7 @@ import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { AlertOctagon, ClipboardList, Inbox } from "lucide-react";
-import type React from "react";
+import React from "react";
 import type { BoardColumn, PriorityDefinition, Project, Task } from "../../../types";
 import { useVirtualTaskList } from "../../hooks/useVirtualScroll";
 import { SortableTask } from "./SortableTask";
@@ -78,8 +78,8 @@ export const SortableColumn: React.FC<SortableColumnProps> = ({
   const accentColor = column.color.startsWith("#") ? column.color : "#64748b";
   const showDropHighlight = isOver || isHighlighted;
 
-  // Virtual scrolling for large task lists (100+ tasks)
-  const shouldUseVirtualScroll = tasks.length > 100;
+  // Virtual scrolling for task lists with more than 30 tasks
+  const shouldUseVirtualScroll = tasks.length > 30;
   const estimatedHeight = isCompact ? 120 : 180;
   const {
     containerRef: virtualScrollRef,
@@ -156,7 +156,7 @@ export const SortableColumn: React.FC<SortableColumnProps> = ({
             <div
               ref={virtualScrollRef}
               className="flex-1 overflow-y-auto custom-scrollbar"
-              style={containerStyle}
+              style={{ height: '100%', ...containerStyle }}
             >
               <SortableContext
                 items={tasksToRender.map((t) => t.id)}

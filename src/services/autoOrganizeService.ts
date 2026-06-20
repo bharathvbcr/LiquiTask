@@ -79,23 +79,29 @@ class AutoOrganizeService {
     let processedCount = 0;
     const totalPhases = phaseGroups.flat().length;
 
-    for (const group of phaseGroups) {
-      const groupPromises = group.map(async (phase) => {
+    for (let groupIndex = 0; groupIndex < phaseGroups.length; groupIndex++) {
+      const group = phaseGroups[groupIndex];
+      const groupPromises = group.map(async (phase, phaseIndex) => {
         const enabled = config.operations[phase.key as keyof typeof config.operations];
         if (!enabled) {
-          processedCount++;
+          // Compute progress based on deterministic index so concurrent phases don't share stale state
+          const completedSoFar = groupIndex * group.length + phaseIndex + 1;
+          onProgress?.(phase.key, (completedSoFar / totalPhases) * 100);
           return [];
         }
 
-        onProgress?.(phase.key, (processedCount / totalPhases) * 100);
-
         try {
           const phaseChanges = await phase.run();
+          // Increment and report progress only after the phase finishes so the value is accurate
+          const completedSoFar = groupIndex * group.length + phaseIndex + 1;
           processedCount++;
+          onProgress?.(phase.key, (completedSoFar / totalPhases) * 100);
           return phaseChanges;
         } catch (e) {
           console.error(`Auto-organize phase ${phase.key} failed:`, e);
+          const completedSoFar = groupIndex * group.length + phaseIndex + 1;
           processedCount++;
+          onProgress?.(phase.key, (completedSoFar / totalPhases) * 100);
           return [];
         }
       });
@@ -475,6 +481,11 @@ class AutoOrganizeService {
     let applied = 0;
     let rejected = 0;
 
+    // Build an in-memory task map once to avoid repeated localStorage parses (fix for issue #2)
+    // and to ensure later changes in this loop see updates applied by earlier changes (fix for issue #3).
+    const storedTasks = storageService.get<Task[]>(STORAGE_KEYS.TASKS, []);
+    const taskMap = new Map<string, Task>(storedTasks.map((t) => [t.id, t]));
+
     for (const change of changes) {
       if (change.status === "rejected") {
         rejected++;
@@ -484,40 +495,61 @@ class AutoOrganizeService {
       try {
         switch (change.type) {
           case "tag":
-          case "cluster":
-            callbacks.onUpdateTask(change.taskId, { tags: change.after.tags as string[] });
+          case "cluster": {
+            const newTags = change.after.tags as string[];
+            callbacks.onUpdateTask(change.taskId, { tags: newTags });
+            // Keep the map in sync so subsequent changes see this update
+            const tagTask = taskMap.get(change.taskId);
+            if (tagTask) taskMap.set(change.taskId, { ...tagTask, tags: newTags });
             if (change.after.priority) {
-              callbacks.onUpdateTask(change.taskId, { priority: change.after.priority as string });
+              const newPriority = change.after.priority as string;
+              callbacks.onUpdateTask(change.taskId, { priority: newPriority });
+              const priorityTask = taskMap.get(change.taskId);
+              if (priorityTask) taskMap.set(change.taskId, { ...priorityTask, priority: newPriority });
             }
             applied++;
             break;
+          }
 
           case "merge":
             if (change.relatedTaskIds) {
               for (const archiveId of change.relatedTaskIds) {
                 callbacks.onArchiveTask(archiveId);
+                taskMap.delete(archiveId);
               }
             }
             callbacks.onUpdateTask(change.taskId, change.after as Partial<Task>);
+            {
+              const mergeTask = taskMap.get(change.taskId);
+              if (mergeTask) taskMap.set(change.taskId, { ...mergeTask, ...(change.after as Partial<Task>) });
+            }
             applied++;
             break;
 
           case "project-move":
             callbacks.onMoveTask(change.taskId, change.after.projectId as string);
+            {
+              const moveTask = taskMap.get(change.taskId);
+              if (moveTask) taskMap.set(change.taskId, { ...moveTask, projectId: change.after.projectId as string });
+            }
             applied++;
             break;
 
           case "tag-consolidate":
             if (change.relatedTaskIds) {
               for (const taskId of [change.taskId, ...change.relatedTaskIds]) {
-                const task = this.getTaskById(taskId);
+                // Use the in-memory map instead of re-reading from storage (fixes issues #2 and #3)
+                const task = taskMap.get(taskId);
                 if (task) {
                   const newTags = task.tags.map((t) =>
                     (change.before.tags as string[]).includes(t)
                       ? (change.after.tags as string[])[0]
                       : t,
                   );
-                  callbacks.onUpdateTask(taskId, { tags: Array.from(new Set(newTags)) });
+                  const dedupedTags = Array.from(new Set(newTags));
+                  callbacks.onUpdateTask(taskId, { tags: dedupedTags });
+                  // Keep the map in sync so subsequent consolidations see the updated tags
+                  taskMap.set(taskId, { ...task, tags: dedupedTags });
                 }
               }
             }
@@ -526,7 +558,8 @@ class AutoOrganizeService {
 
           case "hierarchy":
             if (change.relatedTaskIds) {
-              const task = this.getTaskById(change.taskId);
+              // Use the in-memory map to avoid re-reading from storage
+              const task = taskMap.get(change.taskId);
               if (task) {
                 const newLinks = [
                   ...(task.links || []),
@@ -536,6 +569,7 @@ class AutoOrganizeService {
                   })),
                 ];
                 callbacks.onUpdateTask(change.taskId, { links: newLinks });
+                taskMap.set(change.taskId, { ...task, links: newLinks });
               }
             }
             applied++;

@@ -103,7 +103,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   useEffect(() => {
     setLocalPriorities(appData.priorities || []);
   }, [appData.priorities]);
-  const [localCustomFields, _setLocalCustomFields] = useState<CustomFieldDefinition[]>([]);
+
+  const [localCustomFields, setLocalCustomFields] = useState<CustomFieldDefinition[]>(
+    appData.customFields || [],
+  );
+
+  useEffect(() => {
+    setLocalCustomFields(appData.customFields || []);
+  }, [appData.customFields]);
   const [importText, setImportText] = useState("");
   const [importError, setImportError] = useState("");
   const [isImporting, setIsImporting] = useState(false);

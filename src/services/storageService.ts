@@ -179,23 +179,38 @@ class StorageService {
    * Save all app data to storage
    */
   private async saveAllData(data: MigratableAppData): Promise<void> {
-    // Save each key to cache and storage
-    if (data.columns) this.set(STORAGE_KEYS.COLUMNS, data.columns);
-    if (data.projectTypes) this.set(STORAGE_KEYS.PROJECT_TYPES, data.projectTypes);
-    if (data.priorities) this.set(STORAGE_KEYS.PRIORITIES, data.priorities);
-    if (data.customFields) this.set(STORAGE_KEYS.CUSTOM_FIELDS, data.customFields);
-    if (data.projects) this.set(STORAGE_KEYS.PROJECTS, data.projects);
-    if (data.tasks) this.set(STORAGE_KEYS.TASKS, data.tasks);
+    // Collect all async write promises so we can await them before returning.
+    // This ensures IndexedDB and native storage reflect migrated data before the
+    // caller proceeds (prevents stale-read races after runDataMigrations).
+    const writes: Promise<void>[] = [];
+    if (data.columns) writes.push(this.set(STORAGE_KEYS.COLUMNS, data.columns));
+    if (data.projectTypes) writes.push(this.set(STORAGE_KEYS.PROJECT_TYPES, data.projectTypes));
+    if (data.priorities) writes.push(this.set(STORAGE_KEYS.PRIORITIES, data.priorities));
+    if (data.customFields) writes.push(this.set(STORAGE_KEYS.CUSTOM_FIELDS, data.customFields));
+    if (data.projects) writes.push(this.set(STORAGE_KEYS.PROJECTS, data.projects));
+    if (data.tasks) writes.push(this.set(STORAGE_KEYS.TASKS, data.tasks));
     if (data.activeProjectId !== undefined)
-      this.set(STORAGE_KEYS.ACTIVE_PROJECT, data.activeProjectId);
+      writes.push(this.set(STORAGE_KEYS.ACTIVE_PROJECT, data.activeProjectId));
     if (data.sidebarCollapsed !== undefined)
-      this.set(STORAGE_KEYS.SIDEBAR_COLLAPSED, data.sidebarCollapsed);
-    if (data.grouping) this.set(STORAGE_KEYS.GROUPING, data.grouping);
-    if (data.version) this.set(STORAGE_KEYS.DATA_VERSION, data.version);
+      writes.push(this.set(STORAGE_KEYS.SIDEBAR_COLLAPSED, data.sidebarCollapsed));
+    if (data.grouping) writes.push(this.set(STORAGE_KEYS.GROUPING, data.grouping));
+    if (data.version) writes.push(this.set(STORAGE_KEYS.DATA_VERSION, data.version));
+    await Promise.all(writes);
   }
 
-  set<T>(key: string, value: T): void {
+  /**
+   * Keys that contain credentials or secrets and must never be written to
+   * the plaintext localStorage fallback.
+   */
+  private static readonly SENSITIVE_KEYS: Set<string> = new Set([
+    STORAGE_KEYS.AI_CONFIG,
+    STORAGE_KEYS.GEMINI_API_KEY,
+  ]);
+
+  async set<T>(key: string, value: T): Promise<void> {
     this.cache.set(key, value);
+
+    const asyncWrites: Promise<unknown>[] = [];
 
     // Save to IndexedDB if available (for large data like tasks)
     if (
@@ -207,33 +222,40 @@ class StorageService {
         key === STORAGE_KEYS.CUSTOM_FIELDS)
     ) {
       if (key === STORAGE_KEYS.TASKS) {
-        indexedDBService.saveTasks(value as Task[]).catch(console.error);
+        asyncWrites.push(indexedDBService.saveTasks(value as Task[]));
       } else if (key === STORAGE_KEYS.PROJECTS) {
         const projects = value as Project[];
-        Promise.all(projects.map((p) => indexedDBService.saveProject(p))).catch(console.error);
+        asyncWrites.push(Promise.all(projects.map((p) => indexedDBService.saveProject(p))));
       } else if (key === STORAGE_KEYS.COLUMNS) {
-        indexedDBService.saveColumns(value as BoardColumn[]).catch(console.error);
+        asyncWrites.push(indexedDBService.saveColumns(value as BoardColumn[]));
       } else if (key === STORAGE_KEYS.PRIORITIES) {
-        indexedDBService.savePriorities(value as PriorityDefinition[]).catch(console.error);
+        asyncWrites.push(indexedDBService.savePriorities(value as PriorityDefinition[]));
       } else if (key === STORAGE_KEYS.CUSTOM_FIELDS) {
-        indexedDBService.saveCustomFields(value as CustomFieldDefinition[]).catch(console.error);
+        asyncWrites.push(indexedDBService.saveCustomFields(value as CustomFieldDefinition[]));
       }
     }
 
     const nativeStorage = getNativeStorageApi();
     if (nativeStorage) {
       // Native Save (backup)
-      nativeStorage.set(key, value).catch(console.error);
+      asyncWrites.push(nativeStorage.set(key, value));
     }
 
-    // Always save to localStorage as backup/fallback (for settings and small data)
-    try {
-      const serialized = JSON.stringify(value);
-      const result = trySaveToStorage(key, serialized);
-      if (!result.success) throw new Error(result.error);
-    } catch (e) {
-      console.error(`Failed to save ${key} to localStorage:`, e);
+    // Save to localStorage as backup/fallback for non-sensitive keys only.
+    // Credential-bearing keys (AI_CONFIG, GEMINI_API_KEY) are intentionally
+    // excluded: localStorage is accessible to any JS on the same origin and
+    // is stored as plaintext on disk in the Chromium profile.
+    if (!StorageService.SENSITIVE_KEYS.has(key)) {
+      try {
+        const serialized = JSON.stringify(value);
+        const result = trySaveToStorage(key, serialized);
+        if (!result.success) throw new Error(result.error);
+      } catch (e) {
+        console.error(`Failed to save ${key} to localStorage:`, e);
+      }
     }
+
+    await Promise.all(asyncWrites.map((p) => p.catch(console.error)));
   }
 
   remove(key: string): void {
@@ -292,13 +314,16 @@ class StorageService {
     error?: string;
   } {
     try {
-      const parsed = JSON.parse(jsonString);
+      let parsed = JSON.parse(jsonString);
 
       // Check version and migrate if needed
       const importedVersion = parsed.version || "0.0.0";
-      if (importedVersion !== CURRENT_DATA_VERSION) {
-        // Future: Add migration logic here for version upgrade
-        // Future: Add migration logic here
+      if (importedVersion !== CURRENT_DATA_VERSION && migrationService.needsMigration(importedVersion)) {
+        const migResult = migrationService.runMigrations(parsed as MigratableAppData, importedVersion);
+        if (!migResult.success) {
+          return { data: null, error: migResult.error ?? "Migration failed" };
+        }
+        parsed = migResult.data;
       }
 
       // Validate with Zod schema

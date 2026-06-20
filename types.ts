@@ -159,7 +159,7 @@ export interface SavedView {
   name: string;
   filters: FilterState;
   // Advanced query builder state
-  advancedFilter?: unknown; // Actually FilterGroup from src/types/queryTypes
+  advancedFilter?: import("./src/types/queryTypes").FilterGroup;
   grouping: "none" | "priority";
   sortBy?: string;
   sortOrder?: "asc" | "desc";

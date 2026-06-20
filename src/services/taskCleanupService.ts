@@ -45,7 +45,13 @@ class TaskCleanupService {
       for (let j = i + 1; j < allTasks.length; j++) {
         const t1 = allTasks[i];
         const t2 = allTasks[j];
-        if (t1.projectId === t2.projectId || t1.title.toLowerCase() === t2.title.toLowerCase()) {
+        // Pre-filter: only send pairs with meaningful title similarity to the AI.
+        // Using the same Jaccard-based heuristic as heuristicDuplicateDetection so that
+        // the AI is not flooded with O(n²) same-project comparisons.
+        const titleSimilarity = this.calculateTitleSimilarity(t1.title, t2.title);
+        const tagOverlap = this.calculateTagOverlap(t1.tags, t2.tags);
+        const heuristicScore = titleSimilarity * 0.7 + tagOverlap * 0.3;
+        if (heuristicScore >= threshold * 0.5) {
           taskPairs.push({ task1: t1, task2: t2 });
         }
       }
@@ -247,8 +253,6 @@ class TaskCleanupService {
     for (const taskId of archiveTaskIds) {
       onArchiveTask(taskId);
     }
-
-    console.log(`Merge complete: kept ${_keepTaskId}, archived ${archiveTaskIds.join(", ")}`);
   }
 
   async analyzeRedundancy(allTasks: Task[]): Promise<RedundancyAnalysis[]> {

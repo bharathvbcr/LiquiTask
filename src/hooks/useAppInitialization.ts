@@ -81,7 +81,7 @@ type TemplateServiceLike = {
 };
 
 type RecurringTaskServiceLike = {
-  start: (tasks: Task[]) => void;
+  start: (getTasks: () => Task[]) => void;
   stop: () => void;
 };
 
@@ -151,7 +151,11 @@ export const useAppInitialization = ({
         console.warn("[Storage] IndexedDB initialization failed:", error);
       }
 
-      await archiveService.initialize();
+      try {
+        await archiveService.initialize();
+      } catch (err) {
+        console.warn('[Storage] Archive service init failed, continuing without archive:', err);
+      }
       await storageService.initialize();
       const data = storageService.getAllData();
 
@@ -290,7 +294,7 @@ export const useAppInitialization = ({
         }
 
         recurringTaskServiceRef.current = service;
-        service?.start(tasksRef.current);
+        service?.start(() => tasksRef.current);
       },
     );
 

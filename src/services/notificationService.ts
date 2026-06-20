@@ -11,6 +11,9 @@ interface NotificationOptions {
 
 class NotificationService {
   private hasPermission: boolean = false;
+  // Tracks active timeout handles per task so re-scheduling or cancellation
+  // can clear stale timers and prevent duplicate / phantom notifications.
+  private taskReminderHandles: Map<string, ReturnType<typeof setTimeout>[]> = new Map();
 
   async requestPermission(): Promise<boolean> {
     const runtime = getRuntimeKind();
@@ -60,35 +63,64 @@ class NotificationService {
     }
   }
 
-  // Schedule a reminder for a task
-  scheduleTaskReminder(taskId: string, taskTitle: string, dueDate: Date): void {
+  // Cancel any pending reminders for a task (call on delete or completion).
+  cancelTaskReminder(taskId: string): void {
+    const handles = this.taskReminderHandles.get(taskId);
+    if (handles) {
+      handles.forEach((h) => clearTimeout(h));
+      this.taskReminderHandles.delete(taskId);
+    }
+  }
+
+  // Schedule a reminder for a task.
+  // If called again for the same taskId (e.g. due date updated) the previous
+  // timers are cancelled first so no duplicate / stale notifications fire.
+  //
+  // Privacy note: task titles are intentionally omitted from OS notification
+  // bodies because the OS notification centre persists messages outside the
+  // app and may sync them to cloud services (macOS iCloud, Windows notification
+  // history), making sensitive titles visible to other users or services.
+  scheduleTaskReminder(taskId: string, _taskTitle: string, dueDate: Date): void {
+    // Clear any existing timers for this task before scheduling new ones.
+    this.cancelTaskReminder(taskId);
+
     const now = new Date();
     const timeUntilDue = dueDate.getTime() - now.getTime();
 
     // Don't schedule if already past due
     if (timeUntilDue <= 0) return;
 
+    const handles: ReturnType<typeof setTimeout>[] = [];
+
     // Remind 1 hour before (or immediately if less than 1 hour)
     const reminderTime = Math.max(timeUntilDue - 60 * 60 * 1000, 0);
 
-    setTimeout(() => {
-      this.show({
-        title: "⏰ Task Due Soon",
-        body: `"${taskTitle}" is due in 1 hour`,
-        tag: `task-reminder-${taskId}`,
-      });
-    }, reminderTime);
+    handles.push(
+      setTimeout(() => {
+        this.show({
+          title: "⏰ Task Due Soon",
+          // Task title omitted from body — see privacy note above.
+          body: "A task is due in 1 hour",
+          tag: `task-reminder-${taskId}`,
+        });
+      }, reminderTime),
+    );
 
     // Also remind at due time
     if (timeUntilDue > 60 * 60 * 1000) {
-      setTimeout(() => {
-        this.show({
-          title: "🚨 Task Due Now",
-          body: `"${taskTitle}" is due now!`,
-          tag: `task-due-${taskId}`,
-        });
-      }, timeUntilDue);
+      handles.push(
+        setTimeout(() => {
+          this.show({
+            title: "🚨 Task Due Now",
+            // Task title omitted from body — see privacy note above.
+            body: "A task is due now",
+            tag: `task-due-${taskId}`,
+          });
+        }, timeUntilDue),
+      );
     }
+
+    this.taskReminderHandles.set(taskId, handles);
   }
 
   // Check all tasks and schedule reminders

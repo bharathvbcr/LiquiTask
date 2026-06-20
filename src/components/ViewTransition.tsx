@@ -28,6 +28,7 @@ export const ViewTransition: React.FC<ViewTransitionProps> = ({
   const [isAnimating, setIsAnimating] = useState(false);
   const previousKeyRef = useRef<string | number | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const innerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialMount = useRef(true);
 
   useEffect(() => {
@@ -43,10 +44,9 @@ export const ViewTransition: React.FC<ViewTransitionProps> = ({
     if (previousKeyRef.current !== transitionKey) {
       setIsAnimating(true);
 
-      // Clear any existing timeout
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
+      // Clear any existing timeouts
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (innerTimeoutRef.current) clearTimeout(innerTimeoutRef.current);
 
       // Start exit animation, then update content and start enter animation
       const exitDuration = duration * 0.3; // Exit is faster
@@ -56,7 +56,7 @@ export const ViewTransition: React.FC<ViewTransitionProps> = ({
         previousKeyRef.current = transitionKey;
 
         // Small delay before starting enter animation
-        setTimeout(() => {
+        innerTimeoutRef.current = setTimeout(() => {
           setIsAnimating(false);
         }, 10);
       }, exitDuration);
@@ -66,9 +66,8 @@ export const ViewTransition: React.FC<ViewTransitionProps> = ({
     }
 
     return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (innerTimeoutRef.current) clearTimeout(innerTimeoutRef.current);
     };
   }, [children, transitionKey, duration]);
 

@@ -24,22 +24,34 @@ interface ExportData {
   customFields: CustomFieldDefinition[];
 }
 
-// Default columns to include in CSV export
-const DEFAULT_CSV_COLUMNS = [
-  "id",
+// Columns that may contain PII or internal identifiers.
+// These are kept available for opt-in use but excluded from the default export.
+export const PII_CSV_COLUMNS = ["id", "assignee", "projectId", "createdAt", "updatedAt", "completedAt"] as const;
+export type PIIColumn = (typeof PII_CSV_COLUMNS)[number];
+
+// Sanitised default: safe for external sharing.
+// Does NOT include internal IDs, assignee names, or audit timestamps.
+export const SANITISED_CSV_COLUMNS = [
   "title",
   "subtitle",
   "status",
   "priority",
-  "assignee",
-  "projectId",
   "dueDate",
-  "createdAt",
-  "updatedAt",
-  "completedAt",
   "timeEstimate",
   "timeSpent",
   "tags",
+];
+
+// Full column list (opt-in) — includes PII columns.
+// Only use when the user has explicitly requested them.
+export const DEFAULT_CSV_COLUMNS = [
+  ...SANITISED_CSV_COLUMNS,
+  "id",
+  "assignee",
+  "projectId",
+  "createdAt",
+  "updatedAt",
+  "completedAt",
 ];
 
 class ExportService {
@@ -153,13 +165,35 @@ class ExportService {
     URL.revokeObjectURL(url);
   }
 
-  // Export tasks to CSV and download
+  // Returns true when the given column list contains PII or internal identifier columns.
+  containsPIIColumns(columns: string[]): boolean {
+    return columns.some((col) => (PII_CSV_COLUMNS as readonly string[]).includes(col));
+  }
+
+  // Emits a console warning (and, in development, an alert-style message) when
+  // the export will include personal information or internal identifiers.
+  private warnIfPII(columns: string[]): void {
+    if (!this.containsPIIColumns(columns)) return;
+    const piiFound = columns.filter((col) => (PII_CSV_COLUMNS as readonly string[]).includes(col));
+    // Use console.warn so it is visible in DevTools without being intrusive.
+    console.warn(
+      `[LiquiTask Export] This CSV export contains columns that may include ` +
+        `personal information or internal identifiers: ${piiFound.join(", ")}. ` +
+        `Avoid sharing this file externally without first reviewing its contents.`,
+    );
+  }
+
+  // Export tasks to CSV and download.
+  // Defaults to the sanitised (PII-free) column set.  Pass a custom column
+  // list — or the full DEFAULT_CSV_COLUMNS — when internal fields are required.
   downloadCSV(
     tasks: Task[],
     filename: string = "tasks.csv",
     projectMap?: Map<string, string>,
+    columns: string[] = SANITISED_CSV_COLUMNS,
   ): void {
-    const csv = this.exportToCSV(tasks, DEFAULT_CSV_COLUMNS, projectMap);
+    this.warnIfPII(columns);
+    const csv = this.exportToCSV(tasks, columns, projectMap);
     this.downloadFile(csv, filename, "text/csv;charset=utf-8;");
   }
 
@@ -169,9 +203,16 @@ class ExportService {
     this.downloadFile(json, filename, "application/json");
   }
 
-  // Get list of available columns for CSV export
+  // Get the full list of available columns (including PII/internal columns and custom fields).
+  // Use this to populate an opt-in column picker, not as an export default.
   getAvailableColumns(customFields: CustomFieldDefinition[] = []): string[] {
     return [...DEFAULT_CSV_COLUMNS, ...customFields.map((cf) => cf.id)];
+  }
+
+  // Get the sanitised (PII-free) column list, optionally extended with custom fields.
+  // Suitable as a safe default for the column picker pre-selection.
+  getSanitisedColumns(customFields: CustomFieldDefinition[] = []): string[] {
+    return [...SANITISED_CSV_COLUMNS, ...customFields.map((cf) => cf.id)];
   }
 
   // Export to Markdown

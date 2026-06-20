@@ -516,8 +516,24 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   };
 
   const handleRemoveAttachment = (id: string) => {
+    const att = attachments.find((a) => a.id === id);
+    if (att?.type === "file") {
+      URL.revokeObjectURL(att.url);
+    }
     setAttachments(attachments.filter((a) => a.id !== id));
   };
+
+  // Revoke all file-type blob URLs when the modal unmounts to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      attachments.forEach((att) => {
+        if (att.type === "file") {
+          URL.revokeObjectURL(att.url);
+        }
+      });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Task Link Handlers
   const handleAddTaskLink = () => {
@@ -1738,7 +1754,10 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                         {item.type}
                       </span>
                       <span className="text-[10px] text-slate-500">
-                        {new Date(item.timestamp).toLocaleString()}
+                        {(() => {
+                          const ts = new Date(item.timestamp);
+                          return isNaN(ts.getTime()) ? "Unknown date" : ts.toLocaleString();
+                        })()}
                       </span>
                     </div>
                     <p className="text-sm text-slate-400 bg-white/5 p-3 rounded-xl border border-white/5 group-hover:border-white/10 transition-colors">

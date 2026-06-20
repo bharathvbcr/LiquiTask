@@ -8,7 +8,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import type React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { BoardColumn, PriorityDefinition, Project, Task } from "../../types";
 import { STORAGE_KEYS } from "../constants";
 import { type ProjectRiskSummary, riskAnalysisService } from "../services/riskAnalysisService";
@@ -43,7 +43,24 @@ export const GanttView: React.FC<GanttViewProps> = ({ tasks, priorities, onEditT
   const [riskSummary, setRiskSummary] = useState<ProjectRiskSummary | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
+  // Build a stable fingerprint from only the fields that affect risk analysis.
+  // This prevents re-triggering the expensive AI call on every array reference
+  // change (e.g. checkbox toggles, comment additions, drag-and-drop reorders).
+  const riskFingerprint = useMemo(() => {
+    const taskPart = tasks
+      .map((t) => `${t.id}:${t.status}:${t.priority}:${t.dueDate ?? ""}:${(t.links ?? []).map((l) => `${l.type}-${l.targetTaskId}`).join(",")}`)
+      .join("|");
+    const priorityPart = priorities.map((p) => p.id).join(",");
+    return `${taskPart}__${priorityPart}`;
+  }, [tasks, priorities]);
+
+  const lastFingerprintRef = useRef<string | null>(null);
+
   useEffect(() => {
+    // Skip the API call when nothing structurally relevant has changed.
+    if (riskFingerprint === lastFingerprintRef.current) return;
+    lastFingerprintRef.current = riskFingerprint;
+
     const analyzeRisks = async () => {
       if (tasks.length < 3) return;
       setIsAnalyzing(true);
@@ -65,7 +82,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ tasks, priorities, onEditT
     };
 
     analyzeRisks();
-  }, [tasks, priorities]);
+  }, [riskFingerprint, tasks, priorities]);
 
   // Calculate Gantt data
   const ganttTasks = useMemo(() => {

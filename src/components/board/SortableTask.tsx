@@ -1,6 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type React from "react";
+import React, { memo } from "react";
 import { TaskCard } from "../../../components/TaskCard";
 import type { PriorityDefinition, Project, Task } from "../../../types";
 

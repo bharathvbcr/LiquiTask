@@ -81,10 +81,8 @@ export const useGlobalKeyboardShortcuts = ({
       }
     };
     document.addEventListener("keydown", handleGlobalKeyDown);
-    window.addEventListener("keydown", handleGlobalKeyDown);
     return () => {
       document.removeEventListener("keydown", handleGlobalKeyDown);
-      window.removeEventListener("keydown", handleGlobalKeyDown);
     };
   }, [
     handleUndo,
