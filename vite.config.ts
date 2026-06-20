@@ -6,8 +6,10 @@ import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
   base: "./",
+  clearScreen: true,
   server: {
     port: 4000,
+    strictPort: false,
     host: "0.0.0.0",
   },
   plugins: [
@@ -48,6 +50,11 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    target: "chrome105",
+    minify: "esbuild",
+    sourcemap: false,
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "."),

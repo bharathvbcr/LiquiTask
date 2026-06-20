@@ -26,7 +26,7 @@ export const SearchHistoryDropdown: React.FC<SearchHistoryDropdownProps> = ({
   }
 
   return (
-    <div className="absolute top-full left-0 right-0 mt-2 bg-[#0a0505]/98 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl shadow-black/50 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+    <div className="absolute top-full left-0 right-0 mt-2 liquid-surface overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
       {/* Saved Searches */}
       {savedSearches.length > 0 && (
         <div className="p-2 border-b border-white/5">

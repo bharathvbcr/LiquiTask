@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AIContext, AssistantMessage, Task, ToolCall } from "../../types";
+import { getDesktopApi } from "../runtime/runtimeEnvironment";
 import { aiService } from "../services/aiService";
 
 interface UseTaskAssistantProps {
@@ -107,8 +108,8 @@ export const useTaskAssistant = ({
 
   useEffect(() => {
     let cancelled = false;
-    window.electronAPI?.workspace
-      ?.getPaths()
+    getDesktopApi()
+      ?.workspace.getPaths()
       .then((paths) => {
         if (!cancelled) {
           setGlobalWorkspacePaths(Array.isArray(paths) ? paths : []);
@@ -158,7 +159,7 @@ export const useTaskAssistant = ({
       };
       const scopePaths = effectiveContext.workspacePaths ?? [];
       setActiveTool(name);
-      const workspaceApi = window.electronAPI?.workspace;
+      const workspaceApi = getDesktopApi()?.workspace;
 
       try {
         switch (name) {

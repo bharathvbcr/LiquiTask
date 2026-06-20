@@ -1,4 +1,4 @@
-export type RuntimeKind = "web" | "electron";
+export type RuntimeKind = "web" | "electron" | "tauri";
 
 export interface RuntimeState {
   kind: RuntimeKind;
@@ -16,22 +16,25 @@ export interface RuntimeWindowControls {
 
 const isBrowser = typeof window !== "undefined";
 
-const getElectronAPI = () => {
-  return isBrowser && (window as Window & { electronAPI?: unknown }).electronAPI
-    ? (window as Window & { electronAPI: ElectronAPI }).electronAPI
-    : undefined;
+export const initializeDesktopBridge = () => {
+  const desktopAPI = getDesktopApi();
+  if (isBrowser && desktopAPI) {
+    window.desktopAPI = desktopAPI;
+    window.electronAPI = desktopAPI;
+  }
 };
 
-const hasElectronAPI = () => {
-  if (!isBrowser) return false;
-  const anyWindow = window as Window & {
-    electronAPI?: unknown;
-  };
-  return Boolean(anyWindow.electronAPI);
+export const getDesktopApi = (): DesktopAPI | undefined => {
+  if (!isBrowser) return undefined;
+  return window.desktopAPI ?? window.electronAPI;
+};
+
+const hasDesktopAPI = () => {
+  return Boolean(getDesktopApi());
 };
 
 export const getRuntimeKind = (): RuntimeKind => {
-  if (hasElectronAPI()) {
+  if (hasDesktopAPI()) {
     return "electron";
   }
 
@@ -39,35 +42,37 @@ export const getRuntimeKind = (): RuntimeKind => {
 };
 
 export const isElectron = () => getRuntimeKind() === "electron";
+export const isTauri = () => false;
 export const isWeb = () => getRuntimeKind() === "web";
+export const isDesktop = () => !isWeb();
 
 export const getRuntimeState = (): RuntimeState => ({
   kind: getRuntimeKind(),
-  hasCustomWindowControls: isElectron(),
+  hasCustomWindowControls: Boolean(getDesktopApi()),
 });
 
 export const getRuntimeWindowControls = (): RuntimeWindowControls | null => {
   if (!isBrowser) return null;
 
-  const electronAPI = getElectronAPI();
-  if (electronAPI) {
+  const desktopAPI = getDesktopApi();
+  if (desktopAPI) {
     return {
       minimize: async () => {
-        await electronAPI.minimize();
+        await desktopAPI.minimize();
       },
       maximize: async () => {
-        await electronAPI.maximize();
+        await desktopAPI.maximize();
       },
       restore: async () => {
-        await electronAPI.restore();
+        await desktopAPI.restore();
       },
       close: async () => {
-        await electronAPI.close();
+        await desktopAPI.close();
       },
       isMaximized: async () => {
-        return Boolean(await electronAPI.isMaximized());
+        return Boolean(await desktopAPI.isMaximized());
       },
-      onWindowStateChange: (callback) => electronAPI.onWindowStateChange(callback),
+      onWindowStateChange: (callback) => desktopAPI.onWindowStateChange(callback),
     };
   }
 
@@ -75,8 +80,12 @@ export const getRuntimeWindowControls = (): RuntimeWindowControls | null => {
 };
 
 export const getNativeStorageApi = () => {
-  const electronAPI = getElectronAPI();
-  if (electronAPI) {
-    return electronAPI.storage;
+  const desktopAPI = getDesktopApi();
+  if (desktopAPI) {
+    return desktopAPI.storage;
   }
+};
+
+export const showRuntimeWindow = () => {
+  // No-op since Tauri window showing is removed and Electron loads automatically
 };

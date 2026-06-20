@@ -41,7 +41,7 @@ export const TaskQuickView: React.FC<TaskQuickViewProps> = ({
 
       <div
         style={style}
-        className="w-[300px] bg-[#0a0505]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl shadow-black/50 overflow-hidden animate-in zoom-in-95 fade-in duration-100 z-50"
+        className="w-[300px] liquid-surface overflow-hidden animate-in zoom-in-95 fade-in duration-100 z-60 liquid-topline"
       >
         {/* Header */}
         <div className="p-3 border-b border-white/5 flex items-start justify-between gap-2">
@@ -67,7 +67,7 @@ export const TaskQuickView: React.FC<TaskQuickViewProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-1 text-slate-500 hover:text-white hover:bg-white/10 rounded transition-colors shrink-0"
+            className="icon-btn text-slate-500 hover:text-white shrink-0"
           >
             <X size={14} />
           </button>
@@ -156,9 +156,9 @@ export const TaskQuickView: React.FC<TaskQuickViewProps> = ({
         <div className="p-2 border-t border-white/5">
           <button
             onClick={() => onOpenFull(task)}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 text-xs font-bold text-slate-300 hover:text-white hover:bg-red-500/10 rounded-xl transition-all hover:border-red-500/20 border border-transparent group"
           >
-            <ExternalLink size={12} />
+            <ExternalLink size={12} className="group-hover:text-red-400 transition-colors" />
             Open Full View
           </button>
         </div>

@@ -17,6 +17,7 @@ import {
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AssistantMessage, Project } from "../../types";
+import { getDesktopApi } from "../runtime/runtimeEnvironment";
 import MarkdownRenderer from "./MarkdownRenderer";
 
 interface TaskAssistantSidebarProps {
@@ -70,8 +71,8 @@ export const TaskAssistantSidebar: React.FC<TaskAssistantSidebarProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      window.electronAPI?.workspace
-        .getPaths()
+      getDesktopApi()
+        ?.workspace.getPaths()
         .then(setGlobalPaths)
         .catch(() => {});
     }
@@ -86,13 +87,14 @@ export const TaskAssistantSidebar: React.FC<TaskAssistantSidebarProps> = ({
   };
 
   const handleAddFolder = async () => {
-    const path = await window.electronAPI?.workspace.selectDirectory();
+    const workspaceApi = getDesktopApi()?.workspace;
+    const path = await workspaceApi?.selectDirectory();
     if (!path || !activeProject || !onUpdateProjectPaths) return;
 
     // Ensure it's in the global pool
     if (!globalPaths.includes(path)) {
       const updated = [...globalPaths, path];
-      await window.electronAPI?.workspace.setPaths(updated).catch(() => {});
+      await workspaceApi?.setPaths(updated).catch(() => {});
       setGlobalPaths(updated);
     }
 

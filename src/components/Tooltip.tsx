@@ -163,11 +163,11 @@ export const Tooltip: React.FC<TooltipProps> = ({
             left: `${tooltipPosition.left}px`,
           }}
         >
-          <div className="px-3 py-2 bg-[#1a1a2e] border border-white/10 rounded-lg shadow-2xl max-w-xs">
+          <div className="px-3.5 py-2.5 liquid-surface rounded-xl shadow-2xl max-w-xs">
             <div
-              className={`absolute w-2 h-2 bg-[#1a1a2e] border-l border-b border-white/10 ${getArrowPosition()}`}
+              className={`absolute w-2 h-2 bg-[#0c0606] border-l border-b border-white/10 ${getArrowPosition()}`}
             />
-            <div className="relative z-10">{content}</div>
+            <div className="relative z-10 text-sm">{content}</div>
           </div>
         </div>
       )}

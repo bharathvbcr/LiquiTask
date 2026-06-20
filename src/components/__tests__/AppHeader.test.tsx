@@ -185,9 +185,7 @@ describe("AppHeader", () => {
   it("hides AI assistant button when handler is not provided", () => {
     const { onToggleAssistant: _onToggleAssistant, ...propsWithoutAssistant } = baseProps;
 
-    render(
-      <AppHeader {...propsWithoutAssistant} isHeaderExpanded={true} />,
-    );
+    render(<AppHeader {...propsWithoutAssistant} isHeaderExpanded={true} />);
 
     expect(screen.queryByLabelText("AI Assistant")).toBeNull();
   });

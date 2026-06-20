@@ -72,7 +72,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ allTasks, isOp
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
-      <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden shadow-2xl animate-in zoom-in-95">
+      <div className="liquid-glass w-full max-w-2xl max-h-[80vh] overflow-hidden shadow-2xl animate-in zoom-in-95 liquid-topline">
         <div className="flex items-center justify-between p-6 border-b border-white/10">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-cyan-500/20 text-cyan-400">
@@ -87,14 +87,14 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ allTasks, isOp
             <button
               onClick={loadInsights}
               disabled={isLoading}
-              className="p-2 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition-colors disabled:opacity-50"
+              className="icon-btn text-slate-400 hover:text-white disabled:opacity-50"
               title="Refresh insights"
             >
               <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
             </button>
             <button
               onClick={onClose}
-              className="p-2 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
+              className="icon-btn text-slate-400 hover:text-white"
             >
               <X size={16} />
             </button>

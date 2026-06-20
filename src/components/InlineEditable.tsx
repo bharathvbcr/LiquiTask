@@ -86,8 +86,8 @@ export const InlineEditable: React.FC<InlineEditableProps> = ({
         onKeyDown={handleKeyDown}
         onBlur={handleBlur}
         placeholder={placeholder}
-        className={`bg-black/40 border border-red-500/50 rounded px-2 py-1 text-sm text-white outline-none focus:ring-1 focus:ring-red-500/50 ${className}`}
-        style={{ minWidth: "100px", minHeight: multiline ? "60px" : "auto" }}
+        className={`liquid-input rounded-xl px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-red-500/50 ${className}`}
+        style={{ minWidth: "120px", minHeight: multiline ? "80px" : "auto" }}
       />
     );
   }
@@ -153,7 +153,7 @@ export const InlineSelect: React.FC<InlineSelectProps> = ({
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 mt-1 bg-[#1a0a0a] border border-white/10 rounded-lg shadow-xl z-50 min-w-[120px] max-h-[200px] overflow-y-auto">
+        <div className="absolute top-full left-0 mt-2 liquid-glass z-50 min-w-[150px] max-h-[220px] overflow-y-auto rounded-xl p-1 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
           {options.map((option) => (
             <button
               key={option.id}
@@ -230,12 +230,12 @@ export const InlineDatePicker: React.FC<InlineDatePickerProps> = ({
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 mt-1 bg-[#1a0a0a] border border-white/10 rounded-lg shadow-xl z-50 p-3">
+        <div className="absolute top-full left-0 mt-2 liquid-glass rounded-xl shadow-2xl z-50 p-4 animate-in fade-in zoom-in-95 duration-200">
           <input
             type="date"
             value={tempDate}
             onChange={handleDateChange}
-            className="bg-black/40 border border-white/10 rounded px-2 py-1 text-sm text-slate-300 [color-scheme:dark] focus:border-red-500/50 outline-none"
+            className="liquid-input rounded-lg px-3 py-2 text-sm text-slate-200 [color-scheme:dark] outline-none w-full"
             aria-label="Select due date"
             title="Select due date"
           />

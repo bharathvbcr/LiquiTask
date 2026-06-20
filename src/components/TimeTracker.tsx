@@ -73,7 +73,7 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({
   }
 
   return (
-    <div className="bg-black/30 rounded-xl p-4 border border-white/5">
+    <div className="liquid-card rounded-xl p-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2 text-sm font-medium text-slate-300">
@@ -88,13 +88,14 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({
       {/* Timer Display */}
       <div className="text-center mb-4">
         <div
-          className={`font-mono text-4xl font-bold tracking-wider ${
-            isRunning ? (isOverEstimate ? "text-red-400" : "text-emerald-400") : "text-slate-200"
+          className={`font-mono text-5xl font-bold tracking-wider stat-number ${
+            isRunning ? (isOverEstimate ? "!text-red-400" : "!text-emerald-400") : ""
           }`}
+          style={isRunning && !isOverEstimate ? { background: "none", WebkitTextFillColor: "#34d399" } : isOverEstimate ? { background: "none", WebkitTextFillColor: "#f87171" } : {}}
         >
           {formattedTime}
         </div>
-        {isRunning && <div className="text-xs text-slate-500 mt-1 animate-pulse">● Recording</div>}
+        {isRunning && <div className="text-xs text-slate-500 mt-1.5 flex items-center justify-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-red-400 status-dot-active" />Recording</div>}
       </div>
 
       {/* Progress Bar (if estimate exists) */}
@@ -134,7 +135,7 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({
         <button
           onClick={handleSave}
           disabled={isRunning}
-          className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="icon-btn text-slate-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
           title="Save time"
         >
           <Save size={16} />
@@ -142,7 +143,7 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({
 
         <button
           onClick={handleReset}
-          className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+          className="icon-btn text-slate-400 hover:text-red-400"
           title="Reset timer"
         >
           <RotateCcw size={16} />

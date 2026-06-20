@@ -22,6 +22,10 @@ const mockElectronAPI = {
   showNotification: vi.fn(),
 };
 
+const mockDesktopAPI = {
+  showNotification: vi.fn(),
+};
+
 interface NotificationServiceInternal {
   hasPermission: boolean;
   notifiedOverdueIds: Set<string>;
@@ -42,6 +46,7 @@ describe("notificationService", () => {
       ...globalThis,
       Notification: MockNotification,
       electronAPI: undefined,
+      desktopAPI: undefined,
     });
 
     // Reset service state (hacky since it's a singleton)
@@ -75,6 +80,18 @@ describe("notificationService", () => {
       vi.stubGlobal("window", {
         ...globalThis,
         electronAPI: mockElectronAPI,
+      });
+
+      const result = await notificationService.requestPermission();
+
+      expect(result).toBe(true);
+      expect(MockNotification.requestPermission).not.toHaveBeenCalled();
+    });
+
+    it("should return true for a neutral desktop bridge without requesting browser permission", async () => {
+      vi.stubGlobal("window", {
+        ...globalThis,
+        desktopAPI: mockDesktopAPI,
       });
 
       const result = await notificationService.requestPermission();
@@ -144,6 +161,28 @@ describe("notificationService", () => {
         title: "Test Title",
         body: "Test Body",
         silent: true,
+      });
+    });
+
+    it("should show notification through a neutral desktop bridge", async () => {
+      vi.stubGlobal("window", {
+        ...globalThis,
+        desktopAPI: mockDesktopAPI,
+      });
+
+      await notificationService.requestPermission();
+      mockDesktopAPI.showNotification.mockClear();
+
+      notificationService.show({
+        title: "Desktop Title",
+        body: "Desktop Body",
+        silent: false,
+      });
+
+      expect(mockDesktopAPI.showNotification).toHaveBeenCalledWith({
+        title: "Desktop Title",
+        body: "Desktop Body",
+        silent: false,
       });
     });
   });

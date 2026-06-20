@@ -194,8 +194,8 @@ LiquiTask/
 └── .github/                 CI, release, and release-drafter workflows
 ```
 
-Generated output directories (`dist/`, `dist-electron/`, `release/`) should not
-be committed.
+Generated output directories (`dist/`, `dist-electron/`, and
+`release/`) should not be committed.
 
 ## Requirements
 
@@ -451,28 +451,29 @@ user-authorized directories and are limited to markdown files.
 LiquiTask uses two GitHub Actions release paths:
 
 1. `Release Drafter` keeps a draft release updated on pushes to `main`.
-2. `Release` runs when a semantic version tag such as `v2.4.1` is pushed.
+2. `Release` runs when a semantic version tag such as `v2.4.3` is pushed.
 
 The tagged release workflow:
 
 1. Installs dependencies with `npm ci`.
 2. Runs the full test suite.
 3. Verifies that the git tag matches `package.json`.
-4. Builds the Electron package.
-5. Uploads packaged Windows artifacts to the GitHub Release.
+4. Builds the Electron package for Windows and macOS.
+5. Uploads packaged Windows and macOS artifacts to the GitHub Release.
 
-Current package version: `2.4.1`.
+Current package version: `2.4.3`.
 
-Expected Windows release assets:
+Expected release assets:
 
-- `LiquiTask-Setup-2.4.1.exe`
-- `LiquiTask-Setup-2.4.1.exe.blockmap`
+- `LiquiTask-Setup-2.4.3.exe`
+- `LiquiTask-2.4.3-arm64.dmg`
+- `LiquiTask-2.4.3-x64.dmg`
 
 Create a release:
 
 ```bash
-git tag v2.4.1
-git push origin v2.4.1
+git tag v2.4.3
+git push origin v2.4.3
 ```
 
 Before tagging a new version, update:

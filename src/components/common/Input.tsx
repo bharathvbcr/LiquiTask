@@ -38,13 +38,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             id={inputId}
             className={`
-            w-full bg-black/20 border text-slate-200 placeholder-slate-500 outline-none
+            w-full liquid-input text-slate-200 placeholder-slate-500 outline-none
             transition-all duration-200
             ${sizeStyles[size]}
             ${
               error
                 ? "border-red-500/50 focus:border-red-500 focus:shadow-[0_0_10px_rgba(239,68,68,0.2)]"
-                : "border-white/10 focus:border-red-500/50 focus:shadow-sm hover:border-white/20"
+                : ""
             }
             ${props.disabled ? "opacity-50 cursor-not-allowed" : ""}
           `}

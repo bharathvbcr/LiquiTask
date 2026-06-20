@@ -234,11 +234,11 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <button
             onClick={onUndo}
             disabled={!canUndo}
-            className={`p-2.5 rounded-xl transition-all relative group ${canUndo ? "text-slate-400 hover:text-white hover:bg-white/10" : "text-slate-600 opacity-40 cursor-not-allowed"}`}
+            className={`icon-btn transition-all relative group ${canUndo ? "text-slate-400 hover:text-white" : "text-slate-600 opacity-40 cursor-not-allowed"}`}
             title={
               canUndo
                 ? "Undo last action (Ctrl+Z) - Revert task changes, deletions, or moves"
@@ -250,7 +250,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           </button>
           <button
             onClick={onToggleCompactView}
-            className={`p-2.5 rounded-xl transition-all relative group ${isCompactView ? "text-red-400 bg-red-500/10 border border-red-500/20" : "text-slate-400 hover:text-white hover:bg-white/10"}`}
+            className={`icon-btn transition-all relative group ${isCompactView ? "text-red-400 bg-red-500/10 border border-red-500/20" : "text-slate-400 hover:text-white"}`}
             title={
               isCompactView
                 ? "Expand View - Show full task details"
@@ -263,7 +263,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           {onAiPrioritize && (
             <button
               onClick={onAiPrioritize}
-              className="p-2.5 rounded-xl transition-all text-slate-400 hover:text-cyan-400 hover:bg-cyan-500/10 relative group"
+              className="icon-btn transition-all text-slate-400 hover:text-cyan-400 relative group"
               title="AI Prioritize - Let AI analyze and suggest optimal task priorities"
               aria-label="AI Prioritize tasks"
             >
@@ -273,7 +273,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           {onAiInsights && (
             <button
               onClick={onAiInsights}
-              className="p-2.5 rounded-xl transition-all text-slate-400 hover:text-purple-400 hover:bg-purple-500/10 relative group"
+              className="icon-btn transition-all text-slate-400 hover:text-purple-400 relative group"
               title="AI Insights - View AI-generated analysis and recommendations"
               aria-label="AI Insights"
             >
@@ -283,7 +283,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           {onToggleAssistant && (
             <button
               onClick={onToggleAssistant}
-              className="p-2.5 rounded-xl transition-all text-slate-400 hover:text-cyan-400 hover:bg-cyan-500/10 relative group"
+              className="icon-btn transition-all text-slate-400 hover:text-cyan-400 relative group"
               title="AI Assistant (Ctrl+J) - Chat with AI to manage your workspace"
               aria-label="AI Assistant"
             >
@@ -292,7 +292,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           )}
           <button
             onClick={onToggleFilter}
-            className={`p-2.5 rounded-xl transition-all relative group ${isFilterOpen ? "text-red-400 bg-red-500/10 border border-red-500/20" : "text-slate-400 hover:text-white hover:bg-white/10"}`}
+            className={`icon-btn transition-all relative group ${isFilterOpen ? "text-red-400 bg-red-500/10 border border-red-500/20" : "text-slate-400 hover:text-white"}`}
             title={
               isFilterOpen
                 ? `Close Filters${hasActiveFilters ? ` - ${activeFilterCount} active filter${activeFilterCount !== 1 ? "s" : ""}` : " - No filters applied"}`
@@ -304,7 +304,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             <Filter size={18} />
           </button>
           <button
-            className="relative p-2.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-all"
+            className="relative icon-btn text-slate-400 hover:text-white"
             aria-label="Notifications"
             title={
               notificationPermission === "granted"

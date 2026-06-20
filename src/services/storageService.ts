@@ -112,7 +112,7 @@ class StorageService {
       for (const key of keys) {
         const value = await nativeStorage.get(key);
 
-        if (value) {
+        if (value !== undefined) {
           if (key === STORAGE_KEYS.TASKS) {
             this.cache.set(key, parseTasks(value as Record<string, unknown>[]));
           } else {

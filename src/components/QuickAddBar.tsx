@@ -148,7 +148,7 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({ onAddTask, isVisible, 
       {/* Quick Add Modal */}
       <div className="fixed top-1/4 left-1/2 -translate-x-1/2 z-50 w-full max-w-xl px-4 animate-in zoom-in-95 fade-in duration-150">
         <form onSubmit={handleSubmit} className="relative">
-          <div className="bg-[#0a0505]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden flex flex-col">
+          <div className="liquid-surface overflow-hidden flex flex-col liquid-topline">
             {/* Image Preview Area */}
             {imagePreview && (
               <div className="relative w-full h-32 bg-black/50 border-b border-white/10 overflow-hidden flex items-center justify-center">
@@ -275,8 +275,8 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({ onAddTask, isVisible, 
 };
 
 const Hint: React.FC<{ label: string; description: string }> = ({ label, description }) => (
-  <div className="flex items-center gap-1.5 text-[10px]">
-    <kbd className="px-1.5 py-0.5 bg-white/10 rounded text-white/70 font-mono">{label}</kbd>
+  <div className="flex items-center gap-1.5 text-[10px] hover-lift">
+    <kbd className="px-2 py-0.5 liquid-glass rounded-lg text-white/80 font-mono text-[10px] border border-white/10">{label}</kbd>
     <span className="text-slate-500">{description}</span>
   </div>
 );

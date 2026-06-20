@@ -5,9 +5,15 @@ import { KeybindingProvider } from "./src/context/KeybindingContext";
 import { ConfirmationProvider } from "./src/contexts/ConfirmationContext";
 import "./index.css";
 import { ErrorBoundary } from "./src/components/ErrorBoundary";
-import { getRuntimeWindowControls } from "./src/runtime/runtimeEnvironment";
+import {
+  getRuntimeWindowControls,
+  initializeDesktopBridge,
+  showRuntimeWindow,
+} from "./src/runtime/runtimeEnvironment";
 
 const bootstrap = async () => {
+  initializeDesktopBridge();
+
   const runtimeWindowControls = getRuntimeWindowControls();
   if (runtimeWindowControls) {
     runtimeWindowControls.onWindowStateChange((isMaximized) => {
@@ -30,6 +36,8 @@ const bootstrap = async () => {
       </KeybindingProvider>
     </React.StrictMode>,
   );
+
+  await showRuntimeWindow();
 };
 
 bootstrap().catch(console.error);

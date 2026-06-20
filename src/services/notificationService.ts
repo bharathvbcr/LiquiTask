@@ -1,4 +1,4 @@
-import { getRuntimeKind } from "../runtime/runtimeEnvironment";
+import { getDesktopApi, getRuntimeKind, isDesktop } from "../runtime/runtimeEnvironment";
 
 interface NotificationOptions {
   title: string;
@@ -14,8 +14,9 @@ class NotificationService {
 
   async requestPermission(): Promise<boolean> {
     const runtime = getRuntimeKind();
+    const desktopApi = getDesktopApi();
 
-    if (runtime === "electron") {
+    if (runtime !== "web" && desktopApi?.showNotification) {
       this.hasPermission = true;
       return true;
     }
@@ -35,8 +36,9 @@ class NotificationService {
       return;
     }
 
-    if (getRuntimeKind() === "electron" && window.electronAPI?.showNotification) {
-      window.electronAPI.showNotification({
+    const desktopApi = getDesktopApi();
+    if (isDesktop() && desktopApi?.showNotification) {
+      desktopApi.showNotification({
         title: options.title,
         body: options.body,
         silent: options.silent,

@@ -15,6 +15,7 @@ env:
 
 jobs:
   build:
+    name: Electron Windows
     runs-on: windows-2025-vs2026
 
     steps:
@@ -50,3 +51,4 @@ jobs:
           path: |
             release/*.exe
           if-no-files-found: ignore
+

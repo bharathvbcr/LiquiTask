@@ -1,15 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  getDesktopApi,
   getNativeStorageApi,
   getRuntimeKind,
   getRuntimeState,
   getRuntimeWindowControls,
+  initializeDesktopBridge,
 } from "../runtimeEnvironment";
 
 describe("runtimeEnvironment", () => {
   beforeEach(() => {
+    window.desktopAPI = undefined;
     window.electronAPI = undefined;
     delete (window as Window & { __electronAPI?: unknown }).__electronAPI;
+    delete (globalThis as typeof globalThis & { isTauri?: boolean }).isTauri;
   });
 
   it("detects web runtime by default", () => {
@@ -18,6 +22,7 @@ describe("runtimeEnvironment", () => {
       kind: "web",
       hasCustomWindowControls: false,
     });
+    expect(getDesktopApi()).toBeUndefined();
     expect(getRuntimeWindowControls()).toBeNull();
     expect(getNativeStorageApi()).toBeUndefined();
   });
@@ -32,7 +37,7 @@ describe("runtimeEnvironment", () => {
 
     const listenerCleanup = vi.fn();
 
-    window.electronAPI = {
+    const bridge: DesktopAPI = {
       minimize: vi.fn().mockResolvedValue(undefined),
       maximize: vi.fn().mockResolvedValue(undefined),
       restore: vi.fn().mockResolvedValue(undefined),
@@ -50,13 +55,17 @@ describe("runtimeEnvironment", () => {
         searchFiles: vi.fn().mockResolvedValue([]),
       },
     };
+    window.electronAPI = bridge;
     (window as Window & { __electronAPI?: unknown }).__electronAPI = {};
+    initializeDesktopBridge();
 
     expect(getRuntimeKind()).toBe("electron");
     expect(getRuntimeState()).toEqual({
       kind: "electron",
       hasCustomWindowControls: true,
     });
+    expect(window.desktopAPI).toBe(bridge);
+    expect(getDesktopApi()).toBe(bridge);
     expect(getNativeStorageApi()).toBe(electronStorage);
 
     const controls = getRuntimeWindowControls();

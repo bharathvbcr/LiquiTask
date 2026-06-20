@@ -1,5 +1,6 @@
 import { FolderPlus, Lightbulb, Plus, Rocket, Sparkles, Zap } from "lucide-react";
 import type React from "react";
+import { LiquidButton } from "../../components/LiquidButton";
 
 interface EmptyStateProps {
   type: "tasks" | "projects" | "search";
@@ -41,13 +42,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
           Workspaces help you organize related tasks. Get started by creating one!
         </p>
         {onCreateProject && (
-          <button
-            onClick={onCreateProject}
-            className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-medium transition-all hover:scale-105 hover:shadow-lg hover:shadow-purple-500/25"
-          >
-            <Plus size={18} />
-            Create Workspace
-          </button>
+          <LiquidButton label="Create Workspace" onClick={onCreateProject} icon={<Plus size={18} className="text-purple-100" />} />
         )}
       </div>
     );
@@ -75,18 +70,12 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 
       <div className="flex items-center gap-4">
         {onCreateTask && (
-          <button
-            onClick={onCreateTask}
-            className="flex items-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-xl font-medium transition-all hover:scale-105 hover:shadow-lg hover:shadow-red-500/25"
-          >
-            <Plus size={18} />
-            Create Task
-          </button>
+          <LiquidButton label="Create Task" onClick={onCreateTask} icon={<Plus size={18} className="text-red-100" />} />
         )}
         {onOpenAI && (
           <button
             onClick={onOpenAI}
-            className="flex items-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl font-medium border border-white/10 hover:border-white/20 transition-all group"
+            className="flex items-center gap-2 px-6 py-3 liquid-glass hover:bg-white/10 text-slate-200 rounded-2xl font-bold transition-all group active:scale-95"
           >
             <Sparkles size={18} className="text-amber-400 group-hover:animate-pulse" />
             Generate with AI
@@ -121,10 +110,10 @@ const Tip: React.FC<{ icon: string; title: string; description: string }> = ({
   title,
   description,
 }) => (
-  <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 text-left hover:bg-white/[0.04] transition-colors">
-    <div className="text-2xl mb-2">{icon}</div>
-    <h4 className="text-sm font-semibold text-slate-300 mb-1">{title}</h4>
-    <p className="text-xs text-slate-500">{description}</p>
+  <div className="p-5 rounded-2xl liquid-card text-left transition-all">
+    <div className="text-3xl mb-3 drop-shadow-md">{icon}</div>
+    <h4 className="text-sm font-bold text-slate-200 mb-1">{title}</h4>
+    <p className="text-xs text-slate-400">{description}</p>
   </div>
 );
 

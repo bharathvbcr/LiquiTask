@@ -3,6 +3,7 @@ import type React from "react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TitleBar } from "./components/TitleBar";
 import { Toast } from "./components/Toast";
+import { CelestialBackdrop } from "./src/components/CelestialBackdrop";
 import logo from "./src/assets/logo.png";
 // Power User Features
 import type { CommandAction } from "./src/components/CommandPalette";
@@ -1317,7 +1318,7 @@ const App: React.FC = () => {
         Skip to main content
       </a>
       <TitleBar />
-      <div className="fixed top-[-30%] right-[-20%] w-[1200px] h-[1200px] bg-red-950/20 rounded-full blur-[150px] pointer-events-none z-0 mix-blend-screen animate-pulse-slow"></div>
+      <CelestialBackdrop />
 
       <Suspense fallback={<SidebarLoadingFallback isCollapsed={isSidebarCollapsed} />}>
         <Sidebar

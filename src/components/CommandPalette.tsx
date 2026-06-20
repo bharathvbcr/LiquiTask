@@ -372,7 +372,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
 
       <div className="fixed top-[20%] left-1/2 -translate-x-1/2 w-full max-w-xl z-50 animate-in zoom-in-95 fade-in duration-150">
-        <div className="mx-4 bg-[#0a0505]/98 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden">
+        <div className="mx-4 liquid-surface overflow-hidden liquid-topline">
           <div className="flex items-center gap-3 p-4 border-b border-white/5">
             <Search size={20} className="text-red-400 shrink-0" />
             <input
@@ -421,10 +421,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                             key={action.id}
                             data-index={globalIndex}
                             onClick={() => executeAction(action)}
-                            className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
+                            className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-all rounded-xl mx-1 ${
                               isSelected
-                                ? "bg-red-500/10 text-white"
-                                : "text-slate-300 hover:bg-white/5"
+                                ? "bg-red-500/10 text-white border border-red-500/20 shadow-[inset_0_0_15px_rgba(239,68,68,0.06)]"
+                                : "text-slate-300 hover:bg-white/5 border border-transparent"
                             }`}
                           >
                             <span

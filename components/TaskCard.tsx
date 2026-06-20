@@ -137,7 +137,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         onContextMenu={handleContextMenu}
         className={`
           liquid-card group relative w-full rounded-2xl ${isCompact ? "p-3.5" : "p-5"} cursor-grab active:cursor-grabbing
-          transition-transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.3s ease, border-color 0.3s ease
           border border-white/10 hover:border-white/20
           ${isBlocked ? "border-l-2 border-l-red-500/50" : ""}
           ${isFocused ? "ring-2 ring-red-500/70 shadow-[0_0_20px_rgba(239,68,68,0.4)] scale-[1.02]" : ""}

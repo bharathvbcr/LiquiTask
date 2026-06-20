@@ -108,14 +108,14 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ onUnarchive, onDelete 
       {/* Search and Actions */}
       <div className="mb-6 flex items-center gap-4">
         <div className="flex-1 relative">
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+          <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
             placeholder="Search archived tasks..."
-            className="w-full bg-black/20 border border-white/10 rounded-lg pl-10 pr-4 py-2 text-white focus:border-red-500/50 outline-none"
+            className="w-full liquid-input rounded-xl pl-10 pr-4 py-2.5"
           />
         </div>
         <button
@@ -162,8 +162,8 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ onUnarchive, onDelete 
           filteredTasks.map((task) => (
             <div
               key={task.id}
-              className={`p-4 bg-white/5 border rounded-lg transition-all cursor-pointer hover:bg-white/10 ${
-                selectedTasks.has(task.id) ? "border-red-500/50 bg-red-500/10" : "border-white/10"
+              className={`liquid-card p-4 rounded-xl transition-all cursor-pointer ${
+                selectedTasks.has(task.id) ? "border-red-500/50 bg-red-500/10 liquid-glow-red" : ""
               }`}
               onClick={() => toggleSelection(task.id)}
             >

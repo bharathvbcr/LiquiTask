@@ -55,9 +55,12 @@ describe("StorageService Extended", () => {
     localStorage.clear();
     (storageService as any).cache.clear();
     vi.clearAllMocks();
+    vi.mocked(migrationService.needsMigration).mockReturnValue(false);
+    vi.mocked(migrationService.runMigrations).mockReset();
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
@@ -92,7 +95,7 @@ describe("StorageService Extended", () => {
   it("should handle native storage fallback in initialize", async () => {
     const { getNativeStorageApi } = await import("../../runtime/runtimeEnvironment");
     const mockNative = {
-      get: vi.fn().mockResolvedValue(null),
+      get: vi.fn().mockResolvedValue(undefined),
       set: vi.fn().mockResolvedValue(undefined),
     };
     vi.mocked(getNativeStorageApi).mockReturnValue(mockNative as any);
@@ -105,6 +108,29 @@ describe("StorageService Extended", () => {
     expect(mockNative.get).toHaveBeenCalled();
     expect(mockNative.set).toHaveBeenCalledWith(STORAGE_KEYS.ACTIVE_PROJECT, "p1");
     expect(storageService.get(STORAGE_KEYS.ACTIVE_PROJECT, "")).toBe("p1");
+  });
+
+  it("should preserve falsy values loaded from native storage", async () => {
+    const { getNativeStorageApi } = await import("../../runtime/runtimeEnvironment");
+    const mockNative = {
+      get: vi.fn().mockImplementation((key: string) => {
+        if (key === STORAGE_KEYS.SIDEBAR_COLLAPSED) return Promise.resolve(false);
+        if (key === STORAGE_KEYS.ACTIVE_PROJECT) return Promise.resolve("");
+        return Promise.resolve(undefined);
+      }),
+      set: vi.fn().mockResolvedValue(undefined),
+    };
+    vi.mocked(getNativeStorageApi).mockReturnValue(mockNative as any);
+
+    localStorage.setItem(STORAGE_KEYS.SIDEBAR_COLLAPSED, JSON.stringify(true));
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_PROJECT, JSON.stringify("stale-project"));
+
+    await storageService.initialize();
+
+    expect(storageService.get(STORAGE_KEYS.SIDEBAR_COLLAPSED, true)).toBe(false);
+    expect(storageService.get(STORAGE_KEYS.ACTIVE_PROJECT, "fallback")).toBe("");
+    expect(mockNative.set).not.toHaveBeenCalledWith(STORAGE_KEYS.SIDEBAR_COLLAPSED, true);
+    expect(mockNative.set).not.toHaveBeenCalledWith(STORAGE_KEYS.ACTIVE_PROJECT, "stale-project");
   });
 
   it("should parse tasks with error logs correctly", () => {

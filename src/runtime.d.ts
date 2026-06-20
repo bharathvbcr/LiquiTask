@@ -21,7 +21,7 @@ declare global {
     searchFiles: (query: string, scopePaths?: string[]) => Promise<WorkspaceSearchResult[]>;
   }
 
-  interface ElectronAPI {
+  interface DesktopAPI {
     minimize: () => Promise<void>;
     maximize: () => Promise<void>;
     close: () => Promise<void>;
@@ -33,8 +33,11 @@ declare global {
     workspace: WorkspaceAPI;
   }
 
+  interface ElectronAPI extends DesktopAPI {}
+
   interface Window {
-    electronAPI?: ElectronAPI;
+    desktopAPI?: DesktopAPI;
+    electronAPI?: DesktopAPI;
   }
 }
 

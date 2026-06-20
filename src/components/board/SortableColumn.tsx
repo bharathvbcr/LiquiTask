@@ -146,10 +146,10 @@ export const SortableColumn: React.FC<SortableColumnProps> = ({
       >
         <div
           ref={setDroppableRef}
-          className={`h-full rounded-2xl bg-[#0a0a0a]/60 backdrop-blur-md border p-5 flex flex-col gap-4 shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)] min-h-[300px] transition-all duration-300 ${
+          className={`h-full rounded-2xl backdrop-blur-md border p-5 flex flex-col gap-4 min-h-[300px] transition-all duration-300 ${
             showDropHighlight
-              ? "border-blue-500/60 bg-blue-500/10 shadow-[0_0_20px_rgba(59,130,246,0.2)] scale-[1.01]"
-              : "border-white/10 hover:border-white/15"
+              ? "bg-red-500/5 border-red-500/40 drag-over-glow scale-[1.01]"
+              : "bg-[#0a0a0a]/50 border-white/[0.07] hover:border-white/12 shadow-[inset_0_2px_10px_rgba(0,0,0,0.4)]"
           } ${shouldUseVirtualScroll ? "overflow-hidden" : ""}`}
         >
           {shouldUseVirtualScroll ? (
@@ -187,24 +187,24 @@ export const SortableColumn: React.FC<SortableColumnProps> = ({
                   ))
                 ) : (
                   <div
-                    className={`flex-1 min-h-[200px] rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-3 text-sm transition-all duration-300 ${
+                    className={`flex-1 min-h-[200px] rounded-xl border border-dashed flex flex-col items-center justify-center gap-3 text-sm transition-all duration-300 ${
                       showDropHighlight
-                        ? "border-blue-500/60 bg-blue-500/10 text-blue-400 scale-105"
-                        : "border-white/10 text-slate-300 hover:border-white/15 hover:text-slate-400"
+                        ? "border-red-500/50 bg-red-500/8 text-red-400 scale-105 shadow-[inset_0_0_20px_rgba(239,68,68,0.08)]"
+                        : "border-white/10 text-slate-500 hover:border-white/20"
                     }`}
                   >
                     <div className="pointer-events-none select-none text-center px-6">
                       {showDropHighlight ? (
                         <>
-                          <Inbox size={32} className="mx-auto mb-2 text-blue-400" />
-                          <div className="font-semibold text-blue-400">Drop task here</div>
+                          <Inbox size={28} className="mx-auto mb-2 text-red-400 animate-bounce" />
+                          <div className="font-bold text-red-400">Drop task here</div>
                         </>
                       ) : (
                         <>
-                          <ClipboardList size={32} className="mx-auto mb-2 text-slate-500" />
-                          <div className="font-medium text-slate-300">No tasks in this column</div>
-                          <div className="text-xs text-slate-400 mt-1">
-                            Drag tasks here or create a new one
+                          <ClipboardList size={28} className="mx-auto mb-2 text-slate-600" />
+                          <div className="font-medium text-slate-500">No tasks</div>
+                          <div className="text-xs text-slate-600 mt-0.5">
+                            Drag tasks here
                           </div>
                         </>
                       )}
@@ -243,24 +243,24 @@ export const SortableColumn: React.FC<SortableColumnProps> = ({
                 ))
               ) : (
                 <div
-                  className={`flex-1 min-h-[200px] rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-3 text-sm transition-all duration-300 ${
+                  className={`flex-1 min-h-[200px] rounded-xl border border-dashed flex flex-col items-center justify-center gap-3 text-sm transition-all duration-300 ${
                     showDropHighlight
-                      ? "border-blue-500/60 bg-blue-500/10 text-blue-400 scale-105"
-                      : "border-white/10 text-slate-300 hover:border-white/15 hover:text-slate-400"
+                      ? "border-red-500/50 bg-red-500/8 text-red-400 scale-105 shadow-[inset_0_0_20px_rgba(239,68,68,0.08)]"
+                      : "border-white/10 text-slate-500 hover:border-white/20"
                   }`}
                 >
                   <div className="pointer-events-none select-none text-center px-6">
                     {showDropHighlight ? (
                       <>
-                        <Inbox size={32} className="mx-auto mb-2 text-blue-400" />
-                        <div className="font-semibold text-blue-400">Drop task here</div>
+                        <Inbox size={28} className="mx-auto mb-2 text-red-400 animate-bounce" />
+                        <div className="font-bold text-red-400">Drop task here</div>
                       </>
                     ) : (
                       <>
-                        <ClipboardList size={32} className="mx-auto mb-2 text-slate-500" />
-                        <div className="font-medium text-slate-300">No tasks in this column</div>
-                        <div className="text-xs text-slate-400 mt-1">
-                          Drag tasks here or create a new one
+                        <ClipboardList size={28} className="mx-auto mb-2 text-slate-600" />
+                        <div className="font-medium text-slate-500">No tasks</div>
+                        <div className="text-xs text-slate-600 mt-0.5">
+                          Drag tasks here
                         </div>
                       </>
                     )}

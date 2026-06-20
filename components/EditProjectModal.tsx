@@ -43,6 +43,7 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { useEffect, useState } from "react";
+import { getDesktopApi } from "../src/runtime/runtimeEnvironment";
 import type { Project } from "../types";
 import { ModalWrapper } from "./ModalWrapper";
 import { Tooltip } from "./Tooltip";
@@ -114,7 +115,7 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
   }, [isOpen, project]);
 
   const handleAddFolder = async () => {
-    const workspaceApi = window.electronAPI?.workspace;
+    const workspaceApi = getDesktopApi()?.workspace;
     const path = await workspaceApi?.selectDirectory();
     if (!path || workspacePaths.includes(path)) return;
 

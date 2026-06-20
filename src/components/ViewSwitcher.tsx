@@ -26,7 +26,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
       return null;
     }
     return (
-      <div className="flex items-center gap-1 bg-black/20 rounded-lg p-1 border border-white/5">
+      <div className="flex items-center gap-1 liquid-glass rounded-xl p-1.5 shadow-lg">
         <Tooltip
           content={
             <div className="text-sm">
@@ -82,7 +82,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
   // When in dashboard view, show Stats/Calendar/Board/Gantt options
   if (currentView === "dashboard") {
     return (
-      <div className="flex items-center gap-1 bg-black/20 rounded-lg p-1 border border-white/5">
+      <div className="flex items-center gap-1 liquid-glass rounded-xl p-1.5 shadow-lg">
         <Tooltip
           content={
             <div className="text-sm">

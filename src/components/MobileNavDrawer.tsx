@@ -108,7 +108,7 @@ export const MobileNavDrawer: React.FC<MobileNavDrawerProps> = ({
 
       {/* Drawer Panel */}
       <div
-        className={`absolute inset-y-0 left-0 w-80 max-w-[85vw] bg-[#0a0a0a] border-r border-white/10 shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform ${
+        className={`absolute inset-y-0 left-0 w-80 max-w-[85vw] liquid-glass rounded-none border-r border-white/10 shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -207,12 +207,12 @@ const NavButton: React.FC<NavButtonProps> = ({ icon, label, isActive, onClick })
     onClick={onClick}
     className={`relative w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-all duration-200 min-h-[44px] ${
       isActive
-        ? "bg-white/5 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+        ? "liquid-card text-white liquid-glow-red"
         : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
     }`}
   >
     {isActive && (
-      <div className="absolute left-0 top-1/2 -translate-y-1/2 h-8 w-1 bg-red-500 rounded-r-full shadow-[0_0_10px_rgba(239,68,68,0.5)]" />
+      <div className="absolute left-0 top-1/2 -translate-y-1/2 h-8 w-1 bg-red-500 rounded-r-full shadow-[0_0_12px_rgba(239,68,68,0.8)]" />
     )}
     <span className={`shrink-0 ${isActive ? "text-red-400" : ""}`}>{icon}</span>
     <span>{label}</span>

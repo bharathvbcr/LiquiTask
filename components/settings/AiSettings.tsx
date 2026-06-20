@@ -20,6 +20,7 @@ import {
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 import { STORAGE_KEYS } from "../../src/constants";
+import { getDesktopApi } from "../../src/runtime/runtimeEnvironment";
 import { aiService } from "../../src/services/aiService";
 import storageService from "../../src/services/storageService";
 import { sanitizeUrl } from "../../src/utils/validation";
@@ -172,9 +173,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
   }, [fetchModels]);
 
   useEffect(() => {
-    if (window.electronAPI?.workspace) {
-      window.electronAPI.workspace.getPaths().then(setWorkspacePaths);
-    }
+    getDesktopApi()?.workspace.getPaths().then(setWorkspacePaths);
   }, []);
 
   useEffect(() => {
@@ -297,22 +296,24 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
   };
 
   const handleAddWorkspacePath = async () => {
-    if (!window.electronAPI?.workspace) return;
+    const workspaceApi = getDesktopApi()?.workspace;
+    if (!workspaceApi) return;
 
-    const selectedPath = await window.electronAPI.workspace.selectDirectory();
+    const selectedPath = await workspaceApi.selectDirectory();
     if (!selectedPath || workspacePaths.includes(selectedPath)) return;
 
     const updated = [...workspacePaths, selectedPath];
     setWorkspacePaths(updated);
-    await window.electronAPI.workspace.setPaths(updated);
+    await workspaceApi.setPaths(updated);
     addToast("Workspace path added", "success");
   };
 
   const handleRemoveWorkspacePath = async (pathToRemove: string) => {
     const updated = workspacePaths.filter((p) => p !== pathToRemove);
     setWorkspacePaths(updated);
-    if (window.electronAPI?.workspace) {
-      await window.electronAPI.workspace.setPaths(updated);
+    const workspaceApi = getDesktopApi()?.workspace;
+    if (workspaceApi) {
+      await workspaceApi.setPaths(updated);
     }
     addToast("Workspace path removed", "info");
   };
