@@ -1,6 +1,6 @@
 import { AlertTriangle, Info, Trash2 } from "lucide-react";
 import type React from "react";
-import { createContext, type ReactNode, useCallback, useContext, useState } from "react";
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Button } from "../components/common/Button";
 import { Modal } from "../components/common/Modal";
 
@@ -32,25 +32,40 @@ export const ConfirmationProvider: React.FC<{ children: ReactNode }> = ({ childr
     title: "",
     message: "",
   });
-  const [resolvePromise, setResolvePromise] = useState<(value: boolean) => void>(() => {});
+  const resolveRef = useRef<((value: boolean) => void) | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (resolveRef.current) {
+        resolveRef.current(false);
+        resolveRef.current = null;
+      }
+    };
+  }, []);
 
   const confirm = useCallback((opts: ConfirmationOptions) => {
     setOptions(opts);
     setIsOpen(true);
     return new Promise<boolean>((resolve) => {
-      setResolvePromise(() => resolve);
+      resolveRef.current = resolve;
     });
   }, []);
 
   const handleConfirm = useCallback(() => {
     setIsOpen(false);
-    resolvePromise(true);
-  }, [resolvePromise]);
+    if (resolveRef.current) {
+      resolveRef.current(true);
+      resolveRef.current = null;
+    }
+  }, []);
 
   const handleCancel = useCallback(() => {
     setIsOpen(false);
-    resolvePromise(false);
-  }, [resolvePromise]);
+    if (resolveRef.current) {
+      resolveRef.current(false);
+      resolveRef.current = null;
+    }
+  }, []);
 
   const getIcon = () => {
     switch (options.variant) {

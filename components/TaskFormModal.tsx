@@ -806,11 +806,12 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
         <div className="flex flex-col gap-6">
           {/* AI Quick Add */}
           <div className="bg-cyan-500/10 border border-cyan-500/20 rounded-xl p-4 space-y-3">
-            <label className="flex items-center gap-2 text-sm font-bold text-cyan-300">
+            <label htmlFor="ai-input" className="flex items-center gap-2 text-sm font-bold text-cyan-300">
               <Sparkles size={16} /> AI Assistant
             </label>
             <div className="flex flex-col gap-2">
               <textarea
+                id="ai-input"
                 value={aiInput}
                 onChange={(e) => setAiInput(e.target.value)}
                 placeholder={
@@ -1161,10 +1162,11 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1 flex items-center gap-2">
+                <label htmlFor="task-category" className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1 flex items-center gap-2">
                   <Tag size={12} /> Category / Tag
                 </label>
                 <input
+                  id="task-category"
                   type="text"
                   value={formData.subtitle}
                   onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
@@ -1174,10 +1176,11 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1 flex items-center gap-2">
+                <label htmlFor="task-assignee" className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1 flex items-center gap-2">
                   <User size={12} /> Assignee
                 </label>
                 <input
+                  id="task-assignee"
                   type="text"
                   value={formData.assignee}
                   onChange={(e) => setFormData({ ...formData, assignee: e.target.value })}

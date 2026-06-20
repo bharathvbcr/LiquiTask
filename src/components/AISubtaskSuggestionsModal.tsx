@@ -1,6 +1,6 @@
 import { ArrowRight, Brain, CheckCircle2, GitBranch, Loader2 } from "lucide-react";
 import type React from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ModalWrapper } from "../../components/ModalWrapper";
 import type { RedundancyAnalysis, Task } from "../../types";
 import { taskCleanupService } from "../services/taskCleanupService";
@@ -30,6 +30,14 @@ export const AISubtaskSuggestionsModal: React.FC<AISubtaskSuggestionsModalProps>
   const [suggestions, setSuggestions] = useState<SubtaskSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [applying, setApplying] = useState(false);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const loadSuggestions = useCallback(async () => {
     setLoading(true);
@@ -79,30 +87,47 @@ export const AISubtaskSuggestionsModal: React.FC<AISubtaskSuggestionsModalProps>
 
     setApplying(true);
     try {
-      let successCount = 0;
+      // Group approved suggestions by parentId so we issue one onUpdateTask call
+      // per parent, avoiding stale-snapshot overwrites when multiple children share
+      // the same parent.
+      const byParent = new Map<
+        string,
+        { parentSubtasks: Task["subtasks"]; newSubtasks: Task["subtasks"]; childIds: string[] }
+      >();
 
       for (const { analysis } of approvedSuggestions) {
+        const parentTask = allTasks.find((t) => t.id === analysis.relatedTaskId);
+        const childTask = allTasks.find((t) => t.id === analysis.taskId);
+
+        if (!parentTask || !childTask) continue;
+
+        if (!byParent.has(parentTask.id)) {
+          // Snapshot the original subtasks once per parent, not per iteration.
+          byParent.set(parentTask.id, {
+            parentSubtasks: [...parentTask.subtasks],
+            newSubtasks: [],
+            childIds: [],
+          });
+        }
+
+        const entry = byParent.get(parentTask.id)!;
+        entry.newSubtasks.push({
+          id: `st-ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          title: childTask.title,
+          completed: false,
+        });
+        entry.childIds.push(childTask.id);
+      }
+
+      let successCount = 0;
+      for (const [parentId, { parentSubtasks, newSubtasks, childIds }] of byParent) {
         try {
-          // Find the parent task
-          const parentTask = allTasks.find((t) => t.id === analysis.relatedTaskId);
-          const childTask = allTasks.find((t) => t.id === analysis.taskId);
-
-          if (!parentTask || !childTask) continue;
-
-          // Add the child task as a subtask to the parent
-          const newSubtask = {
-            id: `st-ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            title: childTask.title,
-            completed: false,
-          };
-
-          const updatedSubtasks = [...parentTask.subtasks, newSubtask];
-          onUpdateTask(parentTask.id, { subtasks: updatedSubtasks });
-
-          // Archive the original child task
-          onArchiveTask(childTask.id);
-
-          successCount++;
+          // Single update per parent with all new subtasks included.
+          onUpdateTask(parentId, { subtasks: [...parentSubtasks, ...newSubtasks] });
+          for (const childId of childIds) {
+            onArchiveTask(childId);
+          }
+          successCount += newSubtasks.length;
         } catch (error) {
           console.error("Failed to convert task to subtask:", error);
         }
@@ -113,7 +138,10 @@ export const AISubtaskSuggestionsModal: React.FC<AISubtaskSuggestionsModalProps>
           `Successfully converted ${successCount} task${successCount > 1 ? "s" : ""} to subtasks`,
           "success",
         );
-        loadSuggestions(); // Refresh to show remaining suggestions
+        // Guard against refreshing when the modal has already been closed or unmounted.
+        if (isMountedRef.current && isOpen) {
+          loadSuggestions(); // Refresh to show remaining suggestions
+        }
       }
     } catch (error) {
       console.error("Failed to apply subtask conversions:", error);

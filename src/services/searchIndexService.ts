@@ -258,10 +258,8 @@ export class SearchIndexService {
     }
 
     // Semantic tokens are tracked separately via clearSemanticKeywords
-    this.clearSemanticKeywords(task.id);
-
     if (this.semanticCache[task.id]) {
-      delete this.semanticCache[task.id];
+      this.clearSemanticKeywords(task.id);
       this.persistSemanticCache();
     }
   }
@@ -442,21 +440,44 @@ ${task.summary ? `Summary: ${task.summary}` : ""}
   }
 
   private loadSemanticCache(): SemanticCache {
-    const cached = storageService.get<SemanticCache>(STORAGE_KEYS.AI_SEMANTIC_CACHE, {});
+    const cached = storageService.get<PersistedSemanticCache>(STORAGE_KEYS.AI_SEMANTIC_CACHE, {});
     if (!cached || typeof cached !== "object" || Array.isArray(cached)) {
       return {};
     }
 
+    const now = Date.now();
+
+    // Filter out entries that are missing a timestamp (legacy plain-array format)
+    // or that have exceeded the TTL.
+    const validEntries = Object.entries(cached).filter(([, entry]) => {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) return false;
+      return now - (entry.timestamp ?? 0) <= SEMANTIC_CACHE_TTL_MS;
+    }) as [string, PersistedSemanticCacheEntry][];
+
+    // Trim to the most-recent MAX_SEMANTIC_CACHE_ENTRIES entries.
+    const trimmed =
+      validEntries.length > MAX_SEMANTIC_CACHE_ENTRIES
+        ? validEntries
+            .sort((a, b) => b[1].timestamp - a[1].timestamp)
+            .slice(0, MAX_SEMANTIC_CACHE_ENTRIES)
+        : validEntries;
+
     return Object.fromEntries(
-      Object.entries(cached).map(([taskId, keywords]) => [
+      trimmed.map(([taskId, entry]) => [
         taskId,
-        Array.isArray(keywords) ? this.normalizeKeywords(keywords) : [],
+        Array.isArray(entry.keywords) ? this.normalizeKeywords(entry.keywords) : [],
       ]),
     );
   }
 
   private persistSemanticCache(): void {
-    storageService.set(STORAGE_KEYS.AI_SEMANTIC_CACHE, this.semanticCache);
+    const persisted: PersistedSemanticCache = Object.fromEntries(
+      Object.entries(this.semanticCache).map(([taskId, keywords]) => [
+        taskId,
+        { keywords, timestamp: Date.now() },
+      ]),
+    );
+    storageService.set(STORAGE_KEYS.AI_SEMANTIC_CACHE, persisted);
   }
 
   private rankTasksForContext(query: string, tasks: Task[]): Task[] {

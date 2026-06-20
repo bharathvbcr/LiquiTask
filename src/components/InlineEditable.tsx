@@ -23,6 +23,7 @@ export const InlineEditable: React.FC<InlineEditableProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+  const savedRef = useRef(false);
 
   useEffect(() => {
     setEditValue(value);
@@ -38,12 +39,18 @@ export const InlineEditable: React.FC<InlineEditableProps> = ({
   }, [isEditing, autoFocus]);
 
   const handleStartEdit = () => {
+    savedRef.current = false;
     setIsEditing(true);
     setEditValue(value);
   };
 
   const handleSave = () => {
+    if (!editValue.trim()) {
+      handleCancel();
+      return;
+    }
     if (editValue.trim() !== value) {
+      savedRef.current = true;
       onSave(editValue.trim());
     }
     setIsEditing(false);
@@ -71,7 +78,9 @@ export const InlineEditable: React.FC<InlineEditableProps> = ({
   const handleBlur = () => {
     // Delay to allow click events to fire first
     setTimeout(() => {
-      handleSave();
+      if (!savedRef.current) {
+        handleSave();
+      }
     }, 200);
   };
 
@@ -204,7 +213,8 @@ export const InlineDatePicker: React.FC<InlineDatePickerProps> = ({
     const dateStr = e.target.value;
     setTempDate(dateStr);
     if (dateStr) {
-      onSave(new Date(dateStr));
+      const [y, m, d] = dateStr.split("-").map(Number);
+      onSave(new Date(y, m - 1, d));
     } else {
       onSave(null);
     }

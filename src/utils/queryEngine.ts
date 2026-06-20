@@ -119,7 +119,17 @@ function evaluateRule(task: Task, rule: FilterRule): boolean {
       return strTaskValue.trim() !== "";
     case "matches-regex": {
       try {
-        const regex = new RegExp(String(ruleValue), "i");
+        const pattern = String(ruleValue);
+        // Guard against ReDoS: reject patterns that are too long or that
+        // contain the classic catastrophic-backtracking structures
+        // (nested quantifiers over groups or character classes, e.g. (a+)+).
+        const MAX_REGEX_LENGTH = 200;
+        if (pattern.length > MAX_REGEX_LENGTH) return false;
+        // Detect nested-quantifier shapes: quantified group/class followed by
+        // another quantifier — covers (x+)+, (x*)*, [x+]+, etc.
+        const reDoSPattern = /(\(([^()]*[+*][^()]*)\)|(\[[^\]]*\]))[+*?]\s*[+*?]|(\(([^()]+)\))[+*]\s*[+*]/;
+        if (reDoSPattern.test(pattern)) return false;
+        const regex = new RegExp(pattern, "i");
         return regex.test(String(taskValue));
       } catch (_e) {
         return false; // Invalid regex

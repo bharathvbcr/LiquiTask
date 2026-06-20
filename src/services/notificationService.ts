@@ -94,13 +94,17 @@ class NotificationService {
 
     // Remind 1 hour before (or immediately if less than 1 hour)
     const reminderTime = Math.max(timeUntilDue - 60 * 60 * 1000, 0);
+    const reminderBody =
+      timeUntilDue < 60 * 60 * 1000
+        ? `A task is due in ~${Math.max(1, Math.round(timeUntilDue / 60000))} minutes`
+        : "A task is due in 1 hour";
 
     handles.push(
       setTimeout(() => {
         this.show({
           title: "⏰ Task Due Soon",
           // Task title omitted from body — see privacy note above.
-          body: "A task is due in 1 hour",
+          body: reminderBody,
           tag: `task-reminder-${taskId}`,
         });
       }, reminderTime),

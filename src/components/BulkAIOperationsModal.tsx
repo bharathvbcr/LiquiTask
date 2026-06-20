@@ -13,7 +13,7 @@ import {
   Zap,
 } from "lucide-react";
 import type React from "react";
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { AIContext, PriorityDefinition, Project, Task } from "../../types";
 import { STORAGE_KEYS } from "../constants";
 import { aiService } from "../services/aiService";

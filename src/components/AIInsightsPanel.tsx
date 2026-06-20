@@ -41,7 +41,7 @@ const colorMap = {
 export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ allTasks, isOpen, onClose }) => {
   const [insights, setInsights] = useState<AIInsight[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [_error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const loadInsights = useCallback(async () => {
     setIsLoading(true);

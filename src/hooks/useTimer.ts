@@ -5,6 +5,7 @@ interface UseTimerOptions {
   onTick?: (seconds: number) => void;
   autoSaveInterval?: number; // Save progress every N seconds
   onAutoSave?: (seconds: number) => void;
+  timerId?: string; // Unique ID to namespace sessionStorage keys (e.g. task ID)
 }
 
 interface UseTimerReturn {
@@ -18,7 +19,7 @@ interface UseTimerReturn {
 }
 
 export function useTimer(options: UseTimerOptions = {}): UseTimerReturn {
-  const { initialSeconds = 0, onTick, autoSaveInterval = 60, onAutoSave } = options;
+  const { initialSeconds = 0, onTick, autoSaveInterval = 60, onAutoSave, timerId = "default" } = options;
 
   const [seconds, setSeconds] = useState(initialSeconds);
   const [isRunning, setIsRunning] = useState(false);
@@ -93,29 +94,36 @@ export function useTimer(options: UseTimerOptions = {}): UseTimerReturn {
 
   // Persist timer state when tab is hidden/shown
   useEffect(() => {
+    const keyHiddenAt = `timer-hidden-at-${timerId}`;
+    const keySecondsAtHide = `timer-seconds-at-hide-${timerId}`;
+
     const handleVisibilityChange = () => {
       if (document.hidden && isRunning) {
         // Store the current time when tab becomes hidden
-        sessionStorage.setItem("timer-hidden-at", Date.now().toString());
-        sessionStorage.setItem("timer-seconds-at-hide", secondsRef.current.toString());
+        sessionStorage.setItem(keyHiddenAt, Date.now().toString());
+        sessionStorage.setItem(keySecondsAtHide, secondsRef.current.toString());
       } else if (!document.hidden) {
         // Calculate elapsed time when tab becomes visible
-        const hiddenAt = sessionStorage.getItem("timer-hidden-at");
-        const secondsAtHide = sessionStorage.getItem("timer-seconds-at-hide");
+        const hiddenAt = sessionStorage.getItem(keyHiddenAt);
+        const secondsAtHide = sessionStorage.getItem(keySecondsAtHide);
 
         if (hiddenAt && secondsAtHide && isRunning) {
           const elapsed = Math.floor((Date.now() - parseInt(hiddenAt, 10)) / 1000);
           setSeconds(parseInt(secondsAtHide, 10) + elapsed);
         }
 
-        sessionStorage.removeItem("timer-hidden-at");
-        sessionStorage.removeItem("timer-seconds-at-hide");
+        sessionStorage.removeItem(keyHiddenAt);
+        sessionStorage.removeItem(keySecondsAtHide);
       }
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [isRunning]);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      sessionStorage.removeItem(keyHiddenAt);
+      sessionStorage.removeItem(keySecondsAtHide);
+    };
+  }, [isRunning, timerId]);
 
   return {
     seconds,

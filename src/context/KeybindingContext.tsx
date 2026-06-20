@@ -58,6 +58,12 @@ export const KeybindingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         if (shift && !event.shiftKey) return false;
         if (alt && !event.altKey) return false;
 
+        // Bare-key bindings must not fire when any modifier is held
+        if (!meta && event.metaKey) return false;
+        if (!ctrl && event.ctrlKey) return false;
+        if (!shift && event.shiftKey) return false;
+        if (!alt && event.altKey) return false;
+
         // Check main key
         const eventKey = event.key.toLowerCase();
         return eventKey === mainKey;

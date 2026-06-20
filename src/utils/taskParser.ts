@@ -63,7 +63,7 @@ export function parseQuickTask(input: string): ParsedTask {
   } else if (timeMatch) {
     const value = parseFloat(timeMatch[1]);
     const unit = timeMatch[2].toLowerCase();
-    timeEstimate = unit === "h" ? Math.round(value * 60) : value; // Convert to minutes
+    timeEstimate = unit === "h" ? Math.round(value * 60) : Math.round(value); // Convert to minutes
     title = title.replace(timeMatch[0], "");
   }
 

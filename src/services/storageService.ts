@@ -82,6 +82,14 @@ class StorageService {
       return this.cache.get(key) as T;
     }
 
+    // Sensitive keys must never be read from plaintext localStorage.
+    // The authoritative value lives in native storage and is populated into
+    // the cache during initialize(). If the cache has no entry yet, return
+    // the default rather than exposing a plaintext credential.
+    if (StorageService.SENSITIVE_KEYS.has(key)) {
+      return defaultValue;
+    }
+
     try {
       const stored = localStorage.getItem(key);
       if (stored) {
@@ -107,6 +115,14 @@ class StorageService {
     if (!nativeStorage) return;
 
     try {
+      // One-time cleanup: unconditionally purge sensitive keys from plaintext
+      // localStorage, regardless of whether native storage has a copy. This
+      // removes any credentials written by app versions prior to the
+      // SENSITIVE_KEYS guard being introduced.
+      for (const key of StorageService.SENSITIVE_KEYS) {
+        localStorage.removeItem(key);
+      }
+
       // Load all keys from native storage
       const keys = Object.values(STORAGE_KEYS);
       for (const key of keys) {
@@ -119,7 +135,12 @@ class StorageService {
             this.cache.set(key, value);
           }
         } else {
-          // Fallback to localStorage (Migration)
+          // Fallback to localStorage (Migration) — skip sensitive keys because
+          // the unconditional purge above has already removed them, and we must
+          // not read plaintext credentials from localStorage even during migration.
+          if (StorageService.SENSITIVE_KEYS.has(key)) {
+            continue;
+          }
           const local = localStorage.getItem(key);
           if (local) {
             try {
@@ -237,7 +258,12 @@ class StorageService {
 
     const nativeStorage = getNativeStorageApi();
     if (nativeStorage) {
-      // Native Save (backup)
+      // Native Save (backup).
+      // IMPORTANT: For keys in SENSITIVE_KEYS (AI_CONFIG, GEMINI_API_KEY) the
+      // native storage backend MUST use an encrypted store (e.g. Electron
+      // safeStorage) so that credentials are not persisted in plaintext on
+      // disk. Verify that getNativeStorageApi() returns an encrypted
+      // implementation before shipping to production.
       asyncWrites.push(nativeStorage.set(key, value));
     }
 

@@ -308,6 +308,11 @@ export class IndexedDBService {
 
   /**
    * Generic put
+   *
+   * Resolves on transaction.oncomplete (durable commit), not request.onsuccess
+   * (which fires when the record is merely staged).  An IDB transaction can
+   * still abort after individual request.onsuccess callbacks fire (e.g. on
+   * quota exceeded), so waiting for oncomplete is required for correctness.
    */
   private async put(storeName: string, item: unknown): Promise<void> {
     const db = this.db;
@@ -316,15 +321,23 @@ export class IndexedDBService {
       const transaction = db.transaction([storeName], "readwrite");
       const store = transaction.objectStore(storeName);
       const serialized = this.serializeDates(item);
-      const request = store.put(serialized);
 
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error ?? new DOMException("Transaction aborted", "AbortError"));
+
+      store.put(serialized).onerror = (e) => reject((e.target as IDBRequest).error);
     });
   }
 
   /**
    * Generic delete
+   *
+   * Resolves on transaction.oncomplete (durable commit), not request.onsuccess
+   * (which fires when the delete is merely staged in the transaction buffer).
+   * An IDB transaction can abort after individual request.onsuccess callbacks
+   * fire, leaving the record still present on disk while the caller believes it
+   * was deleted.
    */
   private async delete(storeName: string, key: string): Promise<void> {
     const db = this.db;
@@ -332,39 +345,12 @@ export class IndexedDBService {
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([storeName], "readwrite");
       const store = transaction.objectStore(storeName);
-      const request = store.delete(key);
 
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
-  }
-
-  /**
-   * Save all items in a store using targeted put() calls per item.
-   *
-   * Rationale: the previous clear()+Promise.all(put()) pattern had two problems:
-   *   1. It re-wrote every record on every call, even for a single-field edit.
-   *   2. Promise.all resolved before transaction.oncomplete, so callers could
-   *      receive a resolved promise while the DB had silently rolled back.
-   *
-   * This implementation issues one put() per item inside a single transaction
-   * and resolves only after transaction.oncomplete.  Keys not present in
-   * `items` are left untouched (callers that need deletion should use delete()).
-   */
-  private async saveAll(storeName: string, items: unknown[]): Promise<void> {
-    if (!this.db) return;
-    const transaction = this.db.transaction([storeName], "readwrite");
-    const store = transaction.objectStore(storeName);
-
-    return new Promise<void>((resolve, reject) => {
       transaction.oncomplete = () => resolve();
       transaction.onerror = () => reject(transaction.error);
       transaction.onabort = () => reject(transaction.error ?? new DOMException("Transaction aborted", "AbortError"));
 
-      items.forEach((item) => {
-        const request = store.put(this.serializeDates(item));
-        request.onerror = () => reject(request.error);
-      });
+      store.delete(key).onerror = (e) => reject((e.target as IDBRequest).error);
     });
   }
 

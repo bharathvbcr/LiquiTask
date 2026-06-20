@@ -157,16 +157,18 @@ const validateStorageKey = (key: unknown): string => {
 /** Verify that the IPC message originates from the trusted renderer (fix #8) */
 const assertTrustedSender = (event: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent) => {
   const isDev = process.env.NODE_ENV === "development";
+  let senderUrl: URL;
   try {
-    const senderUrl = new URL(event.senderFrame?.url ?? "");
-    const isAllowed = isDev
-      ? senderUrl.hostname === "localhost"
-      : senderUrl.protocol === "file:";
-    if (!isAllowed) throw new Error("Untrusted sender");
-  } catch (err) {
+    senderUrl = new URL(event.senderFrame?.url ?? "");
+  } catch {
     // If URL parsing fails, the sender is not trusted
     throw new Error("Untrusted sender");
   }
+  const devUrl = new URL(process.env.VITE_DEV_SERVER_URL || DEFAULT_DEV_SERVER_URL);
+  const isAllowed = isDev
+    ? senderUrl.hostname === "localhost" && senderUrl.port === devUrl.port
+    : senderUrl.protocol === "file:";
+  if (!isAllowed) throw new Error("Untrusted sender");
 };
 
 const emitWindowState = () => {
@@ -206,7 +208,7 @@ function createWindow() {
       responseHeaders: {
         ...details.responseHeaders,
         "Content-Security-Policy": [
-          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://generativelanguage.googleapis.com",
+          "default-src 'self'; script-src 'self'; style-src 'self'; object-src 'none'; base-uri 'self'; frame-src 'none'; img-src 'self' data: blob:; connect-src 'self' https://generativelanguage.googleapis.com",
         ],
       },
     });
@@ -266,13 +268,15 @@ app.on("window-all-closed", () => {
 });
 
 // IPC Handlers with Guards
-ipcMain.on("minimizeWindow", () => {
+ipcMain.on("minimizeWindow", (event) => {
+  assertTrustedSender(event);
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.minimize();
   }
 });
 
-ipcMain.on("maximizeWindow", () => {
+ipcMain.on("maximizeWindow", (event) => {
+  assertTrustedSender(event);
   if (mainWindow && !mainWindow.isDestroyed()) {
     if (mainWindow.isMaximized()) {
       mainWindow.unmaximize();
@@ -283,7 +287,8 @@ ipcMain.on("maximizeWindow", () => {
   }
 });
 
-ipcMain.on("restoreWindow", () => {
+ipcMain.on("restoreWindow", (event) => {
+  assertTrustedSender(event);
   if (mainWindow && !mainWindow.isDestroyed()) {
     if (mainWindow.isMaximized()) {
       mainWindow.unmaximize();
@@ -296,13 +301,15 @@ ipcMain.on("restoreWindow", () => {
   }
 });
 
-ipcMain.on("closeWindow", () => {
+ipcMain.on("closeWindow", (event) => {
+  assertTrustedSender(event);
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.close();
   }
 });
 
-ipcMain.handle("isWindowMaximized", () => {
+ipcMain.handle("isWindowMaximized", (event) => {
+  assertTrustedSender(event);
   return mainWindow && !mainWindow.isDestroyed() ? mainWindow.isMaximized() : false;
 });
 
@@ -318,12 +325,17 @@ ipcMain.handle("storageSet", async (event, key: string, value: unknown) => {
   const validKey = validateStorageKey(key); // fix #4
 
   // Serialise all mutating writes through the write queue (fix #1)
-  writeQueue = writeQueue.then(async () => {
-    const data = await readStorage();
-    data[validKey] = value;
-    await writeStorage(data);
-  });
-  await writeQueue;
+  // .catch(() => {}) resets the queue to a resolved state so a prior failure
+  // does not permanently block future writes.
+  const op = writeQueue
+    .catch(() => {})
+    .then(async () => {
+      const data = await readStorage();
+      data[validKey] = value;
+      await writeStorage(data);
+    });
+  writeQueue = op.catch(() => {});
+  await op;
 });
 
 ipcMain.handle("storageDelete", async (event, key: string) => {
@@ -331,22 +343,28 @@ ipcMain.handle("storageDelete", async (event, key: string) => {
   const validKey = validateStorageKey(key); // fix #4
 
   // Serialise all mutating writes through the write queue (fix #1)
-  writeQueue = writeQueue.then(async () => {
-    const data = await readStorage();
-    delete data[validKey];
-    await writeStorage(data);
-  });
-  await writeQueue;
+  const op = writeQueue
+    .catch(() => {})
+    .then(async () => {
+      const data = await readStorage();
+      delete data[validKey];
+      await writeStorage(data);
+    });
+  writeQueue = op.catch(() => {});
+  await op;
 });
 
 ipcMain.handle("storageClear", async (event) => {
   assertTrustedSender(event); // fix #8
 
   // Serialise through the write queue (fix #1)
-  writeQueue = writeQueue.then(async () => {
-    await writeStorage(Object.create(null) as Record<string, unknown>);
-  });
-  await writeQueue;
+  const op = writeQueue
+    .catch(() => {})
+    .then(async () => {
+      await writeStorage(Object.create(null) as Record<string, unknown>);
+    });
+  writeQueue = op.catch(() => {});
+  await op;
 });
 
 ipcMain.handle("storageHas", async (event, key: string) => {
@@ -357,7 +375,8 @@ ipcMain.handle("storageHas", async (event, key: string) => {
 });
 
 // Workspace IPC Handlers
-ipcMain.handle("selectWorkspaceDirectory", async () => {
+ipcMain.handle("selectWorkspaceDirectory", async (event) => {
+  assertTrustedSender(event);
   if (!mainWindow) return null;
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ["openDirectory"],
@@ -402,13 +421,29 @@ ipcMain.handle("setWorkspacePaths", async (event, paths: string[]) => {
   assertTrustedSender(event); // fix #8
   const validPaths = validateWorkspacePaths(paths); // fix #5
 
+  // Resolve each path to its canonical form to prevent symlink escapes (fix #4)
+  const resolvedPaths = await Promise.all(
+    validPaths.map(async (p) => {
+      try {
+        return await fs.realpath(p);
+      } catch {
+        // Path does not exist yet — store un-resolved with a warning
+        console.warn(`setWorkspacePaths: could not resolve path "${p}", storing as-is`);
+        return p;
+      }
+    }),
+  );
+
   // Serialise through the write queue (fix #1)
-  writeQueue = writeQueue.then(async () => {
-    const data = await readStorage();
-    data.workspacePaths = validPaths;
-    await writeStorage(data);
-  });
-  await writeQueue;
+  const op = writeQueue
+    .catch(() => {})
+    .then(async () => {
+      const data = await readStorage();
+      data.workspacePaths = resolvedPaths;
+      await writeStorage(data);
+    });
+  writeQueue = op.catch(() => {});
+  await op;
 });
 
 const isPathAuthorized = (filePath: string, authorizedPaths: string[]) => {

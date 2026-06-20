@@ -111,7 +111,7 @@ export const AIReorganizeModal: React.FC<AIReorganizeModalProps> = ({
         try {
           // Create new project for this cluster
           const newProject = {
-            id: `project-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            id: crypto.randomUUID(),
             name: projectName || cluster.theme,
             type: "default" as const,
             color: getRandomColor(),
