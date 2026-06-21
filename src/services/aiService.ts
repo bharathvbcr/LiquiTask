@@ -46,6 +46,18 @@ const sanitizePartialTaskFromAI = (raw: unknown): Partial<Task> => {
   return out;
 };
 
+// Parse a model-supplied due date. Date-only values (YYYY-MM-DD) are interpreted
+// as LOCAL midnight to match the manual task form, so they are not shifted by a
+// day in negative-offset timezones (which would misplace them on the calendar).
+const parseDueDateLocal = (value?: string): Date | undefined => {
+  if (!value) return undefined;
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  const parsed = dateOnly
+    ? new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]))
+    : new Date(value);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+};
+
 // Optimization: Strip unnecessary task data before sending to AI to save tokens (similar to Pydantic v2 lean models)
 const stripTaskData = (task: Task): Partial<Task> => ({
   id: task.id,
@@ -941,7 +953,7 @@ class AiService {
     const tasks = await this.extractTasksFromText(inputText, context);
     if (tasks.length > 0) {
       const t = tasks[0];
-      return { ...t, description: t.summary, dueDate: t.dueDate ? new Date(t.dueDate) : undefined };
+      return { ...t, description: t.summary, dueDate: parseDueDateLocal(t.dueDate) };
     }
     return null;
   }

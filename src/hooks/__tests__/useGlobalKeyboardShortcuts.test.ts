@@ -8,6 +8,7 @@ describe("useGlobalKeyboardShortcuts", () => {
   const mockHandleUndo = vi.fn();
   const mockSetIsCommandPaletteOpen = vi.fn();
   const mockSetIsSidebarCollapsed = vi.fn();
+  const mockSetIsAssistantOpen = vi.fn();
   const mockSetIsTaskModalOpen = vi.fn();
   const mockSetEditingTask = vi.fn();
   const mockAddToast = vi.fn();
@@ -17,6 +18,7 @@ describe("useGlobalKeyboardShortcuts", () => {
     handleUndo: mockHandleUndo,
     setIsCommandPaletteOpen: mockSetIsCommandPaletteOpen,
     setIsSidebarCollapsed: mockSetIsSidebarCollapsed,
+    setIsAssistantOpen: mockSetIsAssistantOpen,
     setIsTaskModalOpen: mockSetIsTaskModalOpen,
     setEditingTask: mockSetEditingTask,
     searchInputRef: mockSearchInputRef as unknown as React.RefObject<HTMLInputElement>,
@@ -34,8 +36,8 @@ describe("useGlobalKeyboardShortcuts", () => {
     React.createElement(KeybindingProvider, null, children);
 
   it("should register and unregister event listener", () => {
-    const addSpy = vi.spyOn(window, "addEventListener");
-    const removeSpy = vi.spyOn(window, "removeEventListener");
+    const addSpy = vi.spyOn(document, "addEventListener");
+    const removeSpy = vi.spyOn(document, "removeEventListener");
 
     const { unmount } = renderHook(() => useGlobalKeyboardShortcuts(props), {
       wrapper,
@@ -50,7 +52,7 @@ describe("useGlobalKeyboardShortcuts", () => {
     renderHook(() => useGlobalKeyboardShortcuts(props), { wrapper });
 
     const event = new KeyboardEvent("keydown", { key: "k", metaKey: true });
-    window.dispatchEvent(event);
+    document.dispatchEvent(event);
 
     expect(mockSetIsCommandPaletteOpen).toHaveBeenCalled();
   });
@@ -59,7 +61,7 @@ describe("useGlobalKeyboardShortcuts", () => {
     renderHook(() => useGlobalKeyboardShortcuts(props), { wrapper });
 
     const event = new KeyboardEvent("keydown", { key: "z", metaKey: true });
-    window.dispatchEvent(event);
+    document.dispatchEvent(event);
 
     expect(mockHandleUndo).toHaveBeenCalled();
   });
@@ -68,7 +70,7 @@ describe("useGlobalKeyboardShortcuts", () => {
     renderHook(() => useGlobalKeyboardShortcuts(props), { wrapper });
 
     const event = new KeyboardEvent("keydown", { key: "c" });
-    window.dispatchEvent(event);
+    document.dispatchEvent(event);
 
     expect(mockSetEditingTask).toHaveBeenCalledWith(null);
     expect(mockSetIsTaskModalOpen).toHaveBeenCalledWith(true);
@@ -78,7 +80,7 @@ describe("useGlobalKeyboardShortcuts", () => {
     renderHook(() => useGlobalKeyboardShortcuts(props), { wrapper });
 
     const event = new KeyboardEvent("keydown", { key: "/" });
-    window.dispatchEvent(event);
+    document.dispatchEvent(event);
 
     expect(mockSearchInputRef.current.focus).toHaveBeenCalled();
   });

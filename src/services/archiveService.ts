@@ -1,4 +1,5 @@
 import type { Task } from "../../types";
+import { indexedDBService } from "./indexedDBService";
 import storageService from "./storageService";
 
 export interface ArchiveConfig {
@@ -13,10 +14,52 @@ export class ArchiveService {
   private archivedTasks: Task[] = [];
 
   /**
-   * Initialize archive service - load archived tasks
+   * Initialize archive service - load archived tasks.
+   *
+   * Archived tasks live in IndexedDB (larger quota than localStorage). On first
+   * run after upgrade, any legacy localStorage archive is migrated into
+   * IndexedDB and then removed from localStorage to free that quota. When
+   * IndexedDB is unavailable, falls back to localStorage.
    */
   async initialize(): Promise<void> {
-    this.archivedTasks = storageService.get<Task[]>(ARCHIVE_STORAGE_KEY, []);
+    if (!indexedDBService.isAvailable()) {
+      this.archivedTasks = storageService.get<Task[]>(ARCHIVE_STORAGE_KEY, []);
+      return;
+    }
+
+    const fromIdb = await indexedDBService.getAllArchivedTasks();
+    if (fromIdb.length > 0) {
+      this.archivedTasks = fromIdb;
+      return;
+    }
+
+    // Nothing in IndexedDB yet — migrate any legacy localStorage archive.
+    const legacy = storageService.get<Task[]>(ARCHIVE_STORAGE_KEY, []);
+    if (legacy.length > 0) {
+      this.archivedTasks = legacy;
+      try {
+        await indexedDBService.saveArchivedTasks(legacy);
+        // Only drop the localStorage copy after the IndexedDB write succeeds, so
+        // a failure can never lose the archive.
+        storageService.remove(ARCHIVE_STORAGE_KEY);
+      } catch (e) {
+        console.error("Failed to migrate archived tasks to IndexedDB:", e);
+      }
+      return;
+    }
+
+    this.archivedTasks = [];
+  }
+
+  /**
+   * Persist the current archived-tasks set to the active backend.
+   */
+  private async persist(): Promise<void> {
+    if (indexedDBService.isAvailable()) {
+      await indexedDBService.saveArchivedTasks(this.archivedTasks);
+    } else {
+      await storageService.set(ARCHIVE_STORAGE_KEY, this.archivedTasks);
+    }
   }
 
   /**
@@ -51,7 +94,7 @@ export class ArchiveService {
    */
   private async moveToArchive(tasks: Task[]): Promise<void> {
     this.archivedTasks = [...this.archivedTasks, ...tasks];
-    await storageService.set(ARCHIVE_STORAGE_KEY, this.archivedTasks);
+    await this.persist();
   }
 
   /**
@@ -89,7 +132,7 @@ export class ArchiveService {
   async unarchive(taskIds: string[]): Promise<Task[]> {
     const toUnarchive = this.archivedTasks.filter((t) => taskIds.includes(t.id));
     this.archivedTasks = this.archivedTasks.filter((t) => !taskIds.includes(t.id));
-    await storageService.set(ARCHIVE_STORAGE_KEY, this.archivedTasks);
+    await this.persist();
     return toUnarchive;
   }
 
@@ -98,7 +141,7 @@ export class ArchiveService {
    */
   async deleteArchived(taskIds: string[]): Promise<void> {
     this.archivedTasks = this.archivedTasks.filter((t) => !taskIds.includes(t.id));
-    await storageService.set(ARCHIVE_STORAGE_KEY, this.archivedTasks);
+    await this.persist();
   }
 
   /**

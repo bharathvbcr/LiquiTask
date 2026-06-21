@@ -41,7 +41,10 @@ describe("Button", () => {
 
     expect(container.querySelector(".animate-spin")).toBeInTheDocument();
     const button = screen.getByRole("button");
-    expect(button).toBeDisabled();
+    // While loading the button is marked disabled for assistive tech (aria-disabled
+    // + aria-busy) and suppresses clicks, but stays in the tab order.
+    expect(button).toHaveAttribute("aria-disabled", "true");
+    expect(button).toHaveAttribute("aria-busy", "true");
 
     fireEvent.click(button);
     expect(handleClick).not.toHaveBeenCalled();

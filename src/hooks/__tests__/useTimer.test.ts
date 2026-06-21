@@ -240,7 +240,7 @@ describe("useTimer", () => {
         document.dispatchEvent(new Event("visibilitychange"));
       });
 
-      expect(sessionStorage.getItem("timer-seconds-at-hide")).toBe("100");
+      expect(sessionStorage.getItem("timer-seconds-at-hide-default")).toBe("100");
     });
 
     it("should restore elapsed time when tab becomes visible", () => {
@@ -253,8 +253,8 @@ describe("useTimer", () => {
 
       // Simulate tab hidden
       const hiddenAt = Date.now() - 5000; // 5 seconds ago
-      sessionStorage.setItem("timer-hidden-at", hiddenAt.toString());
-      sessionStorage.setItem("timer-seconds-at-hide", "100");
+      sessionStorage.setItem("timer-hidden-at-default", hiddenAt.toString());
+      sessionStorage.setItem("timer-seconds-at-hide-default", "100");
 
       // Simulate tab visible
       Object.defineProperty(document, "hidden", {

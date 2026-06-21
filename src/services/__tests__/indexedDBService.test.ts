@@ -87,4 +87,37 @@ describe("IndexedDBService", () => {
     expect(savedProjects).toHaveLength(1);
     expect(savedProjects[0].id).toBe(project.id);
   });
+
+  it("should save, get, and atomically replace archived tasks", async () => {
+    const makeTask = (id: string): Task => ({
+      id,
+      jobId: `job-${id}`,
+      title: `Archived ${id}`,
+      subtitle: "",
+      summary: "",
+      status: "Completed",
+      projectId: "project-1",
+      createdAt: new Date("2024-01-01"),
+      updatedAt: new Date("2024-01-02"),
+      completedAt: new Date("2024-01-03"),
+      priority: "medium",
+      assignee: "",
+      subtasks: [],
+      attachments: [],
+      tags: [],
+      timeEstimate: 0,
+      timeSpent: 0,
+    });
+
+    await service.saveArchivedTasks([makeTask("a"), makeTask("b")]);
+    let archived = await service.getAllArchivedTasks();
+    expect(archived).toHaveLength(2);
+    // Dates are deserialized back into Date instances.
+    expect(archived[0].completedAt).toBeInstanceOf(Date);
+
+    // A subsequent save fully replaces the previous set (no leftovers).
+    await service.saveArchivedTasks([makeTask("c")]);
+    archived = await service.getAllArchivedTasks();
+    expect(archived.map((t) => t.id)).toEqual(["c"]);
+  });
 });

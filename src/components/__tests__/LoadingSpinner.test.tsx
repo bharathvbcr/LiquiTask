@@ -13,9 +13,8 @@ describe("LoadingSpinner", () => {
   it("should render with custom size", () => {
     const { container } = render(<LoadingSpinner size={48} />);
 
-    const spinner = container.querySelector("svg");
-    expect(spinner).toHaveAttribute("width", "48");
-    expect(spinner).toHaveAttribute("height", "48");
+    const spinner = container.querySelector(".animate-spin");
+    expect(spinner).toHaveStyle({ width: "48px", height: "48px" });
   });
 
   it("should render with custom className", () => {
@@ -41,8 +40,7 @@ describe("LoadingSpinner", () => {
   it("should use default size when not provided", () => {
     const { container } = render(<LoadingSpinner />);
 
-    const spinner = container.querySelector("svg");
-    expect(spinner).toHaveAttribute("width", "24");
-    expect(spinner).toHaveAttribute("height", "24");
+    const spinner = container.querySelector(".animate-spin");
+    expect(spinner).toHaveStyle({ width: "24px", height: "24px" });
   });
 });

@@ -179,6 +179,22 @@ describe("MigrationService", () => {
       expect(restored).toBeNull();
     });
 
+    it("should restore a backup persisted in a previous session", () => {
+      const data: MigratableAppData = {
+        version: "1.0.0",
+        tasks: [],
+        projects: [{ id: "p1", name: "Test", type: "folder" }],
+      };
+
+      const backupId = service.createBackup(data);
+
+      // Simulate a fresh session: a new service instance hydrates from storage.
+      const reloaded = new MigrationService();
+      const restored = reloaded.restoreBackup(backupId);
+
+      expect(restored).toEqual(data);
+    });
+
     it("should return a deep copy (not reference)", () => {
       const data: MigratableAppData = {
         version: "1.0.0",

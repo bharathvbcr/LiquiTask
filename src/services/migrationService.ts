@@ -33,11 +33,16 @@ export class MigrationService {
     try {
       const stored = localStorage.getItem(STORAGE_KEYS.BACKUPS);
       if (stored) {
-        // Only metadata is persisted — actual backup data is kept in-memory only
-        const parsed = JSON.parse(stored) as Array<{ id: string; info: BackupInfo }>;
+        // `data` is optional for backward compatibility with older entries (and
+        // quota-fallback entries) that only persisted metadata.
+        const parsed = JSON.parse(stored) as Array<{
+          id: string;
+          info: BackupInfo;
+          data?: MigratableAppData;
+        }>;
         parsed.forEach((backup) => {
           this.backups.set(backup.id, {
-            data: {} as MigratableAppData,
+            data: (backup.data ?? {}) as MigratableAppData,
             info: {
               ...backup.info,
               timestamp: new Date(backup.info.timestamp),
@@ -51,15 +56,28 @@ export class MigrationService {
   }
 
   private saveBackupsToStorage(): void {
+    // Persist the full backup payload so backups remain restorable across
+    // sessions. Task/project data already lives in localStorage via the storage
+    // service fallback, so this introduces no new exposure. (Sensitive keys such
+    // as API credentials are never part of MigratableAppData.)
+    const fullArray = Array.from(this.backups.entries()).map(([id, { info, data }]) => ({
+      id,
+      info,
+      data,
+    }));
     try {
-      // Only persist backup metadata — never write task/project data to localStorage
-      const backupArray = Array.from(this.backups.entries()).map(([id, { info }]) => ({
-        id,
-        info,
-      }));
-      localStorage.setItem(STORAGE_KEYS.BACKUPS, JSON.stringify(backupArray));
+      localStorage.setItem(STORAGE_KEYS.BACKUPS, JSON.stringify(fullArray));
     } catch (error) {
-      console.error("Failed to save backups to storage:", error);
+      // Most likely a quota error from large payloads. Fall back to persisting
+      // metadata only so the backup list still survives; the in-memory copies
+      // remain restorable for the current session.
+      console.error("Failed to persist full backups; storing metadata only:", error);
+      try {
+        const metadataOnly = fullArray.map(({ id, info }) => ({ id, info }));
+        localStorage.setItem(STORAGE_KEYS.BACKUPS, JSON.stringify(metadataOnly));
+      } catch (metaError) {
+        console.error("Failed to save backups to storage:", metaError);
+      }
     }
   }
 

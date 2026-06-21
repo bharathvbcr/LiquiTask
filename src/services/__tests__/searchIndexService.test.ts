@@ -220,12 +220,12 @@ describe("SearchIndexService", () => {
   });
 
   it("should load persisted semantic keywords when rebuilding the index", () => {
-    localStorage.setItem(
-      STORAGE_KEYS.AI_SEMANTIC_CACHE,
-      JSON.stringify({
-        "1": ["interface", "ux"],
-      }),
-    );
+    // AI_SEMANTIC_CACHE is a sensitive key, so it is never read from plaintext
+    // localStorage — seed it through storageService (cache) using the current
+    // persisted shape: { [taskId]: { keywords, timestamp } }.
+    storageService.set(STORAGE_KEYS.AI_SEMANTIC_CACHE, {
+      "1": { keywords: ["interface", "ux"], timestamp: Date.now() },
+    });
 
     service.buildIndex(mockTasks);
 

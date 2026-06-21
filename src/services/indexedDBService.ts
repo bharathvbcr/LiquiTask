@@ -240,6 +240,47 @@ export class IndexedDBService {
   }
 
   /**
+   * Get all archived tasks
+   */
+  async getAllArchivedTasks(): Promise<Task[]> {
+    if (!this.db) return [];
+    return this.getAll("archivedTasks") as Promise<Task[]>;
+  }
+
+  /**
+   * Replace the entire archived-tasks set atomically (clear + bulk put in one
+   * transaction) so the store always reflects the caller's full array.
+   */
+  async saveArchivedTasks(tasks: Task[]): Promise<void> {
+    const db = this.db;
+    if (!db) return;
+    return new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction(["archivedTasks"], "readwrite");
+      const store = transaction.objectStore("archivedTasks");
+
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () =>
+        reject(transaction.error ?? new DOMException("Transaction aborted", "AbortError"));
+
+      const fail = () => {
+        try {
+          transaction.abort();
+        } catch {
+          // Transaction may already be aborting; rejection is handled above.
+        }
+      };
+
+      // Requests run in issue order within a transaction, so clear() completes
+      // before the puts are applied.
+      store.clear().onerror = fail;
+      for (const task of tasks) {
+        store.put(this.serializeDates(task)).onerror = fail;
+      }
+    });
+  }
+
+  /**
    * Get all projects
    */
   async getAllProjects(): Promise<Project[]> {

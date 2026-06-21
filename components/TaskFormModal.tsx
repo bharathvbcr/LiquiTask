@@ -388,7 +388,13 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
     const newTasks = extractedTasks.map((et) => {
       let parsedDate: Date | undefined;
       if (et.dueDate) {
-        parsedDate = new Date(et.dueDate);
+        // Parse a date-only value as LOCAL midnight (matching the manual form
+        // path) so AI-extracted due dates land on the correct calendar day
+        // regardless of timezone.
+        const dateOnly = /^(\d{4})-(\d{2})-(\d{2})/.exec(et.dueDate);
+        parsedDate = dateOnly
+          ? new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]))
+          : new Date(et.dueDate);
       }
 
       return {

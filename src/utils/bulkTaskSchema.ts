@@ -147,7 +147,13 @@ export function validateBulkTasks(jsonString: string): ValidationResult {
           error: `${prefix}: "dueDate" must be a date string (YYYY-MM-DD).`,
         };
       }
-      const parsed = new Date(taskObj.dueDate);
+      // Parse a date-only string (YYYY-MM-DD) as LOCAL midnight to match the
+      // rest of the app (task form, bulk actions). new Date("YYYY-MM-DD") would
+      // parse as UTC midnight, shifting the day in negative-offset timezones.
+      const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(taskObj.dueDate.trim());
+      const parsed = dateOnly
+        ? new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]))
+        : new Date(taskObj.dueDate);
       if (Number.isNaN(parsed.getTime())) {
         return {
           valid: false,

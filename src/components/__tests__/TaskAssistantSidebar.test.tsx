@@ -93,25 +93,13 @@ describe("TaskAssistantSidebar Component", () => {
   });
 
   it("shows global workspace context when the active project has no linked folders", async () => {
-    Object.defineProperty(window, "electronAPI", {
-      configurable: true,
-      writable: true,
-      value: {
-        workspace: {
-          getPaths: vi.fn().mockResolvedValue(["C:/repos/liquitask"]),
-          selectDirectory: vi.fn(),
-          setPaths: vi.fn(),
-          readFile: vi.fn(),
-          writeFile: vi.fn(),
-          searchFiles: vi.fn(),
-        },
-      },
-    });
-
+    // Global workspace paths are now provided via the globalPaths prop (lifted
+    // state) rather than fetched from electronAPI inside the component.
     render(
       <TaskAssistantSidebar
         {...defaultProps}
         activeProject={{ id: "project-1", name: "Compiler Work", type: "default" }}
+        globalPaths={["C:/repos/liquitask"]}
       />,
     );
 

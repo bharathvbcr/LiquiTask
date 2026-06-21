@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CustomFieldDefinition, Task } from "../../../types";
-import { exportService } from "../exportService";
+import { DEFAULT_CSV_COLUMNS, exportService } from "../exportService";
 
 describe("exportService", () => {
   beforeEach(() => {
@@ -33,8 +33,8 @@ describe("exportService", () => {
       },
     ];
 
-    it("should export tasks to CSV format", () => {
-      const csv = exportService.exportToCSV(mockTasks);
+    it("should export tasks to CSV format (full columns include PII)", () => {
+      const csv = exportService.exportToCSV(mockTasks, DEFAULT_CSV_COLUMNS);
 
       expect(csv).toContain("Title");
       expect(csv).toContain("Test Task");
@@ -42,23 +42,34 @@ describe("exportService", () => {
       expect(csv).toContain("high");
     });
 
-    it("should include all default columns", () => {
+    it("should default to sanitised columns that exclude PII", () => {
       const csv = exportService.exportToCSV(mockTasks);
       const lines = csv.split("\n");
       const headers = lines[0].split(",");
 
-      expect(headers).toContain("Id");
+      // Safe-for-sharing columns are present...
       expect(headers).toContain("Title");
       expect(headers).toContain("Status");
       expect(headers).toContain("Priority");
+      expect(headers).toContain("Due Date");
+      // ...while internal IDs and PII are excluded by default.
+      expect(headers).not.toContain("Id");
+      expect(headers).not.toContain("Assignee");
+      expect(csv).not.toContain("John Doe");
+    });
+
+    it("should expose PII columns only when explicitly requested", () => {
+      const csv = exportService.exportToCSV(mockTasks, DEFAULT_CSV_COLUMNS);
+      const headers = csv.split("\n")[0].split(",");
+
+      expect(headers).toContain("Id");
       expect(headers).toContain("Assignee");
     });
 
     it("should format dates correctly", () => {
-      const csv = exportService.exportToCSV(mockTasks);
-
-      expect(csv).toContain("2024-01-01");
-      expect(csv).toContain("2024-01-15");
+      // dueDate is a sanitised (default) column; createdAt is PII (opt-in).
+      expect(exportService.exportToCSV(mockTasks)).toContain("2024-01-15");
+      expect(exportService.exportToCSV(mockTasks, DEFAULT_CSV_COLUMNS)).toContain("2024-01-01");
     });
 
     it("should format tags as semicolon-separated", () => {
@@ -120,7 +131,8 @@ describe("exportService", () => {
     it("should use project map for project names", () => {
       const projectMap = new Map<string, string>([["p1", "Project One"]]);
 
-      const csv = exportService.exportToCSV(mockTasks, undefined, projectMap);
+      // projectId is a PII/opt-in column, so request the full column set.
+      const csv = exportService.exportToCSV(mockTasks, DEFAULT_CSV_COLUMNS, projectMap);
 
       expect(csv).toContain("Project One");
     });

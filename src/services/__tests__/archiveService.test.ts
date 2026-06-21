@@ -54,20 +54,22 @@ describe("ArchiveService", () => {
     expect(storageService.get).toHaveBeenCalledWith("liquitask-archived-tasks", []);
   });
 
-  it("should archive tasks based on config (archiveCompleted)", async () => {
+  it("should archive completed tasks older than the configured grace period", async () => {
     const config: ArchiveConfig = {
-      autoArchiveAfterDays: 30,
+      autoArchiveAfterDays: 5,
       archiveCompleted: true,
       archiveStorage: "localStorage",
     };
 
+    // Only Task 1 is completed AND older than 5 days. Task 3 is completed but
+    // recent (within the grace period); Task 2 is not completed.
     const activeTasks = await service.archiveTasks(mockTasks, config);
-    expect(activeTasks).toHaveLength(1); // Only Task 2 remains
-    expect(activeTasks[0].id).toBe("2");
-    expect(await service.getAllArchived()).toHaveLength(2); // Task 1 and 3 archived
+    expect(activeTasks).toHaveLength(2); // Task 2 and Task 3 remain
+    expect(activeTasks.map((t) => t.id).sort()).toEqual(["2", "3"]);
+    expect(await service.getAllArchived()).toHaveLength(1); // Task 1 archived
   });
 
-  it("should archive tasks based on age", async () => {
+  it("should not archive anything when archiveCompleted is disabled", async () => {
     const config: ArchiveConfig = {
       autoArchiveAfterDays: 5,
       archiveCompleted: false,
@@ -75,8 +77,8 @@ describe("ArchiveService", () => {
     };
 
     const activeTasks = await service.archiveTasks(mockTasks, config);
-    expect(activeTasks).toHaveLength(2); // Task 2 and 3 remain
-    expect(await service.getAllArchived()).toHaveLength(1); // Only Task 1 (10 days old) archived
+    expect(activeTasks).toHaveLength(3); // Nothing archived
+    expect(await service.getAllArchived()).toHaveLength(0);
   });
 
   it("should search archived tasks", async () => {
