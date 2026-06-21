@@ -250,7 +250,9 @@ describe("exportService", () => {
       expect(captured).toContain("BEGIN:VCALENDAR");
       expect(captured).toContain("BEGIN:VTODO");
       expect(captured).toContain("UID:task-1@liquitask");
-      expect(captured).toContain("DUE:20240115T093000Z");
+      // Due dates are emitted as RFC 5545 VALUE=DATE (local day), not a UTC
+      // timestamp, so a date-only due date is not shifted across timezones.
+      expect(captured).toContain("DUE;VALUE=DATE:20240115");
       expect(captured).toContain("SUMMARY:Test Task");
       expect(captured).toContain("END:VTODO");
       expect(captured).toContain("END:VCALENDAR");

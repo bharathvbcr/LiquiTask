@@ -393,7 +393,7 @@ ipcMain.handle("selectWorkspaceDirectory", async (event) => {
 ipcMain.handle("getWorkspacePaths", async (event) => {
   assertTrustedSender(event); // fix #8
   const data = await readStorage();
-  return (data.workspacePaths as string[]) || [];
+  return safeWorkspacePaths(data);
 });
 
 /** Validate a renderer-supplied workspace path array (fix #5) */
@@ -415,6 +415,18 @@ const validateWorkspacePaths = (paths: unknown): string[] => {
 
     return p;
   });
+};
+
+/**
+ * Safely extract the stored workspace path list. Storage is untrusted (it can be
+ * hand-edited or corrupted), so a bare `as string[]` cast can yield non-string
+ * entries that later crash path.normalize() inside the authorization checks.
+ * Filter to strings defensively. (fix: unvalidated workspace paths from storage)
+ */
+const safeWorkspacePaths = (data: Record<string, unknown>): string[] => {
+  const paths = data.workspacePaths;
+  if (!Array.isArray(paths)) return [];
+  return paths.filter((p): p is string => typeof p === "string");
 };
 
 ipcMain.handle("setWorkspacePaths", async (event, paths: string[]) => {
@@ -501,7 +513,7 @@ const createSnippet = (content: string, query: string) => {
 ipcMain.handle("readWorkspaceFile", async (event, filePath: string, requestedScopePaths?: string[]) => {
   assertTrustedSender(event); // fix #8
   const data = await readStorage();
-  const paths = resolveWorkspaceScope((data.workspacePaths as string[]) || [], requestedScopePaths);
+  const paths = resolveWorkspaceScope(safeWorkspacePaths(data), requestedScopePaths);
 
   if (!isWorkspaceTextFile(filePath)) {
     throw new Error(`Workspace file reads are limited to supported text/source files: ${filePath}`);
@@ -530,10 +542,7 @@ ipcMain.handle(
   async (event, filePath: string, content: string, requestedScopePaths?: string[]) => {
     assertTrustedSender(event); // fix #8
     const data = await readStorage();
-    const paths = resolveWorkspaceScope(
-      (data.workspacePaths as string[]) || [],
-      requestedScopePaths,
-    );
+    const paths = resolveWorkspaceScope(safeWorkspacePaths(data), requestedScopePaths);
 
     if (!isWorkspaceTextFile(filePath)) {
       throw new Error(
@@ -627,7 +636,7 @@ async function findWorkspaceFileMatches(
 ipcMain.handle("searchWorkspaceFiles", async (event, query: string, requestedScopePaths?: string[]) => {
   assertTrustedSender(event); // fix #8
   const data = await readStorage();
-  const paths = resolveWorkspaceScope((data.workspacePaths as string[]) || [], requestedScopePaths);
+  const paths = resolveWorkspaceScope(safeWorkspacePaths(data), requestedScopePaths);
   const normalizedQuery = query.trim().toLowerCase();
   if (normalizedQuery.length < 2) {
     return [];

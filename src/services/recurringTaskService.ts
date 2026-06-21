@@ -184,11 +184,6 @@ export class RecurringTaskService {
         break;
     }
 
-    const endDate = config.endDate ? new Date(config.endDate) : null;
-    if (endDate && next > endDate) {
-      return next;
-    }
-
     return next;
   }
 
@@ -207,10 +202,14 @@ export class RecurringTaskService {
     if (!task.recurring?.enabled) return;
 
     const nextOccurrence = this.calculateNextOccurrence(task.recurring);
+    // Stop recurring once the next occurrence would fall past the configured end date.
+    const endDate = task.recurring.endDate ? new Date(task.recurring.endDate) : null;
+    const pastEnd = endDate !== null && nextOccurrence > endDate;
     this.onUpdateTask(task.id, {
       recurring: {
         ...task.recurring,
-        nextOccurrence,
+        nextOccurrence: pastEnd ? undefined : nextOccurrence,
+        enabled: pastEnd ? false : task.recurring.enabled,
       },
     });
   }

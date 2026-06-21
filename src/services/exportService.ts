@@ -131,13 +131,18 @@ class ExportService {
 
   // Escape a value for CSV (handle commas, quotes, newlines)
   private escapeCSV(value: string): string {
-    if (/^[=+\-@\t\r]/.test(value)) {
-      value = "'" + value;
+    // Defend against CSV/formula injection: a leading formula character causes
+    // spreadsheet apps to evaluate the cell. Prefix with a single quote so the
+    // value is treated as literal text. (RFC double-quote wrapping alone does
+    // NOT neutralize this — the apostrophe prefix is the actual defense.)
+    const isFormula = /^[=+\-@\t\r]/.test(value);
+    const escaped = isFormula ? `'${value}` : value;
+    // Quote-wrap per RFC 4180 for structural characters, and also whenever a
+    // formula prefix was added so the neutralization survives every parser.
+    if (isFormula || escaped.includes(",") || escaped.includes('"') || escaped.includes("\n")) {
+      return `"${escaped.replace(/"/g, '""')}"`;
     }
-    if (value.includes(",") || value.includes('"') || value.includes("\n")) {
-      return `"${value.replace(/"/g, '""')}"`;
-    }
-    return value;
+    return escaped;
   }
 
   // Generate JSON export
@@ -282,12 +287,15 @@ Generated: {{date}}
       if (!task.dueDate) return;
 
       const dueDate = new Date(task.dueDate);
-      const dueDateStr = this.formatICSDate(dueDate);
+      // Due dates are stored as local-midnight, date-only values. Emit them as
+      // RFC 5545 VALUE=DATE so calendar apps keep the user's intended day
+      // instead of shifting it by the UTC offset (toISOString() would do that).
+      const dueDateStr = this.formatICSDateOnly(dueDate);
 
       icsLines.push("BEGIN:VTODO");
       icsLines.push(`UID:${task.id}@liquitask`);
       icsLines.push(`DTSTAMP:${this.formatICSDate(new Date())}`);
-      icsLines.push(`DUE:${dueDateStr}`);
+      icsLines.push(`DUE;VALUE=DATE:${dueDateStr}`);
       icsLines.push(`SUMMARY:${this.escapeICS(task.title)}`);
       if (task.summary) {
         icsLines.push(`DESCRIPTION:${this.escapeICS(task.summary)}`);
@@ -314,6 +322,15 @@ Generated: {{date}}
   // Format a date as an ICS UTC timestamp (e.g. 20240115T093000Z)
   private formatICSDate(date: Date): string {
     return `${date.toISOString().replace(/[-:]/g, "").split(".")[0]}Z`;
+  }
+
+  // Format a date as an RFC 5545 DATE value (YYYYMMDD) using local components,
+  // so a date-only due date is not shifted across days by timezone conversion.
+  private formatICSDateOnly(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}${month}${day}`;
   }
 
   // Map a task priority to the iCal PRIORITY scale (1 = highest, 9 = lowest).

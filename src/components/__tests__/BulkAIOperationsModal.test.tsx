@@ -1,7 +1,12 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ConfirmationProvider } from "../../contexts/ConfirmationContext";
 import { aiService } from "../../services/aiService";
 import { BulkAIOperationsModal } from "../BulkAIOperationsModal";
+
+const renderWithConfirmation = (ui: ReactElement) =>
+  render(<ConfirmationProvider>{ui}</ConfirmationProvider>);
 
 // Mock services
 vi.mock("../../services/aiService", () => ({
@@ -42,7 +47,7 @@ describe("BulkAIOperationsModal", () => {
 
   it("renders correctly", async () => {
     await act(async () => {
-      render(
+      renderWithConfirmation(
         <BulkAIOperationsModal
           isOpen={true}
           onClose={vi.fn()}
@@ -65,7 +70,7 @@ describe("BulkAIOperationsModal", () => {
     ]);
 
     await act(async () => {
-      render(
+      renderWithConfirmation(
         <BulkAIOperationsModal
           isOpen={true}
           onClose={vi.fn()}

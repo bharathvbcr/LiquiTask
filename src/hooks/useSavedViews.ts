@@ -66,7 +66,7 @@ export function useSavedViews() {
       setViews((prev) => [...prev, newView]);
       return newView;
     },
-    [views.length],
+    [views],
   );
 
   // Update an existing view

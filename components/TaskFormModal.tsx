@@ -1651,7 +1651,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 transition-colors border border-white/10 rounded-xl text-slate-300 transition-colors border border-white/5"
+                      className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 transition-colors border border-white/5"
                       aria-label="Upload file"
                     >
                       <Upload size={18} aria-hidden="true" />

@@ -6,6 +6,7 @@ import logo from "../src/assets/logo.png";
 import { useKeybinding } from "../src/context/KeybindingContext";
 import storageService from "../src/services/storageService";
 import { generateTemplateBlob, validateBulkTasks } from "../src/utils/bulkTaskSchema";
+import { validateAndTransformImportedData } from "../src/utils/validation";
 import type {
   BoardColumn,
   CustomFieldDefinition,
@@ -166,9 +167,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     try {
       setIsImporting(true);
       setImportError("");
-      const data = JSON.parse(importText);
-      if (!data || typeof data !== "object") throw new Error("Invalid JSON");
-      onImportData(data);
+      const parsed = JSON.parse(importText);
+      // Validate the full backup against the app data schema (and coerce date
+      // strings to Date objects) instead of trusting arbitrary JSON. Throws with
+      // a descriptive message on a malformed structure.
+      const data = validateAndTransformImportedData(parsed);
+      if (!data) throw new Error("Invalid or empty backup file.");
+      onImportData(data as ImportedData);
       addToast("Imported", "success");
       setImportText("");
       onClose();
@@ -184,14 +189,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     try {
       setIsBulkImporting(true);
       setBulkImportError("");
-      const parsed = JSON.parse(bulkTasksJson);
       const val = validateBulkTasks(bulkTasksJson);
-      if (!val.valid) {
+      if (!val.valid || !val.tasks) {
         setBulkImportError(val.error || "Failed");
         return;
       }
-      onBulkCreateTasks(parsed.tasks);
-      addToast(`Imported ${parsed.tasks.length} tasks`, "success");
+      // Use the validated/sanitized tasks, not the raw parsed input.
+      onBulkCreateTasks(val.tasks);
+      // Surface any non-fatal warnings (e.g. dropped non-string tags) to the user.
+      if (val.warnings) {
+        for (const warning of val.warnings) addToast(warning, "warning");
+      }
+      addToast(`Imported ${val.tasks.length} tasks`, "success");
       setBulkTasksJson("");
       onClose();
     } catch (e) {

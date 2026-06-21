@@ -1,5 +1,5 @@
 import type { MutableRefObject } from "react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   ActivityItem,
   ActivityType,
@@ -128,6 +128,15 @@ export const useTaskController = ({
   const [canUndo, setCanUndo] = useState(false);
   const MAX_UNDO = 20;
   const autoPilotRunIdsRef = useRef<Map<string, number>>(new Map());
+  // Tracks mount status so deferred async resolutions (e.g. auto-pilot subtask
+  // generation) do not call setTasks after the host component has unmounted.
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const augmentTaskSemantically = useCallback(
     async (task: Task) => {
@@ -655,6 +664,7 @@ export const useTaskController = ({
         currentAiService
           .generateSubtasks(updatedTask.title, updatedTask.summary)
           .then((subtaskTitles) => {
+            if (!isMountedRef.current) return;
             if (autoPilotRunIdsRef.current.get(taskId) !== capturedRunId) return;
             autoPilotRunIdsRef.current.delete(taskId);
             if (subtaskTitles.length > 0) {

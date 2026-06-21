@@ -292,10 +292,13 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     [executeAction, filteredActions, onClose, selectedIndex],
   );
 
-  // Reset selection when filtered results change
+  // Reset selection when filtered results change. filteredActions is listed as a
+  // dependency intentionally to re-run on every result change, even though the
+  // effect body does not read it directly.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional reset-on-change trigger
   useEffect(() => {
     setSelectedIndex(0);
-  }, []);
+  }, [filteredActions]);
 
   if (!isOpen) return null;
 

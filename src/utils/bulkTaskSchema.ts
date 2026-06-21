@@ -167,6 +167,10 @@ export function validateBulkTasks(jsonString: string): ValidationResult {
         };
       }
       tags = taskObj.tags.filter((t): t is string => typeof t === "string");
+      const droppedTags = taskObj.tags.length - tags.length;
+      if (droppedTags > 0) {
+        warnings.push(`${prefix}: Dropped ${droppedTags} non-string tag(s).`);
+      }
     }
 
     // Validate timeEstimate if provided

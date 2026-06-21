@@ -1,7 +1,12 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ConfirmationProvider } from "../../contexts/ConfirmationContext";
 import { taskCleanupService } from "../../services/taskCleanupService";
 import { AIMergeDuplicatesModal } from "../AIMergeDuplicatesModal";
+
+const renderWithConfirmation = (ui: ReactElement) =>
+  render(<ConfirmationProvider>{ui}</ConfirmationProvider>);
 
 // Mock taskCleanupService
 vi.mock("../../services/taskCleanupService", () => ({
@@ -42,7 +47,7 @@ describe("AIMergeDuplicatesModal", () => {
     });
 
     await act(async () => {
-      render(
+      renderWithConfirmation(
         <AIMergeDuplicatesModal
           isOpen={true}
           onClose={vi.fn()}
@@ -76,7 +81,7 @@ describe("AIMergeDuplicatesModal", () => {
     });
 
     await act(async () => {
-      render(
+      renderWithConfirmation(
         <AIMergeDuplicatesModal
           isOpen={true}
           onClose={vi.fn()}
@@ -104,6 +109,12 @@ describe("AIMergeDuplicatesModal", () => {
       fireEvent.click(applyBtn);
     });
 
-    expect(mockOnUpdateTask).toHaveBeenCalled();
+    // A confirmation dialog now gates the destructive merge; confirm it.
+    const confirmBtn = await screen.findByRole("button", { name: "Merge" });
+    await act(async () => {
+      fireEvent.click(confirmBtn);
+    });
+
+    await waitFor(() => expect(mockOnUpdateTask).toHaveBeenCalled());
   });
 });

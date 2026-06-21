@@ -13,9 +13,10 @@ import {
   Zap,
 } from "lucide-react";
 import type React from "react";
-import { useMemo, useRef, useState } from "react";
+import { useState } from "react";
 import type { AIContext, PriorityDefinition, Project, Task } from "../../types";
 import { STORAGE_KEYS } from "../constants";
+import { useConfirmation } from "../contexts/ConfirmationContext";
 import { aiService } from "../services/aiService";
 import storageService from "../services/storageService";
 import { taskCleanupService } from "../services/taskCleanupService";
@@ -35,6 +36,8 @@ interface AIOperation {
   description: string;
   icon: React.ReactNode;
   color: string;
+  // Operations that archive tasks need an explicit confirmation before running.
+  destructive?: boolean;
   run: () => Promise<{ success: number; skipped: number; message: string }>;
 }
 
@@ -51,6 +54,7 @@ export const BulkAIOperationsModal: React.FC<BulkAIOperationsModalProps> = ({
     Record<string, { success: number; skipped: number; message: string } | null>
   >({});
   const [_selectedTasks, _setSelectedTasks] = useState<Set<string>>(new Set());
+  const { confirm } = useConfirmation();
 
   if (!isOpen) return null;
 
@@ -68,6 +72,7 @@ export const BulkAIOperationsModal: React.FC<BulkAIOperationsModalProps> = ({
       description: "Scan all tasks for duplicates and suggest merges",
       icon: <Merge size={20} />,
       color: "text-blue-400 bg-blue-500/10 border-blue-500/20",
+      destructive: true,
       run: async () => {
         const duplicates = await taskCleanupService.detectDuplicates(allTasks);
         let success = 0;
@@ -145,6 +150,7 @@ export const BulkAIOperationsModal: React.FC<BulkAIOperationsModalProps> = ({
       description: "Find and archive stale, subset, or completed-overlap tasks",
       icon: <Trash2 size={20} />,
       color: "text-red-400 bg-red-500/10 border-red-500/20",
+      destructive: true,
       run: async () => {
         const analyses = await taskCleanupService.analyzeRedundancy(allTasks);
         let success = 0;
@@ -203,6 +209,16 @@ export const BulkAIOperationsModal: React.FC<BulkAIOperationsModalProps> = ({
 
   const runOperation = async (op: AIOperation) => {
     if (runningOperation) return;
+    if (op.destructive) {
+      const ok = await confirm({
+        title: `Run "${op.name}"?`,
+        message:
+          "This analyzes your tasks with AI and may archive multiple tasks automatically. Archived tasks can be restored from the Archive view, but this is not undoable with Ctrl+Z.",
+        confirmText: "Run",
+        variant: "warning",
+      });
+      if (!ok) return;
+    }
     setRunningOperation(op.id);
     try {
       const result = await op.run();
@@ -328,8 +344,9 @@ export const BulkAIOperationsModal: React.FC<BulkAIOperationsModalProps> = ({
               <div>
                 <p className="text-xs font-medium text-amber-300">Important</p>
                 <p className="text-[10px] text-amber-400/80 mt-0.5">
-                  AI operations modify your tasks. Use the undo feature (Ctrl+Z) to revert changes.
-                  Results depend on AI provider quality and task data.
+                  AI operations modify your tasks. Edits can be reverted with undo (Ctrl+Z), but
+                  archived tasks are not — restore them from the Archive view. Results depend on AI
+                  provider quality and task data.
                 </p>
               </div>
             </div>

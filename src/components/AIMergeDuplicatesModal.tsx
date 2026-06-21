@@ -3,7 +3,28 @@ import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 import { ModalWrapper } from "../../components/ModalWrapper";
 import type { DuplicateGroup, MergeSuggestion, Task } from "../../types";
+import { useConfirmation } from "../contexts/ConfirmationContext";
 import { taskCleanupService } from "../services/taskCleanupService";
+
+// The merged fields come from the AI provider and are untrusted. Whitelist only
+// the content fields that a merge may legitimately change, so a misbehaving model
+// can never overwrite identity/ownership fields (id, projectId, createdAt, …).
+const sanitizeMergedFields = (fields: Partial<Task>): Partial<Task> => {
+  const out: Partial<Task> = {};
+  if (typeof fields.title === "string") out.title = fields.title;
+  if (typeof fields.summary === "string") out.summary = fields.summary;
+  if (Array.isArray(fields.tags)) {
+    out.tags = fields.tags.filter((t): t is string => typeof t === "string");
+  }
+  if (Array.isArray(fields.subtasks)) out.subtasks = fields.subtasks;
+  if (typeof fields.timeEstimate === "number" && fields.timeEstimate >= 0) {
+    out.timeEstimate = fields.timeEstimate;
+  }
+  if (typeof fields.timeSpent === "number" && fields.timeSpent >= 0) {
+    out.timeSpent = fields.timeSpent;
+  }
+  return out;
+};
 
 interface AIMergeDuplicatesModalProps {
   isOpen: boolean;
@@ -29,6 +50,7 @@ export const AIMergeDuplicatesModal: React.FC<AIMergeDuplicatesModalProps> = ({
   onArchiveTask,
   addToast,
 }) => {
+  const { confirm } = useConfirmation();
   const [groups, setGroups] = useState<MergeGroup[]>([]);
   const [loading, setLoading] = useState(false);
   const [applying, setApplying] = useState(false);
@@ -100,6 +122,16 @@ export const AIMergeDuplicatesModal: React.FC<AIMergeDuplicatesModalProps> = ({
       return;
     }
 
+    const confirmed = await confirm({
+      title: "Merge duplicate tasks?",
+      message: `This will merge ${approvedGroups.length} group${
+        approvedGroups.length > 1 ? "s" : ""
+      } and archive the duplicate tasks. This cannot be undone.`,
+      confirmText: "Merge",
+      variant: "warning",
+    });
+    if (!confirmed) return;
+
     setApplying(true);
     try {
       let successCount = 0;
@@ -110,8 +142,8 @@ export const AIMergeDuplicatesModal: React.FC<AIMergeDuplicatesModalProps> = ({
         try {
           await taskCleanupService.executeMerge(suggestion, onArchiveTask);
 
-          // Update the kept task with merged fields
-          onUpdateTask(suggestion.keepTaskId, suggestion.mergedFields);
+          // Update the kept task with the sanitized merged fields
+          onUpdateTask(suggestion.keepTaskId, sanitizeMergedFields(suggestion.mergedFields));
 
           successCount++;
         } catch (error) {

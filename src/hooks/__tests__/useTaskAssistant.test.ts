@@ -144,6 +144,7 @@ describe("useTaskAssistant Hook", () => {
         workspacePaths: ["C:/workspace/global-a", "D:/notes/global-b"],
       }),
       [],
+      expect.any(AbortSignal),
     );
     expect(result.current.messages.at(-1)?.content).toBe("I found a matching note.");
   });

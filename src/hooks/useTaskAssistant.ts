@@ -40,9 +40,17 @@ const getToolCallSignature = (toolCalls: ToolCall[]) =>
     })),
   );
 
-const withTimeout = <T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string) =>
+const withTimeout = <T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  timeoutMessage: string,
+  onTimeout?: () => void,
+) =>
   new Promise<T>((resolve, reject) => {
     const timeoutId = globalThis.setTimeout(() => {
+      // Abort the underlying request so it stops consuming resources, not just
+      // reject the wrapping promise.
+      onTimeout?.();
       reject(new Error(timeoutMessage));
     }, timeoutMs);
 
@@ -293,11 +301,18 @@ export const useTaskAssistant = ({
           if (isFirstTurn) setIsSearching(true);
 
           let response: Awaited<ReturnType<typeof aiService.generateAgentResponse>>;
+          const abortController = new AbortController();
           try {
             response = await withTimeout(
-              aiService.generateAgentResponse(currentConversation, effectiveContext, allTasks),
+              aiService.generateAgentResponse(
+                currentConversation,
+                effectiveContext,
+                allTasks,
+                abortController.signal,
+              ),
               AI_RESPONSE_TIMEOUT_MS,
               `The AI assistant timed out after ${Math.floor(AI_RESPONSE_TIMEOUT_MS / 1000)} seconds.`,
+              () => abortController.abort(),
             );
           } finally {
             if (isFirstTurn) setIsSearching(false);

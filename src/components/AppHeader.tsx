@@ -15,7 +15,7 @@ import {
   User,
 } from "lucide-react";
 import type React from "react";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import { LiquidButton } from "../../components/LiquidButton";
 import type { CustomFieldDefinition, FilterState, SavedView } from "../../types";
 
@@ -140,7 +140,19 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onToggleNaturalLanguageSearch,
   onOpenMobileNav,
   onToggleAssistant,
-}) => (
+}) => {
+  // Track the pending blur timeout so re-focusing the search input (e.g. after
+  // clicking a history item) can cancel it, preventing a stale timeout from
+  // closing the dropdown while the input is actually focused.
+  const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
+    },
+    [],
+  );
+
+  return (
   <header
     className={`fixed top-14 z-50 overflow-hidden rounded-3xl border border-white/5 px-8 shadow-xl liquid-glass will-change-transform md:left-[104px] md:right-[72px] ${isHeaderExpanded ? "py-6 max-h-[600px]" : "py-4 max-h-24"} transition-[transform,padding,max-height] duration-[400ms] ease-[cubic-bezier(0.22,1,0.36,1)]`}
     style={{ transform: `translateX(${sidebarOffset}px)` }}
@@ -353,10 +365,19 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               value={searchQuery}
               onChange={(e) => onSearchQueryChange(e.target.value)}
               onFocus={() => {
+                if (blurTimeoutRef.current) {
+                  clearTimeout(blurTimeoutRef.current);
+                  blurTimeoutRef.current = null;
+                }
                 onSearchFocusChange(true);
                 onHeaderExpand(true);
               }}
-              onBlur={() => setTimeout(() => onSearchFocusChange(false), 200)}
+              onBlur={() => {
+                blurTimeoutRef.current = setTimeout(() => {
+                  onSearchFocusChange(false);
+                  blurTimeoutRef.current = null;
+                }, 200);
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && searchQuery.trim()) {
                   searchHistory.addToHistory(searchQuery.trim());
@@ -519,4 +540,5 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       </div>
     </div>
   </header>
-);
+  );
+};

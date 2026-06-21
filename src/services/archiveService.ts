@@ -51,7 +51,7 @@ export class ArchiveService {
    */
   private async moveToArchive(tasks: Task[]): Promise<void> {
     this.archivedTasks = [...this.archivedTasks, ...tasks];
-    storageService.set(ARCHIVE_STORAGE_KEY, this.archivedTasks);
+    await storageService.set(ARCHIVE_STORAGE_KEY, this.archivedTasks);
   }
 
   /**
@@ -89,7 +89,7 @@ export class ArchiveService {
   async unarchive(taskIds: string[]): Promise<Task[]> {
     const toUnarchive = this.archivedTasks.filter((t) => taskIds.includes(t.id));
     this.archivedTasks = this.archivedTasks.filter((t) => !taskIds.includes(t.id));
-    storageService.set(ARCHIVE_STORAGE_KEY, this.archivedTasks);
+    await storageService.set(ARCHIVE_STORAGE_KEY, this.archivedTasks);
     return toUnarchive;
   }
 
@@ -98,7 +98,7 @@ export class ArchiveService {
    */
   async deleteArchived(taskIds: string[]): Promise<void> {
     this.archivedTasks = this.archivedTasks.filter((t) => !taskIds.includes(t.id));
-    storageService.set(ARCHIVE_STORAGE_KEY, this.archivedTasks);
+    await storageService.set(ARCHIVE_STORAGE_KEY, this.archivedTasks);
   }
 
   /**

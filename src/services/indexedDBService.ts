@@ -218,9 +218,14 @@ export class IndexedDBService {
       tasks.forEach((task) => {
         const request = store.put(this.serializeDates(task));
         request.onerror = () => {
-          // Individual record error — the transaction will also fire onerror,
-          // but surface the per-record error for better diagnostics.
-          reject(request.error);
+          // Abort the whole transaction on the first record error so the batch
+          // is atomic — no subset of tasks is committed. The transaction-level
+          // onabort/onerror handlers above perform the rejection.
+          try {
+            transaction.abort();
+          } catch {
+            // Transaction may already be aborting; rejection is handled above.
+          }
         };
       });
     });

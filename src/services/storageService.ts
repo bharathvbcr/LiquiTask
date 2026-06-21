@@ -192,7 +192,10 @@ class StorageService {
    */
   private async runDataMigrations(): Promise<void> {
     const currentData = this.getAllData() as MigratableAppData;
-    const storedVersion = currentData.version || "0.0.0";
+    // getAllData() does not surface the persisted schema version, so read it
+    // directly — otherwise storedVersion is always "0.0.0" and migrations are
+    // re-evaluated on every launch.
+    const storedVersion = this.get<string>(STORAGE_KEYS.DATA_VERSION, "0.0.0");
 
     // Check if migration is needed
     if (!migrationService.needsMigration(storedVersion)) {
@@ -307,7 +310,19 @@ class StorageService {
       }
     }
 
-    await Promise.all(asyncWrites.map((p) => p.catch(console.error)));
+    // Use allSettled so one backend failing (e.g. IndexedDB quota) does not hide
+    // failures in the others. Surface a consolidated, key-scoped error when any
+    // backend write rejects so partial divergence is observable rather than silent.
+    const results = await Promise.allSettled(asyncWrites);
+    const failures = results.filter(
+      (r): r is PromiseRejectedResult => r.status === "rejected",
+    );
+    if (failures.length > 0) {
+      console.error(
+        `Failed to persist "${key}" to ${failures.length} of ${asyncWrites.length} async backend(s):`,
+        ...failures.map((f) => f.reason),
+      );
+    }
   }
 
   remove(key: string): void {

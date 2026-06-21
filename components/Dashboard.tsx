@@ -157,10 +157,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
       onCreateTask(date);
     } else if (onEditTask) {
       // Fallback: create a new task with the date pre-filled
+      const projectId = activeProjectId || projects[0]?.id || "";
+      if (!projectId) {
+        console.warn("handleAddTask: no valid projectId available; task will be saved with empty projectId");
+      }
       const newTask: Task = {
         id: `temp-${Date.now()}`,
         jobId: "",
-        projectId: activeProjectId || projects[0]?.id || (console.warn("handleAddTask: no valid projectId available; task will be saved with empty projectId"), ""),
+        projectId,
         title: "",
         subtitle: "",
         summary: "",
