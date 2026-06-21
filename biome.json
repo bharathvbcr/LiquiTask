@@ -35,10 +35,13 @@
     }
   },
   "formatter": {
-    "enabled": true,
+    "enabled": false,
     "indentStyle": "space",
     "indentWidth": 2,
     "lineWidth": 100
+  },
+  "assist": {
+    "enabled": false
   },
   "files": {
     "ignoreUnknown": true,
