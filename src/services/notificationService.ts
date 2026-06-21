@@ -67,7 +67,9 @@ class NotificationService {
   cancelTaskReminder(taskId: string): void {
     const handles = this.taskReminderHandles.get(taskId);
     if (handles) {
-      handles.forEach((h) => clearTimeout(h));
+      handles.forEach((h) => {
+        clearTimeout(h);
+      });
       this.taskReminderHandles.delete(taskId);
     }
   }

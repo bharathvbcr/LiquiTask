@@ -2,7 +2,7 @@ import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { AlertOctagon, ClipboardList, Inbox } from "lucide-react";
-import React from "react";
+import type React from "react";
 import type { BoardColumn, PriorityDefinition, Project, Task } from "../../../types";
 import { useVirtualTaskList } from "../../hooks/useVirtualScroll";
 import { SortableTask } from "./SortableTask";

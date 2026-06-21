@@ -495,7 +495,7 @@ export class IndexedDBService {
         result[key] = value;
       } else if (DATE_FIELDS.has(key) && typeof value === "string" && value.length > 0) {
         const d = new Date(value);
-        result[key] = isNaN(d.getTime()) ? value : d;
+        result[key] = Number.isNaN(d.getTime()) ? value : d;
       } else {
         result[key] = this.deserializeDates(value);
       }
@@ -558,7 +558,7 @@ export class IndexedDBService {
         if (!cursor) return; // done — transaction.oncomplete fires next
 
         const record = cursor.value as Record<string, unknown>;
-        const completedAt = record["completedAt"];
+        const completedAt = record.completedAt;
         let recordTime: number | null = null;
 
         if (completedAt instanceof Date) {

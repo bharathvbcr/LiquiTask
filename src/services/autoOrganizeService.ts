@@ -583,11 +583,6 @@ class AutoOrganizeService {
     return { applied, rejected };
   }
 
-  private getTaskById(taskId: string): Task | undefined {
-    const tasks = storageService.get<Task[]>(STORAGE_KEYS.TASKS, []);
-    return tasks.find((t) => t.id === taskId);
-  }
-
   getHistory(): AutoOrganizeResult[] {
     return aiService.getOrganizeHistory();
   }

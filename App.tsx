@@ -358,10 +358,12 @@ const App: React.FC = () => {
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [nextTaskSuggestion, setNextTaskSuggestion] = useState<AISuggestion | null>(null);
 
-  const setAiAssistantOpen = (value: boolean | ((prev: boolean) => boolean)) => {
+  // isAiAssistantSidebarEnabled is a module-level constant (not reactive), so an
+  // empty dependency list keeps this callback stable across renders.
+  const setAiAssistantOpen = useCallback((value: boolean | ((prev: boolean) => boolean)) => {
     if (!isAiAssistantSidebarEnabled) return;
     setIsAssistantOpen(value);
-  };
+  }, []);
 
   // AI Settings
   const [aiSettings, setAiSettings] = useState({
@@ -1203,6 +1205,7 @@ const App: React.FC = () => {
     isFilterOpen,
     isSidebarCollapsed,
     projects,
+    setAiAssistantOpen,
     tasks,
   ]);
 

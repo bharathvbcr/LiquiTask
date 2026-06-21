@@ -61,8 +61,9 @@ export const AISubtaskSuggestionsModal: React.FC<AISubtaskSuggestionsModalProps>
       addToast("Failed to analyze subtask suggestions", "error");
       onClose();
     } finally {
-      if (!isMountedRef.current) return;
-      setLoading(false);
+      // Avoid a control-flow statement inside finally (which can mask a thrown
+      // error); only update state if still mounted.
+      if (isMountedRef.current) setLoading(false);
     }
   }, [allTasks, addToast, onClose]);
 
@@ -104,16 +105,16 @@ export const AISubtaskSuggestionsModal: React.FC<AISubtaskSuggestionsModalProps>
 
         if (!parentTask || !childTask) continue;
 
-        if (!byParent.has(parentTask.id)) {
+        let entry = byParent.get(parentTask.id);
+        if (!entry) {
           // Snapshot the original subtasks once per parent, not per iteration.
-          byParent.set(parentTask.id, {
+          entry = {
             parentSubtasks: [...parentTask.subtasks],
             newSubtasks: [],
             childIds: [],
-          });
+          };
+          byParent.set(parentTask.id, entry);
         }
-
-        const entry = byParent.get(parentTask.id)!;
         entry.newSubtasks.push({
           id: crypto.randomUUID(),
           title: childTask.title,

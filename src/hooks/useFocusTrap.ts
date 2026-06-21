@@ -10,7 +10,13 @@ const FOCUSABLE_SELECTORS = [
   "[contenteditable]",
 ].join(", ");
 
-export function useFocusTrap(isActive: boolean, containerRef: RefObject<HTMLElement | null>, onClose?: () => void) {
+export function useFocusTrap(
+  isActive: boolean,
+  containerRef: RefObject<HTMLElement | null>,
+  // Reserved for callers; focus restoration is handled here, Escape-to-close is
+  // owned by the host component.
+  _onClose?: () => void,
+) {
   const triggerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {

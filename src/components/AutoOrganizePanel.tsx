@@ -603,10 +603,10 @@ export const AutoOrganizePanel: React.FC<AutoOrganizePanelProps> = ({
           ].map((tab) => (
             <button
               key={tab.id}
-              id={tab.id + "-tab"}
+              id={`${tab.id}-tab`}
               role="tab"
               aria-selected={activeTab === tab.id}
-              aria-controls={tab.id + "-panel"}
+              aria-controls={`${tab.id}-panel`}
               onClick={() => setActiveTab(tab.id)}
               className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-medium transition-all border-b-2 ${
                 activeTab === tab.id
@@ -622,8 +622,8 @@ export const AutoOrganizePanel: React.FC<AutoOrganizePanelProps> = ({
 
         <div
           role="tabpanel"
-          id={activeTab + "-panel"}
-          aria-labelledby={activeTab + "-tab"}
+          id={`${activeTab}-panel`}
+          aria-labelledby={`${activeTab}-tab`}
           tabIndex={-1}
           className="overflow-y-auto flex-1 p-6">
           {activeTab === "configure" && renderConfigureTab()}

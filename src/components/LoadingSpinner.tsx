@@ -1,4 +1,3 @@
-import { Loader2 } from "lucide-react";
 import type React from "react";
 
 interface LoadingSpinnerProps {

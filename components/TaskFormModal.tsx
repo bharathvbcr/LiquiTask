@@ -529,16 +529,21 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
     setAttachments(attachments.filter((a) => a.id !== id));
   };
 
+  // Keep a ref to the latest attachments so the unmount cleanup revokes the
+  // blob URLs that actually exist at unmount time (a [] dependency would capture
+  // the initial, empty list and leak any blobs added during the session).
+  const attachmentsRef = useRef(attachments);
+  attachmentsRef.current = attachments;
+
   // Revoke all file-type blob URLs when the modal unmounts to prevent memory leaks
   useEffect(() => {
     return () => {
-      attachments.forEach((att) => {
+      attachmentsRef.current.forEach((att) => {
         if (att.type === "file") {
           URL.revokeObjectURL(att.url);
         }
       });
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Task Link Handlers
@@ -1765,7 +1770,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                       <span className="text-[10px] text-slate-500">
                         {(() => {
                           const ts = new Date(item.timestamp);
-                          return isNaN(ts.getTime()) ? "Unknown date" : ts.toLocaleString();
+                          return Number.isNaN(ts.getTime()) ? "Unknown date" : ts.toLocaleString();
                         })()}
                       </span>
                     </div>
