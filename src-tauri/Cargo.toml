@@ -1,0 +1,30 @@
+[package]
+name = "liquitask"
+version = "2.5.0"
+description = "A premium Kanban task management desktop app with a stunning liquid glass aesthetic"
+authors = ["LiquidTask <support@liquitask.com>"]
+edition = "2021"
+rust-version = "1.77"
+
+# The binary that boots the desktop app.
+[[bin]]
+name = "liquitask"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-single-instance = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Cross-platform canonicalize that does not emit Windows \\?\ verbatim prefixes,
+# so resolved paths stay comparable to the stored workspace allowlist.
+dunce = "1"
+
+[features]
+# This feature is used for production builds or when a dev server is not running.
+custom-protocol = ["tauri/custom-protocol"]

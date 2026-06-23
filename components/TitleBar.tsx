@@ -38,9 +38,12 @@ export const TitleBar: React.FC = () => {
   if (!isCustomWindow) return null;
 
   return (
-    <div className="fixed top-0 left-0 right-0 h-10 z-[100] flex items-center justify-between bg-[#0a0505]/95 backdrop-blur-md border-b border-white/5 titlebar-drag-region">
+    <div
+      data-tauri-drag-region
+      className="fixed top-0 left-0 right-0 h-10 z-[100] flex items-center justify-between bg-[#0a0505]/95 backdrop-blur-md border-b border-white/5 titlebar-drag-region"
+    >
       {/* App branding */}
-      <div className="flex items-center gap-3 px-4">
+      <div data-tauri-drag-region className="flex items-center gap-3 px-4">
         <img src={logo} alt="LiquiTask" className="w-5 h-5 object-contain" />
         <span className="text-sm font-semibold text-slate-200 tracking-wide">LiquiTask</span>
       </div>

@@ -26,18 +26,15 @@
     "components/**/*.tsx",
     "src/**/*.ts",
     "src/**/*.tsx",
-    "electron/**/*.ts",
-    "electron/**/*.cts",
     "vite.config.ts",
     "vitest.config.ts"
   ],
   "exclude": [
     "**/__tests__/**",
     "dist",
-    "dist-electron",
     "build",
-    "build-electrobun",
     "release",
+    "src-tauri",
     ".worktrees",
     "node_modules"
   ]

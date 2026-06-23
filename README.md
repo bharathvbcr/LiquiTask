@@ -1,7 +1,7 @@
 # LiquiTask
 
 LiquiTask is a desktop-first task management app built with React 19, TypeScript,
-Vite, and Electron. It combines a Liquid Glass interface with Kanban workflows,
+Vite, and Tauri 2. It combines a Liquid Glass interface with Kanban workflows,
 local-first persistence, automation rules, task search, recurring tasks, and
 optional AI assistance through Gemini or Ollama.
 
@@ -9,7 +9,7 @@ optional AI assistance through Gemini or Ollama.
 
 - **Kanban-first planning** with board, dashboard, Gantt, calendar, archive, and
   saved-view workflows.
-- **Local-first data ownership** through Electron native storage, IndexedDB, and
+- **Local-first data ownership** through Tauri native storage, IndexedDB, and
   localStorage fallback paths.
 - **AI task orchestration** for task extraction, refinement, breakdowns,
   metadata suggestions, duplicate detection, workspace-aware assistance, and
@@ -17,7 +17,8 @@ optional AI assistance through Gemini or Ollama.
 - **Automation rules** for task events and scheduled actions such as tagging,
   priority changes, moves, field updates, and notifications.
 - **Desktop integration** with custom window controls, system notifications,
-  single-instance protection, and a sandboxed Electron preload bridge.
+  single-instance protection, and a Tauri Rust backend exposed through a narrow
+  `window.desktopAPI` bridge.
 - **Power-user surfaces** including command palette, keyboard shortcuts, quick
   add, search history, custom fields, templates, import/export, and archive
   recovery.
@@ -34,8 +35,8 @@ optional AI assistance through Gemini or Ollama.
 | AI workflows   | Task extraction, refinement, subtask generation, metadata suggestions, duplicate detection, reorganization, project assignment, image analysis |
 | Productivity   | Command palette, global shortcuts, sidebar collapse, undo stack, bulk selection, bulk actions, virtualized lists                               |
 | Reporting      | Dashboard stats, risk analysis, time reporting, activity log records, CSV export                                                               |
-| Local data     | Native Electron JSON storage, IndexedDB mirroring, localStorage fallback, schema migrations, archive storage                                   |
-| Desktop        | Custom title bar, window controls, single-instance guard, system notifications, authorized workspace file access                               |
+| Local data     | Native Tauri JSON storage, IndexedDB mirroring, localStorage fallback, schema migrations, archive storage                                      |
+| Desktop        | Custom title bar, window controls, single-instance guard, system notifications, authorized workspace file access                              |
 
 ## App Surfaces
 
@@ -103,13 +104,13 @@ LiquiTask supports several capture paths:
 | Area          | Technology                                                                 |
 | ------------- | -------------------------------------------------------------------------- |
 | Renderer      | React 19, Vite 7, TypeScript, Tailwind CSS                                 |
-| Desktop shell | Electron 39 main/preload processes                                         |
+| Desktop shell | Tauri 2 (Rust backend, system WebView)                                     |
 | Type checking | TypeScript native preview (`tsgo`) plus TypeScript 6 tooling compatibility |
-| Persistence   | Electron JSON storage, IndexedDB, localStorage                             |
+| Persistence   | Tauri Rust JSON storage, IndexedDB, localStorage                          |
 | AI providers  | Google Gemini, Ollama                                                      |
-| Testing       | Vitest, Testing Library, jsdom, fake-indexeddb                             |
+| Testing       | Vitest, Testing Library, jsdom, fake-indexeddb; `cargo test` (Rust)        |
 | Linting       | Biome                                                                      |
-| Packaging     | electron-builder NSIS Windows installer                                    |
+| Packaging     | Tauri bundler NSIS Windows installer                                       |
 
 ## Project Diagram
 
@@ -120,10 +121,10 @@ flowchart LR
   Hooks --> Services["Domain services\nstorage, AI, automation,\nsearch, recurring, archive"]
   Services --> BrowserStore["Browser storage\nIndexedDB + localStorage"]
   Services --> Runtime["Runtime adapter\nsrc/runtime/runtimeEnvironment.ts"]
-  Runtime --> Preload["Electron preload\ncontextBridge electronAPI"]
-  Preload --> Main["Electron main\nwindow, storage, workspace IPC"]
-  Main --> NativeStore["User data JSON\nelectron-store.json"]
-  Main --> Workspace["Authorized markdown workspaces"]
+  Runtime --> Bridge["Tauri JS bridge\nwindow.desktopAPI via invoke()"]
+  Bridge --> Backend["Tauri Rust backend\nwindow, storage, workspace commands"]
+  Backend --> NativeStore["User data JSON\napp_data_dir/storage.json"]
+  Backend --> Workspace["Authorized text/source workspaces"]
   Services --> Providers["External or local AI\nGemini / Ollama"]
 ```
 
@@ -132,20 +133,19 @@ flowchart LR
 ```mermaid
 sequenceDiagram
   participant Dev as npm run dev
+  participant Tauri as Tauri CLI
   participant Vite as Vite dev server :4000
-  participant Electron as Electron main
-  participant Preload as preload bridge
+  participant Backend as Tauri Rust backend
   participant React as React app
   participant Storage as Storage services
 
-  Dev->>Vite: npm run dev:web
-  Dev->>Electron: npm run dev:electron waits on tcp:4000
-  Electron->>Electron: compile electron/*.cts with tsgo
-  Electron->>Vite: load http://localhost:4000
-  Electron->>Preload: expose sandboxed electronAPI
-  Preload->>React: window.electronAPI
+  Dev->>Tauri: tauri dev
+  Tauri->>Vite: beforeDevCommand runs npm run dev:web
+  Tauri->>Vite: load devUrl http://localhost:4000
+  Tauri->>Backend: register storage/workspace commands + plugins
+  Backend->>React: window.desktopAPI built from @tauri-apps/api
   React->>Storage: useAppInitialization loads app data
-  Storage->>Preload: native storage when Electron is available
+  Storage->>Backend: native storage via invoke() when on Tauri
   Storage->>Storage: fallback/cache in IndexedDB and localStorage
 ```
 
@@ -164,7 +164,7 @@ flowchart TD
   Writes --> Recurring["recurringTaskService"]
   Writes --> IDB["IndexedDB task/project writes"]
   Writes --> Local["storageService cache + localStorage"]
-  Local --> Native["Electron native storage backup"]
+  Local --> Native["Tauri Rust storage backup"]
 ```
 
 ## Repository Layout
@@ -181,27 +181,31 @@ LiquiTask/
 │   ├── contexts/            App-level React contexts
 │   ├── hooks/               App initialization, task, project, AI, and UI controllers
 │   ├── migrations/          Versioned local data migrations
-│   ├── runtime/             Web/Electron runtime detection and bridge helpers
+│   ├── runtime/             Web/Tauri runtime detection and bridge helpers
 │   ├── services/            Persistence, AI, automation, search, archive, export
 │   ├── test/                Test setup
 │   ├── types/               Shared feature types
 │   └── utils/               Query, validation, search, debounce, storage helpers
-├── electron/                Electron main/preload TypeScript sources
-├── build/                   Icons and packaging assets
+├── src-tauri/               Tauri Rust backend (commands, config, capabilities)
+│   ├── src/main.rs          Storage + workspace commands, plugin wiring
+│   ├── tauri.conf.json      Window, bundle, and security (CSP) config
+│   ├── capabilities/        ACL permissions granted to the main window
+│   └── icons/               Generated app icon set
+├── build/                   Source icon asset
 ├── dist/                    Generated Vite renderer output
-├── dist-electron/           Generated Electron main/preload output
 ├── release/                 Generated packaged installer artifacts
 └── .github/                 CI, release, and release-drafter workflows
 ```
 
-Generated output directories (`dist/`, `dist-electron/`, and
-`release/`) should not be committed.
+Generated output directories (`dist/`, `release/`, `src-tauri/target/`, and
+`src-tauri/gen/`) should not be committed.
 
 ## Requirements
 
 - Node.js 20 or newer
 - npm
-- Bun 1.3 or newer for Electron desktop development and packaging support
+- Rust toolchain (stable) for the Tauri desktop backend — see <https://v2.tauri.app/start/prerequisites/>
+- On Windows: the WebView2 runtime (preinstalled on Windows 11) and MSVC build tools
 - Windows for the current packaged release target
 
 ## Install
@@ -220,11 +224,10 @@ npm run dev
 
 What this does:
 
-1. Starts the Vite renderer with `npm run dev:web`.
-2. Serves the renderer on `http://localhost:4000`.
-3. Waits for port `4000`.
-4. Compiles Electron main/preload code with `tsgo -p electron/tsconfig.json`.
-5. Launches Electron in development mode.
+1. Tauri runs `beforeDevCommand` (`npm run dev:web`) to start the Vite renderer.
+2. Serves the renderer on `http://localhost:4000` (`devUrl`).
+3. Compiles and launches the Tauri Rust backend, loading the dev URL.
+4. Exposes `window.desktopAPI` (window, storage, workspace, notifications).
 
 Run only the web renderer:
 
@@ -240,7 +243,7 @@ npm run preview
 
 ## Build
 
-Build the renderer, Electron code, and packaged desktop app:
+Build the renderer and packaged desktop app (Tauri runs `build:web` first):
 
 ```bash
 npm run build
@@ -252,17 +255,17 @@ Build only the renderer:
 npm run build:web
 ```
 
-Build only the Electron main/preload output:
+Test the Rust backend (security boundary + validation unit tests):
 
 ```bash
-npm run build:electron
+cd src-tauri && cargo test
 ```
 
 Build outputs:
 
 - `dist/` contains the Vite renderer bundle.
-- `dist-electron/` contains compiled Electron main/preload files.
-- `release/` contains electron-builder installer artifacts.
+- `src-tauri/target/` contains compiled Rust artifacts.
+- `src-tauri/target/release/bundle/` contains the Tauri NSIS installer.
 
 ## Test And Quality
 
@@ -284,7 +287,7 @@ Run coverage:
 npm run test:coverage
 ```
 
-Run TypeScript checks for renderer and Electron code:
+Run TypeScript checks for the renderer:
 
 ```bash
 npm run typecheck
@@ -392,49 +395,52 @@ flowchart LR
   StorageService["storageService"] --> Cache["In-memory cache"]
   StorageService --> LocalStorage["localStorage fallback"]
   StorageService --> IndexedDB["IndexedDB\nlarge task/project data"]
-  StorageService --> NativeAPI["electronAPI.storage"]
-  NativeAPI --> ElectronIPC["Electron IPC handlers"]
-  ElectronIPC --> UserData["app.getPath('userData')\nelectron-store.json"]
+  StorageService --> NativeAPI["window.desktopAPI.storage"]
+  NativeAPI --> TauriInvoke["Tauri invoke() -> storage_* commands"]
+  TauriInvoke --> UserData["app_data_dir/storage.json"]
 ```
 
 Important behavior:
 
-- Electron runtime data is backed up through `electronAPI.storage`.
+- Tauri runtime data is backed up through `window.desktopAPI.storage`.
 - Browser-compatible fallback data is stored in localStorage.
 - Larger task and project collections are mirrored to IndexedDB when available.
 - Data migrations run during `storageService.initialize()`.
 - Workspace AI file access is limited to user-authorized directories and
-  markdown files through Electron IPC guards.
+  supported text/source files through Rust command guards.
 
-## Electron And Workspace Security
+## Tauri And Workspace Security
 
-Electron runs with:
+The Tauri backend enforces:
 
-- `sandbox: true`
-- `contextIsolation: true`
-- `nodeIntegration: false`
+- A strict Content-Security-Policy (set in `tauri.conf.json`).
+- An ACL capability allowlist (`src-tauri/capabilities/default.json`) — only the
+  window, event, dialog, and notification commands the app needs are granted.
+- No Node.js / direct filesystem access in the WebView; the renderer reaches
+  native functionality only through registered Rust commands.
 
-The renderer never receives direct Node.js access. The preload exposes a narrow
-`electronAPI` surface for:
+The renderer talks to the backend through `window.desktopAPI`, which wraps:
 
-- Window controls.
-- Window-state listeners.
-- Native notifications.
-- Native storage operations.
-- Workspace directory selection.
-- Authorized markdown file reads/writes/searches.
+- Window controls (`@tauri-apps/api/window`).
+- Window-state listeners (derived from resize events).
+- Native notifications (`@tauri-apps/plugin-notification`).
+- Native storage operations (`storage_*` Rust commands).
+- Workspace directory selection (`@tauri-apps/plugin-dialog`).
+- Authorized file reads/writes/searches (`workspace_*` Rust commands).
 
-Workspace IPC handlers validate that file operations remain inside
-user-authorized directories and are limited to markdown files.
+The `workspace_*` commands validate that file operations remain inside
+user-authorized directories (with symlink-canonicalized path checks) and are
+limited to an allowlist of text/source file types. These boundaries are covered
+by `cargo test` unit tests in `src-tauri/src/main.rs`.
 
 ## Generated And Local State
 
-- `dist/`, `dist-electron/`, and `release/` are build outputs.
+- `dist/`, `release/`, `src-tauri/target/`, and `src-tauri/gen/` are build outputs.
 - `.gitnexus/` is local generated GitNexus state.
 - `.claude/skills/generated/` contains generated navigation maps for services,
-  hooks, components, settings, Electron, and runtime areas.
+  hooks, components, settings, and runtime areas.
 - `node_modules/` is local dependency output.
-- User app data in Electron is written under `app.getPath("userData")`.
+- User app data is written under the OS app-data dir (`storage.json`).
 
 ## Keyboard Shortcuts
 
@@ -458,8 +464,8 @@ The tagged release workflow:
 1. Installs dependencies with `npm ci`.
 2. Runs the full test suite.
 3. Verifies that the git tag matches `package.json`.
-4. Builds the Electron package for Windows and macOS.
-5. Uploads packaged Windows and macOS artifacts to the GitHub Release.
+4. Builds the Tauri package with the platform Rust toolchain.
+5. Uploads the packaged installer artifacts to the GitHub Release.
 
 Current package version: `2.4.3`.
 
@@ -489,17 +495,17 @@ Patch notes are generated by Release Drafter using:
 
 ## Development Notes
 
-- Vite is configured in `vite.config.ts` with `server.port = 4000` and
-  `host = "0.0.0.0"`.
-- The renderer uses `base: "./"` so packaged Electron loads local assets
+- Vite is configured in `vite.config.ts` with `server.port = 4000`,
+  `strictPort = true` (Tauri loads a fixed `devUrl`), and `host = "0.0.0.0"`.
+- The renderer uses `base: "./"` so the packaged app loads local assets
   correctly.
-- Electron runs with `sandbox: true`, `contextIsolation: true`, and
-  `nodeIntegration: false`.
-- The preload bridge exposes only window controls, notifications, storage, and
-  authorized workspace file operations.
+- The window is created `decorations: false` + `visible: false`; the custom
+  title bar uses `data-tauri-drag-region`, and the renderer reveals the window
+  after mount via `showRuntimeWindow()`.
+- The Tauri bridge (`src/runtime/runtimeEnvironment.ts`) exposes only window
+  controls, notifications, storage, and authorized workspace file operations.
 - GitNexus maps live in `.claude/skills/generated/` and are useful before
-  making high-risk changes to services, hooks, settings, Electron, or runtime
-  code.
+  making high-risk changes to services, hooks, settings, or runtime code.
 
 ## License
 

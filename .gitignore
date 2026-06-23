@@ -78,10 +78,8 @@ CLAUDE.md
 **/*report.md
 test_output.txt
 
-# Stale/Unneeded Tauri Port
-docs/
-src-tauri/
-src/runtime/__tests__/tauriConfigParity.test.ts
-src/runtime/__tests__/tauriDesktopBridge.test.ts
-src/runtime/tauriDesktopBridge.ts
+# Tauri (Rust) — source is tracked; build output and generated schemas are not.
+# Cargo.lock is intentionally committed for reproducible application builds.
+src-tauri/target/
+src-tauri/gen/
 

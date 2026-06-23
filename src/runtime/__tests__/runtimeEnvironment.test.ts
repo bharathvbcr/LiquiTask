@@ -18,6 +18,8 @@ describe("runtimeEnvironment", () => {
     window.desktopAPI = undefined;
     window.electronAPI = undefined;
     delete (window as Window & { __electronAPI?: unknown }).__electronAPI;
+    delete (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
+    delete (window as Window & { isTauri?: boolean }).isTauri;
     delete (globalThis as typeof globalThis & { isTauri?: boolean }).isTauri;
   });
 
@@ -90,6 +92,28 @@ describe("runtimeEnvironment", () => {
     expect(window.electronAPI.close).toHaveBeenCalled();
     expect(window.electronAPI.onWindowStateChange).toHaveBeenCalled();
     expect(listenerCleanup).toHaveBeenCalled();
+  });
+
+  it("detects tauri runtime when __TAURI_INTERNALS__ is present", () => {
+    (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ = {};
+
+    expect(getRuntimeKind()).toBe("tauri");
+    expect(isTauri()).toBe(true);
+    expect(isDesktop()).toBe(true);
+    expect(isElectron()).toBe(false);
+    expect(isWeb()).toBe(false);
+    expect(getRuntimeState()).toEqual({
+      kind: "tauri",
+      hasCustomWindowControls: false,
+    });
+  });
+
+  it("tauri detection takes precedence over an injected electron-style bridge", () => {
+    (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ = {};
+    window.electronAPI = {} as DesktopAPI;
+
+    expect(getRuntimeKind()).toBe("tauri");
+    expect(isElectron()).toBe(false);
   });
 
   it("isWeb returns true and isElectron/isDesktop/isTauri return false in web mode", () => {

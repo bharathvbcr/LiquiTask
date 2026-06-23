@@ -9,16 +9,13 @@
     "email": "support@liquitask.com"
   },
   "type": "module",
-  "main": "dist-electron/main.cjs",
   "scripts": {
-    "dev": "concurrently -k \"npm run dev:web\" \"npm run dev:electron\"",
+    "dev": "tauri dev",
     "dev:web": "vite",
-    "dev:electron": "wait-on tcp:4000 && tsgo -p electron/tsconfig.json && cross-env NODE_ENV=development electron .",
-    "build": "npm run build:web && npm run build:electron && electron-builder",
-    "build:mac": "npm run build:web && npm run build:electron && electron-builder --mac dmg --x64 --arm64 --publish never",
+    "build": "tauri build",
     "build:web": "vite build",
-    "build:electron": "tsgo -p electron/tsconfig.json",
-    "typecheck": "tsgo --noEmit -p tsconfig.json && tsgo --noEmit -p electron/tsconfig.json",
+    "tauri": "tauri",
+    "typecheck": "tsgo --noEmit -p tsconfig.json",
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest --run",
@@ -33,6 +30,9 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@google/generative-ai": "0.21.0",
     "@tanstack/react-virtual": "^3.13.23",
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-dialog": "^2",
+    "@tauri-apps/plugin-notification": "^2",
     "lucide-react": "^0.562.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
@@ -45,6 +45,7 @@
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.4.0",
     "@testing-library/react": "^16.3.0",
+    "@tauri-apps/cli": "^2",
     "@types/node": "^22.14.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
@@ -52,10 +53,6 @@
     "@vitejs/plugin-react": "^5.1.4",
     "@vitest/coverage-v8": "^4.0.18",
     "autoprefixer": "^10.4.20",
-    "concurrently": "^9.1.2",
-    "cross-env": "^7.0.3",
-    "electron": "^39.8.1",
-    "electron-builder": "^26.8.1",
     "fake-indexeddb": "^6.2.5",
     "jsdom": "^24.0.0",
     "postcss": "^8.4.47",
@@ -67,52 +64,6 @@
     "vite": "^7.3.1",
     "vite-plugin-image-optimizer": "^2.0.3",
     "vite-plugin-pwa": "^1.2.0",
-    "vitest": "^4.0.18",
-    "wait-on": "^8.0.2"
-  },
-  "build": {
-    "appId": "com.liquitask.app",
-    "productName": "LiquiTask",
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "dist/**/*",
-      "dist-electron/**/*"
-    ],
-    "win": {
-      "icon": "build/icon.png",
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        }
-      ]
-    },
-    "mac": {
-      "icon": "build/icon.png",
-      "category": "public.app-category.productivity",
-      "target": [
-        {
-          "target": "dmg",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        }
-      ],
-      "artifactName": "${productName}-${version}-${arch}.${ext}"
-    },
-    "dmg": {
-      "title": "${productName} ${version}",
-      "artifactName": "${productName}-${version}-${arch}.${ext}"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "artifactName": "${productName}-Setup-${version}.${ext}"
-    }
+    "vitest": "^4.0.18"
   }
 }

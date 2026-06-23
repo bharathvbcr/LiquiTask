@@ -6,10 +6,14 @@ import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
   base: "./",
-  clearScreen: true,
+  // Tauri reads the dev server at a fixed URL (devUrl), so don't let Vite clear
+  // the screen (hides Rust compiler output) and pin the port deterministically.
+  clearScreen: false,
+  // Expose TAURI_ env vars to the frontend alongside the default VITE_ prefix.
+  envPrefix: ["VITE_", "TAURI_ENV_"],
   server: {
     port: 4000,
-    strictPort: false,
+    strictPort: true,
     host: "0.0.0.0",
   },
   plugins: [

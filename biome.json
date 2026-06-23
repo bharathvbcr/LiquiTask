@@ -48,10 +48,10 @@
     "includes": [
       "**",
       "!dist",
-      "!dist-electron",
       "!build",
-      "!build-electrobun",
       "!release",
+      "!src-tauri/target",
+      "!src-tauri/gen",
       "!.gitnexus",
       "!.worktrees"
     ]
