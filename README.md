@@ -494,29 +494,29 @@ by `cargo test` unit tests in `src-tauri/src/main.rs`.
 LiquiTask uses two GitHub Actions release paths:
 
 1. `Release Drafter` keeps a draft release updated on pushes to `main`.
-2. `Release` runs when a semantic version tag such as `v2.4.3` is pushed.
+2. `Release` runs when a semantic version tag such as `v2.5.0` is pushed.
 
 The tagged release workflow:
 
 1. Installs dependencies with `npm ci`.
 2. Runs the full test suite.
 3. Verifies that the git tag matches `package.json`.
-4. Builds the Tauri package with the platform Rust toolchain.
+4. Installs the Rust toolchain (Universal targets on macOS) and builds the
+   Tauri package.
 5. Uploads the packaged installer artifacts to the GitHub Release.
 
-Current package version: `2.4.3`.
+Current package version: `2.5.0`.
 
-Expected release assets:
+Expected release assets (Tauri bundle output):
 
-- `LiquiTask-Setup-2.4.3.exe`
-- `LiquiTask-2.4.3-arm64.dmg`
-- `LiquiTask-2.4.3-x64.dmg`
+- `LiquiTask_<version>_x64-setup.exe` (Windows NSIS installer)
+- `LiquiTask_<version>_universal.dmg` (macOS Universal: Apple Silicon + Intel)
 
 Create a release:
 
 ```bash
-git tag v2.4.3
-git push origin v2.4.3
+git tag v2.5.0
+git push origin v2.5.0
 ```
 
 Before tagging a new version, update:

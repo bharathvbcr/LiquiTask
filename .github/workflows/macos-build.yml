@@ -8,13 +8,12 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  CSC_IDENTITY_AUTO_DISCOVERY: false
   NODE_OPTIONS: --no-deprecation
 
 jobs:
   build-macos:
-    name: Build unsigned macOS DMGs
-    runs-on: macos-latest
+    name: Build ad-hoc signed macOS DMG (Universal)
+    runs-on: macos-14
 
     steps:
       - name: Configure git default branch
@@ -29,6 +28,16 @@ jobs:
           node-version: 24
           cache: npm
 
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
       - name: Install dependencies
         run: npm ci --loglevel=error --fund=false
 
@@ -38,12 +47,12 @@ jobs:
       - name: Run tests
         run: npm run test:run
 
-      - name: Build macOS DMGs
+      - name: Build macOS DMG
         run: npm run build:mac
 
-      - name: Upload macOS DMGs
+      - name: Upload macOS DMG
         uses: actions/upload-artifact@v7
         with:
-          name: liquitask-macos-dmgs
-          path: release/*.dmg
+          name: liquitask-macos-dmg
+          path: src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
           if-no-files-found: error

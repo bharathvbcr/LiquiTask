@@ -67,21 +67,41 @@ jobs:
       - name: Run Tests
         run: npm run test:run
 
+      # Only inject the Apple signing/notarization vars when a real certificate
+      # secret is configured. They must be *absent* (not empty) otherwise: Tauri
+      # treats a present-but-empty APPLE_CERTIFICATE as a cert to import and fails
+      # at `security import`. With them unset, the build falls back to the ad-hoc
+      # `signingIdentity: "-"` in tauri.macos.conf.json (still a valid signature).
+      - name: Configure macOS signing
+        if: runner.os == 'macOS'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -n "$APPLE_CERTIFICATE" ]; then
+            echo "Developer ID certificate present — enabling signing + notarization."
+            {
+              echo "APPLE_CERTIFICATE<<__EOF__"
+              echo "$APPLE_CERTIFICATE"
+              echo "__EOF__"
+              echo "APPLE_CERTIFICATE_PASSWORD=$APPLE_CERTIFICATE_PASSWORD"
+              echo "APPLE_SIGNING_IDENTITY=$APPLE_SIGNING_IDENTITY"
+              echo "APPLE_ID=$APPLE_ID"
+              echo "APPLE_PASSWORD=$APPLE_PASSWORD"
+              echo "APPLE_TEAM_ID=$APPLE_TEAM_ID"
+            } >> "$GITHUB_ENV"
+          else
+            echo "No Apple certificate secret — using ad-hoc signing from tauri.macos.conf.json."
+          fi
+
       - name: Build Tauri App
         run: npm run tauri build -- ${{ matrix.tauri-args }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # macOS code signing + notarization. These are no-ops when the secrets
-          # are unset, so CI still produces an (unsigned) .dmg without them.
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          # Falls back to "-" (ad-hoc) when no Developer ID secret is configured,
-          # so every build still ships a validly-signed .app with entitlements;
-          # setting the secret upgrades it to a notarizable Developer ID signature.
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY || '-' }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v7

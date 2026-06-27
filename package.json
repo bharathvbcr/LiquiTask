@@ -13,6 +13,7 @@
     "dev": "tauri dev",
     "dev:web": "vite",
     "build": "tauri build",
+    "build:mac": "tauri build --target universal-apple-darwin",
     "build:web": "vite build",
     "tauri": "tauri",
     "typecheck": "tsgo --noEmit -p tsconfig.json",
