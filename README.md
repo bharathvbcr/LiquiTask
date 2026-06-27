@@ -292,7 +292,8 @@ End-user workaround until the app is notarized:
 - Windows/Chrome: keep the download, then **Run anyway** on the SmartScreen
   prompt.
 
-Fully removing the warnings (requires paid certificates):
+Fully removing the warnings (requires paid certificates) — see
+[`docs/SIGNING.md`](docs/SIGNING.md) for the complete step-by-step:
 
 - **macOS / Safari** — enroll in the Apple Developer Program ($99/yr), then set
   repository secrets `APPLE_CERTIFICATE` (base64 Developer ID Application .p12),

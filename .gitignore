@@ -83,3 +83,8 @@ test_output.txt
 src-tauri/target/
 src-tauri/gen/
 
+# Code-signing material — generated in CI from secrets, never committed.
+src-tauri/tauri.windows.conf.json
+*.pfx
+*.p12
+
