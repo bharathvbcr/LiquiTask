@@ -267,6 +267,43 @@ Build outputs:
 - `src-tauri/target/` contains compiled Rust artifacts.
 - `src-tauri/target/release/bundle/` contains the Tauri NSIS installer.
 
+## Code Signing And Install Warnings
+
+When the macOS `.dmg` or Windows `.exe` is downloaded, the OS and Chrome may warn
+that the app is from an unidentified developer ("LiquiTask can't be opened
+because Apple cannot check it for malicious software", or Chrome's "this file
+isn't commonly downloaded"). These warnings are about **code signing**, not the
+app's behavior.
+
+What the build does today (no paid certificates required):
+
+- The macOS `.app` is **ad-hoc signed** (`signingIdentity: "-"`) with a hardened
+  set of `entitlements.plist`, so it has a valid, inspectable signature and runs
+  on Apple Silicon without the "damaged" error. Verify with
+  `codesign -dv --verbose=4 /Applications/LiquiTask.app`.
+- CI is **notarization-ready**: the signing/notarization steps activate
+  automatically as soon as the secrets below are present, and fall back to
+  ad-hoc otherwise.
+
+End-user workaround until the app is notarized:
+
+- macOS: right-click the app → **Open** (once), or run
+  `xattr -dr com.apple.quarantine /Applications/LiquiTask.app`.
+- Windows/Chrome: keep the download, then **Run anyway** on the SmartScreen
+  prompt.
+
+Fully removing the warnings (requires paid certificates):
+
+- **macOS / Safari** — enroll in the Apple Developer Program ($99/yr), then set
+  repository secrets `APPLE_CERTIFICATE` (base64 Developer ID Application .p12),
+  `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`
+  (e.g. `Developer ID Application: Name (TEAMID)`), `APPLE_ID`, `APPLE_PASSWORD`
+  (app-specific password), and `APPLE_TEAM_ID`. The workflow then signs with the
+  Developer ID and notarizes the `.dmg`.
+- **Windows / Chrome** — an Authenticode code-signing certificate (OV/EV, or
+  Azure Trusted Signing) removes the SmartScreen warning; EV certificates and
+  accumulated download reputation clear it fastest.
+
 ## Test And Quality
 
 Run the full Vitest suite once:

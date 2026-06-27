@@ -1,15 +1,22 @@
 import type React from "react";
 import { useEffect, useState } from "react";
 
+// Master switch for the celestial backdrop (sun/moon + ambient wash).
+// Set to `true` to re-enable the full day/night effect.
+const CELESTIAL_BACKDROP_ENABLED = false;
+
 export const CelestialBackdrop: React.FC = () => {
   const [hour, setHour] = useState(new Date().getHours());
 
   useEffect(() => {
+    if (!CELESTIAL_BACKDROP_ENABLED) return;
     const interval = setInterval(() => {
       setHour(new Date().getHours());
     }, 60000); // Check every minute
     return () => clearInterval(interval);
   }, []);
+
+  if (!CELESTIAL_BACKDROP_ENABLED) return null;
 
   // 6 AM to 6 PM is daytime
   const isDay = hour >= 6 && hour < 18;

@@ -15,8 +15,26 @@ env:
 
 jobs:
   build:
-    name: Electron Windows
-    runs-on: windows-2025-vs2026
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS (Universal)
+            os: macos-14
+            rust-targets: aarch64-apple-darwin,x86_64-apple-darwin
+            tauri-args: --target universal-apple-darwin
+            artifact-name: liquitask-release-macos
+            artifact-path: |
+              src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+          - name: Windows
+            os: windows-2025-vs2026
+            rust-targets: ''
+            tauri-args: ''
+            artifact-name: liquitask-release-windows
+            artifact-path: |
+              src-tauri/target/release/bundle/nsis/*.exe
 
     steps:
       - name: Configure git default branch
@@ -30,6 +48,16 @@ jobs:
           node-version: 24
           cache: 'npm'
 
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-targets }}
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
       - name: Install dependencies
         run: npm ci --loglevel=error --fund=false
 
@@ -39,16 +67,25 @@ jobs:
       - name: Run Tests
         run: npm run test:run
 
-      - name: Build Electron App
-        run: npm run build
+      - name: Build Tauri App
+        run: npm run tauri build -- ${{ matrix.tauri-args }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # macOS code signing + notarization. These are no-ops when the secrets
+          # are unset, so CI still produces an (unsigned) .dmg without them.
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          # Falls back to "-" (ad-hoc) when no Developer ID secret is configured,
+          # so every build still ships a validly-signed .app with entitlements;
+          # setting the secret upgrades it to a notarizable Developer ID signature.
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY || '-' }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: liquitask-release-windows
-          path: |
-            release/*.exe
+          name: ${{ matrix.artifact-name }}
+          path: ${{ matrix.artifact-path }}
           if-no-files-found: ignore
-

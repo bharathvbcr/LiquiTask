@@ -19,6 +19,7 @@ import type {
   ToolCall,
 } from "../../types";
 import { STORAGE_KEYS } from "../constants";
+import { getHttpFetch } from "../runtime/runtimeEnvironment";
 import type { FilterGroup } from "../types/queryTypes";
 import { sanitizeUrl } from "../utils/validation";
 import storageService from "./storageService";
@@ -486,7 +487,7 @@ class OllamaProvider implements AIProvider {
   }
 
   private getBaseUrl() {
-    const url = sanitizeUrl(this.config.ollamaBaseUrl || "http://localhost:11434");
+    const url = sanitizeUrl(this.config.ollamaBaseUrl || "http://127.0.0.1:11434");
     try {
       const { hostname } = new URL(url);
       const safe = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
@@ -511,7 +512,8 @@ class OllamaProvider implements AIProvider {
     const model = this.getModelName();
     if (!model) throw new Error("Ollama model name is not configured.");
 
-    const response = await fetch(`${baseUrl}/api/chat`, {
+    const httpFetch = getHttpFetch();
+    const response = await httpFetch(`${baseUrl}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -627,7 +629,8 @@ Today's Date: ${new Date().toISOString()}`;
   async listModels(signal?: AbortSignal): Promise<string[]> {
     const baseUrl = this.getBaseUrl();
     try {
-      const response = await fetch(`${baseUrl}/api/tags`, { signal });
+      const httpFetch = getHttpFetch();
+      const response = await httpFetch(`${baseUrl}/api/tags`, { signal });
       if (!response.ok)
         throw new Error(`Ollama returned ${response.status}: ${response.statusText}`);
       const data = await response.json();
@@ -649,43 +652,124 @@ Today's Date: ${new Date().toISOString()}`;
     onProgress?: (status: string, percentage?: number) => void,
     signal?: AbortSignal,
   ): Promise<void> {
+    const model = modelName?.trim();
+    if (!model) throw new Error("A model name is required to pull.");
+
     const baseUrl = this.getBaseUrl();
-    const response = await fetch(`${baseUrl}/api/pull`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: modelName, stream: true }),
-      signal,
-    });
+    let response: Response;
+    try {
+      const httpFetch = getHttpFetch();
+      response = await httpFetch(`${baseUrl}/api/pull`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model, stream: true }),
+        signal,
+      });
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === "AbortError") throw e;
+      if (
+        e instanceof Error &&
+        (e.name === "TypeError" || e.message?.includes("Failed to fetch"))
+      ) {
+        throw new Error(this.buildUnreachableMessage());
+      }
+      throw e;
+    }
 
-    if (!response.ok) throw new Error(`Failed to start pull: ${response.statusText}`);
-
-    const reader = response.body?.getReader();
-    if (!reader) throw new Error("ReadableStream not supported");
+    if (!response.ok) {
+      // Ollama returns a JSON body like {"error":"..."} for known failures
+      // (e.g. unknown model); surface it instead of a bare status line.
+      let detail = response.statusText || `HTTP ${response.status}`;
+      try {
+        const parsed = JSON.parse(await response.text());
+        if (parsed?.error) detail = parsed.error;
+      } catch {
+        // non-JSON error body; keep the status line
+      }
+      throw new Error(`Failed to pull "${model}": ${detail}`);
+    }
 
     const decoder = new TextDecoder();
     let buffer = "";
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+    // A pull downloads several layers, each reporting its own completed/total.
+    // Track them by digest and report aggregate progress so the bar advances
+    // monotonically instead of bouncing 0→100 for every layer.
+    const layers = new Map<string, { completed: number; total: number }>();
 
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
+    const handleLine = (line: string): void => {
+      const trimmed = line.trim();
+      if (!trimmed) return;
+      let status: {
+        status?: string;
+        error?: string;
+        digest?: string;
+        completed?: number;
+        total?: number;
+      };
+      try {
+        status = JSON.parse(trimmed);
+      } catch {
+        // Partial or non-JSON line within the stream; skip it.
+        return;
+      }
+      // A parsed error object is a real failure — must propagate, not be
+      // swallowed as if it were a parse error.
+      if (status.error) throw new Error(status.error);
 
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        try {
-          const status = JSON.parse(line);
-          if (status.error) throw new Error(status.error);
-          let percentage = 0;
-          if (status.completed && status.total) {
-            percentage = Math.round((status.completed / status.total) * 100);
-          }
-          onProgress?.(status.status || "Downloading...", percentage);
-        } catch {
-          // ignore parse errors in stream
+      if (typeof status.total === "number" && status.total > 0) {
+        layers.set(status.digest || "default", {
+          completed: typeof status.completed === "number" ? status.completed : 0,
+          total: status.total,
+        });
+      }
+
+      let percentage: number | undefined;
+      if (layers.size > 0) {
+        let completed = 0;
+        let total = 0;
+        for (const layer of layers.values()) {
+          completed += layer.completed;
+          total += layer.total;
         }
+        if (total > 0) percentage = Math.min(100, Math.round((completed / total) * 100));
+      }
+      // Leave percentage undefined for non-download phases ("pulling manifest",
+      // "verifying sha256", …) so the caller holds the last value rather than
+      // resetting the bar to 0.
+      onProgress?.(status.status || "Downloading...", percentage);
+    };
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+      // Some HTTP transports buffer the whole response instead of exposing a
+      // readable stream. The pull still completes server-side, so parse the
+      // buffered NDJSON for a terminal error and report completion so the model
+      // list refreshes. Progress just jumps to 100% rather than streaming.
+      const text = await response.text();
+      for (const line of text.split("\n")) handleLine(line);
+      onProgress?.("success", 100);
+      return;
+    }
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) handleLine(line);
+      }
+      // Flush any trailing line that wasn't newline-terminated.
+      buffer += decoder.decode();
+      handleLine(buffer);
+      onProgress?.("success", 100);
+    } finally {
+      try {
+        reader.releaseLock();
+      } catch {
+        // reader may already be released/closed
       }
     }
   }
@@ -705,7 +789,8 @@ Today's Date: ${new Date().toISOString()}`;
     }
 
     try {
-      const healthResponse = await fetch(`${baseUrl}/api/tags`);
+      const httpFetch = getHttpFetch();
+      const healthResponse = await httpFetch(`${baseUrl}/api/tags`);
       if (!healthResponse.ok) {
         return {
           ok: false,
@@ -832,7 +917,8 @@ ${TOOL_SCHEMA}`;
         .join("\n");
     }
 
-    const response = await fetch(`${baseUrl}/api/chat`, {
+    const httpFetch = getHttpFetch();
+    const response = await httpFetch(`${baseUrl}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

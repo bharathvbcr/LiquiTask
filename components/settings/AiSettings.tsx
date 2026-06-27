@@ -18,7 +18,7 @@ import {
   Zap,
 } from "lucide-react";
 import type React from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { STORAGE_KEYS } from "../../src/constants";
 import { getDesktopApi } from "../../src/runtime/runtimeEnvironment";
 import { aiService } from "../../src/services/aiService";
@@ -43,7 +43,11 @@ const DEFAULT_AI_CONFIG: AIConfig = {
   provider: "gemini",
   geminiApiKey: "",
   geminiModel: "gemini-3.1-flash-lite",
-  ollamaBaseUrl: "http://localhost:11434",
+  // Default to 127.0.0.1 (not "localhost"): under Tauri the request is made
+  // from the Rust process, where "localhost" can resolve to IPv6 ::1 while a
+  // default Ollama install only listens on IPv4 127.0.0.1, yielding a spurious
+  // "connection refused". The explicit IPv4 address avoids that resolution.
+  ollamaBaseUrl: "http://127.0.0.1:11434",
   ollamaModel: "",
 };
 
@@ -95,11 +99,13 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
   const [isPulling, setIsPulling] = useState(false);
   const [pullProgress, setPullProgress] = useState(0);
   const [pullStatus, setPullStatus] = useState("");
-  const [pullController, setPullController] = useState<AbortController | null>(null);
+  // Ref (not state) so the unmount-cleanup effect can always reach the
+  // in-flight controller without re-subscribing on every pull.
+  const pullControllerRef = useRef<AbortController | null>(null);
 
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
-  const [_modelFetchError, setModelFetchError] = useState<string | null>(null);
+  const [modelFetchError, setModelFetchError] = useState<string | null>(null);
 
   const fetchModels = useCallback(async (baseUrl: string, retryCount = 0) => {
     if (!baseUrl) return;
@@ -134,7 +140,18 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
           setTimeout(() => fetchModels(baseUrl, retryCount + 1), 1000);
           return;
         }
-        setModelFetchError(e instanceof Error ? e.message : "Could not reach Ollama");
+        // Tauri's HTTP plugin rejects with a plain string (not an Error), so
+        // surface that raw message instead of a generic fallback — it carries
+        // the real cause (connection refused, host resolution, etc.).
+        const message =
+          e instanceof Error
+            ? e.message
+            : typeof e === "string"
+              ? e
+              : e
+                ? JSON.stringify(e)
+                : "Could not reach Ollama";
+        setModelFetchError(message || "Could not reach Ollama");
       }
       setAvailableModels([]);
     } finally {
@@ -179,7 +196,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
 
   useEffect(() => {
     if (config.provider === "ollama") {
-      fetchModels(config.ollamaBaseUrl || "http://localhost:11434");
+      fetchModels(config.ollamaBaseUrl || "http://127.0.0.1:11434");
     }
   }, [config.provider, config.ollamaBaseUrl, fetchModels]);
 
@@ -228,13 +245,13 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
   };
 
   const handlePullModel = async () => {
-    if (!config.ollamaModel) {
+    if (!config.ollamaModel?.trim()) {
       addToast("Please enter a model name to pull", "error");
       return;
     }
 
     const controller = new AbortController();
-    setPullController(controller);
+    pullControllerRef.current = controller;
     setIsPulling(true);
     setPullProgress(0);
     setPullStatus("Starting pull...");
@@ -269,13 +286,19 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
       setIsPulling(false);
       setPullProgress(0);
       setPullStatus("");
-      setPullController(null);
+      pullControllerRef.current = null;
     }
   };
 
   const handleCancelPull = () => {
-    pullController?.abort();
+    pullControllerRef.current?.abort();
   };
+
+  // Abort any in-flight pull if the settings panel unmounts, so the streamed
+  // download doesn't keep running orphaned and pushing updates into a dead view.
+  useEffect(() => {
+    return () => pullControllerRef.current?.abort();
+  }, []);
 
   const handleOllamaUrlBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     const sanitized = sanitizeUrl(e.target.value);
@@ -412,7 +435,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
                 value={config.ollamaBaseUrl}
                 onChange={(e) => setConfig({ ...config, ollamaBaseUrl: e.target.value })}
                 onBlur={handleOllamaUrlBlur}
-                placeholder="http://localhost:11434"
+                placeholder="http://127.0.0.1:11434"
                 className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-500"
               />
             </div>
@@ -423,7 +446,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
                 </label>
                 <Tooltip content="Refresh downloaded models" position="top">
                   <button
-                    onClick={() => fetchModels(config.ollamaBaseUrl || "http://localhost:11434")}
+                    onClick={() => fetchModels(config.ollamaBaseUrl || "http://127.0.0.1:11434")}
                     disabled={isLoadingModels}
                     className="text-slate-400 hover:text-white transition-colors"
                   >
@@ -474,9 +497,16 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
                 </Tooltip>
               </div>
               {availableModels.length === 0 && !isLoadingModels && (
-                <p className="text-xs text-amber-500/70 mt-2">
-                  Make sure Ollama is running to see available models.
-                </p>
+                <div className="mt-2 space-y-1">
+                  <p className="text-xs text-amber-500/70">
+                    Make sure Ollama is running to see available models.
+                  </p>
+                  {modelFetchError && (
+                    <p className="text-xs text-red-400/80 break-words">
+                      Last error: {modelFetchError}
+                    </p>
+                  )}
+                </div>
               )}
             </div>
 

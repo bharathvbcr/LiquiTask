@@ -1,0 +1,18 @@
+# Normalize all text files to LF in the repo, regardless of the OS or editor
+# that wrote them. Without this, a tool that rewrites files with CRLF endings
+# produces a whole-repo phantom diff. Binary assets are excluded so git never
+# tries to "fix" their line endings.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.icns binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.pdf binary

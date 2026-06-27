@@ -16,6 +16,11 @@
 //! side via `@tauri-apps/api/window`, `@tauri-apps/plugin-dialog` and
 //! `@tauri-apps/plugin-notification` respectively (the matching Rust plugins are
 //! initialised below).
+//!
+//! The HTTP plugin (`tauri-plugin-http`) is also initialised so the renderer can
+//! reach the local Ollama server from the Rust process, bypassing the browser
+//! CORS restriction that blocks a direct webview `fetch` to localhost:11434.
+//! Its allowed-URL scope is defined in `capabilities/default.json`.
 
 use std::collections::HashSet;
 use std::fs;
@@ -559,6 +564,7 @@ fn main() {
             }
         }))
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_notification::init())
         .manage(StorageGuard(Mutex::new(())))
         .invoke_handler(tauri::generate_handler![

@@ -28,12 +28,13 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-src 'none'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost ws://localhost:4000 http://localhost:4000 https://generativelanguage.googleapis.com"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-src 'none'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost ws://localhost:4000 http://localhost:4000 http://localhost:* http://127.0.0.1:* http://[::1]:* https://generativelanguage.googleapis.com"
     }
   },
   "bundle": {
     "active": true,
     "targets": ["nsis"],
+    "category": "Productivity",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

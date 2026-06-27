@@ -102,6 +102,63 @@ describe("AiService Ollama", () => {
 
     await aiService.pullModel("llama3", onProgress);
     expect(onProgress).toHaveBeenCalledWith("downloading", 50);
+    // Always finishes at 100% on a clean stream end.
+    expect(onProgress).toHaveBeenLastCalledWith("success", 100);
+  });
+
+  it("aggregates progress across multiple pull layers", async () => {
+    const onProgress = vi.fn();
+    const chunk = (obj: Record<string, unknown>) =>
+      new TextEncoder().encode(JSON.stringify(obj) + "\n");
+
+    const mockReader = {
+      read: vi
+        .fn()
+        // Two layers reported together: 50/100 + 0/100 => 25% overall.
+        .mockResolvedValueOnce({
+          done: false,
+          value: chunk({ status: "downloading", digest: "a", completed: 50, total: 100 }),
+        })
+        .mockResolvedValueOnce({
+          done: false,
+          value: chunk({ status: "downloading", digest: "b", completed: 0, total: 100 }),
+        })
+        .mockResolvedValueOnce({ done: true }),
+    };
+    (global.fetch as Mock).mockResolvedValueOnce({
+      ok: true,
+      body: { getReader: () => mockReader },
+    });
+
+    await aiService.pullModel("llama3", onProgress);
+    expect(onProgress).toHaveBeenCalledWith("downloading", 25);
+  });
+
+  it("propagates a mid-stream Ollama error instead of swallowing it", async () => {
+    const onProgress = vi.fn();
+    const mockReader = {
+      read: vi.fn().mockResolvedValueOnce({
+        done: false,
+        value: new TextEncoder().encode(JSON.stringify({ error: "file does not exist" }) + "\n"),
+      }),
+    };
+    (global.fetch as Mock).mockResolvedValueOnce({
+      ok: true,
+      body: { getReader: () => mockReader },
+    });
+
+    await expect(aiService.pullModel("bogus", onProgress)).rejects.toThrow("file does not exist");
+  });
+
+  it("surfaces an Ollama error body when the pull request fails", async () => {
+    (global.fetch as Mock).mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      statusText: "Internal Server Error",
+      text: () => Promise.resolve(JSON.stringify({ error: "model not found" })),
+    });
+
+    await expect(aiService.pullModel("ghost")).rejects.toThrow("model not found");
   });
 
   it("handles Ollama connection test failure", async () => {

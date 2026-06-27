@@ -2,12 +2,16 @@ import { Copy, Minus, Square, X } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import logo from "../src/assets/logo.png";
 
-import { getRuntimeWindowControls } from "../src/runtime/runtimeEnvironment";
+import { getRuntimeWindowControls, isMacOS } from "../src/runtime/runtimeEnvironment";
 import { Tooltip } from "./Tooltip";
 
 export const TitleBar: React.FC = () => {
   const [isMaximized, setIsMaximized] = useState(false);
   const controls = React.useMemo(() => getRuntimeWindowControls(), []);
+  // On macOS the OS draws native traffic lights (titleBarStyle: "Overlay"), so
+  // we suppress our custom Windows-style controls and inset the branding to
+  // clear the lights at the top-left.
+  const isMac = React.useMemo(() => isMacOS(), []);
   const isCustomWindow = !!controls;
 
   useEffect(() => {
@@ -42,39 +46,45 @@ export const TitleBar: React.FC = () => {
       data-tauri-drag-region
       className="fixed top-0 left-0 right-0 h-10 z-[100] flex items-center justify-between bg-[#0a0505]/95 backdrop-blur-md border-b border-white/5 titlebar-drag-region"
     >
-      {/* App branding */}
-      <div data-tauri-drag-region className="flex items-center gap-3 px-4">
+      {/* App branding — inset past the native traffic lights on macOS */}
+      <div
+        data-tauri-drag-region
+        className="flex items-center gap-3 px-4"
+        style={isMac ? { paddingLeft: 76 } : undefined}
+      >
         <img src={logo} alt="LiquiTask" className="w-5 h-5 object-contain" />
         <span className="text-sm font-semibold text-slate-200 tracking-wide">LiquiTask</span>
       </div>
 
-      {/* Window controls */}
-      <div className="flex items-center h-full titlebar-no-drag">
-        <Tooltip content="Minimize" position="bottom" delay={300}>
-          <button
-            onClick={handleMinimize}
-            className="h-full px-4 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
-          >
-            <Minus size={14} />
-          </button>
-        </Tooltip>
-        <Tooltip content={isMaximized ? "Restore" : "Maximize"} position="bottom" delay={300}>
-          <button
-            onClick={handleMaximize}
-            className="h-full px-4 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
-          >
-            {isMaximized ? <Copy size={12} /> : <Square size={12} />}
-          </button>
-        </Tooltip>
-        <Tooltip content="Close" position="bottom" delay={300}>
-          <button
-            onClick={handleClose}
-            className="h-full px-4 flex items-center justify-center text-slate-400 hover:text-white hover:bg-red-500/80 transition-colors"
-          >
-            <X size={14} />
-          </button>
-        </Tooltip>
-      </div>
+      {/* Window controls — macOS uses the native traffic lights instead */}
+      {!isMac && (
+        <div className="flex items-center h-full titlebar-no-drag">
+          <Tooltip content="Minimize" position="bottom" delay={300}>
+            <button
+              onClick={handleMinimize}
+              className="h-full px-4 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
+            >
+              <Minus size={14} />
+            </button>
+          </Tooltip>
+          <Tooltip content={isMaximized ? "Restore" : "Maximize"} position="bottom" delay={300}>
+            <button
+              onClick={handleMaximize}
+              className="h-full px-4 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
+            >
+              {isMaximized ? <Copy size={12} /> : <Square size={12} />}
+            </button>
+          </Tooltip>
+          <Tooltip content="Close" position="bottom" delay={300}>
+            <button
+              onClick={handleClose}
+              className="h-full px-4 flex items-center justify-center text-slate-400 hover:text-white hover:bg-red-500/80 transition-colors"
+            >
+              <X size={14} />
+            </button>
+          </Tooltip>
+        </div>
+      )}
     </div>
   );
 };

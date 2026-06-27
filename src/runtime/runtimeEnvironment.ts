@@ -199,6 +199,40 @@ export const isTauri = () => getRuntimeKind() === "tauri";
 export const isWeb = () => getRuntimeKind() === "web";
 export const isDesktop = () => !isWeb();
 
+/**
+ * HTTP transport for talking to the local Ollama server.
+ *
+ * We use the plain browser `fetch` on every runtime. On macOS Ollama's default
+ * CORS policy already allows the webview's real origins — `tauri://localhost`
+ * in a bundled build and `http://localhost:<devPort>` under `tauri dev` — so a
+ * direct cross-origin request to http://localhost:11434 succeeds (200 with a
+ * matching Access-Control-Allow-Origin). The CSP `connect-src` in
+ * tauri.conf.json whitelists the Ollama origin for bundled builds.
+ *
+ * Routing through tauri-plugin-http is unnecessary and actively harmful here:
+ * its `fetch` runs in Rust and rejects (scope/ACL) before reaching Ollama, and
+ * it forces an `Origin` header. The native `fetch` is what the sibling app uses
+ * and what works. Kept as a named transport so call sites stay uniform.
+ */
+export type HttpFetch = (input: string, init?: RequestInit) => Promise<Response>;
+
+export const getHttpFetch = (): HttpFetch => {
+  return (input, init) => fetch(input, init);
+};
+
+/**
+ * Best-effort macOS detection for the renderer. Tauri does not expose the host
+ * OS to the webview without the `os` plugin, so we sniff the platform string,
+ * which reliably contains "Mac" inside the macOS WKWebView. Used to swap the
+ * custom Windows-style title bar for the native macOS traffic lights.
+ */
+export const isMacOS = (): boolean => {
+  if (!isBrowser) return false;
+  const nav = window.navigator as Navigator & { userAgentData?: { platform?: string } };
+  const platform = nav.userAgentData?.platform || nav.platform || nav.userAgent || "";
+  return /mac/i.test(platform);
+};
+
 export const getRuntimeState = (): RuntimeState => ({
   kind: getRuntimeKind(),
   hasCustomWindowControls: Boolean(getDesktopApi()),
