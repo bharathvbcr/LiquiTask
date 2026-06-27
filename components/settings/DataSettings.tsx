@@ -4,12 +4,13 @@ import {
   ChevronUp,
   Download,
   FileJson,
+  FolderOpen,
   Loader2,
   RefreshCw,
   Upload,
 } from "lucide-react";
 import type React from "react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { STORAGE_KEYS } from "../../src/constants";
 import { aiService } from "../../src/services/aiService";
 import storageService from "../../src/services/storageService";
@@ -22,6 +23,10 @@ import type {
   Task,
   ToastType,
 } from "../../types";
+
+// Upper bound for a JSON file loaded via the picker/drop zones. Loading a file
+// much larger than this into a controlled textarea would freeze the renderer.
+const MAX_IMPORT_FILE_BYTES = 25_000_000; // 25 MB
 
 interface AppData {
   projects: Project[];
@@ -74,6 +79,59 @@ export const DataSettings: React.FC<DataSettingsProps> = ({
 }) => {
   const [smartImportText, setSmartImportText] = useState("");
   const [isSmartImporting, setIsSmartImporting] = useState(false);
+
+  const backupFileRef = useRef<HTMLInputElement>(null);
+  const bulkFileRef = useRef<HTMLInputElement>(null);
+  // Which drop zone is currently hovered by a dragged file ("backup" | "bulk").
+  const [dragTarget, setDragTarget] = useState<"backup" | "bulk" | null>(null);
+
+  // Read a .json file and hand its text to the given setter. Reuses the existing
+  // textarea-based validation/import flow: the contents are loaded into the
+  // field so the user can review them before importing.
+  const loadJsonFile = async (file: File, setText: (val: string) => void) => {
+    if (!file.name.toLowerCase().endsWith(".json") && file.type !== "application/json") {
+      addToast("Please choose a .json file", "error");
+      return;
+    }
+
+    // Guard against accidentally loading a huge file into a controlled textarea,
+    // which would freeze the renderer. A real LiquiTask backup is well under this.
+    if (file.size > MAX_IMPORT_FILE_BYTES) {
+      addToast(
+        `File is too large (max ${Math.round(MAX_IMPORT_FILE_BYTES / 1_000_000)} MB)`,
+        "error",
+      );
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      setText(text);
+      addToast(`Loaded ${file.name}`, "success");
+    } catch (err) {
+      console.error(err);
+      addToast("Could not read the selected file", "error");
+    }
+  };
+
+  // File picked via the hidden <input type="file">.
+  const handleFilePick = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    setText: (val: string) => void,
+  ) => {
+    const file = e.target.files?.[0];
+    // Reset the input so picking the same file again re-fires onChange.
+    e.target.value = "";
+    if (file) await loadJsonFile(file, setText);
+  };
+
+  // File dropped onto an import zone.
+  const handleDrop = async (e: React.DragEvent, setText: (val: string) => void) => {
+    e.preventDefault();
+    setDragTarget(null);
+    const file = e.dataTransfer.files?.[0];
+    if (file) await loadJsonFile(file, setText);
+  };
 
   const handleSmartImport = async () => {
     if (!smartImportText.trim() || !onBulkCreateTasks) return;
@@ -166,11 +224,33 @@ export const DataSettings: React.FC<DataSettingsProps> = ({
         <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
           Import App Backup
         </h4>
+        <input
+          ref={backupFileRef}
+          type="file"
+          accept=".json,application/json"
+          onChange={(e) => handleFilePick(e, setImportText)}
+          className="hidden"
+        />
+        <button
+          onClick={() => backupFileRef.current?.click()}
+          className="flex items-center justify-center gap-2 w-full p-2 bg-white/5 border border-white/10 rounded-xl text-slate-400 text-xs hover:text-white hover:bg-white/10"
+        >
+          <FolderOpen size={14} />
+          <span className="font-medium">Choose JSON file...</span>
+        </button>
         <textarea
           value={importText}
           onChange={(e) => setImportText(e.target.value)}
-          placeholder="Paste full LiquiTask backup JSON here..."
-          className="w-full h-24 bg-[#05080f] border border-white/10 rounded-xl p-3 text-xs text-slate-400 font-mono resize-none"
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragTarget("backup");
+          }}
+          onDragLeave={() => setDragTarget(null)}
+          onDrop={(e) => handleDrop(e, setImportText)}
+          placeholder="...or paste or drop a LiquiTask backup JSON here"
+          className={`w-full h-24 bg-[#05080f] border rounded-xl p-3 text-xs text-slate-400 font-mono resize-none transition-colors ${
+            dragTarget === "backup" ? "border-cyan-500/60 bg-cyan-900/10" : "border-white/10"
+          }`}
         />
         {importError && <p className="text-xs text-red-400">{importError}</p>}
         <button
@@ -203,17 +283,41 @@ export const DataSettings: React.FC<DataSettingsProps> = ({
             </pre>
           </div>
         )}
-        <button
-          onClick={handleDownloadTemplate}
-          className="w-full p-2 bg-white/5 border border-white/10 rounded-lg text-slate-400 text-xs hover:text-white"
-        >
-          Download JSON Template
-        </button>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={handleDownloadTemplate}
+            className="w-full p-2 bg-white/5 border border-white/10 rounded-lg text-slate-400 text-xs hover:text-white"
+          >
+            Download JSON Template
+          </button>
+          <input
+            ref={bulkFileRef}
+            type="file"
+            accept=".json,application/json"
+            onChange={(e) => handleFilePick(e, setBulkTasksJson)}
+            className="hidden"
+          />
+          <button
+            onClick={() => bulkFileRef.current?.click()}
+            className="flex items-center justify-center gap-2 w-full p-2 bg-white/5 border border-white/10 rounded-lg text-slate-400 text-xs hover:text-white"
+          >
+            <FolderOpen size={14} />
+            Choose JSON file...
+          </button>
+        </div>
         <textarea
           value={bulkTasksJson}
           onChange={(e) => setBulkTasksJson(e.target.value)}
-          placeholder="Paste formatted bulk tasks JSON here..."
-          className="w-full h-32 bg-[#05080f] border border-white/10 rounded-xl p-3 text-xs text-slate-400 font-mono resize-none"
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragTarget("bulk");
+          }}
+          onDragLeave={() => setDragTarget(null)}
+          onDrop={(e) => handleDrop(e, setBulkTasksJson)}
+          placeholder="...or paste or drop a bulk tasks JSON here"
+          className={`w-full h-32 bg-[#05080f] border rounded-xl p-3 text-xs text-slate-400 font-mono resize-none transition-colors ${
+            dragTarget === "bulk" ? "border-cyan-500/60 bg-cyan-900/10" : "border-white/10"
+          }`}
         />
         <button
           onClick={handleBulkImport}
