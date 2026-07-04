@@ -13,7 +13,7 @@ export class TemplateService {
   }
 
   private persistTemplates(): void {
-    storageService.set(STORAGE_KEYS.TASK_TEMPLATES, this.templates);
+    storageService.set(STORAGE_KEYS.TASK_TEMPLATES, this.templates).catch(console.error);
   }
 
   /**

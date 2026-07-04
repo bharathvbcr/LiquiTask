@@ -30,6 +30,7 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({ onAddTask, isVisible, 
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiSummary, setAiSummary] = useState<string | undefined>();
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const isSubmittingRef = useRef(false);
 
@@ -41,6 +42,7 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({ onAddTask, isVisible, 
       setInput("");
       setImagePreview(null);
       setAiSummary(undefined);
+      setAnalysisError(null);
     }
   }, [isVisible]);
 
@@ -80,6 +82,7 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({ onAddTask, isVisible, 
         if (base64) {
           setImagePreview(base64);
           setIsAnalyzing(true);
+          setAnalysisError(null);
           try {
             const activeProjectId = storageService.get<string>(STORAGE_KEYS.ACTIVE_PROJECT, "");
             const projects = storageService.get<Project[]>(STORAGE_KEYS.PROJECTS, []);
@@ -108,6 +111,9 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({ onAddTask, isVisible, 
             setAiSummary(result.summary);
           } catch (error) {
             console.error("Failed to analyze image:", error);
+            setAnalysisError(
+              "Couldn't read that image. Try again or type the task manually.",
+            );
           } finally {
             setIsAnalyzing(false);
           }
@@ -148,10 +154,19 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({ onAddTask, isVisible, 
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
+      <div
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+        onClick={onClose}
+        aria-hidden="true"
+      />
 
       {/* Quick Add Modal */}
-      <div className="fixed top-1/4 left-1/2 -translate-x-1/2 z-50 w-full max-w-xl px-4 animate-in zoom-in-95 fade-in duration-150">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Quick add task"
+        className="fixed top-1/4 left-1/2 -translate-x-1/2 z-50 w-full max-w-xl px-4 animate-in zoom-in-95 fade-in duration-150"
+      >
         <form onSubmit={handleSubmit} className="relative">
           <div className="liquid-surface overflow-hidden flex flex-col liquid-topline">
             {/* Image Preview Area */}
@@ -164,13 +179,14 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({ onAddTask, isVisible, 
                     setImagePreview(null);
                     setAiSummary(undefined);
                   }}
-                  className="absolute top-2 right-2 p-1 bg-black/50 hover:bg-red-500/80 rounded-full text-white transition-colors"
+                  aria-label="Remove image preview"
+                  className="absolute top-2 right-2 p-1 bg-black/50 hover:bg-red-500/80 rounded-full text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
                 >
                   <X size={14} />
                 </button>
                 {isAnalyzing && (
                   <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-2 backdrop-blur-sm">
-                    <Loader2 size={24} className="text-cyan-400 animate-spin" />
+                    <Loader2 size={24} className="text-red-400 animate-spin" />
                     <span className="text-xs font-medium text-white shadow-black drop-shadow-md">
                       AI analyzing image...
                     </span>
@@ -188,18 +204,36 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({ onAddTask, isVisible, 
                 value={input}
                 onPaste={handlePaste}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Add task or paste an image... (e.g., 'Review PR !high @tomorrow')"
-                className="flex-1 bg-transparent text-lg text-white placeholder-slate-500 outline-none"
+                aria-label="Task title with quick-add syntax"
+                placeholder="Add task or paste an image... (e.g. 'Review PR !h @tom +urgent')"
+                className="flex-1 bg-transparent text-lg text-white placeholder-slate-500 outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 rounded-lg px-1"
               />
+              <Button
+                type="submit"
+                variant="primary"
+                color="red"
+                disabled={!input.trim() && !imagePreview}
+                className="shrink-0 px-3 py-1.5 h-auto text-sm"
+                aria-label="Add task"
+              >
+                Add
+              </Button>
               <Button
                 type="button"
                 onClick={onClose}
                 variant="ghost"
-                className="!p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg h-auto"
+                aria-label="Close quick add"
+                className="!p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg h-auto focus-visible:ring-2 focus-visible:ring-red-500/50"
               >
                 <X size={18} />
               </Button>
             </div>
+
+            {analysisError && (
+              <p role="alert" className="px-4 pb-3 -mt-1 text-xs text-red-400">
+                {analysisError}
+              </p>
+            )}
 
             {/* Preview & Hints */}
             <div className="px-4 pb-4 border-t border-white/5">
@@ -222,13 +256,13 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({ onAddTask, isVisible, 
                     </span>
                   )}
                   {parsed.dueDate && (
-                    <span className="px-2 py-0.5 rounded text-xs bg-blue-500/20 text-blue-400">
+                    <span className="px-2 py-0.5 rounded text-xs bg-white/10 text-slate-300">
                       <Calendar size={10} className="inline mr-1" />
                       {parsed.dueDate.toLocaleDateString()}
                     </span>
                   )}
                   {parsed.timeEstimate && (
-                    <span className="px-2 py-0.5 rounded text-xs bg-purple-500/20 text-purple-400">
+                    <span className="px-2 py-0.5 rounded text-xs bg-white/10 text-slate-300">
                       ~{parsed.timeEstimate}m
                     </span>
                   )}
@@ -242,7 +276,7 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({ onAddTask, isVisible, 
                   ))}
                   {aiSummary && (
                     <span
-                      className="px-2 py-0.5 rounded text-xs bg-cyan-500/20 text-cyan-400 truncate max-w-[150px]"
+                      className="px-2 py-0.5 rounded text-xs bg-red-500/20 text-red-400 truncate max-w-[150px]"
                       title={aiSummary}
                     >
                       <ImageIcon size={10} className="inline mr-1" />
@@ -266,7 +300,7 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({ onAddTask, isVisible, 
                   <Hint label="+tag" description="Add tag" />
                   <Hint label="~2h" description="Estimate" />
                 </div>
-                <div className="text-[10px] text-cyan-500/80 flex items-center gap-1">
+                <div className="text-[10px] text-red-500/80 flex items-center gap-1">
                   <kbd className="px-1 py-0.5 bg-white/5 rounded">Ctrl</kbd>+
                   <kbd className="px-1 py-0.5 bg-white/5 rounded">V</kbd> to paste image
                 </div>

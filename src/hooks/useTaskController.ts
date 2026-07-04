@@ -14,6 +14,7 @@ import type {
 import { COLUMN_STATUS } from "../constants";
 import type { AutomationTrigger, TaskContext } from "../services/automationService";
 import { indexedDBService } from "../services/indexedDBService";
+import { generateTaskId, getBacklogColumnId } from "../utils/taskUtils";
 
 interface UndoAction {
   type: "task-create" | "task-update" | "task-delete" | "task-move";
@@ -377,6 +378,9 @@ export const useTaskController = ({
         setTasks((prev) => prev.map((t) => (t.id === editingTask.id ? updatedTask : t)));
         searchIndexServiceRef.current?.updateTask?.(updatedTask, previousTask);
         augmentTaskSemantically(updatedTask);
+        if (indexedDBService.isAvailable()) {
+          indexedDBService.saveTask(updatedTask).catch(console.error);
+        }
 
         const recurringService = recurringTaskServiceRef.current;
         if (
@@ -400,7 +404,7 @@ export const useTaskController = ({
 
       const now = new Date();
       const newTask: Task = {
-        id: `task-${Date.now()}`,
+        id: generateTaskId(),
         jobId: `TSK-${Math.floor(Math.random() * 9000) + 1000}`,
         projectId: activeProjectId,
         title: taskData.title || "Untitled",
@@ -408,7 +412,7 @@ export const useTaskController = ({
         summary: taskData.summary || "",
         assignee: taskData.assignee || "",
         priority: taskData.priority || "medium",
-        status: taskData.status || columns[0]?.id || "Pending",
+        status: taskData.status || getBacklogColumnId(columns),
         createdAt: now,
         updatedAt: now,
         subtasks: taskData.subtasks || [],
@@ -472,7 +476,7 @@ export const useTaskController = ({
       const now = new Date();
       const createdTasks: Task[] = newTasksData.map((taskData, idx) => ({
         ...taskData,
-        id: `task-${Date.now()}-${idx}`,
+        id: generateTaskId(idx),
         jobId: `IMP-${Math.floor(Math.random() * 9000) + 1000}`,
         projectId: activeProjectId,
         title: taskData.title || "Untitled",
@@ -480,7 +484,7 @@ export const useTaskController = ({
         summary: taskData.summary || "",
         assignee: taskData.assignee || "",
         priority: taskData.priority || "medium",
-        status: columns[0]?.id || "Pending",
+        status: getBacklogColumnId(columns),
         createdAt: now,
         updatedAt: now,
         subtasks: taskData.subtasks || [],
@@ -540,7 +544,9 @@ export const useTaskController = ({
         return;
       }
 
-      if (newStatus !== columns[0].id) {
+      const backlogColumnId = getBacklogColumnId(columns);
+
+      if (newStatus !== backlogColumnId) {
         const blockedLinks = task.links?.filter((l) => l.type === "blocked-by") || [];
         for (const link of blockedLinks) {
           const blocker = tasks.find((t) => t.id === link.targetTaskId);
@@ -581,6 +587,10 @@ export const useTaskController = ({
         order: finalOrder,
         updatedAt: new Date(),
       };
+
+      if (targetColumn.isCompleted && !task.completedAt) {
+        updates.completedAt = new Date();
+      }
 
       const activity: ActivityItem[] = [];
       if (newStatus !== task.status && activityServiceRef.current) {
@@ -716,7 +726,9 @@ export const useTaskController = ({
       const targetColumn = columns.find((c) => c.id === newStatus);
       if (!targetColumn) return { allowed: false, reason: "Invalid column" };
 
-      if (newStatus !== columns[0].id) {
+      const backlogColumnId = getBacklogColumnId(columns);
+
+      if (newStatus !== backlogColumnId) {
         const blockedLinks = task.links?.filter((l) => l.type === "blocked-by") || [];
         for (const link of blockedLinks) {
           const blocker = tasks.find((t) => t.id === link.targetTaskId);

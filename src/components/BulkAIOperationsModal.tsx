@@ -71,7 +71,7 @@ export const BulkAIOperationsModal: React.FC<BulkAIOperationsModalProps> = ({
       name: "Detect Duplicates",
       description: "Scan all tasks for duplicates and suggest merges",
       icon: <Merge size={20} />,
-      color: "text-blue-400 bg-blue-500/10 border-blue-500/20",
+      color: "text-red-400 bg-red-500/10 border-red-500/20",
       destructive: true,
       run: async () => {
         const duplicates = await taskCleanupService.detectDuplicates(allTasks);
@@ -123,7 +123,7 @@ export const BulkAIOperationsModal: React.FC<BulkAIOperationsModalProps> = ({
       name: "Auto-Categorize",
       description: "AI suggests relevant tags and projects for all tasks",
       icon: <Tags size={20} />,
-      color: "text-purple-400 bg-purple-500/10 border-purple-500/20",
+      color: "text-red-400 bg-red-500/10 border-red-500/20",
       run: async () => {
         const suggestions = await aiService.categorizeTasks(allTasks, getContext());
         let success = 0;
@@ -172,7 +172,7 @@ export const BulkAIOperationsModal: React.FC<BulkAIOperationsModalProps> = ({
       name: "Generate Insights",
       description: "AI analyzes productivity, bottlenecks, and patterns",
       icon: <Brain size={20} />,
-      color: "text-cyan-400 bg-cyan-500/10 border-cyan-500/20",
+      color: "text-red-400 bg-red-500/10 border-red-500/20",
       run: async () => {
         const insights = await aiService.generateInsights(allTasks, getContext());
         return {
@@ -263,7 +263,7 @@ export const BulkAIOperationsModal: React.FC<BulkAIOperationsModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-white/10">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-cyan-500/20 text-cyan-400">
+            <div className="p-2 rounded-lg bg-red-500/20 text-red-400">
               <Sparkles size={20} />
             </div>
             <div>

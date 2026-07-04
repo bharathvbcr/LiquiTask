@@ -38,6 +38,7 @@ import remarkGfm from "remark-gfm";
 import { Input } from "../src/components/common/Input";
 import { aiService } from "../src/services/aiService";
 import { getSafeExternalUrl } from "../src/utils/safeUrl";
+import { getBacklogColumnId } from "../src/utils/taskUtils";
 import type {
   AIContext,
   AITaskSchema,
@@ -159,7 +160,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   useEffect(() => {
     // Determine default priority ID
     const defaultPrio = priorities.length > 0 ? priorities[0].id : "";
-    const defaultStatus = columns.length > 0 ? columns[0].id : "Pending";
+    const defaultStatus = getBacklogColumnId(columns);
 
     if (initialData) {
       let dateStr = "";
@@ -404,7 +405,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
         subtitle: et.tags && et.tags.length > 0 ? et.tags[0] : "General",
         dueDate: parsedDate,
         projectId: localProjectId,
-        status: columns[0]?.id || "Pending",
+        status: getBacklogColumnId(columns),
         subtasks:
           et.subtasks?.map((st, i) => ({
             id: `st-${Date.now()}-${i}`,
@@ -563,7 +564,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
     setLinks(links.filter((l) => l.targetTaskId !== targetId));
   };
 
-  const defaultStatusId = columns[0]?.id ?? "Pending";
+  const defaultStatusId = getBacklogColumnId(columns);
 
   const submitTask = useCallback(async () => {
     // Validation
@@ -816,8 +817,8 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
       {activeTab === "details" && (
         <div className="flex flex-col gap-6">
           {/* AI Quick Add */}
-          <div className="bg-cyan-500/10 border border-cyan-500/20 rounded-xl p-4 space-y-3">
-            <label htmlFor="ai-input" className="flex items-center gap-2 text-sm font-bold text-cyan-300">
+          <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 space-y-3">
+            <label htmlFor="ai-input" className="flex items-center gap-2 text-sm font-bold text-red-300">
               <Sparkles size={16} /> AI Assistant
             </label>
             <div className="flex flex-col gap-2">
@@ -830,7 +831,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                     ? "How should AI refine this task?"
                     : "Paste meeting notes or describe tasks..."
                 }
-                className="w-full bg-black/40 border border-cyan-500/20 rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50 min-h-[80px] resize-none"
+                className="w-full bg-black/40 border border-red-500/20 rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-red-500/50 min-h-[80px] resize-none"
               />
 
               <div className="flex flex-wrap gap-2 mb-1">
@@ -853,7 +854,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                     type="button"
                     onClick={handleExtractTasks}
                     disabled={isExtracting || !aiInput.trim()}
-                    className="flex-1 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:bg-cyan-600/50 disabled:cursor-not-allowed text-slate-950 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors"
+                    className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-500 disabled:bg-red-600/50 disabled:cursor-not-allowed text-slate-950 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors"
                   >
                     {isExtracting ? (
                       <Loader2 size={16} className="animate-spin" />
@@ -889,7 +890,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
               <div className="mt-4 p-3 rounded-lg bg-white/5 border border-white/10">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Sparkles size={14} className="text-cyan-400" />
+                    <Sparkles size={14} className="text-red-400" />
                     <span className="text-xs font-bold text-slate-300">Smart Autofill</span>
                     <span className="text-[10px] text-slate-500">Based on project history</span>
                   </div>
@@ -897,7 +898,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                     type="button"
                     onClick={handleSmartAutofill}
                     disabled={!!autoFillSuggestions}
-                    className="px-3 py-1 bg-cyan-600/20 hover:bg-cyan-600/30 disabled:opacity-50 text-cyan-400 rounded-md text-[10px] font-bold transition-colors"
+                    className="px-3 py-1 bg-red-600/20 hover:bg-red-600/30 disabled:opacity-50 text-red-400 rounded-md text-[10px] font-bold transition-colors"
                   >
                     {autoFillSuggestions ? "Suggestions Ready" : "Analyze"}
                   </button>
@@ -919,7 +920,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                     <button
                       type="button"
                       onClick={applyAutoFill}
-                      className="w-full mt-2 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-slate-950 rounded-md text-[10px] font-bold transition-colors"
+                      className="w-full mt-2 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-slate-950 rounded-md text-[10px] font-bold transition-colors"
                     >
                       Apply Suggestions
                     </button>
@@ -944,10 +945,10 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                         >
                           <div className="flex items-center justify-between mb-1">
                             <div className="text-sm font-bold text-white flex items-center gap-2">
-                              <ChevronRight size={14} className="text-cyan-300" />
+                              <ChevronRight size={14} className="text-red-300" />
                               {et.title}
                             </div>
-                            <span className="px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 text-[10px] font-bold uppercase">
+                            <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 text-[10px] font-bold uppercase">
                               {et.priority}
                             </span>
                           </div>
@@ -986,7 +987,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                   type="button"
                   onClick={handleSuggestMetadata}
                   disabled={isSuggesting || !formData.title.trim()}
-                  className="text-[10px] font-bold text-cyan-300 hover:text-cyan-200 flex items-center gap-1 transition-colors px-2 py-1 rounded bg-cyan-500/10 border border-cyan-500/20"
+                  className="text-[10px] font-bold text-red-300 hover:text-red-200 flex items-center gap-1 transition-colors px-2 py-1 rounded bg-red-500/10 border border-red-500/20"
                 >
                   {isSuggesting ? (
                     <Loader2 size={10} className="animate-spin" />
@@ -1063,7 +1064,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                     <select
                       value={localProjectId}
                       onChange={(e) => setLocalProjectId(e.target.value)}
-                      className="w-full liquid-input rounded-xl px-4 py-3 text-sm appearance-none cursor-pointer"
+                      className="w-full liquid-input rounded-xl px-4 py-3 text-sm appearance-none cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30"
                       aria-label="Task project"
                     >
                       {allProjects.map((p) => (
@@ -1174,7 +1175,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
 
               <div className="space-y-2">
                 <label htmlFor="task-category" className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1 flex items-center gap-2">
-                  <Tag size={12} /> Category / Tag
+                  <Tag size={12} /> Category
                 </label>
                 <input
                   id="task-category"
@@ -1225,7 +1226,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                       type="button"
                       onClick={handleSuggestTimeEstimate}
                       disabled={isEstimating || !formData.title.trim()}
-                      className="text-[10px] font-bold text-cyan-300 hover:text-cyan-200 flex items-center gap-1 transition-colors px-2 py-1 rounded bg-cyan-500/10 border border-cyan-500/20"
+                      className="text-[10px] font-bold text-red-300 hover:text-red-200 flex items-center gap-1 transition-colors px-2 py-1 rounded bg-red-500/10 border border-red-500/20"
                     >
                       {isEstimating ? (
                         <Loader2 size={10} className="animate-spin" />
@@ -1349,7 +1350,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                         }
                       }}
                       disabled={isGenerating || !formData.summary.trim()}
-                      className="text-[10px] font-bold text-cyan-300 hover:text-cyan-200 flex items-center gap-1 transition-colors px-2 py-1 rounded bg-cyan-500/10 border border-cyan-500/20"
+                      className="text-[10px] font-bold text-red-300 hover:text-red-200 flex items-center gap-1 transition-colors px-2 py-1 rounded bg-red-500/10 border border-red-500/20"
                     >
                       {isGenerating ? (
                         <Loader2 size={10} className="animate-spin" />
@@ -1396,7 +1397,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                             {...props}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-blue-400 hover:underline"
+                            className="text-red-400 hover:underline"
                           />
                         ),
                       }}
@@ -1485,8 +1486,8 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                                             : link.type === "blocks"
                                               ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
                                               : link.type === "duplicates"
-                                                ? "bg-purple-500/10 text-purple-400 border-purple-500/20"
-                                                : "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                                                ? "bg-slate-500/10 text-slate-300 border-slate-500/20"
+                                                : "bg-slate-500/10 text-slate-300 border-slate-500/20"
                                         }`}
                         >
                           {getLinkIcon(link.type)}
@@ -1529,7 +1530,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                     type="button"
                     onClick={handleAiBreakdown}
                     disabled={isBreakingDown || !formData.title.trim()}
-                    className="text-[10px] font-bold text-cyan-300 hover:text-cyan-200 flex items-center gap-1 transition-colors"
+                    className="text-[10px] font-bold text-red-300 hover:text-red-200 flex items-center gap-1 transition-colors"
                   >
                     {isBreakingDown ? (
                       <Loader2 size={10} className="animate-spin" />
@@ -1602,7 +1603,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                       <button
                         type="button"
                         onClick={() => handleRemoveSubtask(subtask.id)}
-                        className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                        className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 transition-all"
                         aria-label={`Remove subtask "${subtask.title}"`}
                       >
                         <X size={16} aria-hidden="true" />
@@ -1696,7 +1697,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                             href={safeUrl ?? "#"}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className={`flex-1 text-sm font-medium truncate underline decoration-blue-500/30 hover:decoration-blue-400 ${isSafe ? "text-blue-400 hover:text-blue-300" : "text-slate-500 cursor-not-allowed decoration-slate-500/30"}`}
+                            className={`flex-1 text-sm font-medium truncate underline decoration-red-500/30 hover:decoration-red-400 ${isSafe ? "text-red-400 hover:text-red-300" : "text-slate-500 cursor-not-allowed decoration-slate-500/30"}`}
                             onClick={(e) => !isSafe && e.preventDefault()}
                           >
                             {att.name}
@@ -1708,7 +1709,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                       <button
                         type="button"
                         onClick={() => handleRemoveAttachment(att.id)}
-                        className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                        className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 transition-all"
                         aria-label={`Remove attachment "${att.name}"`}
                       >
                         <X size={16} aria-hidden="true" />
@@ -1719,7 +1720,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-4 mt-2 border-t border-white/5">
+            <div className="sticky bottom-0 z-10 -mx-8 -mb-8 px-8 py-4 mt-2 flex justify-end gap-3 border-t border-white/10 bg-[#0a0505]/90 backdrop-blur-md">
               <button
                 type="button"
                 onClick={onClose}
@@ -1752,7 +1753,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                         item.type === "create"
                           ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"
                           : item.type === "move"
-                            ? "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"
+                            ? "bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.5)]"
                             : item.type === "delete"
                               ? "bg-red-500"
                               : "bg-slate-500"

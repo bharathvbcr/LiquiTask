@@ -185,7 +185,7 @@ class AutoOrganizeService {
         };
 
         changes.push({
-          id: `merge-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: `merge-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
           type: "merge",
           taskId: result.task1.id,
           relatedTaskIds: [result.task2.id],
@@ -197,7 +197,7 @@ class AutoOrganizeService {
         });
       } else if (result.confidence >= config.suggestThreshold) {
         changes.push({
-          id: `merge-suggest-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: `merge-suggest-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
           type: "merge",
           taskId: result.task1.id,
           relatedTaskIds: [result.task2.id],
@@ -338,7 +338,7 @@ class AutoOrganizeService {
         for (const h of result as HierarchySuggestion[]) {
           if (h.confidence >= 0.7) {
             changes.push({
-              id: `hierarchy-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              id: `hierarchy-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
               type: "hierarchy",
               taskId: h.parentTaskId,
               relatedTaskIds: h.childTaskIds,
@@ -449,7 +449,7 @@ class AutoOrganizeService {
         for (const c of result as TagConsolidationSuggestion[]) {
           if (c.confidence >= config.suggestThreshold && c.affectedTaskIds.length > 0) {
             changes.push({
-              id: `tag-consolidate-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              id: `tag-consolidate-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
               type: "tag-consolidate",
               taskId: c.affectedTaskIds[0],
               relatedTaskIds: c.affectedTaskIds.slice(1),
@@ -471,6 +471,7 @@ class AutoOrganizeService {
 
   async applyChanges(
     changes: AutoOrganizeChange[],
+    allTasks: Task[],
     callbacks: {
       onUpdateTask: (taskId: string, updates: Partial<Task>) => void;
       onArchiveTask: (taskId: string) => void;
@@ -480,10 +481,9 @@ class AutoOrganizeService {
     let applied = 0;
     let rejected = 0;
 
-    // Build an in-memory task map once to avoid repeated localStorage parses (fix for issue #2)
-    // and to ensure later changes in this loop see updates applied by earlier changes (fix for issue #3).
-    const storedTasks = storageService.get<Task[]>(STORAGE_KEYS.TASKS, []);
-    const taskMap = new Map<string, Task>(storedTasks.map((t) => [t.id, t]));
+    // Build an in-memory task map from the live React task list so changes are
+    // applied against current state, not a debounce-lagged storage snapshot.
+    const taskMap = new Map<string, Task>(allTasks.map((t) => [t.id, t]));
 
     for (const change of changes) {
       if (change.status === "rejected") {

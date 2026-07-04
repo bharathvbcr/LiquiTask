@@ -1,44 +1,58 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { STORAGE_KEYS } from "../constants";
+import storageService from "../services/storageService";
 import type { FilterState, SavedView } from "../../types";
 import type { FilterGroup } from "../types/queryTypes";
 
 const MAX_VIEWS = 20;
 
-export function useSavedViews() {
-  const [views, setViews] = useState<SavedView[]>(() => {
-    try {
-      const OLD_KEY = "liquitask_saved_views";
-      if (!localStorage.getItem(STORAGE_KEYS.SAVED_VIEWS)) {
-        const legacy = localStorage.getItem(OLD_KEY);
-        if (legacy) {
-          localStorage.setItem(STORAGE_KEYS.SAVED_VIEWS, legacy);
-          localStorage.removeItem(OLD_KEY);
-        }
+/**
+ * Read saved views through storageService so encrypted-at-rest values are
+ * transparently decrypted from its in-memory cache. Reading raw localStorage
+ * would hit the `LTENC1:` ciphertext, fail to parse, and silently reset views.
+ */
+function loadStoredViews(): SavedView[] {
+  try {
+    const OLD_KEY = "liquitask_saved_views";
+    if (!localStorage.getItem(STORAGE_KEYS.SAVED_VIEWS)) {
+      const legacy = localStorage.getItem(OLD_KEY);
+      if (legacy) {
+        localStorage.setItem(STORAGE_KEYS.SAVED_VIEWS, legacy);
+        localStorage.removeItem(OLD_KEY);
       }
-      const saved = localStorage.getItem(STORAGE_KEYS.SAVED_VIEWS);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return parsed.map((view: SavedView) => ({
-          ...view,
-          createdAt: new Date(view.createdAt),
-        }));
-      }
-    } catch (e) {
-      console.error("Failed to load saved views:", e);
     }
-    return getDefaultViews();
-  });
+    const stored = storageService.get<SavedView[] | null>(STORAGE_KEYS.SAVED_VIEWS, null);
+    if (Array.isArray(stored) && stored.length > 0) {
+      return stored.map((view) => ({ ...view, createdAt: new Date(view.createdAt) }));
+    }
+  } catch (e) {
+    console.error("Failed to load saved views:", e);
+  }
+  return getDefaultViews();
+}
 
+export function useSavedViews(ready = true) {
+  const [views, setViews] = useState<SavedView[]>(loadStoredViews);
   const [activeViewId, setActiveViewId] = useState<string | null>(null);
+  // Gate persistence until the post-hydration load has run, so the fallback
+  // default views can never overwrite real (still-encrypted) saved views.
+  const hasLoadedRef = useRef(false);
 
-  // Persist to localStorage
+  // Re-read once storage is ready: on an encrypted browser the initial
+  // synchronous read runs before the passphrase-derived cache is hydrated.
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.SAVED_VIEWS, JSON.stringify(views));
-    } catch (e) {
-      console.error("Failed to save views:", e);
+    if (!ready) return;
+    const stored = storageService.get<SavedView[] | null>(STORAGE_KEYS.SAVED_VIEWS, null);
+    if (Array.isArray(stored) && stored.length > 0) {
+      setViews(stored.map((view) => ({ ...view, createdAt: new Date(view.createdAt) })));
     }
+    hasLoadedRef.current = true;
+  }, [ready]);
+
+  // Persist through storageService so views are encrypted at rest when enabled.
+  useEffect(() => {
+    if (!hasLoadedRef.current) return;
+    void storageService.set(STORAGE_KEYS.SAVED_VIEWS, views);
   }, [views]);
 
   // Create a new view

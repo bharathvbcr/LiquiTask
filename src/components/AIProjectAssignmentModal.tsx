@@ -132,7 +132,7 @@ export const AIProjectAssignmentModal: React.FC<AIProjectAssignmentModalProps> =
     return (
       <ModalWrapper isOpen={isOpen} onClose={onClose} title="Analyzing Project Assignments">
         <div className="flex items-center justify-center py-12">
-          <Loader2 size={24} className="animate-spin text-cyan-400 mr-3" />
+          <Loader2 size={24} className="animate-spin text-red-400 mr-3" />
           <span className="text-slate-400">
             AI is analyzing tasks and suggesting optimal project placements...
           </span>
@@ -145,7 +145,7 @@ export const AIProjectAssignmentModal: React.FC<AIProjectAssignmentModalProps> =
     <ModalWrapper isOpen={isOpen} onClose={onClose} title="Smart Project Assignment" size="xl">
       <div className="space-y-6">
         <div className="flex items-start gap-3">
-          <div className="p-2 rounded-lg bg-blue-500/20 text-blue-400">
+          <div className="p-2 rounded-lg bg-red-500/20 text-red-400">
             <Globe size={20} />
           </div>
           <div className="flex-1">

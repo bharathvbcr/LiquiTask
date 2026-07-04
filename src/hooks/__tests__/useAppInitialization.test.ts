@@ -30,6 +30,9 @@ const {
   mockNotificationService: {
     startPeriodicCheck: vi.fn(),
     stopPeriodicCheck: vi.fn(),
+    scheduleTaskReminder: vi.fn(),
+    cancelTaskReminder: vi.fn(),
+    clearOverdueNotification: vi.fn(),
   },
   mockAutomationService: { loadRules: vi.fn() },
   mockTemplateService: { loadTemplates: vi.fn() },
@@ -132,6 +135,7 @@ describe("useAppInitialization", () => {
 
     renderHook(() =>
       useAppInitialization({
+        isLoaded: true,
         setIsLoaded: vi.fn(),
         setColumns: vi.fn(),
         setProjectTypes: vi.fn(),
@@ -154,6 +158,7 @@ describe("useAppInitialization", () => {
         notificationServiceRef: { current: null } as any,
         recurringTaskServiceRef: { current: null } as any,
         tasks: [makeTask({ id: "existing-task" })],
+        columns: [],
         addToast,
         pushUndo,
       }),
@@ -212,5 +217,127 @@ describe("useAppInitialization", () => {
       'Recurring task "Generated recurring task" created',
       "info",
     );
+  });
+
+  it("syncs due-date reminders when tasks change", async () => {
+    const notificationRef = { current: mockNotificationService };
+    const dueTask = makeTask({
+      id: "due-task",
+      dueDate: new Date(Date.now() + 60_000),
+    });
+
+    const { rerender } = renderHook(
+      ({ tasks }) =>
+        useAppInitialization({
+          isLoaded: true,
+          setIsLoaded: vi.fn(),
+          setColumns: vi.fn(),
+          setProjectTypes: vi.fn(),
+          setPriorities: vi.fn(),
+          setCustomFields: vi.fn(),
+          setProjects: vi.fn(),
+          setTasks: vi.fn(),
+          setActiveProjectId: vi.fn(),
+          setIsSidebarCollapsed: vi.fn(),
+          setBoardGrouping: vi.fn(),
+          setIsCompactView: vi.fn(),
+          setShowSubWorkspaceTasks: vi.fn(),
+          setViewMode: vi.fn(),
+          setCurrentView: vi.fn(),
+          searchIndexServiceRef: { current: null } as any,
+          automationServiceRef: { current: null } as any,
+          templateServiceRef: { current: null } as any,
+          activityServiceRef: { current: null } as any,
+          advancedFilterExecutorRef: { current: null } as any,
+          notificationServiceRef: notificationRef as any,
+          recurringTaskServiceRef: { current: null } as any,
+          tasks,
+          columns: [],
+          addToast: vi.fn(),
+          pushUndo: vi.fn(),
+        }),
+      { initialProps: { tasks: [dueTask] } },
+    );
+
+    await waitFor(() =>
+      expect(mockNotificationService.scheduleTaskReminder).toHaveBeenCalledWith(
+        "due-task",
+        dueTask.title,
+        dueTask.dueDate,
+      ),
+    );
+
+    rerender({ tasks: [] });
+
+    await waitFor(() =>
+      expect(mockNotificationService.cancelTaskReminder).toHaveBeenCalledWith("due-task"),
+    );
+  });
+
+  it("cancels due-date reminders when a task moves into a completed column", async () => {
+    const notificationRef = { current: mockNotificationService };
+    const dueTask = makeTask({
+      id: "due-task",
+      status: "In Progress",
+      dueDate: new Date(Date.now() + 60_000),
+    });
+    const openColumns = [
+      { id: "In Progress", title: "In Progress", color: "#fff" },
+      { id: "Done", title: "Done", color: "#000", isCompleted: true },
+    ];
+
+    const { rerender } = renderHook(
+      ({ tasks, columns }) =>
+        useAppInitialization({
+          isLoaded: true,
+          setIsLoaded: vi.fn(),
+          setColumns: vi.fn(),
+          setProjectTypes: vi.fn(),
+          setPriorities: vi.fn(),
+          setCustomFields: vi.fn(),
+          setProjects: vi.fn(),
+          setTasks: vi.fn(),
+          setActiveProjectId: vi.fn(),
+          setIsSidebarCollapsed: vi.fn(),
+          setBoardGrouping: vi.fn(),
+          setIsCompactView: vi.fn(),
+          setShowSubWorkspaceTasks: vi.fn(),
+          setViewMode: vi.fn(),
+          setCurrentView: vi.fn(),
+          searchIndexServiceRef: { current: null } as any,
+          automationServiceRef: { current: null } as any,
+          templateServiceRef: { current: null } as any,
+          activityServiceRef: { current: null } as any,
+          advancedFilterExecutorRef: { current: null } as any,
+          notificationServiceRef: notificationRef as any,
+          recurringTaskServiceRef: { current: null } as any,
+          tasks,
+          columns,
+          addToast: vi.fn(),
+          pushUndo: vi.fn(),
+        }),
+      { initialProps: { tasks: [dueTask], columns: openColumns } },
+    );
+
+    await waitFor(() =>
+      expect(mockNotificationService.scheduleTaskReminder).toHaveBeenCalledWith(
+        "due-task",
+        dueTask.title,
+        dueTask.dueDate,
+      ),
+    );
+
+    mockNotificationService.scheduleTaskReminder.mockClear();
+    mockNotificationService.cancelTaskReminder.mockClear();
+
+    rerender({
+      tasks: [makeTask({ ...dueTask, status: "Done" })],
+      columns: openColumns,
+    });
+
+    await waitFor(() =>
+      expect(mockNotificationService.cancelTaskReminder).toHaveBeenCalledWith("due-task"),
+    );
+    expect(mockNotificationService.scheduleTaskReminder).not.toHaveBeenCalled();
   });
 });

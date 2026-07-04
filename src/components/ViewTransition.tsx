@@ -82,9 +82,9 @@ export const ViewTransition: React.FC<ViewTransitionProps> = ({
         case "slide-left":
           return "animate-slide-out-right";
         case "slide-up":
-          return "animate-slide-in-down";
+          return "animate-slide-out-up";
         case "slide-down":
-          return "animate-slide-in-up";
+          return "animate-slide-out-down";
         case "scale":
           return "animate-scale-out";
         default:

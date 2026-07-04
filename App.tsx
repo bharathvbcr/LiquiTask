@@ -12,6 +12,7 @@ import { FEATURE_FLAGS, STORAGE_KEYS } from "./src/constants";
 import { useConfirmation } from "./src/contexts/ConfirmationContext";
 import { useAiKeyboardShortcuts } from "./src/hooks/useAiKeyboardShortcuts";
 import { useAppInitialization } from "./src/hooks/useAppInitialization";
+import { useAutoArchive } from "./src/hooks/useAutoArchive";
 import { useGlobalKeyboardShortcuts } from "./src/hooks/useGlobalKeyboardShortcuts";
 import { useProjectController } from "./src/hooks/useProjectController";
 import useSavedViews from "./src/hooks/useSavedViews";
@@ -19,15 +20,25 @@ import { useSearchHistory } from "./src/hooks/useSearchHistory";
 import { useTaskAssistant } from "./src/hooks/useTaskAssistant";
 // Hooks
 import { useTaskController } from "./src/hooks/useTaskController";
-import { getRuntimeState } from "./src/runtime/runtimeEnvironment";
+import { getRuntimeState, isTauri } from "./src/runtime/runtimeEnvironment";
 import { aiService } from "./src/services/aiService";
 import { archiveService } from "./src/services/archiveService";
+import {
+  activateEncryptionAtRest,
+  deactivateEncryptionAtRest,
+  needsDesktopEncryptionUnlock,
+  needsWebEncryptionUnlock,
+} from "./src/services/encryptionSetup";
+import { DesktopEncryptionGate } from "./components/DesktopEncryptionGate";
+import { WebEncryptionGate } from "./components/WebEncryptionGate";
 import { indexedDBService } from "./src/services/indexedDBService";
 import storageService from "./src/services/storageService";
 import type { FilterGroup } from "./src/types/queryTypes";
 import { debounce } from "./src/utils/debounce";
 import { buildTaskContextIndex, getTasksFromContextIndex } from "./src/utils/taskContextIndex";
 import { filterTasksBySearch } from "./src/utils/taskSearch";
+import { getBacklogColumnId } from "./src/utils/taskUtils";
+import { persistStorageQuiet } from "./src/utils/persistStorage";
 import type {
   ActivityItem,
   ActivityType,
@@ -230,7 +241,7 @@ const SidebarLoadingFallback: React.FC<{ isCollapsed: boolean }> = ({ isCollapse
 
 const HeaderLoadingFallback: React.FC<{ sidebarOffset: number }> = ({ sidebarOffset }) => (
   <div
-    className="fixed top-14 z-50 hidden h-16 rounded-3xl border border-white/5 liquid-glass shadow-xl md:block md:left-[104px] md:right-6"
+    className="sticky top-0 z-50 mb-4 hidden h-16 rounded-3xl border border-white/5 liquid-glass shadow-xl md:block md:mr-[72px]"
     style={{ transform: `translateX(${sidebarOffset}px)` }}
   />
 );
@@ -256,8 +267,12 @@ type NotificationServiceHandle = {
       completedAt?: Date;
     }>,
     intervalMs?: number,
+    options?: { getCompletedColumnIds?: () => Set<string> },
   ) => void;
   stopPeriodicCheck: () => void;
+  scheduleTaskReminder: (taskId: string, taskTitle: string, dueDate: Date) => void;
+  cancelTaskReminder: (taskId: string) => void;
+  clearOverdueNotification: (taskId: string) => void;
 };
 
 type RecurringTaskServiceHandle = {
@@ -302,8 +317,15 @@ type AutomationServiceHandle = {
     event: import("./src/services/automationService").AutomationTrigger,
     context: import("./src/services/automationService").TaskContext,
     allTasks: Task[],
-    options?: { onNotify?: (message: string) => void },
+    options?: { onNotify?: (message: string) => void; columns?: BoardColumn[] },
   ) => Partial<Task> | null;
+  configureSchedulerContext: (context: {
+    getAllTasks: () => Task[];
+    applyTaskUpdates: (taskId: string, updates: Partial<Task>) => void;
+    notify?: (message: string) => void;
+    getColumns?: () => BoardColumn[];
+  }) => void;
+  clearSchedulerContext: () => void;
 };
 
 type TemplateServiceHandle = {
@@ -316,6 +338,35 @@ type AdvancedFilterExecutor = (tasks: Task[], group: FilterGroup) => Task[];
 type AppView = "project" | "dashboard" | "gantt" | "archive";
 
 const App: React.FC = () => {
+  const [webEncryptionBlocked, setWebEncryptionBlocked] = useState<boolean | null>(null);
+  const [desktopEncryptionBlocked, setDesktopEncryptionBlocked] = useState<boolean | null>(null);
+  // Bumped when the user unlocks web encryption so data (re)loads with the
+  // in-memory key, instead of reloading the page and discarding that key.
+  const [encryptionEpoch, setEncryptionEpoch] = useState(0);
+
+  useEffect(() => {
+    const checkEncryptionGate = async () => {
+      if (isTauri()) {
+        const needsUnlock = await needsDesktopEncryptionUnlock();
+        setDesktopEncryptionBlocked(needsUnlock);
+        setWebEncryptionBlocked(false);
+        return;
+      }
+
+      const needsUnlock = await needsWebEncryptionUnlock();
+      if (needsUnlock) {
+        setWebEncryptionBlocked(true);
+        setDesktopEncryptionBlocked(false);
+        return;
+      }
+
+      setWebEncryptionBlocked(false);
+      setDesktopEncryptionBlocked(false);
+    };
+
+    void checkEncryptionGate();
+  }, []);
+
   const { confirm } = useConfirmation();
   const searchHistory = useSearchHistory();
 
@@ -478,6 +529,7 @@ const App: React.FC = () => {
 
   // Initialization
   useAppInitialization({
+    isLoaded,
     setIsLoaded,
     setColumns,
     setProjectTypes,
@@ -500,9 +552,44 @@ const App: React.FC = () => {
     notificationServiceRef,
     recurringTaskServiceRef,
     tasks,
+    columns,
     addToast,
     pushUndo,
+    encryptionEpoch,
   });
+
+  const { runAutoArchive } = useAutoArchive({
+    isLoaded,
+    tasks,
+    columns,
+    setTasks,
+    searchIndexServiceRef,
+    addToast,
+  });
+
+  const tasksRef = useRef(tasks);
+  tasksRef.current = tasks;
+  const columnsRef = useRef(columns);
+  columnsRef.current = columns;
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    const service = automationServiceRef.current;
+    if (!service) return;
+
+    service.configureSchedulerContext({
+      getAllTasks: () => tasksRef.current,
+      applyTaskUpdates: (taskId, updates) => {
+        handleUpdateTask(taskId, updates);
+      },
+      notify: (message) => addToast(message, "info"),
+      getColumns: () => columnsRef.current,
+    });
+
+    return () => {
+      service.clearSchedulerContext();
+    };
+  }, [isLoaded, addToast, handleUpdateTask]);
 
   const handleUpdateProjectPaths = useCallback(
     (projectId: string, paths: string[]) => {
@@ -569,7 +656,7 @@ const App: React.FC = () => {
   }, []);
 
   // Saved Views
-  const { views, activeViewId, createView, applyView, deleteView } = useSavedViews();
+  const { views, activeViewId, createView, applyView, deleteView } = useSavedViews(isLoaded);
 
   // Task Filtering (needed by AI handlers)
   // Pre-calculate project hierarchy for fast workspace filtering.
@@ -802,7 +889,7 @@ const App: React.FC = () => {
     const now = Date.now();
     setCommandUsageHistory((prev) => {
       const next = { ...prev, [commandId]: now };
-      storageService.set(STORAGE_KEYS.COMMAND_HISTORY, next);
+      persistStorageQuiet(STORAGE_KEYS.COMMAND_HISTORY, next);
       return next;
     });
   }, []);
@@ -1210,17 +1297,26 @@ const App: React.FC = () => {
   ]);
 
   // --- Debounced persistence ---
+  const persistWithToast = useCallback(
+    (key: string, value: unknown, label: string) => {
+      persistStorageQuiet(key, value, (message) => {
+        addToast(`Failed to save ${label}: ${message}`, "error");
+      });
+    },
+    [addToast],
+  );
+
   const debouncedSaveColumns = useMemo(
-    () => debounce((cols: BoardColumn[]) => storageService.set(STORAGE_KEYS.COLUMNS, cols), 500),
-    [],
+    () => debounce((cols: BoardColumn[]) => persistWithToast(STORAGE_KEYS.COLUMNS, cols, "columns"), 500),
+    [persistWithToast],
   );
   const debouncedSaveProjects = useMemo(
-    () => debounce((projs: Project[]) => storageService.set(STORAGE_KEYS.PROJECTS, projs), 500),
-    [],
+    () => debounce((projs: Project[]) => persistWithToast(STORAGE_KEYS.PROJECTS, projs, "projects"), 500),
+    [persistWithToast],
   );
   const debouncedSaveTasks = useMemo(
-    () => debounce((tsks: Task[]) => storageService.set(STORAGE_KEYS.TASKS, tsks), 500),
-    [],
+    () => debounce((tsks: Task[]) => persistWithToast(STORAGE_KEYS.TASKS, tsks, "tasks"), 500),
+    [persistWithToast],
   );
 
   useEffect(() => {
@@ -1232,18 +1328,83 @@ const App: React.FC = () => {
   useEffect(() => {
     if (isLoaded) debouncedSaveTasks(tasks);
   }, [tasks, debouncedSaveTasks, isLoaded]);
-  useEffect(() => () => debouncedSaveColumns.cancel(), [debouncedSaveColumns]);
-  useEffect(() => () => debouncedSaveProjects.cancel(), [debouncedSaveProjects]);
-  useEffect(() => () => debouncedSaveTasks.cancel(), [debouncedSaveTasks]);
   useEffect(() => {
-    if (isLoaded) storageService.set(STORAGE_KEYS.ACTIVE_PROJECT, activeProjectId);
-  }, [activeProjectId, isLoaded]);
+    const flushPending = () => {
+      debouncedSaveColumns.flush();
+      debouncedSaveProjects.flush();
+      debouncedSaveTasks.flush();
+    };
+    window.addEventListener("beforeunload", flushPending);
+    return () => {
+      window.removeEventListener("beforeunload", flushPending);
+      flushPending();
+    };
+  }, [debouncedSaveColumns, debouncedSaveProjects, debouncedSaveTasks]);
   useEffect(() => {
-    if (isLoaded) storageService.set(STORAGE_KEYS.VIEW_MODE, viewMode);
-  }, [viewMode, isLoaded]);
+    if (isLoaded) {
+      persistWithToast(STORAGE_KEYS.ACTIVE_PROJECT, activeProjectId, "active project");
+    }
+  }, [activeProjectId, isLoaded, persistWithToast]);
   useEffect(() => {
-    if (isLoaded) storageService.set(STORAGE_KEYS.CURRENT_VIEW, currentView);
-  }, [currentView, isLoaded]);
+    if (isLoaded) {
+      persistWithToast(STORAGE_KEYS.VIEW_MODE, viewMode, "view mode");
+    }
+  }, [viewMode, isLoaded, persistWithToast]);
+  useEffect(() => {
+    if (isLoaded) {
+      persistWithToast(STORAGE_KEYS.CURRENT_VIEW, currentView, "current view");
+    }
+  }, [currentView, isLoaded, persistWithToast]);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    persistWithToast(STORAGE_KEYS.PRIORITIES, priorities, "priorities");
+    if (indexedDBService.isAvailable()) {
+      indexedDBService.savePriorities(priorities).catch(console.error);
+    }
+  }, [priorities, isLoaded, persistWithToast]);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    persistWithToast(STORAGE_KEYS.CUSTOM_FIELDS, customFields, "custom fields");
+    if (indexedDBService.isAvailable()) {
+      indexedDBService.saveCustomFields(customFields).catch(console.error);
+    }
+  }, [customFields, isLoaded, persistWithToast]);
+
+  useEffect(() => {
+    if (isLoaded) {
+      persistWithToast(STORAGE_KEYS.PROJECT_TYPES, projectTypes, "project types");
+    }
+  }, [projectTypes, isLoaded, persistWithToast]);
+
+  useEffect(() => {
+    if (isLoaded) {
+      persistWithToast(STORAGE_KEYS.GROUPING, boardGrouping, "grouping");
+    }
+  }, [boardGrouping, isLoaded, persistWithToast]);
+
+  useEffect(() => {
+    if (isLoaded) {
+      persistWithToast(STORAGE_KEYS.COMPACT_VIEW, isCompactView, "compact view");
+    }
+  }, [isCompactView, isLoaded, persistWithToast]);
+
+  useEffect(() => {
+    if (isLoaded) {
+      persistWithToast(
+        STORAGE_KEYS.SHOW_SUB_WORKSPACE_TASKS,
+        showSubWorkspaceTasks,
+        "sub-workspace tasks",
+      );
+    }
+  }, [showSubWorkspaceTasks, isLoaded, persistWithToast]);
+
+  useEffect(() => {
+    if (isLoaded) {
+      persistWithToast(STORAGE_KEYS.SIDEBAR_COLLAPSED, isSidebarCollapsed, "sidebar state");
+    }
+  }, [isSidebarCollapsed, isLoaded, persistWithToast]);
 
   // --- Derived Data ---
   const activeProject: Project = projects.find((p) => p.id === activeProjectId) ||
@@ -1315,12 +1476,36 @@ const App: React.FC = () => {
   const runtimeState = getRuntimeState();
   const sidebarOffset = isSidebarCollapsed ? 0 : SIDEBAR_OFFSET_DELTA;
 
-  if (!isLoaded) {
+  if (desktopEncryptionBlocked === true) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center text-white">
+      <DesktopEncryptionGate
+        onUnlocked={() => {
+          setIsLoaded(false);
+          setEncryptionEpoch((epoch) => epoch + 1);
+          setDesktopEncryptionBlocked(false);
+        }}
+      />
+    );
+  }
+
+  if (webEncryptionBlocked === true) {
+    return (
+      <WebEncryptionGate
+        onUnlocked={() => {
+          setIsLoaded(false);
+          setEncryptionEpoch((epoch) => epoch + 1);
+          setWebEncryptionBlocked(false);
+        }}
+      />
+    );
+  }
+
+  if (webEncryptionBlocked === null || desktopEncryptionBlocked === null || !isLoaded) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center text-white" role="status" aria-live="polite" aria-busy="true">
         <div className="flex flex-col items-center gap-4">
-          <img src={logo} alt="LiquiTask" className="w-16 h-16 object-contain" />
-          <Loader2 className="w-10 h-10 text-red-500 animate-spin" />
+          <img src={logo} alt="LiquiTask" className="w-16 h-16 object-contain animate-pulse" />
+          <Loader2 className="w-10 h-10 text-red-500 animate-spin" aria-hidden="true" />
           <p className="text-slate-400">Loading LiquiTask...</p>
         </div>
       </div>
@@ -1384,78 +1569,81 @@ const App: React.FC = () => {
       </Suspense>
 
       <main id="main-content" className="relative z-10 min-h-screen flex flex-col md:pl-[104px]">
-        <Suspense fallback={<HeaderLoadingFallback sidebarOffset={sidebarOffset} />}>
-          <AppHeader
-            isHeaderExpanded={isHeaderExpanded}
-            sidebarOffset={sidebarOffset}
-            currentView={currentView}
-            viewMode={viewMode}
-            currentProjectName={activeProject.name}
-            parentProjectName={
-              activeProject.parentId
-                ? projects.find((p) => p.id === activeProject.parentId)?.name
-                : undefined
-            }
-            currentProjectPinned={activeProject.pinned ?? false}
-            currentProjectTaskCount={currentProjectTasks.length}
-            canUndo={canUndo}
-            isCompactView={isCompactView}
-            isFilterOpen={isFilterOpen}
-            hasActiveFilters={activeFilterCount > 0}
-            activeFilterCount={activeFilterCount}
-            notificationPermission={notificationPermission}
-            searchQuery={searchQuery}
-            isSearchFocused={isSearchFocused}
-            filters={filters}
-            activeFilterGroup={activeFilterGroup}
-            customFields={customFields}
-            views={views}
-            activeViewId={activeViewId}
-            searchInputRef={searchInputRef}
-            searchHistory={searchHistory}
-            onHeaderExpand={setIsHeaderExpanded}
-            onViewModeChange={setViewMode}
-            onUndo={handleUndo}
-            onToggleCompactView={() => setIsCompactView(!isCompactView)}
-            onToggleFilter={() => setIsFilterOpen(!isFilterOpen)}
-            onRequestNotificationPermission={handleRequestNotificationPermission}
-            onOpenTaskModal={() => {
-              setEditingTask(null);
-              setIsTaskModalOpen(true);
-            }}
-            onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
-            onSearchQueryChange={setSearchQuery}
-            onSearchFocusChange={setIsSearchFocused}
-            onApplyView={handleApplyView}
-            onCreateView={handleCreateView}
-            onDeleteView={deleteView}
-            onFiltersChange={setFilters}
-            onAdvancedFilterChange={setActiveFilterGroup}
-            onClearFilters={() => {
-              setFilters({
-                assignee: "",
-                dateRange: null,
-                startDate: "",
-                endDate: "",
-                tags: "",
-              });
-              setActiveFilterGroup({ id: "root", operator: "AND", rules: [] });
-            }}
-            onAiPrioritize={handleAiPrioritize}
-            onAiInsights={handleAiInsights}
-            onNaturalLanguageSearch={handleNaturalLanguageSearch}
-            isNaturalLanguageSearch={isNaturalLanguageSearch}
-            onToggleNaturalLanguageSearch={() =>
-              setIsNaturalLanguageSearch(!isNaturalLanguageSearch)
-            }
-            onOpenMobileNav={() => setIsMobileNavOpen(true)}
-            onToggleAssistant={
-              isAiAssistantSidebarEnabled ? () => setAiAssistantOpen((prev) => !prev) : undefined
-            }
-          />
-        </Suspense>
+        <div className="flex-1 min-h-0 overflow-x-auto overflow-y-auto scrollbar-hide">
+          <div className="px-6 md:px-8 pt-4">
+            <Suspense fallback={<HeaderLoadingFallback sidebarOffset={sidebarOffset} />}>
+              <AppHeader
+              isHeaderExpanded={isHeaderExpanded}
+              sidebarOffset={sidebarOffset}
+              currentView={currentView}
+              viewMode={viewMode}
+              currentProjectName={activeProject.name}
+              parentProjectName={
+                activeProject.parentId
+                  ? projects.find((p) => p.id === activeProject.parentId)?.name
+                  : undefined
+              }
+              currentProjectPinned={activeProject.pinned ?? false}
+              currentProjectTaskCount={currentProjectTasks.length}
+              canUndo={canUndo}
+              isCompactView={isCompactView}
+              isFilterOpen={isFilterOpen}
+              hasActiveFilters={activeFilterCount > 0}
+              activeFilterCount={activeFilterCount}
+              notificationPermission={notificationPermission}
+              searchQuery={searchQuery}
+              isSearchFocused={isSearchFocused}
+              filters={filters}
+              activeFilterGroup={activeFilterGroup}
+              customFields={customFields}
+              views={views}
+              activeViewId={activeViewId}
+              searchInputRef={searchInputRef}
+              searchHistory={searchHistory}
+              onHeaderExpand={setIsHeaderExpanded}
+              onViewModeChange={setViewMode}
+              onUndo={handleUndo}
+              onToggleCompactView={() => setIsCompactView(!isCompactView)}
+              onToggleFilter={() => setIsFilterOpen(!isFilterOpen)}
+              onRequestNotificationPermission={handleRequestNotificationPermission}
+              onOpenTaskModal={() => {
+                setEditingTask(null);
+                setIsTaskModalOpen(true);
+              }}
+              onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+              onSearchQueryChange={setSearchQuery}
+              onSearchFocusChange={setIsSearchFocused}
+              onApplyView={handleApplyView}
+              onCreateView={handleCreateView}
+              onDeleteView={deleteView}
+              onFiltersChange={setFilters}
+              onAdvancedFilterChange={setActiveFilterGroup}
+              onClearFilters={() => {
+                setFilters({
+                  assignee: "",
+                  dateRange: null,
+                  startDate: "",
+                  endDate: "",
+                  tags: "",
+                });
+                setActiveFilterGroup({ id: "root", operator: "AND", rules: [] });
+              }}
+              onAiPrioritize={handleAiPrioritize}
+              onAiInsights={handleAiInsights}
+              onNaturalLanguageSearch={handleNaturalLanguageSearch}
+              isNaturalLanguageSearch={isNaturalLanguageSearch}
+              onToggleNaturalLanguageSearch={() =>
+                setIsNaturalLanguageSearch(!isNaturalLanguageSearch)
+              }
+              onOpenMobileNav={() => setIsMobileNavOpen(true)}
+              onToggleAssistant={
+                isAiAssistantSidebarEnabled ? () => setAiAssistantOpen((prev) => !prev) : undefined
+              }
+              />
+            </Suspense>
+          </div>
 
-        <div className="flex-1 pt-24 px-6 md:px-8 pb-6 overflow-x-auto overflow-y-auto scrollbar-hide">
+          <div className="px-6 md:px-8 pb-6">
           <ViewTransition
             transitionKey={`${currentView}-${activeProjectId}-${viewMode}`}
             type="fade"
@@ -1511,7 +1699,7 @@ const App: React.FC = () => {
                       summary: "",
                       assignee: "",
                       priority: priorities[0]?.id || "medium",
-                      status: columns[0]?.id || "Pending",
+                      status: getBacklogColumnId(columns),
                       createdAt: new Date(),
                       dueDate: d,
                       subtasks: [],
@@ -1568,6 +1756,7 @@ const App: React.FC = () => {
               )}
             </Suspense>
           </ViewTransition>
+          </div>
         </div>
       </main>
 
@@ -1650,8 +1839,58 @@ const App: React.FC = () => {
               customFields,
             }}
             onImportData={(d) => {
-              if (d.projects) setProjects(d.projects);
-              if (d.tasks) setTasks(d.tasks);
+              if (d.columns) handleUpdateColumns(d.columns);
+              if (d.projectTypes) {
+                setProjectTypes(d.projectTypes);
+                persistWithToast(STORAGE_KEYS.PROJECT_TYPES, d.projectTypes, "project types");
+              }
+              if (d.priorities) {
+                setPriorities(d.priorities);
+                if (indexedDBService.isAvailable()) {
+                  indexedDBService.savePriorities(d.priorities).catch(console.error);
+                }
+                persistWithToast(STORAGE_KEYS.PRIORITIES, d.priorities, "priorities");
+              }
+              if (d.customFields) {
+                setCustomFields(d.customFields);
+                if (indexedDBService.isAvailable()) {
+                  indexedDBService.saveCustomFields(d.customFields).catch(console.error);
+                }
+                persistWithToast(STORAGE_KEYS.CUSTOM_FIELDS, d.customFields, "custom fields");
+              }
+              if (d.projects) {
+                setProjects(d.projects);
+                if (indexedDBService.isAvailable()) {
+                  Promise.all(d.projects.map((p) => indexedDBService.saveProject(p))).catch(
+                    console.error,
+                  );
+                }
+                persistWithToast(STORAGE_KEYS.PROJECTS, d.projects, "projects");
+              }
+              if (d.tasks) {
+                setTasks(d.tasks);
+                searchIndexServiceRef.current?.buildIndex(d.tasks);
+                if (indexedDBService.isAvailable()) {
+                  indexedDBService.saveTasks(d.tasks).catch(console.error);
+                }
+                persistWithToast(STORAGE_KEYS.TASKS, d.tasks, "tasks");
+              }
+              if (d.activeProjectId) {
+                setActiveProjectId(d.activeProjectId);
+                persistWithToast(STORAGE_KEYS.ACTIVE_PROJECT, d.activeProjectId, "active project");
+              }
+              if (d.grouping) {
+                setBoardGrouping(d.grouping);
+                persistWithToast(STORAGE_KEYS.GROUPING, d.grouping, "grouping");
+              }
+              if (d.sidebarCollapsed !== undefined) {
+                setIsSidebarCollapsed(d.sidebarCollapsed);
+                persistWithToast(
+                  STORAGE_KEYS.SIDEBAR_COLLAPSED,
+                  d.sidebarCollapsed,
+                  "sidebar state",
+                );
+              }
             }}
             onUpdateColumns={handleUpdateColumns}
             onUpdateProjectTypes={setProjectTypes}
@@ -1671,6 +1910,9 @@ const App: React.FC = () => {
             onOpenBulkOperations={() => setIsBulkAIOperationsOpen(true)}
             onOpenAutoOrganize={() => setIsAutoOrganizeOpen(true)}
             onOpenInsights={() => setIsAiInsightsOpen(true)}
+            onRunAutoArchive={runAutoArchive}
+            onEnableEncryption={activateEncryptionAtRest}
+            onDisableEncryption={deactivateEncryptionAtRest}
           />
         </Suspense>
       )}

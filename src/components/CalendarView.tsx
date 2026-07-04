@@ -143,7 +143,7 @@ const DroppableDayCell: React.FC<DroppableDayCellProps> = ({
                     : "bg-black/20 border-white/5 hover:border-white/10"
                 }
                 ${!isCurrentMonth && viewMode === "month" ? "opacity-40" : ""}
-                ${isOver ? "border-blue-500/50 bg-blue-500/10 ring-2 ring-blue-500/30" : ""}
+                ${isOver ? "border-red-500/50 bg-red-500/10 ring-2 ring-red-500/30" : ""}
             `}
     >
       {children}
@@ -392,7 +392,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             <button
               onClick={handleAiSchedule}
               disabled={isAiScheduling}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${showAiSuggestions ? "bg-purple-500/20 text-purple-400" : "text-slate-400 hover:text-white"} disabled:opacity-50`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${showAiSuggestions ? "bg-red-500/20 text-red-400" : "text-slate-400 hover:text-white"} disabled:opacity-50`}
               title="AI Scheduling - Let AI suggest optimal dates for tasks without due dates"
             >
               {isAiScheduling ? (
@@ -475,12 +475,12 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     className={`
                                     text-sm font-bold w-7 h-7 flex items-center justify-center rounded-full
                                     ${isTodayDate ? "bg-red-500 text-white" : "text-slate-400"}
-                                    ${showAiSuggestions && aiSuggestedDates[dateKey] ? "ring-2 ring-purple-500/50 ring-offset-1 ring-offset-transparent" : ""}
+                                    ${showAiSuggestions && aiSuggestedDates[dateKey] ? "ring-2 ring-red-500/50 ring-offset-1 ring-offset-transparent" : ""}
                                 `}
                   >
                     {date.getDate()}
                     {showAiSuggestions && aiSuggestedDates[dateKey] && (
-                      <span className="absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full flex items-center justify-center">
+                      <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full flex items-center justify-center">
                         <Sparkles size={8} className="text-white" />
                       </span>
                     )}
@@ -512,8 +512,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     </div>
                   )}
                   {showAiSuggestions && aiSuggestedDates[dateKey] && (
-                    <div className="mt-1 pt-1 border-t border-purple-500/20">
-                      <div className="text-[9px] font-bold text-purple-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                    <div className="mt-1 pt-1 border-t border-red-500/20">
+                      <div className="text-[9px] font-bold text-red-400 uppercase tracking-wider mb-1 flex items-center gap-1">
                         <Sparkles size={8} /> AI Suggested
                       </div>
                       {aiSuggestedDates[dateKey].map((taskId) => {
@@ -523,7 +523,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                           <button
                             key={taskId}
                             onClick={() => onUpdateDueDate?.(taskId, date)}
-                            className="w-full text-left px-1.5 py-0.5 rounded text-[10px] font-medium truncate transition-all hover:scale-[1.02] border border-purple-500/30 mb-0.5"
+                            className="w-full text-left px-1.5 py-0.5 rounded text-[10px] font-medium truncate transition-all hover:scale-[1.02] border border-red-500/30 mb-0.5"
                             style={{
                               backgroundColor: `${getPriorityColor(task.priority)}15`,
                               color: getPriorityColor(task.priority),

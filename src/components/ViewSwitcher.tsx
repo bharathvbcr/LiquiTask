@@ -41,7 +41,9 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
         >
           <button
             onClick={() => onViewModeChange("board")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform ${
+            aria-label="Board view"
+            aria-pressed={viewMode === "board"}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 ${
               viewMode === "board"
                 ? "bg-red-500/20 text-red-400 scale-105"
                 : "text-slate-400 hover:text-white hover:scale-105 hover:bg-white/5"
@@ -65,7 +67,9 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
         >
           <button
             onClick={() => onViewModeChange("gantt")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform ${
+            aria-label="Gantt view"
+            aria-pressed={viewMode === "gantt"}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 ${
               viewMode === "gantt"
                 ? "bg-red-500/20 text-red-400 scale-105"
                 : "text-slate-400 hover:text-white hover:scale-105 hover:bg-white/5"
@@ -97,7 +101,9 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
         >
           <button
             onClick={() => onViewModeChange("stats")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform ${
+            aria-label="Stats view"
+            aria-pressed={viewMode === "stats"}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 ${
               viewMode === "stats"
                 ? "bg-red-500/20 text-red-400 scale-105"
                 : "text-slate-400 hover:text-white hover:scale-105 hover:bg-white/5"
@@ -121,7 +127,9 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
         >
           <button
             onClick={() => onViewModeChange("calendar")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform ${
+            aria-label="Calendar view"
+            aria-pressed={viewMode === "calendar"}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 ${
               viewMode === "calendar"
                 ? "bg-red-500/20 text-red-400 scale-105"
                 : "text-slate-400 hover:text-white hover:scale-105 hover:bg-white/5"
@@ -147,10 +155,12 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
             >
               <button
                 onClick={() => onViewModeChange("board")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                aria-label="Board view"
+                aria-pressed={viewMode === "board"}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 ${
                   viewMode === "board"
-                    ? "bg-red-500/20 text-red-400"
-                    : "text-slate-400 hover:text-white"
+                    ? "bg-red-500/20 text-red-400 scale-105"
+                    : "text-slate-400 hover:text-white hover:scale-105 hover:bg-white/5"
                 }`}
               >
                 <Layout size={14} />
@@ -171,10 +181,12 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
             >
               <button
                 onClick={() => onViewModeChange("gantt")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                aria-label="Gantt view"
+                aria-pressed={viewMode === "gantt"}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 ${
                   viewMode === "gantt"
-                    ? "bg-red-500/20 text-red-400"
-                    : "text-slate-400 hover:text-white"
+                    ? "bg-red-500/20 text-red-400 scale-105"
+                    : "text-slate-400 hover:text-white hover:scale-105 hover:bg-white/5"
                 }`}
               >
                 <GanttChart size={14} />

@@ -62,16 +62,10 @@ describe("Sidebar", () => {
   });
 
   it("toggles sidebar collapse", () => {
-    const { rerender: _rerender } = render(<Sidebar {...baseProps} />);
+    render(<Sidebar {...baseProps} />);
 
-    const _toggleBtn = screen.getByRole("button", { name: "" }); // The collapse button has no aria-label but has icon
-    // We find it by its container if needed, but let's try to find the icon
-
-    const button = screen.getByRole("complementary").querySelector("button");
-    if (button) fireEvent.click(button); // wait Sidebar is 'aside', not 'complementary'?
-    // Actually Sidebar is 'aside'. Testing library might not map it to a role.
-
-    // Let's find by title if we add it, or just use querySelector
+    fireEvent.click(screen.getByRole("button", { name: /collapse sidebar/i }));
+    expect(mockToggleSidebar).toHaveBeenCalled();
   });
 
   it("calls onSelectProject when a project is clicked", () => {

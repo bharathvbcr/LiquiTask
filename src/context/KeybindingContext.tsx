@@ -1,6 +1,7 @@
 import type React from "react";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { DEFAULT_KEYBINDINGS, type KeybindingMap } from "../constants/keybindings";
+import { persistStorageQuiet } from "../utils/persistStorage";
 import storageService from "../services/storageService";
 
 interface KeybindingContextValue {
@@ -34,7 +35,7 @@ export const KeybindingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
     setKeybindings((prev) => {
       const next = { ...prev, [actionId]: keys };
-      storageService.set(STORAGE_KEY, next);
+      persistStorageQuiet(STORAGE_KEY, next);
       return next;
     });
     return null;
@@ -42,7 +43,7 @@ export const KeybindingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const resetKeybindings = useCallback(() => {
     setKeybindings(DEFAULT_KEYBINDINGS);
-    storageService.set(STORAGE_KEY, DEFAULT_KEYBINDINGS);
+    persistStorageQuiet(STORAGE_KEY, DEFAULT_KEYBINDINGS);
   }, []);
 
   const matches = useCallback(

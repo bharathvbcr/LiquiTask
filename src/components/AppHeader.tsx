@@ -154,7 +154,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
   return (
   <header
-    className={`fixed top-14 z-50 overflow-hidden rounded-3xl border border-white/5 px-8 shadow-xl liquid-glass will-change-transform md:left-[104px] md:right-[72px] ${isHeaderExpanded ? "py-6 max-h-[600px]" : "py-4 max-h-24"} transition-[transform,padding,max-height] duration-[400ms] ease-[cubic-bezier(0.22,1,0.36,1)]`}
+    className={`sticky top-0 z-50 mb-4 overflow-hidden rounded-3xl border border-white/5 px-8 shadow-xl liquid-glass will-change-transform md:mr-[72px] ${isHeaderExpanded ? "py-6 max-h-[600px]" : "py-4 max-h-24"} transition-[transform,padding,max-height] duration-[400ms] ease-[cubic-bezier(0.22,1,0.36,1)]`}
     style={{ transform: `translateX(${sidebarOffset}px)` }}
     onMouseEnter={() => onHeaderExpand(true)}
     onMouseLeave={() => onHeaderExpand(false)}
@@ -275,7 +275,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           {onAiPrioritize && (
             <button
               onClick={onAiPrioritize}
-              className="icon-btn transition-all text-slate-400 hover:text-cyan-400 relative group"
+              className="icon-btn transition-all text-slate-400 hover:text-red-400 relative group"
               title="AI Prioritize - Let AI analyze and suggest optimal task priorities"
               aria-label="AI Prioritize tasks"
             >
@@ -285,7 +285,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           {onAiInsights && (
             <button
               onClick={onAiInsights}
-              className="icon-btn transition-all text-slate-400 hover:text-purple-400 relative group"
+              className="icon-btn transition-all text-slate-400 hover:text-red-400 relative group"
               title="AI Insights - View AI-generated analysis and recommendations"
               aria-label="AI Insights"
             >
@@ -295,7 +295,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           {onToggleAssistant && (
             <button
               onClick={onToggleAssistant}
-              className="icon-btn transition-all text-slate-400 hover:text-cyan-400 relative group"
+              className="icon-btn transition-all text-slate-400 hover:text-red-400 relative group"
               title="AI Assistant (Ctrl+J) - Chat with AI to manage your workspace"
               aria-label="AI Assistant"
             >
@@ -310,14 +310,32 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 ? `Close Filters${hasActiveFilters ? ` - ${activeFilterCount} active filter${activeFilterCount !== 1 ? "s" : ""}` : " - No filters applied"}`
                 : `Filters${hasActiveFilters ? ` - ${activeFilterCount} active filter${activeFilterCount !== 1 ? "s" : ""}` : " - No filters applied"}`
             }
-            aria-label={isFilterOpen ? "Close filters panel" : "Open filters panel"}
+            aria-label={
+              hasActiveFilters
+                ? `${isFilterOpen ? "Close" : "Open"} filters panel, ${activeFilterCount} active`
+                : isFilterOpen
+                  ? "Close filters panel"
+                  : "Open filters panel"
+            }
             {...(isFilterOpen ? { "aria-expanded": "true" } : { "aria-expanded": "false" })}
           >
             <Filter size={18} />
+            {hasActiveFilters && (
+              <span
+                aria-hidden="true"
+                className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-bold leading-none shadow-[0_0_8px_rgba(239,68,68,0.6)]"
+              >
+                {activeFilterCount}
+              </span>
+            )}
           </button>
           <button
-            className="relative icon-btn text-slate-400 hover:text-white"
-            aria-label="Notifications"
+            className={`relative icon-btn ${notificationPermission === "granted" ? "text-red-400 hover:text-red-300" : "text-slate-400 hover:text-white"}`}
+            aria-label={
+              notificationPermission === "granted"
+                ? "Notifications enabled"
+                : "Enable notifications"
+            }
             title={
               notificationPermission === "granted"
                 ? "Notifications - Desktop alerts enabled for task reminders"
@@ -342,7 +360,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           className={`relative flex-shrink-0 transition-all duration-300 ease-in-out ${isSearchFocused || searchQuery.length > 0 ? "min-w-[280px] max-w-md" : "w-48"}`}
         >
           <div
-            className={`flex items-center gap-3 bg-black/30 border px-4 py-3 rounded-2xl text-slate-400 focus-within:ring-2 focus-within:bg-black/40 transition-all shadow-lg w-full ${isNaturalLanguageSearch ? "border-purple-500/50 focus-within:border-purple-500/50 focus-within:ring-purple-500/20" : "border-white/10 focus-within:border-red-500/50 focus-within:ring-red-500/20"}`}
+            role="search"
+            className={`flex items-center gap-3 bg-black/30 border px-4 py-3 rounded-2xl text-slate-400 focus-within:ring-2 focus-within:bg-black/40 transition-all shadow-lg w-full ${isNaturalLanguageSearch ? "border-red-500/50 focus-within:border-red-500/50 focus-within:ring-red-500/20" : "border-white/10 focus-within:border-red-500/50 focus-within:ring-red-500/20"}`}
             title={
               isNaturalLanguageSearch
                 ? 'Natural Language Search (AI-powered) - Type queries like "high priority tasks due this week"'
@@ -350,13 +369,14 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             }
           >
             {isNaturalLanguageSearch ? (
-              <Sparkles size={18} className="text-purple-400 shrink-0" />
+              <Sparkles size={18} className="text-red-400 shrink-0" />
             ) : (
               <Search size={18} className="text-slate-500 shrink-0" />
             )}
             <input
               ref={searchInputRef}
               type="text"
+              aria-label={isNaturalLanguageSearch ? "Natural language task search" : "Search tasks"}
               placeholder={
                 isNaturalLanguageSearch
                   ? 'Ask AI: "high priority tasks due this week"...'
@@ -390,8 +410,15 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             />
             {onToggleNaturalLanguageSearch && (
               <button
+                type="button"
                 onClick={onToggleNaturalLanguageSearch}
-                className={`p-1.5 rounded-lg transition-all shrink-0 ${isNaturalLanguageSearch ? "text-purple-400 hover:text-purple-300 hover:bg-purple-500/10" : "text-slate-500 hover:text-purple-400 hover:bg-purple-500/10"}`}
+                aria-label={
+                  isNaturalLanguageSearch
+                    ? "Switch to standard search"
+                    : "Switch to AI natural language search"
+                }
+                aria-pressed={isNaturalLanguageSearch}
+                className={`p-1.5 rounded-lg transition-all shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 ${isNaturalLanguageSearch ? "text-red-400 hover:text-red-300 hover:bg-red-500/10" : "text-slate-500 hover:text-red-400 hover:bg-red-500/10"}`}
                 title={
                   isNaturalLanguageSearch
                     ? "Switch to standard search"
@@ -402,9 +429,11 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               </button>
             )}
             <button
+              type="button"
               onClick={onOpenCommandPalette}
-              className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all shrink-0"
+              className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
               title="Command Palette (Cmd+K) - Quick actions, navigation, and shortcuts"
+              aria-label="Open command palette"
               aria-haspopup="dialog"
             >
               <Command size={14} />
@@ -443,29 +472,32 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
       <div
         className={`pt-4 border-t border-white/5 overflow-hidden transition-all duration-400 ease-[cubic-bezier(0.4,0,0.2,1)] ${isFilterOpen ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0"}`}
+        aria-hidden={!isFilterOpen}
       >
         <div className="flex flex-wrap items-end gap-4">
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1">
+            <label htmlFor="filter-assignee" className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1">
               <User size={10} /> Assignee
             </label>
             <input
+              id="filter-assignee"
               type="text"
               value={filters.assignee}
               onChange={(e) => onFiltersChange({ ...filters, assignee: e.target.value })}
-              className="bg-black/20 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-slate-300 w-32 focus:border-red-500/50 outline-none"
+              className="bg-black/20 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-slate-300 w-32 focus:border-red-500/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 outline-none"
               placeholder="Name..."
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1">
+            <label htmlFor="filter-tag" className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1">
               <Tag size={10} /> Tag
             </label>
             <input
+              id="filter-tag"
               type="text"
               value={filters.tags}
               onChange={(e) => onFiltersChange({ ...filters, tags: e.target.value })}
-              className="bg-black/20 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-slate-300 w-32 focus:border-red-500/50 outline-none"
+              className="bg-black/20 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-slate-300 w-32 focus:border-red-500/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 outline-none"
               placeholder="Category..."
             />
           </div>
@@ -482,7 +514,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                     dateRange: e.target.value as FilterState["dateRange"],
                   })
                 }
-                className="bg-black/20 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-slate-300 focus:border-red-500/50 outline-none"
+                className="bg-black/20 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-slate-300 focus:border-red-500/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 outline-none"
                 aria-label="Date range filter type"
                 title="Date range filter type"
               >
@@ -497,7 +529,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                     type="date"
                     value={filters.startDate}
                     onChange={(e) => onFiltersChange({ ...filters, startDate: e.target.value })}
-                    className="bg-black/20 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-300 [color-scheme:dark]"
+                    className="bg-black/20 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-300 [color-scheme:dark] focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30"
                     aria-label="Start date"
                     title="Start date"
                   />
@@ -507,7 +539,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                     type="date"
                     value={filters.endDate}
                     onChange={(e) => onFiltersChange({ ...filters, endDate: e.target.value })}
-                    className="bg-black/20 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-300 [color-scheme:dark]"
+                    className="bg-black/20 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-300 [color-scheme:dark] focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30"
                     aria-label="End date"
                     title="End date"
                   />
@@ -516,8 +548,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             </div>
           </div>
           <button
+            type="button"
             onClick={onClearFilters}
-            className="ml-auto text-xs text-red-400 hover:text-white underline"
+            aria-label="Clear all filters"
+            className="ml-auto text-xs text-red-400 hover:text-white underline focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 rounded px-1"
           >
             Clear All
           </button>

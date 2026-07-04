@@ -138,8 +138,8 @@ const StandardBoardView: React.FC<StandardBoardViewProps> = ({
       {createPortal(
         <DragOverlay dropAnimation={dropAnimation}>
           {activeColumn && (
-            <div className="w-[300px] opacity-80 rotate-2">
-              <div className="bg-[#1e1e1e] p-4 rounded-xl border border-white/10 shadow-xl">
+            <div className="w-[300px] opacity-90 rotate-2">
+              <div className="liquid-glass p-4 rounded-xl border-2 border-red-500/50 shadow-2xl shadow-black/70">
                 <h3 className="font-bold text-slate-200">{activeColumn.title}</h3>
               </div>
             </div>

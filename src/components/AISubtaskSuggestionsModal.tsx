@@ -167,7 +167,7 @@ export const AISubtaskSuggestionsModal: React.FC<AISubtaskSuggestionsModalProps>
     return (
       <ModalWrapper isOpen={isOpen} onClose={onClose} title="Analyzing Subtask Suggestions">
         <div className="flex items-center justify-center py-12">
-          <Loader2 size={24} className="animate-spin text-cyan-400 mr-3" />
+          <Loader2 size={24} className="animate-spin text-red-400 mr-3" />
           <span className="text-slate-400">
             AI is analyzing tasks that could be converted to subtasks...
           </span>

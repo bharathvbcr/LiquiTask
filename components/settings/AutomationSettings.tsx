@@ -2,11 +2,15 @@ import { Edit2, Plus, Trash2, Zap } from "lucide-react";
 import type React from "react";
 import { useEffect, useState } from "react";
 import { AutomationRuleEditor } from "../../src/components/AutomationRuleEditor";
+import { Button } from "../../src/components/common/Button";
 import { STORAGE_KEYS } from "../../src/constants";
+import { useConfirmation } from "../../src/contexts/ConfirmationContext";
 import type { AutomationRule } from "../../src/services/automationService";
 import { automationService } from "../../src/services/automationService";
+import { persistStorageQuiet } from "../../src/utils/persistStorage";
 import storageService from "../../src/services/storageService";
 import type { BoardColumn, PriorityDefinition, ToastType } from "../../types";
+import { SettingsToggle } from "./SettingsToggle";
 
 interface AutomationSettingsProps {
   columns: BoardColumn[];
@@ -19,6 +23,7 @@ export const AutomationSettings: React.FC<AutomationSettingsProps> = ({
   priorities,
   addToast,
 }) => {
+  const { confirm } = useConfirmation();
   const [rules, setRules] = useState<AutomationRule[]>([]);
   const [editingRule, setEditingRule] = useState<AutomationRule | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -31,7 +36,9 @@ export const AutomationSettings: React.FC<AutomationSettingsProps> = ({
 
   const persistRules = (nextRules: AutomationRule[]) => {
     setRules(nextRules);
-    storageService.set(STORAGE_KEYS.AUTOMATION_RULES, nextRules);
+    persistStorageQuiet(STORAGE_KEYS.AUTOMATION_RULES, nextRules, (message) => {
+      addToast(`Failed to save automation rules: ${message}`, "error");
+    });
     automationService.loadRules(nextRules);
   };
 
@@ -47,9 +54,22 @@ export const AutomationSettings: React.FC<AutomationSettingsProps> = ({
     addToast(exists ? "Automation rule updated" : "Automation rule created", "success");
   };
 
-  const handleDelete = (ruleId: string) => {
-    persistRules(rules.filter((rule) => rule.id !== ruleId));
+  const handleDelete = async (rule: AutomationRule) => {
+    const ok = await confirm({
+      title: "Delete automation rule",
+      message: `Delete "${rule.name}"? This cannot be undone.`,
+      confirmText: "Delete",
+      variant: "danger",
+    });
+    if (!ok) return;
+    persistRules(rules.filter((r) => r.id !== rule.id));
     addToast("Automation rule deleted", "info");
+  };
+
+  const toggleRule = (ruleId: string, enabled: boolean) => {
+    persistRules(
+      rules.map((rule) => (rule.id === ruleId ? { ...rule, enabled } : rule)),
+    );
   };
 
   const availableColumns = columns.map((column) => ({
@@ -63,7 +83,7 @@ export const AutomationSettings: React.FC<AutomationSettingsProps> = ({
 
   return (
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-amber-500/20 text-amber-400">
             <Zap size={20} />
@@ -73,32 +93,54 @@ export const AutomationSettings: React.FC<AutomationSettingsProps> = ({
             <p className="text-sm text-slate-400">Create rules that react to task changes.</p>
           </div>
         </div>
-        <button
+        <Button
+          size="sm"
           onClick={() => {
             setEditingRule(null);
             setIsEditorOpen(true);
           }}
-          className="flex items-center gap-2 rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white"
+          icon={<Plus size={16} />}
         >
-          <Plus size={16} />
           New Rule
-        </button>
+        </Button>
       </div>
 
       <div className="space-y-2">
         {rules.length === 0 ? (
-          <div className="rounded-xl border border-white/10 bg-white/5 p-6 text-center text-sm text-slate-400">
-            No automation rules configured.
+          <div className="rounded-xl border border-dashed border-white/10 bg-white/5 p-8 text-center space-y-3">
+            <div className="mx-auto w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center">
+              <Zap size={20} className="text-amber-400" />
+            </div>
+            <div>
+              <p className="text-sm text-slate-300 font-medium">No automation rules yet</p>
+              <p className="text-xs text-slate-500 mt-1">
+                Automate task moves, priority changes, and more when events occur.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => {
+                setEditingRule(null);
+                setIsEditorOpen(true);
+              }}
+              icon={<Plus size={14} />}
+            >
+              Create your first rule
+            </Button>
           </div>
         ) : (
           rules.map((rule) => (
             <div
               key={rule.id}
-              className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 p-4"
+              className={`flex items-center justify-between gap-4 rounded-xl border p-4 transition-colors ${
+                rule.enabled
+                  ? "border-white/10 bg-white/5"
+                  : "border-white/5 bg-white/[0.02] opacity-70"
+              }`}
             >
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-white">{rule.name}</span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-semibold text-white truncate">{rule.name}</span>
                   <span
                     className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
                       rule.enabled
@@ -114,21 +156,29 @@ export const AutomationSettings: React.FC<AutomationSettingsProps> = ({
                   {rule.actions.length === 1 ? "" : "s"}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
+                <SettingsToggle
+                  checked={rule.enabled}
+                  onChange={(enabled) => toggleRule(rule.id, enabled)}
+                  color="amber"
+                  aria-label={`Toggle ${rule.name}`}
+                />
                 <button
+                  type="button"
                   onClick={() => {
                     setEditingRule(rule);
                     setIsEditorOpen(true);
                   }}
-                  className="rounded-lg p-2 text-slate-400 hover:bg-white/10 hover:text-white"
-                  title="Edit rule"
+                  aria-label={`Edit ${rule.name}`}
+                  className="rounded-lg p-2 text-slate-400 hover:bg-white/10 hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50"
                 >
                   <Edit2 size={16} />
                 </button>
                 <button
-                  onClick={() => handleDelete(rule.id)}
-                  className="rounded-lg p-2 text-slate-400 hover:bg-red-500/10 hover:text-red-300"
-                  title="Delete rule"
+                  type="button"
+                  onClick={() => handleDelete(rule)}
+                  aria-label={`Delete ${rule.name}`}
+                  className="rounded-lg p-2 text-slate-400 hover:bg-red-500/10 hover:text-red-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
                 >
                   <Trash2 size={16} />
                 </button>

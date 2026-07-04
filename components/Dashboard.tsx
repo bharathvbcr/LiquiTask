@@ -218,7 +218,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             {onSuggestNextTask && (
               <button
                 onClick={onSuggestNextTask}
-                className="flex items-center gap-2 px-4 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 rounded-lg text-sm font-bold transition-all border border-cyan-500/20 shadow-glow-cyan/10"
+                className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-sm font-bold transition-all border border-red-500/20 shadow-glow-red/10"
               >
                 <Sparkles size={16} />
                 Suggest Next Task
@@ -272,19 +272,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
       )}
 
       {nextTaskSuggestion && (
-        <div className="liquid-glass p-6 border-cyan-500/30 bg-cyan-500/5 animate-in fade-in slide-in-from-top-4">
+        <div className="liquid-glass p-6 border-red-500/30 bg-red-500/5 animate-in fade-in slide-in-from-top-4">
           <div className="flex items-start justify-between">
             <div className="flex items-start gap-4">
-              <div className="p-3 rounded-2xl bg-cyan-500/20 text-cyan-400 shadow-glow-cyan/20">
+              <div className="p-3 rounded-2xl bg-red-500/20 text-red-400 shadow-glow-red/20">
                 <Sparkles size={24} />
               </div>
               <div>
-                <h4 className="text-sm font-bold text-cyan-300 uppercase tracking-widest">
+                <h4 className="text-sm font-bold text-red-300 uppercase tracking-widest">
                   AI Recommendation
                 </h4>
                 <p className="text-lg font-bold text-white mt-1">
                   You should work on:{" "}
-                  <span className="text-cyan-400">
+                  <span className="text-red-400">
                     {tasks.find((t) => t.id === nextTaskSuggestion.taskId)?.title || "Unknown Task"}
                   </span>
                 </p>
@@ -299,7 +299,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   const task = tasks.find((t) => t.id === nextTaskSuggestion.taskId);
                   if (task) onEditTask(task);
                 }}
-                className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-slate-950 rounded-xl text-sm font-bold transition-all shadow-lg shadow-cyan-500/20"
+                className="px-4 py-2 bg-red-600 hover:bg-red-500 text-slate-950 rounded-xl text-sm font-bold transition-all shadow-lg shadow-red-500/20"
               >
                 Open Task
               </button>
@@ -356,18 +356,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <>
             {/* Stats Row */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <div className="liquid-glass p-6 relative overflow-hidden group hover:border-blue-500/30 transition-all duration-500">
-                <div className="absolute top-0 right-0 p-4 opacity-10 text-blue-500 group-hover:scale-125 transition-transform duration-700 ease-out">
+              <div className="liquid-glass p-6 relative overflow-hidden group hover:border-white/20 transition-all duration-500">
+                <div className="absolute top-0 right-0 p-4 opacity-10 text-slate-400 group-hover:scale-125 transition-transform duration-700 ease-out">
                   <LayoutDashboard size={80} />
                 </div>
-                <div className="absolute inset-0 bg-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                 <p className="text-slate-400 text-xs uppercase tracking-widest font-bold relative z-10">
                   Active Tasks
                 </p>
                 <h3 className="text-4xl font-bold text-white mt-2 relative z-10 text-glow">
                   {stats.active}
                 </h3>
-                <div className="mt-4 text-xs text-blue-400 flex items-center gap-1 font-medium relative z-10">
+                <div className="mt-4 text-xs text-slate-300 flex items-center gap-1 font-medium relative z-10">
                   <TrendingUp size={12} /> {Math.floor((stats.active / (stats.total || 1)) * 100)}%
                   of total
                 </div>
@@ -445,7 +445,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       >
                         {/* Improved Project Pill */}
                         <div className="absolute -top-3 left-4 z-20 flex items-center gap-2 bg-[#0a0000] border border-white/10 px-3 py-1 rounded-full shadow-lg transition-transform group-hover/card:-translate-y-1">
-                          <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.8)]"></div>
+                          <div className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]"></div>
                           <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider leading-none">
                             {getProjectName(task.projectId)}
                           </span>
@@ -492,7 +492,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       >
                         {/* Improved Project Pill */}
                         <div className="absolute -top-3 left-4 z-20 flex items-center gap-2 bg-[#0a0000] border border-white/10 px-3 py-1 rounded-full shadow-lg transition-transform group-hover/card:-translate-y-1">
-                          <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.8)]"></div>
+                          <div className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]"></div>
                           <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider leading-none">
                             {getProjectName(task.projectId)}
                           </span>

@@ -2,6 +2,8 @@ import {
   Brain,
   CheckCircle2,
   Download,
+  Eye,
+  EyeOff,
   GitBranch,
   Globe,
   Key,
@@ -22,6 +24,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { STORAGE_KEYS } from "../../src/constants";
 import { getDesktopApi } from "../../src/runtime/runtimeEnvironment";
 import { aiService } from "../../src/services/aiService";
+import { persistStorageQuiet } from "../../src/utils/persistStorage";
 import storageService from "../../src/services/storageService";
 import { sanitizeUrl } from "../../src/utils/validation";
 import type { AIConfig, AutoOrganizeConfig, ToastType } from "../../types";
@@ -90,6 +93,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
   };
 
   const [autoOrganize, setAutoOrganize] = useState<AutoOrganizeConfig>(defaultAutoOrganize);
+  const [showApiKey, setShowApiKey] = useState(false);
 
   const [workspacePaths, setWorkspacePaths] = useState<string[]>([]);
 
@@ -107,6 +111,15 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [modelFetchError, setModelFetchError] = useState<string | null>(null);
 
+  const persistAiConfig = useCallback(
+    (nextConfig: AIConfig) => {
+      persistStorageQuiet(STORAGE_KEYS.AI_CONFIG, nextConfig, (message) => {
+        addToast(`Failed to save AI settings: ${message}`, "error");
+      });
+    },
+    [addToast],
+  );
+
   const fetchModels = useCallback(async (baseUrl: string, retryCount = 0) => {
     if (!baseUrl) return;
 
@@ -119,8 +132,14 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
 
     try {
       const storedConfig = storageService.get<AIConfig | null>(STORAGE_KEYS.AI_CONFIG, null);
-      storageService.set(STORAGE_KEYS.AI_CONFIG, {
+      // fetchModels is only ever invoked in Ollama flows, so pin the persisted
+      // provider to "ollama". Without this, a config whose stored provider is
+      // still "gemini" (the default) causes aiService.getProvider() to build a
+      // GeminiProvider — which has no listModels — so the fetch silently
+      // returns [] and the model dropdown never populates.
+      persistAiConfig({
         ...(storedConfig ?? DEFAULT_AI_CONFIG),
+        provider: "ollama",
         ollamaBaseUrl: normalizedBaseUrl,
       });
 
@@ -158,7 +177,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
       clearTimeout(timeoutId);
       setIsLoadingModels(false);
     }
-  }, []);
+  }, [persistAiConfig]);
 
   useEffect(() => {
     const savedConfig = storageService.get<AIConfig | null>(STORAGE_KEYS.AI_CONFIG, null);
@@ -182,13 +201,13 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
       if (oldKey) {
         setConfig((prev) => {
           const migrated = { ...prev, geminiApiKey: oldKey };
-          storageService.set(STORAGE_KEYS.AI_CONFIG, migrated);
+          persistAiConfig(migrated);
           return migrated;
         });
         storageService.remove(STORAGE_KEYS.GEMINI_API_KEY);
       }
     }
-  }, [fetchModels]);
+  }, [fetchModels, persistAiConfig]);
 
   useEffect(() => {
     getDesktopApi()?.workspace.getPaths().then(setWorkspacePaths);
@@ -211,7 +230,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
       insightsFrequency: aiManagement.insightsFrequency,
       autoOrganize,
     };
-    storageService.set(STORAGE_KEYS.AI_CONFIG, sanitizedConfig);
+    persistAiConfig(sanitizedConfig);
     setConfig(sanitizedConfig);
     addToast("AI configuration saved successfully", "success");
   };
@@ -224,7 +243,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
         ...config,
         ollamaBaseUrl: sanitizeUrl(config.ollamaBaseUrl),
       };
-      storageService.set(STORAGE_KEYS.AI_CONFIG, sanitizedConfig);
+      persistAiConfig(sanitizedConfig);
       setConfig(sanitizedConfig);
 
       const result = await aiService.testProviderConnection();
@@ -261,7 +280,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
         ...config,
         ollamaBaseUrl: sanitizeUrl(config.ollamaBaseUrl),
       };
-      storageService.set(STORAGE_KEYS.AI_CONFIG, sanitizedConfig);
+      persistAiConfig(sanitizedConfig);
       setConfig(sanitizedConfig);
 
       await aiService.pullModel(
@@ -345,7 +364,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
       <div className="flex items-center gap-3 mb-6">
-        <div className="p-2 rounded-lg bg-cyan-500/20 text-cyan-400">
+        <div className="p-2 rounded-lg bg-red-500/20 text-red-400">
           <Sparkles size={24} />
         </div>
         <div>
@@ -361,8 +380,10 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
           <label className="text-sm font-medium text-slate-300 mb-3 block">Active Provider</label>
           <div className="grid grid-cols-2 gap-3">
             <button
+              type="button"
               onClick={() => setConfig({ ...config, provider: "gemini" })}
-              className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${config.provider === "gemini" ? "bg-cyan-500/20 border-cyan-500 text-cyan-300" : "bg-black/20 border-white/10 text-slate-400 hover:border-white/20"}`}
+              aria-pressed={config.provider === "gemini"}
+              className={`flex items-center gap-3 p-3 rounded-lg border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 ${config.provider === "gemini" ? "bg-red-500/20 border-red-500 text-red-300" : "bg-black/20 border-white/10 text-slate-400 hover:border-white/20"}`}
             >
               <Globe size={18} />
               <div className="text-left">
@@ -371,8 +392,10 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
               </div>
             </button>
             <button
+              type="button"
               onClick={() => setConfig({ ...config, provider: "ollama" })}
-              className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${config.provider === "ollama" ? "bg-amber-500/20 border-amber-500 text-amber-300" : "bg-black/20 border-white/10 text-slate-400 hover:border-white/20"}`}
+              aria-pressed={config.provider === "ollama"}
+              className={`flex items-center gap-3 p-3 rounded-lg border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 ${config.provider === "ollama" ? "bg-amber-500/20 border-amber-500 text-amber-300" : "bg-black/20 border-white/10 text-slate-400 hover:border-white/20"}`}
             >
               <Server size={18} />
               <div className="text-left">
@@ -389,16 +412,27 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
               <label className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
                 <Key size={16} /> Gemini API Key
               </label>
-              <input
-                type="password"
-                value={config.geminiApiKey}
-                onChange={(e) => setConfig({ ...config, geminiApiKey: e.target.value })}
-                placeholder="AIzaSy..."
-                className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500"
-              />
+              <div className="relative">
+                <input
+                  type={showApiKey ? "text" : "password"}
+                  value={config.geminiApiKey}
+                  onChange={(e) => setConfig({ ...config, geminiApiKey: e.target.value })}
+                  placeholder="AIzaSy..."
+                  className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 pr-10 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-red-500 focus-visible:ring-2 focus-visible:ring-red-500/20"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowApiKey((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                  aria-label={showApiKey ? "Hide API key" : "Show API key"}
+                  tabIndex={-1}
+                >
+                  {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
             <div>
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 block">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 block">
                 Model Name
               </label>
               <input
@@ -406,7 +440,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
                 value={config.geminiModel}
                 onChange={(e) => setConfig({ ...config, geminiModel: e.target.value })}
                 placeholder="e.g. gemini-3.1-flash-lite"
-                className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500"
+                className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-red-500"
               />
             </div>
             <p className="text-xs text-slate-500">
@@ -415,7 +449,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
                 href="https://aistudio.google.com/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-cyan-400 hover:underline"
+                className="text-red-400 hover:underline"
               >
                 Google AI Studio
               </a>
@@ -537,13 +571,13 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
 
         <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-4 animate-in fade-in slide-in-from-top-2">
           <div className="flex items-center gap-2 mb-2">
-            <Globe size={18} className="text-cyan-400" />
+            <Globe size={18} className="text-red-400" />
             <h4 className="text-sm font-bold text-white">Workspace Integration</h4>
           </div>
           <p className="text-[10px] text-slate-500 mb-2">
             Allow the AI to read and write supported text and source-code files in these
             directories.
-            <span className="ml-1 text-cyan-500/70 italic">Saves automatically.</span>
+            <span className="ml-1 text-red-500/70 italic">Saves automatically.</span>
           </p>
 
           <button
@@ -579,7 +613,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
 
         <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-4 animate-in fade-in slide-in-from-top-2">
           <div className="flex items-center gap-2 mb-2">
-            <Brain size={18} className="text-cyan-400" />
+            <Brain size={18} className="text-red-400" />
             <h4 className="text-sm font-bold text-white">AI Task Management</h4>
           </div>
 
@@ -634,7 +668,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
                     insightsFrequency: e.target.value as "daily" | "weekly" | "manual",
                   }))
                 }
-                className="bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500 appearance-none"
+                className="bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-red-500 appearance-none"
               >
                 <option value="daily">Daily</option>
                 <option value="weekly">Weekly</option>
@@ -647,7 +681,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
         <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-4 animate-in fade-in slide-in-from-top-2">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <RefreshCw size={18} className="text-purple-400" />
+              <RefreshCw size={18} className="text-red-400" />
               <h4 className="text-sm font-bold text-white">Auto-Organize</h4>
             </div>
             <ToggleRow
@@ -702,21 +736,21 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
         </div>
 
         <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3 animate-in fade-in slide-in-from-top-2">
-          <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
+          <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
             Quick Actions
           </h4>
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={onOpenMergeModal}
               disabled={!onOpenMergeModal}
-              className="flex items-center justify-center gap-2 px-3 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 rounded-lg text-xs font-bold transition-all border border-cyan-500/20"
+              className="flex items-center justify-center gap-2 px-3 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-xs font-bold transition-all border border-red-500/20"
             >
               <Merge size={14} /> Merge
             </button>
             <button
               onClick={onOpenReorganizeModal}
               disabled={!onOpenReorganizeModal}
-              className="flex items-center justify-center gap-2 px-3 py-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 rounded-lg text-xs font-bold transition-all border border-purple-500/20"
+              className="flex items-center justify-center gap-2 px-3 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-xs font-bold transition-all border border-red-500/20"
             >
               <Sparkles size={14} /> Reorganize
             </button>
@@ -730,7 +764,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
             <button
               onClick={onOpenProjectAssignmentModal}
               disabled={!onOpenProjectAssignmentModal}
-              className="flex items-center justify-center gap-2 px-3 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-lg text-xs font-bold transition-all border border-blue-500/20"
+              className="flex items-center justify-center gap-2 px-3 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-xs font-bold transition-all border border-red-500/20"
             >
               <Globe size={14} /> Assign
             </button>
@@ -761,7 +795,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
           <button
             onClick={onOpenInsights}
             disabled={!onOpenInsights}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-lg text-xs font-bold transition-all border border-indigo-500/20"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-xs font-bold transition-all border border-red-500/20"
           >
             <Brain size={14} /> AI Insights
           </button>
@@ -783,7 +817,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
           <button
             onClick={handleSave}
             disabled={isPulling}
-            className="flex-[2] px-4 py-3 bg-cyan-600 hover:bg-cyan-500 text-slate-950 rounded-xl text-sm font-bold shadow-lg shadow-cyan-500/20 transition-all disabled:opacity-50"
+            className="flex-[2] px-4 py-3 bg-red-600 hover:bg-red-500 text-slate-950 rounded-xl text-sm font-bold shadow-lg shadow-red-500/20 transition-all disabled:opacity-50"
           >
             Save Configuration
           </button>
@@ -842,7 +876,7 @@ const ToggleRow: React.FC<ToggleRowProps> = ({
       disabled={disabled}
       className={`flex items-center justify-between w-full cursor-pointer group py-2 rounded-lg transition-opacity ${
         disabled ? "opacity-50 cursor-not-allowed pointer-events-none" : ""
-      } focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
+      } focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`}
       onClick={handleToggle}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -856,7 +890,7 @@ const ToggleRow: React.FC<ToggleRowProps> = ({
         <Icon
           size={16}
           className={`transition-colors ${
-            checked ? "text-cyan-400" : "text-slate-400 group-hover:text-slate-300"
+            checked ? "text-red-400" : "text-slate-400 group-hover:text-slate-300"
           }`}
         />
         <div className="text-left">
@@ -866,7 +900,7 @@ const ToggleRow: React.FC<ToggleRowProps> = ({
       </div>
       <div
         className={`relative w-11 h-6 rounded-full transition-colors duration-200 flex-shrink-0 ${
-          checked ? "bg-cyan-500" : "bg-white/10 group-hover:bg-white/15"
+          checked ? "bg-red-500" : "bg-white/10 group-hover:bg-white/15"
         }`}
       >
         <div

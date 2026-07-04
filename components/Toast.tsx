@@ -25,7 +25,7 @@ export const Toast: React.FC<ToastProps> = ({ toast, onClose }) => {
       case "warning":
         return "bg-[#0a0803]/95 border-amber-500/30 text-amber-100 shadow-[0_0_20px_rgba(245,158,11,0.15)]";
       default:
-        return "bg-[#05050a]/95 border-blue-500/30 text-blue-200 shadow-[0_0_20px_rgba(59,130,246,0.15)]";
+        return "bg-[#0a0505]/95 border-white/15 text-slate-200 shadow-[0_0_20px_rgba(0,0,0,0.35)]";
     }
   };
 
@@ -38,24 +38,28 @@ export const Toast: React.FC<ToastProps> = ({ toast, onClose }) => {
       case "warning":
         return <AlertTriangle size={18} className="text-amber-400" />;
       default:
-        return <Info size={18} className="text-blue-400" />;
+        return <Info size={18} className="text-slate-300" />;
     }
   };
 
   return (
     <div
+      role="status"
+      aria-live="polite"
       className={`
       flex items-center gap-3 px-4 py-3 rounded-xl border backdrop-blur-md mb-3 
       transition-all duration-500 animate-in slide-in-from-right-full fade-in
-      hover:scale-[1.02] cursor-default pointer-events-auto
+      hover:scale-[1.02] cursor-default pointer-events-auto max-w-sm
       ${getStyles()}
     `}
     >
       {getIcon()}
-      <span className="text-sm font-medium">{toast.message}</span>
+      <span className="text-sm font-medium flex-1">{toast.message}</span>
       <button
+        type="button"
         onClick={() => onClose(toast.id)}
-        className="ml-2 p-1 hover:bg-white/10 rounded-full transition-colors opacity-70 hover:opacity-100"
+        aria-label="Dismiss notification"
+        className="p-1 hover:bg-white/10 rounded-full transition-colors opacity-70 hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
       >
         <X size={14} />
       </button>

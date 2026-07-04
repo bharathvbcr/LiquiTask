@@ -34,8 +34,8 @@ const colorMap = {
   productivity: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
   bottleneck: "text-red-400 bg-red-500/10 border-red-500/20",
   "estimate-accuracy": "text-amber-400 bg-amber-500/10 border-amber-500/20",
-  pattern: "text-blue-400 bg-blue-500/10 border-blue-500/20",
-  recommendation: "text-cyan-400 bg-cyan-500/10 border-cyan-500/20",
+  pattern: "text-slate-400 bg-slate-500/10 border-slate-500/20",
+  recommendation: "text-slate-400 bg-slate-500/10 border-slate-500/20",
 };
 
 export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ allTasks, isOpen, onClose }) => {
@@ -75,7 +75,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ allTasks, isOp
       <div className="liquid-glass w-full max-w-2xl max-h-[80vh] overflow-hidden shadow-2xl animate-in zoom-in-95 liquid-topline">
         <div className="flex items-center justify-between p-6 border-b border-white/10">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-cyan-500/20 text-cyan-400">
+            <div className="p-2 rounded-lg bg-red-500/20 text-red-400">
               <Brain size={20} />
             </div>
             <div>
@@ -104,7 +104,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ allTasks, isOp
         <div className="p-6 overflow-y-auto max-h-[calc(80vh-80px)]">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 size={24} className="animate-spin text-cyan-400" />
+              <Loader2 size={24} className="animate-spin text-red-400" />
               <span className="ml-3 text-slate-400">Generating AI insights...</span>
             </div>
           ) : error ? (

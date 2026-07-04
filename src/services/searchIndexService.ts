@@ -484,7 +484,7 @@ ${task.summary ? `Summary: ${task.summary}` : ""}
         { keywords, timestamp: Date.now() },
       ]),
     );
-    storageService.set(STORAGE_KEYS.AI_SEMANTIC_CACHE, persisted);
+    storageService.set(STORAGE_KEYS.AI_SEMANTIC_CACHE, persisted).catch(console.error);
   }
 
   private rankTasksForContext(query: string, tasks: Task[]): Task[] {

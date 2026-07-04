@@ -1,4 +1,6 @@
-import type { Task } from "../../types";
+import type { BoardColumn, Task } from "../../types";
+import { STORAGE_KEYS } from "../constants";
+import { getCompletedColumnIds, isTaskComplete } from "../utils/taskUtils";
 import { indexedDBService } from "./indexedDBService";
 import storageService from "./storageService";
 
@@ -6,6 +8,73 @@ export interface ArchiveConfig {
   autoArchiveAfterDays: number;
   archiveCompleted: boolean;
   archiveStorage: "indexedDB" | "file" | "localStorage";
+  /** When set, completion is determined by column ids instead of a fixed status string. */
+  completedColumnIds?: Set<string>;
+}
+
+/** User-facing auto-archive preferences (persisted to storage). */
+export interface StoredArchiveSettings {
+  enabled: boolean;
+  /** Days after completion before a task is moved to the archive. */
+  autoArchiveAfterDays: number;
+  /** Permanently delete archived tasks older than this many days (IndexedDB purge). */
+  retentionDays: number;
+}
+
+export const DEFAULT_ARCHIVE_SETTINGS: StoredArchiveSettings = {
+  enabled: false,
+  autoArchiveAfterDays: 30,
+  retentionDays: 90,
+};
+
+export function loadArchiveSettings(): StoredArchiveSettings {
+  const stored = storageService.get<Partial<StoredArchiveSettings>>(
+    STORAGE_KEYS.ARCHIVE_SETTINGS,
+    DEFAULT_ARCHIVE_SETTINGS,
+  );
+  return {
+    enabled: Boolean(stored.enabled),
+    autoArchiveAfterDays: clampDays(stored.autoArchiveAfterDays, DEFAULT_ARCHIVE_SETTINGS.autoArchiveAfterDays),
+    retentionDays: clampDays(stored.retentionDays, DEFAULT_ARCHIVE_SETTINGS.retentionDays),
+  };
+}
+
+export function saveArchiveSettings(settings: StoredArchiveSettings): void {
+  storageService.set(STORAGE_KEYS.ARCHIVE_SETTINGS, {
+    enabled: settings.enabled,
+    autoArchiveAfterDays: clampDays(
+      settings.autoArchiveAfterDays,
+      DEFAULT_ARCHIVE_SETTINGS.autoArchiveAfterDays,
+    ),
+    retentionDays: clampDays(settings.retentionDays, DEFAULT_ARCHIVE_SETTINGS.retentionDays),
+  });
+}
+
+export function buildArchiveConfig(
+  settings: StoredArchiveSettings,
+  columns: BoardColumn[],
+): ArchiveConfig {
+  return {
+    autoArchiveAfterDays: clampDays(
+      settings.autoArchiveAfterDays,
+      DEFAULT_ARCHIVE_SETTINGS.autoArchiveAfterDays,
+    ),
+    archiveCompleted: settings.enabled,
+    archiveStorage: indexedDBService.isAvailable() ? "indexedDB" : "localStorage",
+    completedColumnIds: getCompletedColumnIds(columns),
+  };
+}
+
+function clampDays(value: number | undefined, fallback: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+  return Math.min(3650, Math.max(1, Math.round(value)));
+}
+
+function getCompletionDate(task: Task): Date | null {
+  const candidate = task.completedAt ?? task.updatedAt ?? task.createdAt;
+  if (!candidate) return null;
+  const date = candidate instanceof Date ? candidate : new Date(candidate);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 const ARCHIVE_STORAGE_KEY = "liquitask-archived-tasks";
@@ -70,14 +139,15 @@ export class ArchiveService {
     const archiveDate = new Date(now.getTime() - config.autoArchiveAfterDays * 24 * 60 * 60 * 1000);
 
     const toArchive = tasks.filter((task) => {
-      if (
-        config.archiveCompleted &&
-        task.status === "Completed" &&
-        task.completedAt &&
-        new Date(task.completedAt) < archiveDate
-      )
-        return true;
-      return false;
+      if (!config.archiveCompleted) return false;
+      const completed = config.completedColumnIds
+        ? isTaskComplete(task, config.completedColumnIds)
+        : task.status === "Completed";
+      if (!completed) return false;
+
+      const completionDate = getCompletionDate(task);
+      if (!completionDate) return false;
+      return completionDate < archiveDate;
     });
 
     if (toArchive.length === 0) return tasks;

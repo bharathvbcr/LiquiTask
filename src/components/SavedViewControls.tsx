@@ -94,7 +94,7 @@ export const SavedViewControls: React.FC<SavedViewControlsProps> = ({
         aria-controls="saved-views-menu"
         className={`flex items-center gap-2 min-w-[180px] justify-between px-4 py-2 text-sm font-medium transition-colors ${
           activeView
-            ? "bg-blue-500/10 border-blue-500/30 text-blue-400 ring-1 ring-blue-500/30"
+            ? "bg-red-500/10 border-red-500/30 text-red-400 ring-1 ring-red-500/30"
             : ""
         }`}
       >
@@ -116,7 +116,7 @@ export const SavedViewControls: React.FC<SavedViewControlsProps> = ({
               id="saved-views-menu"
               aria-label="Saved views"
               style={menuStyle}
-              className="bg-[#0a0e17] border border-white/10 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100 origin-top-right"
+              className="liquid-surface overflow-hidden animate-in fade-in zoom-in-95 duration-100 origin-top-right"
             >
               {/* Header / Search */}
               <div className="p-3 border-b border-white/5 space-y-2">
@@ -128,7 +128,7 @@ export const SavedViewControls: React.FC<SavedViewControlsProps> = ({
                     aria-label="Search saved views"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-black/20 border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500/50"
+                    className="w-full bg-black/20 border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 focus:border-red-500/50"
                   />
                 </div>
               </div>
@@ -138,71 +138,79 @@ export const SavedViewControls: React.FC<SavedViewControlsProps> = ({
                 {filteredViews.length === 0 ? (
                   <div className="p-4 text-center text-xs text-slate-500">No views found</div>
                 ) : (
-                  filteredViews.map((view) => (
-                    <button
-                      key={view.id}
-                      type="button"
-                      role="menuitem"
-                      aria-current={view.id === activeViewId ? "true" : undefined}
-                      className={`group flex items-center justify-between w-full text-left bg-transparent border-0 p-2 rounded-lg transition-colors ${view.id === activeViewId ? "bg-blue-500/10" : "hover:bg-white/5"}`}
-                      onClick={() => {
-                        onApplyView(view.id);
-                        setIsOpen(false);
-                      }}
-                    >
-                      <div className="flex items-center gap-2 overflow-hidden">
-                        {view.id === activeViewId && (
-                          <Check size={14} className="text-blue-400 shrink-0" aria-hidden="true" />
-                        )}
-                        <span
-                          className={`text-sm truncate ${view.id === activeViewId ? "text-blue-400 font-medium" : "text-slate-300"}`}
+                  filteredViews.map((view) => {
+                    const isActive = view.id === activeViewId;
+                    return (
+                      <div
+                        key={view.id}
+                        className={`group flex items-center gap-1 rounded-lg transition-colors ${isActive ? "bg-red-500/10" : "hover:bg-white/5"}`}
+                      >
+                        <button
+                          type="button"
+                          role="menuitem"
+                          aria-current={isActive ? "true" : undefined}
+                          className="flex flex-1 min-w-0 items-center gap-2 overflow-hidden text-left bg-transparent border-0 p-2 rounded-lg"
+                          onClick={() => {
+                            onApplyView(view.id);
+                            setIsOpen(false);
+                          }}
                         >
-                          {view.name}
-                        </span>
-                        {view.isDefault && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-slate-500">
-                            Default
+                          {isActive && (
+                            <Check size={14} className="text-red-400 shrink-0" aria-hidden="true" />
+                          )}
+                          <span
+                            className={`text-sm truncate ${isActive ? "text-red-400 font-medium" : "text-slate-300"}`}
+                          >
+                            {view.name}
                           </span>
-                        )}
-                      </div>
+                          {view.isDefault && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-slate-500 shrink-0">
+                              Default
+                            </span>
+                          )}
+                        </button>
 
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
                         {!view.isDefault && (
-                          confirmDeleteId === view.id ? (
-                            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center gap-1 pr-1 shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+                            {confirmDeleteId === view.id ? (
+                              <>
+                                <Button
+                                  onClick={() => {
+                                    onDeleteView(view.id);
+                                    setConfirmDeleteId(null);
+                                  }}
+                                  variant="danger"
+                                  size="sm"
+                                  className="px-2 py-1 h-auto text-[10px]"
+                                >
+                                  Delete
+                                </Button>
+                                <Button
+                                  onClick={() => setConfirmDeleteId(null)}
+                                  variant="secondary"
+                                  size="sm"
+                                  className="px-2 py-1 h-auto text-[10px]"
+                                >
+                                  Cancel
+                                </Button>
+                              </>
+                            ) : (
                               <Button
-                                onClick={(e) => { e.stopPropagation(); onDeleteView(view.id); setConfirmDeleteId(null); }}
+                                onClick={() => setConfirmDeleteId(view.id)}
                                 variant="danger"
                                 size="sm"
-                                className="px-2 py-1 h-auto text-[10px]"
+                                className="p-1.5 h-auto"
+                                aria-label={`Delete view "${view.name}"`}
+                                title="Delete View"
                               >
-                                Delete
+                                <Trash2 size={12} />
                               </Button>
-                              <Button
-                                onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null); }}
-                                variant="secondary"
-                                size="sm"
-                                className="px-2 py-1 h-auto text-[10px]"
-                              >
-                                Cancel
-                              </Button>
-                            </div>
-                          ) : (
-                            <Button
-                              onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(view.id); }}
-                              variant="danger"
-                              size="sm"
-                              className="p-1.5 h-auto"
-                              aria-label={`Delete view "${view.name}"`}
-                              title="Delete View"
-                            >
-                              <Trash2 size={12} />
-                            </Button>
-                          )
+                            )}
+                          </div>
                         )}
                       </div>
-                    </button>
-                  ))
+                    );
+                  })
                 )}
               </div>
 
@@ -216,13 +224,13 @@ export const SavedViewControls: React.FC<SavedViewControlsProps> = ({
                       onChange={(e) => setNewViewName(e.target.value)}
                       placeholder="View Name..."
                       aria-label="New view name"
-                      className="flex-1 bg-black/20 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500/50"
+                      className="flex-1 bg-black/20 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 focus:border-red-500/50"
                     />
                     <Button
                       type="submit"
                       disabled={!newViewName.trim()}
                       variant="primary"
-                      color="blue"
+                      color="red"
                       size="sm"
                       className="rounded-lg"
                       aria-label="Save view"

@@ -123,16 +123,20 @@ export const PrioritySettings: React.FC<PrioritySettingsProps> = ({
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold text-white">Priority Definitions</h3>
-          <p className="text-sm text-slate-400 mt-1">
-            Define custom priority levels for your tasks. Order matters — top items are highest
-            priority.
-          </p>
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-red-500/20 text-red-400">
+            <Flag size={20} />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-white">Priority Definitions</h3>
+            <p className="text-sm text-slate-400 mt-0.5">
+              Define custom priority levels. Order matters — top items are highest priority.
+            </p>
+          </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 shrink-0">
           <button
             onClick={handleReset}
             className="px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-lg transition-colors border border-white/10"
@@ -178,7 +182,7 @@ export const PrioritySettings: React.FC<PrioritySettingsProps> = ({
         </p>
         <button
           onClick={handleSave}
-          className="px-6 py-2 text-sm font-medium text-white bg-red-500 hover:bg-red-400 rounded-lg transition-colors shadow-lg shadow-red-500/20"
+          className="px-6 py-2 text-sm font-medium text-white bg-red-500 hover:bg-red-400 rounded-lg transition-colors shadow-lg shadow-red-500/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
         >
           Save Priorities
         </button>

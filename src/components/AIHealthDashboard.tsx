@@ -142,14 +142,14 @@ export const AIHealthDashboard: React.FC<AIHealthDashboardProps> = ({
           label: "Total Tasks",
           value: totalTasks,
           trend: "up",
-          color: "text-blue-400",
+          color: "text-red-400",
           icon: <BarChart3 size={20} />,
         },
         {
           label: "Projects",
           value: projects?.length || 0,
           trend: "stable",
-          color: "text-purple-400",
+          color: "text-red-400",
           icon: <Sparkles size={20} />,
         },
       ]);
@@ -171,7 +171,7 @@ export const AIHealthDashboard: React.FC<AIHealthDashboardProps> = ({
     return (
       <ModalWrapper isOpen={isOpen} onClose={onClose} title="Loading AI Health Dashboard">
         <div className="flex items-center justify-center py-12">
-          <Loader2 size={24} className="animate-spin text-cyan-400 mr-3" />
+          <Loader2 size={24} className="animate-spin text-red-400 mr-3" />
           <span className="text-slate-400">AI is analyzing your task health...</span>
         </div>
       </ModalWrapper>
@@ -183,7 +183,7 @@ export const AIHealthDashboard: React.FC<AIHealthDashboardProps> = ({
       <div className="space-y-6">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3">
-            <div className="p-2 rounded-lg bg-cyan-500/20 text-cyan-400">
+            <div className="p-2 rounded-lg bg-red-500/20 text-red-400">
               <Brain size={20} />
             </div>
             <div className="flex-1">
@@ -198,7 +198,7 @@ export const AIHealthDashboard: React.FC<AIHealthDashboardProps> = ({
             <button
               onClick={() => handleExportReport("daily")}
               disabled={isExportingDaily}
-              className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-lg text-xs font-bold transition-all border border-blue-500/20 disabled:opacity-50"
+              className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-xs font-bold transition-all border border-red-500/20 disabled:opacity-50"
             >
               {isExportingDaily ? (
                 <Loader2 size={14} className="animate-spin" />
@@ -210,7 +210,7 @@ export const AIHealthDashboard: React.FC<AIHealthDashboardProps> = ({
             <button
               onClick={() => handleExportReport("weekly")}
               disabled={isExportingWeekly}
-              className="flex items-center gap-2 px-3 py-1.5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 rounded-lg text-xs font-bold transition-all border border-purple-500/20 disabled:opacity-50"
+              className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-xs font-bold transition-all border border-red-500/20 disabled:opacity-50"
             >
               {isExportingWeekly ? (
                 <Loader2 size={14} className="animate-spin" />
@@ -244,7 +244,7 @@ export const AIHealthDashboard: React.FC<AIHealthDashboardProps> = ({
         {insights.length > 0 && (
           <div>
             <h4 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-              <Sparkles size={16} className="text-cyan-400" />
+              <Sparkles size={16} className="text-red-400" />
               AI Insights
             </h4>
             <div className="space-y-3 max-h-64 overflow-y-auto">
@@ -256,7 +256,7 @@ export const AIHealthDashboard: React.FC<AIHealthDashboardProps> = ({
                       ? "bg-amber-500/10 border-amber-500/20"
                       : insight.type === "productivity"
                         ? "bg-green-500/10 border-green-500/20"
-                        : "bg-blue-500/10 border-blue-500/20"
+                        : "bg-red-500/10 border-red-500/20"
                   }`}
                 >
                   <div className="flex items-start gap-3">
@@ -266,7 +266,7 @@ export const AIHealthDashboard: React.FC<AIHealthDashboardProps> = ({
                           ? "bg-amber-500/20 text-amber-400"
                           : insight.type === "productivity"
                             ? "bg-green-500/20 text-green-400"
-                            : "bg-blue-500/20 text-blue-400"
+                            : "bg-red-500/20 text-red-400"
                       }`}
                     >
                       <Brain size={14} />

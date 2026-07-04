@@ -13,8 +13,16 @@ import {
   X,
 } from "lucide-react";
 import type React from "react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { BoardColumn, PriorityDefinition, Project } from "../../types";
+
+type BulkMenuId =
+  | "move"
+  | "priority"
+  | "tags"
+  | "workspace"
+  | "assign"
+  | null;
 
 interface BulkActionsBarProps {
   selectedCount: number;
@@ -59,15 +67,37 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
   onRemoveTag,
   onMoveToWorkspace,
 }) => {
+  const [openMenu, setOpenMenu] = useState<BulkMenuId>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [newTag, setNewTag] = useState("");
+  const barRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (barRef.current && !barRef.current.contains(e.target as Node)) {
+        setOpenMenu(null);
+        setShowDatePicker(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    setOpenMenu(null);
+    setShowDatePicker(false);
+  }, [selectedCount]);
 
   if (selectedCount === 0) return null;
 
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.value) { onSetDueDate(null); setShowDatePicker(false); return; }
+    if (!e.target.value) {
+      onSetDueDate(null);
+      setShowDatePicker(false);
+      return;
+    }
     const [year, month, day] = e.target.value.split("-").map(Number);
-    onSetDueDate(new Date(year, month - 1, day)); // local midnight avoids UTC off-by-one
+    onSetDueDate(new Date(year, month - 1, day));
     setShowDatePicker(false);
   };
 
@@ -78,100 +108,123 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
     }
   };
 
+  const toggleMenu = (menu: BulkMenuId) => {
+    setShowDatePicker(false);
+    setOpenMenu((prev) => (prev === menu ? null : menu));
+  };
+
+  const menuButtonClass =
+    "flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50";
+
+  const dropdownClass =
+    "absolute bottom-full left-0 mb-2 bg-[#1a0a0a] border border-white/10 rounded-xl p-1 shadow-xl z-10";
+
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 fade-in duration-200">
-      <div className="flex items-center gap-3 px-4 py-3 bg-[#1a0a0a]/95 backdrop-blur-xl border border-red-500/20 rounded-2xl shadow-2xl shadow-black/50">
-        {/* Selection Info */}
-        <div className="flex items-center gap-3 pr-3 border-r border-white/10">
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 fade-in duration-200 max-w-[calc(100vw-2rem)]">
+      <div
+        ref={barRef}
+        className="flex items-center gap-2 px-4 py-3 bg-[#1a0a0a]/95 backdrop-blur-xl border border-red-500/20 rounded-2xl shadow-2xl shadow-black/50 overflow-x-auto custom-scrollbar"
+        role="toolbar"
+        aria-label="Bulk actions"
+      >
+        <div className="flex items-center gap-3 pr-3 border-r border-white/10 shrink-0">
           <button
+            type="button"
             onClick={isAllSelected ? onSelectNone : onSelectAll}
-            className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+            className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
             title={isAllSelected ? "Deselect all" : "Select all"}
+            aria-label={isAllSelected ? "Deselect all" : "Select all"}
           >
             {isAllSelected ? <CheckSquare size={16} /> : <Square size={16} />}
           </button>
-          <span className="text-sm font-bold text-white">{selectedCount} selected</span>
+          <span className="text-sm font-bold text-white whitespace-nowrap">
+            {selectedCount} selected
+          </span>
         </div>
 
-        {/* Move Action */}
-        <div className="relative group focus-within:z-10">
+        <div className="relative shrink-0">
           <button
-            className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-            aria-haspopup="true"
-            aria-expanded={false}
+            type="button"
+            onClick={() => toggleMenu("move")}
+            aria-expanded={openMenu === "move"}
+            aria-haspopup="menu"
+            className={`${menuButtonClass} ${openMenu === "move" ? "bg-white/10 text-white" : ""}`}
           >
             <MoveRight size={16} />
-            Move to
+            <span className="hidden sm:inline">Move to</span>
           </button>
-
-          {/* Dropdown */}
-          <div
-            className="absolute bottom-full left-0 mb-2 hidden group-hover:block group-focus-within:block"
-            role="menu"
-          >
-            <div className="bg-[#1a0a0a] border border-white/10 rounded-xl p-1 shadow-xl min-w-[150px]">
+          {openMenu === "move" && (
+            <div className={`${dropdownClass} min-w-[150px]`} role="menu">
               {columns.map((col) => (
                 <button
                   key={col.id}
-                  onClick={() => onMove(col.id)}
+                  type="button"
+                  onClick={() => {
+                    onMove(col.id);
+                    setOpenMenu(null);
+                  }}
                   className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors text-left"
                   role="menuitem"
                 >
-                  {/* eslint-disable-next-line react/forbid-dom-props */}
                   <div
-                    className="w-2 h-2 rounded-full column-color-indicator"
-                    style={
-                      { "--column-color": col.color } as React.CSSProperties &
-                        Record<string, string>
-                    }
+                    className="w-2 h-2 rounded-full shrink-0"
+                    style={{ backgroundColor: col.color }}
                   />
                   {col.title}
                 </button>
               ))}
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Priority Action */}
-        <div className="relative group">
-          <button className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+        <div className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => toggleMenu("priority")}
+            aria-expanded={openMenu === "priority"}
+            aria-haspopup="menu"
+            className={`${menuButtonClass} ${openMenu === "priority" ? "bg-white/10 text-white" : ""}`}
+          >
             <Flag size={16} />
-            Priority
+            <span className="hidden sm:inline">Priority</span>
           </button>
-
-          <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block">
-            <div className="bg-[#1a0a0a] border border-white/10 rounded-xl p-1 shadow-xl min-w-[120px]">
+          {openMenu === "priority" && (
+            <div className={`${dropdownClass} min-w-[120px]`} role="menu">
               {priorities.map((priority) => (
                 <button
                   key={priority.id}
-                  onClick={() => onSetPriority(priority.id)}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-white/10 rounded-lg transition-colors text-left priority-color-text"
-                  style={
-                    {
-                      "--priority-color": priority.color,
-                    } as React.CSSProperties & Record<string, string>
-                  }
+                  type="button"
+                  onClick={() => {
+                    onSetPriority(priority.id);
+                    setOpenMenu(null);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-white/10 rounded-lg transition-colors text-left"
+                  style={{ color: priority.color }}
+                  role="menuitem"
                 >
                   <Flag size={12} />
                   {priority.label}
                 </button>
               ))}
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Due Date Action */}
-        <div className="relative">
+        <div className="relative shrink-0">
           <button
-            onClick={() => setShowDatePicker(!showDatePicker)}
-            className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+            type="button"
+            onClick={() => {
+              setOpenMenu(null);
+              setShowDatePicker((v) => !v);
+            }}
+            aria-expanded={showDatePicker}
+            className={`${menuButtonClass} ${showDatePicker ? "bg-white/10 text-white" : ""}`}
           >
             <Calendar size={16} />
-            Due Date
+            <span className="hidden sm:inline">Due</span>
           </button>
-
           {showDatePicker && (
-            <div className="absolute bottom-full left-0 mb-2 bg-[#1a0a0a] border border-white/10 rounded-xl p-3 shadow-xl">
+            <div className="absolute bottom-full left-0 mb-2 bg-[#1a0a0a] border border-white/10 rounded-xl p-3 shadow-xl z-10">
               <label htmlFor="bulk-due-date-input" className="sr-only">
                 Set due date for selected tasks
               </label>
@@ -183,38 +236,42 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
                 className="bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-300 [color-scheme:dark] focus:border-red-500/50 outline-none"
               />
               <button
+                type="button"
                 onClick={() => {
                   onSetDueDate(null);
                   setShowDatePicker(false);
                 }}
                 className="w-full mt-2 px-3 py-1.5 text-xs text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
               >
-                Clear Due Date
+                Clear due date
               </button>
             </div>
           )}
         </div>
 
-        {/* Tag Actions */}
-        <div className="relative group">
-          <button className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+        <div className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => toggleMenu("tags")}
+            aria-expanded={openMenu === "tags"}
+            aria-haspopup="menu"
+            className={`${menuButtonClass} ${openMenu === "tags" ? "bg-white/10 text-white" : ""}`}
+          >
             <Tag size={16} />
-            Tags
+            <span className="hidden sm:inline">Tags</span>
           </button>
-
-          <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block">
-            <div className="bg-[#1a0a0a] border border-white/10 rounded-xl p-2 shadow-xl min-w-[180px]">
-              {/* Add Tag Section */}
+          {openMenu === "tags" && (
+            <div className={`${dropdownClass} min-w-[180px] p-2`} role="menu">
               <div className="mb-2 pb-2 border-b border-white/5">
                 <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 px-2">
-                  Add Tag
+                  Add tag
                 </div>
                 <input
                   type="text"
                   value={newTag}
                   onChange={(e) => setNewTag(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleAddTag(newTag)}
-                  placeholder="New tag..."
+                  placeholder="New tag…"
                   className="w-full bg-black/40 border border-white/10 rounded-lg px-2 py-1.5 text-sm text-slate-300 placeholder-slate-500 focus:border-red-500/50 outline-none mb-2"
                 />
                 {availableTags.length > 0 && (
@@ -222,8 +279,13 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
                     {availableTags.slice(0, 8).map((tag) => (
                       <button
                         key={tag}
-                        onClick={() => onAddTag(tag)}
+                        type="button"
+                        onClick={() => {
+                          onAddTag(tag);
+                          setOpenMenu(null);
+                        }}
                         className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors text-left"
+                        role="menuitem"
                       >
                         <Tag size={10} />
                         {tag}
@@ -232,21 +294,22 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
                   </div>
                 )}
               </div>
-
-              {/* Remove Tag Section */}
               {onRemoveTag && availableTags.length > 0 && (
                 <div>
                   <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 px-2">
-                    Remove Tag
+                    Remove tag
                   </div>
                   <div className="max-h-[100px] overflow-y-auto">
                     {availableTags.slice(0, 8).map((tag) => (
                       <button
                         key={tag}
+                        type="button"
                         onClick={() => {
                           onRemoveTag(tag);
+                          setOpenMenu(null);
                         }}
                         className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-red-300 hover:text-red-200 hover:bg-red-500/10 rounded-lg transition-colors text-left"
+                        role="menuitem"
                       >
                         <X size={10} />
                         {tag}
@@ -256,105 +319,128 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
                 </div>
               )}
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Duplicate Action */}
         {onDuplicate && (
           <button
+            type="button"
             onClick={onDuplicate}
-            className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+            className={`${menuButtonClass} shrink-0`}
             title="Duplicate selected tasks"
           >
             <Copy size={16} />
-            Duplicate
+            <span className="hidden sm:inline">Duplicate</span>
           </button>
         )}
 
-        {/* Archive Action */}
         {onArchive && (
           <button
+            type="button"
             onClick={onArchive}
-            className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 rounded-lg transition-colors"
+            className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 rounded-lg transition-colors shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50"
             title="Archive selected tasks"
           >
             <Archive size={16} />
-            Archive
+            <span className="hidden sm:inline">Archive</span>
           </button>
         )}
 
-        {/* Move to Workspace Action */}
         {onMoveToWorkspace && projects.length > 0 && (
-          <div className="relative group">
-            <button className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => toggleMenu("workspace")}
+              aria-expanded={openMenu === "workspace"}
+              aria-haspopup="menu"
+              className={`${menuButtonClass} ${openMenu === "workspace" ? "bg-white/10 text-white" : ""}`}
+            >
               <Folder size={16} />
-              Move to Workspace
+              <span className="hidden sm:inline">Workspace</span>
             </button>
-
-            <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block">
-              <div className="bg-[#1a0a0a] border border-white/10 rounded-xl p-1 shadow-xl min-w-[180px] max-h-[200px] overflow-y-auto">
+            {openMenu === "workspace" && (
+              <div className={`${dropdownClass} min-w-[180px] max-h-[200px] overflow-y-auto`} role="menu">
                 {projects.map((project) => (
                   <button
                     key={project.id}
-                    onClick={() => onMoveToWorkspace(project.id)}
+                    type="button"
+                    onClick={() => {
+                      onMoveToWorkspace(project.id);
+                      setOpenMenu(null);
+                    }}
                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors text-left"
+                    role="menuitem"
                   >
                     <Folder size={12} />
                     {project.name}
                   </button>
                 ))}
               </div>
-            </div>
+            )}
           </div>
         )}
 
-        {/* Assign Action */}
         {assignees.length > 0 && (
-          <div className="relative group">
-            <button className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => toggleMenu("assign")}
+              aria-expanded={openMenu === "assign"}
+              aria-haspopup="menu"
+              className={`${menuButtonClass} ${openMenu === "assign" ? "bg-white/10 text-white" : ""}`}
+            >
               <UserPlus size={16} />
-              Assign
+              <span className="hidden sm:inline">Assign</span>
             </button>
-
-            <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block">
-              <div className="bg-[#1a0a0a] border border-white/10 rounded-xl p-1 shadow-xl min-w-[150px] max-h-[200px] overflow-y-auto">
+            {openMenu === "assign" && (
+              <div className={`${dropdownClass} min-w-[150px] max-h-[200px] overflow-y-auto`} role="menu">
                 <button
-                  onClick={() => onAssign("")}
+                  type="button"
+                  onClick={() => {
+                    onAssign("");
+                    setOpenMenu(null);
+                  }}
                   className="w-full px-3 py-2 text-sm text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors text-left italic"
+                  role="menuitem"
                 >
                   Unassign
                 </button>
                 {assignees.map((assignee) => (
                   <button
                     key={assignee}
-                    onClick={() => onAssign(assignee)}
+                    type="button"
+                    onClick={() => {
+                      onAssign(assignee);
+                      setOpenMenu(null);
+                    }}
                     className="w-full px-3 py-2 text-sm text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors text-left"
+                    role="menuitem"
                   >
                     {assignee}
                   </button>
                 ))}
               </div>
-            </div>
+            )}
           </div>
         )}
 
-        {/* Divider */}
-        <div className="w-px h-6 bg-white/10" />
+        <div className="w-px h-6 bg-white/10 shrink-0" />
 
-        {/* Delete Action */}
         <button
+          type="button"
           onClick={onDelete}
-          className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
+          className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
         >
           <Trash2 size={16} />
-          Delete
+          <span className="hidden sm:inline">Delete</span>
         </button>
 
-        {/* Close Button */}
         <button
+          type="button"
           onClick={onSelectNone}
-          className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+          className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
           title="Clear selection"
+          aria-label="Clear selection"
         >
           <X size={16} />
         </button>

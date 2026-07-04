@@ -73,7 +73,7 @@ class TaskCleanupService {
 
           if (tasksInGroup.length > 1) {
             duplicateGroups.push({
-              id: `dup-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              id: `dup-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
               tasks: tasksInGroup,
               confidence: result.confidence,
               reasons: result.reasons,
@@ -117,7 +117,7 @@ class TaskCleanupService {
 
       if (group.length > 1) {
         groups.push({
-          id: `dup-heuristic-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: `dup-heuristic-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
           tasks: group,
           confidence: this.calculateGroupConfidence(group),
           reasons: ["Heuristic match: similar titles and/or tags"],
@@ -459,7 +459,7 @@ class TaskCleanupService {
         });
 
         clusters.push({
-          id: `cluster-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: `cluster-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
           taskIds: clusterTasks,
           theme: clusterTasks
             .map((id) => allTasks.find((t) => t.id === id)?.title ?? "")

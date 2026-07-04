@@ -237,6 +237,24 @@ describe("notificationService", () => {
       expect(result.overdue).toHaveLength(1);
       expect(result.overdue[0].id).toBe("task-1");
     });
+
+    it("should ignore tasks in completed columns", () => {
+      const now = new Date();
+      const tasks = [
+        {
+          id: "task-1",
+          title: "Done but overdue date",
+          dueDate: new Date(now.getTime() - 1000),
+          status: "Completed",
+        },
+      ];
+
+      const result = notificationService.checkOverdueTasks(tasks, {
+        completedColumnIds: new Set(["Completed"]),
+      });
+
+      expect(result.overdue).toHaveLength(0);
+    });
   });
 
   describe("notifyOverdue", () => {

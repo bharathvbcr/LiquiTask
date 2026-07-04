@@ -148,7 +148,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ tasks, priorities, onEditT
         <div>
           <h2 className="text-2xl font-bold text-white flex items-center gap-3">
             Predictive Gantt
-            {isAnalyzing && <Brain className="text-cyan-400 animate-pulse" size={20} />}
+            {isAnalyzing && <Brain className="text-red-400 animate-pulse" size={20} />}
           </h2>
           <p className="text-sm text-slate-400">AI-powered timeline risk & dependency analysis</p>
         </div>
@@ -182,7 +182,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ tasks, priorities, onEditT
       {/* AI Risk Dashboard */}
       {riskSummary && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="col-span-2 bg-cyan-500/5 border border-cyan-500/20 rounded-2xl p-4 flex items-center gap-4">
+          <div className="col-span-2 bg-red-500/5 border border-red-500/20 rounded-2xl p-4 flex items-center gap-4">
             <div
               className={`p-3 rounded-xl ${riskSummary.overallScore > 0.6 ? "bg-red-500/20 text-red-400" : "bg-green-500/20 text-green-400"}`}
             >

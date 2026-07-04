@@ -23,7 +23,7 @@ export const DroppableCell: React.FC<DroppableCellProps> = ({ id, children, clas
   return (
     <div
       ref={setNodeRef}
-      className={`${className} transition-colors duration-200 ${isOver ? "border-blue-500/50 bg-blue-500/5" : ""}`}
+      className={`${className} transition-colors duration-200 ${isOver ? "border-red-500/50 bg-red-500/5" : ""}`}
     >
       {children}
     </div>

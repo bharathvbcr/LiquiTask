@@ -363,7 +363,7 @@ export const TaskAssistantSidebar: React.FC<TaskAssistantSidebarProps> = ({
                         </div>
                       ) : (
                         <div className="flex items-center gap-2.5 text-slate-400 italic font-medium">
-                          <Terminal size={14} className="text-cyan-400 animate-pulse" />
+                          <Terminal size={14} className="text-red-400 animate-pulse" />
                           <span>Taking action...</span>
                         </div>
                       )}

@@ -174,15 +174,19 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   return (
     <>
       <div
+        role="article"
+        aria-label={`Task: ${task.title}`}
         onContextMenu={handleContextMenu}
         className={`
           liquid-card group relative w-full rounded-2xl ${isCompact ? "p-3.5" : "p-5"} cursor-grab active:cursor-grabbing
-          border border-white/10 hover:border-white/20
+          border border-white/10 hover:border-white/20 outline-none
+          focus-visible:ring-2 focus-visible:ring-red-500/50
           ${isBlocked ? "border-l-2 border-l-red-500/50" : ""}
           ${isFocused ? "ring-2 ring-red-500/70 shadow-[0_0_20px_rgba(239,68,68,0.4)] scale-[1.02]" : ""}
           ${isSelected ? "ring-2 ring-cyan-400/80 border-cyan-400/50 shadow-[0_0_24px_rgba(34,211,238,0.22)]" : ""}
           hover:shadow-lg hover:scale-[1.01]
         `}
+        tabIndex={0}
       >
         {/* Header */}
         <div className={`flex justify-between items-center ${isCompact ? "mb-2" : "mb-3"}`}>
@@ -199,7 +203,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                   }}
                   aria-label={isSelected ? "Deselect task" : "Select task"}
                   aria-pressed={isSelected}
-                  className={`flex h-7 w-7 items-center justify-center rounded-lg border transition-colors ${
+                  className={`flex h-7 w-7 items-center justify-center rounded-lg border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 ${
                     isSelected
                       ? "border-cyan-400/70 bg-cyan-400/15 text-cyan-200"
                       : "border-white/10 bg-black/30 text-slate-400 hover:text-white"
@@ -244,12 +248,12 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             )}
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 rounded-lg p-0.5 border border-white/5 backdrop-blur-sm">
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity bg-black/40 rounded-lg p-0.5 border border-white/5 backdrop-blur-sm">
               <Tooltip content="Edit task" position="top">
                 <button
                   onClick={() => onEditTask(task)}
                   aria-label="Edit task"
-                  className="p-1.5 text-slate-400 hover:text-white rounded-md transition-colors"
+                  className="p-2 text-slate-400 hover:text-white rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
                 >
                   <Pencil size={12} />
                 </button>
@@ -261,7 +265,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                     setQuickViewPosition({ x: e.clientX + 12, y: e.clientY + 12 });
                   }}
                   aria-label="Open task quick view"
-                  className="p-1.5 text-slate-400 hover:text-white rounded-md transition-colors"
+                  className="p-2 text-slate-400 hover:text-white rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
                 >
                   <Info size={12} />
                 </button>
@@ -270,7 +274,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 <button
                   onClick={() => onDeleteTask(task.id)}
                   aria-label="Delete task"
-                  className="p-1.5 text-slate-400 hover:text-red-400 rounded-md transition-colors"
+                  className="p-2 text-slate-400 hover:text-red-400 rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
                 >
                   <Trash2 size={12} />
                 </button>
@@ -320,7 +324,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           <div className="flex items-center gap-3 mt-2 text-slate-300">
             {task.assignee && (
               <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
-                <div className="w-4 h-4 rounded-full bg-gradient-to-tr from-indigo-900 to-slate-800 flex items-center justify-center border border-white/10">
+                <div className="w-4 h-4 rounded-full bg-gradient-to-tr from-slate-700 to-slate-900 flex items-center justify-center border border-white/10">
                   <span className="text-[9px] font-bold">
                     {task.assignee.charAt(0).toUpperCase()}
                   </span>
@@ -385,7 +389,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                             href={safeUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-blue-400 hover:underline"
+                            className="text-red-400 hover:underline"
                           >
                             Link
                           </a>
@@ -463,7 +467,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             </div>
             <div className="flex items-center justify-between mt-auto pt-3 border-t border-white/5">
               <div className="flex items-center gap-2 text-xs">
-                <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-900 to-slate-800 flex items-center justify-center border border-white/10">
+                <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-slate-700 to-slate-900 flex items-center justify-center border border-white/10">
                   <span className="text-[10px] font-bold">
                     {task.assignee ? task.assignee.charAt(0).toUpperCase() : "U"}
                   </span>
@@ -504,6 +508,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       {contextMenuVisible && (
         <div
           role="menu"
+          aria-label="Task actions"
           className="fixed z-[100] bg-[#1a0a0a] border border-red-500/30 rounded-xl shadow-2xl py-2 min-w-[200px]"
           style={{
             left: `${contextMenuPosition.x}px`,
@@ -518,7 +523,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               onMouseEnter={handleWorkspaceSubmenuEnter}
               onMouseLeave={handleWorkspaceSubmenuLeave}
             >
-              <button role="menuitem" className="w-full px-4 py-2.5 text-left text-sm text-slate-200 hover:bg-red-500/20 flex items-center justify-between">
+              <button role="menuitem" aria-haspopup="true" aria-expanded={showWorkspaceSubmenu} className="w-full px-4 py-2.5 text-left text-sm text-slate-200 hover:bg-red-500/20 flex items-center justify-between focus:outline-none focus-visible:bg-red-500/20">
                 <div className="flex items-center gap-2">
                   <Folder size={14} className="text-red-400" />
                   <span>Move to Workspace</span>
@@ -534,7 +539,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                         key={p.id}
                         role="menuitem"
                         onClick={() => handleMoveToWorkspace(p.id)}
-                        className="w-full px-4 py-2.5 text-left text-sm hover:bg-red-500/20 flex items-center gap-2"
+                        className="w-full px-4 py-2.5 text-left text-sm hover:bg-red-500/20 flex items-center gap-2 focus:outline-none focus-visible:bg-red-500/20"
                       >
                         <Folder size={14} className="text-red-400" />
                         <span className="truncate">{p.name}</span>
@@ -547,7 +552,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           <button
             role="menuitem"
             onClick={handleCopyAsJson}
-            className="w-full px-4 py-2.5 text-left text-sm hover:bg-red-500/20 flex items-center gap-2"
+            className="w-full px-4 py-2.5 text-left text-sm hover:bg-red-500/20 flex items-center gap-2 focus:outline-none focus-visible:bg-red-500/20"
           >
             <Copy size={14} className="text-red-400" />
             <span>Copy as JSON</span>
@@ -565,7 +570,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 setContextMenuVisible(false);
               }
             }}
-            className="w-full px-4 py-2.5 text-left text-sm hover:bg-red-500/20 flex items-center gap-2"
+            className="w-full px-4 py-2.5 text-left text-sm hover:bg-red-500/20 flex items-center gap-2 focus:outline-none focus-visible:bg-red-500/20"
           >
             <FileText size={14} className="text-red-400" />
             <span>Save as Template</span>

@@ -83,6 +83,44 @@
   background: var(--scrollbar-hover);
 }
 
+/* Light theme parity for floating surfaces, badges, stats, and markdown */
+.theme-light .liquid-surface {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--border-subtle);
+  box-shadow:
+    0 24px 64px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.theme-light .liquid-badge {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+.theme-light .liquid-badge:hover {
+  background: rgba(0, 0, 0, 0.07);
+  border-color: rgba(0, 0, 0, 0.14);
+}
+
+.theme-light .stat-number {
+  background: linear-gradient(135deg, #1e293b 0%, rgba(30, 41, 59, 0.65) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+.theme-light .markdown-content a {
+  color: #dc2626;
+}
+
+.theme-light .markdown-content strong {
+  color: #0f172a;
+}
+
+.theme-light .markdown-content code {
+  color: #dc2626;
+  background: rgba(0, 0, 0, 0.05);
+}
+
 body {
   font-family: inherit;
   background-color: #030000;
@@ -188,15 +226,6 @@ body {
   transition:
     border-color 0.3s ease,
     box-shadow 0.3s ease;
-}
-
-.liquid-card:hover {
-  background: rgba(45, 12, 12, 0.7);
-  border-color: rgba(255, 50, 50, 0.3);
-  transform: translateY(-2px) scale(1.005);
-  box-shadow:
-    0 15px 30px rgba(0, 0, 0, 0.6),
-    0 0 20px rgba(220, 30, 30, 0.12);
 }
 
 .liquid-input:focus {
@@ -410,7 +439,7 @@ body {
 }
 
 .markdown-content a {
-  color: #60a5fa;
+  color: #f87171;
   text-decoration: underline;
 }
 
@@ -668,6 +697,28 @@ textarea:focus-visible {
   }
 }
 
+@keyframes slide-out-up {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+}
+
+@keyframes slide-out-down {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+}
+
 @keyframes scale-in {
   from {
     opacity: 0;
@@ -737,24 +788,6 @@ textarea:focus-visible {
     transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
     opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
     box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.transition-smooth-fast {
-  transition:
-    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-    opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.transition-smooth-medium {
-  transition:
-    transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-    opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.transition-smooth-slow {
-  transition:
-    transform 0.5s cubic-bezier(0.4, 0, 0.2, 1),
-    opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .transition-smooth-fast {

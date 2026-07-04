@@ -10,6 +10,7 @@ import {
   type MeasuringStrategy,
 } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { ClipboardList, Inbox } from "lucide-react";
 import type React from "react";
 import { createPortal } from "react-dom";
 import { TaskCard } from "../../../components/TaskCard";
@@ -147,8 +148,8 @@ const PriorityBoardView: React.FC<PriorityBoardViewProps> = ({
                     id={dropZoneId}
                     className={`flex-1 min-w-[300px] flex flex-col gap-4 min-h-[200px] p-4 rounded-xl border transition-all duration-300 ${
                       isHighlighted
-                        ? "border-blue-500/60 bg-blue-500/10 shadow-[0_0_20px_rgba(59,130,246,0.2)] scale-[1.01]"
-                        : "border-white/10 hover:border-white/15 bg-[#0a0a0a]/40"
+                        ? "border-red-500/60 bg-red-500/10 shadow-[0_0_20px_rgba(239,68,68,0.2)] scale-[1.01]"
+                        : "border-white/10 hover:border-white/15 bg-[#0a0505]/40"
                     }`}
                   >
                     <SortableContext
@@ -180,13 +181,17 @@ const PriorityBoardView: React.FC<PriorityBoardViewProps> = ({
                     </SortableContext>
                     {cellTasks.length === 0 && (
                       <div
-                        className={`flex-1 min-h-[150px] rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-2 text-xs transition-all ${
+                        className={`flex-1 rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-2 text-xs transition-all ${
                           isHighlighted
-                            ? "border-blue-500/60 bg-blue-500/10 text-blue-400 scale-105"
+                            ? "border-red-500/60 bg-red-500/10 text-red-400 scale-105"
                             : "border-white/10 text-slate-600 hover:border-white/15"
                         }`}
                       >
-                        <div className="text-xl opacity-50">📋</div>
+                        {isHighlighted ? (
+                          <Inbox size={22} className="text-red-400" />
+                        ) : (
+                          <ClipboardList size={22} className="text-slate-600" />
+                        )}
                         <span className="text-slate-500">
                           {isHighlighted ? "Drop here" : "Empty"}
                         </span>

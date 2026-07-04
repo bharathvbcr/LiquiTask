@@ -111,6 +111,8 @@ export const Tooltip: React.FC<TooltipProps> = ({
         ref={childrenRef as React.RefObject<HTMLSpanElement>}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
+        onFocus={handleMouseEnter}
+        onBlur={handleMouseLeave}
         onClick={handleClick}
         style={{ display: "contents" }}
       >
@@ -120,6 +122,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
         typeof document !== "undefined" &&
         createPortal(
           <div
+            role="tooltip"
             className="fixed z-[9999] pointer-events-none animate-in fade-in zoom-in-95 duration-150 ease-out"
             style={{
               top: coords.top,

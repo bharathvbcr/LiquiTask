@@ -5,12 +5,12 @@ import {
   Download,
   FileJson,
   FolderOpen,
-  Loader2,
   RefreshCw,
   Upload,
 } from "lucide-react";
 import type React from "react";
 import { useRef, useState } from "react";
+import { Button } from "../../src/components/common/Button";
 import { STORAGE_KEYS } from "../../src/constants";
 import { aiService } from "../../src/services/aiService";
 import storageService from "../../src/services/storageService";
@@ -23,10 +23,9 @@ import type {
   Task,
   ToastType,
 } from "../../types";
+import { DestructiveConfirm } from "./DestructiveConfirm";
 
-// Upper bound for a JSON file loaded via the picker/drop zones. Loading a file
-// much larger than this into a controlled textarea would freeze the renderer.
-const MAX_IMPORT_FILE_BYTES = 25_000_000; // 25 MB
+const MAX_IMPORT_FILE_BYTES = 25_000_000;
 
 interface AppData {
   projects: Project[];
@@ -71,7 +70,7 @@ export const DataSettings: React.FC<DataSettingsProps> = ({
   handleDownloadTemplate,
   setBulkTasksJson,
   bulkTasksJson,
-  bulkImportError: _bulkImportError,
+  bulkImportError,
   handleBulkImport,
   isBulkImporting,
   onBulkCreateTasks,
@@ -79,23 +78,18 @@ export const DataSettings: React.FC<DataSettingsProps> = ({
 }) => {
   const [smartImportText, setSmartImportText] = useState("");
   const [isSmartImporting, setIsSmartImporting] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const backupFileRef = useRef<HTMLInputElement>(null);
   const bulkFileRef = useRef<HTMLInputElement>(null);
-  // Which drop zone is currently hovered by a dragged file ("backup" | "bulk").
   const [dragTarget, setDragTarget] = useState<"backup" | "bulk" | null>(null);
 
-  // Read a .json file and hand its text to the given setter. Reuses the existing
-  // textarea-based validation/import flow: the contents are loaded into the
-  // field so the user can review them before importing.
   const loadJsonFile = async (file: File, setText: (val: string) => void) => {
     if (!file.name.toLowerCase().endsWith(".json") && file.type !== "application/json") {
       addToast("Please choose a .json file", "error");
       return;
     }
 
-    // Guard against accidentally loading a huge file into a controlled textarea,
-    // which would freeze the renderer. A real LiquiTask backup is well under this.
     if (file.size > MAX_IMPORT_FILE_BYTES) {
       addToast(
         `File is too large (max ${Math.round(MAX_IMPORT_FILE_BYTES / 1_000_000)} MB)`,
@@ -114,18 +108,15 @@ export const DataSettings: React.FC<DataSettingsProps> = ({
     }
   };
 
-  // File picked via the hidden <input type="file">.
   const handleFilePick = async (
     e: React.ChangeEvent<HTMLInputElement>,
     setText: (val: string) => void,
   ) => {
     const file = e.target.files?.[0];
-    // Reset the input so picking the same file again re-fires onChange.
     e.target.value = "";
     if (file) await loadJsonFile(file, setText);
   };
 
-  // File dropped onto an import zone.
   const handleDrop = async (e: React.DragEvent, setText: (val: string) => void) => {
     e.preventDefault();
     setDragTarget(null);
@@ -162,15 +153,19 @@ export const DataSettings: React.FC<DataSettingsProps> = ({
     }
   };
 
+  const dropZoneClass = (target: "backup" | "bulk") =>
+    `w-full bg-[#05080f] border rounded-xl p-3 text-xs text-slate-400 font-mono resize-none transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 ${
+      dragTarget === target ? "border-red-500/60 bg-red-900/10" : "border-white/10"
+    }`;
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
-      {/* AI Smart Import Section */}
-      <div className="space-y-3 bg-cyan-900/10 border border-cyan-500/20 p-4 rounded-xl">
-        <h4 className="text-xs font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-2">
+      <div className="space-y-3 bg-red-900/10 border border-red-500/20 p-4 rounded-xl">
+        <h4 className="text-xs font-bold text-red-400 uppercase tracking-wider flex items-center gap-2">
           <Brain size={14} />
           Switch to LiquiTask (AI Smart Import)
         </h4>
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-slate-400 leading-relaxed">
           Paste CSV or JSON from Jira, Trello, Linear, or Asana. AI will auto-map it to your current
           project.
         </p>
@@ -178,19 +173,21 @@ export const DataSettings: React.FC<DataSettingsProps> = ({
           value={smartImportText}
           onChange={(e) => setSmartImportText(e.target.value)}
           placeholder="Paste external data dump here..."
-          className="w-full h-24 bg-black/40 border border-cyan-500/20 rounded-xl p-3 text-xs text-slate-300 font-mono resize-none focus:border-cyan-500/50 outline-none"
+          className="w-full h-24 bg-black/40 border border-red-500/20 rounded-xl p-3 text-xs text-slate-300 font-mono resize-none focus:border-red-500/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/20"
         />
-        <button
+        <Button
           onClick={handleSmartImport}
           disabled={!smartImportText.trim() || isSmartImporting || !onBulkCreateTasks}
-          className="w-full p-3 bg-cyan-500/10 border border-cyan-500/20 rounded-xl text-cyan-400 disabled:opacity-50 font-bold flex items-center justify-center gap-2"
+          isLoading={isSmartImporting}
+          fullWidth
+          color="red"
+          icon={<Brain size={16} />}
         >
-          {isSmartImporting ? <Loader2 size={16} className="animate-spin" /> : <Brain size={16} />}
           Extract & Import Tasks
-        </button>
+        </Button>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-3">
         <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
           Export Data
         </h4>
@@ -198,12 +195,13 @@ export const DataSettings: React.FC<DataSettingsProps> = ({
           <a
             href={downloadLink}
             download="liquitask-backup.json"
-            className="flex items-center justify-center gap-2 p-3 bg-white/5 border border-white/10 rounded-xl text-slate-300 no-underline hover:bg-white/10"
+            className="flex items-center justify-center gap-2 p-3 bg-white/5 border border-white/10 rounded-xl text-slate-300 no-underline hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
           >
             <Download size={16} />
-            <span className="text-sm font-medium">JSON</span>
+            <span className="text-sm font-medium">JSON Backup</span>
           </a>
           <button
+            type="button"
             onClick={async () => {
               const { exportService } = await import("../../src/services/exportService");
               const pm = new Map<string, string>(
@@ -212,15 +210,15 @@ export const DataSettings: React.FC<DataSettingsProps> = ({
               exportService.downloadCSV(appData.tasks, "liquitask-export.csv", pm);
               addToast("Exported to CSV", "success");
             }}
-            className="flex items-center justify-center gap-2 p-3 bg-white/5 border border-white/10 rounded-xl text-slate-300 hover:bg-white/10"
+            className="flex items-center justify-center gap-2 p-3 bg-white/5 border border-white/10 rounded-xl text-slate-300 hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
           >
             <Download size={16} />
-            <span className="text-sm font-medium">CSV</span>
+            <span className="text-sm font-medium">CSV Export</span>
           </button>
         </div>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-3">
         <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
           Import App Backup
         </h4>
@@ -232,11 +230,12 @@ export const DataSettings: React.FC<DataSettingsProps> = ({
           className="hidden"
         />
         <button
+          type="button"
           onClick={() => backupFileRef.current?.click()}
-          className="flex items-center justify-center gap-2 w-full p-2 bg-white/5 border border-white/10 rounded-xl text-slate-400 text-xs hover:text-white hover:bg-white/10"
+          className="flex items-center justify-center gap-2 w-full p-2.5 bg-white/5 border border-white/10 rounded-xl text-slate-400 text-xs hover:text-white hover:bg-white/10 transition-colors"
         >
           <FolderOpen size={14} />
-          <span className="font-medium">Choose JSON file...</span>
+          <span className="font-medium">Choose JSON file…</span>
         </button>
         <textarea
           value={importText}
@@ -247,20 +246,29 @@ export const DataSettings: React.FC<DataSettingsProps> = ({
           }}
           onDragLeave={() => setDragTarget(null)}
           onDrop={(e) => handleDrop(e, setImportText)}
-          placeholder="...or paste or drop a LiquiTask backup JSON here"
-          className={`w-full h-24 bg-[#05080f] border rounded-xl p-3 text-xs text-slate-400 font-mono resize-none transition-colors ${
-            dragTarget === "backup" ? "border-cyan-500/60 bg-cyan-900/10" : "border-white/10"
-          }`}
+          placeholder="…or paste or drop a LiquiTask backup JSON here"
+          className={`h-24 ${dropZoneClass("backup")}`}
         />
-        {importError && <p className="text-xs text-red-400">{importError}</p>}
-        <button
+        {importText && (
+          <p className="text-[10px] text-slate-600 px-1">
+            {importText.length.toLocaleString()} characters loaded
+          </p>
+        )}
+        {importError && (
+          <p role="alert" className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+            {importError}
+          </p>
+        )}
+        <Button
           onClick={handleImport}
           disabled={!importText.trim() || isImporting}
-          className="flex items-center justify-center gap-2 w-full p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 disabled:opacity-50 transition-all"
+          isLoading={isImporting}
+          fullWidth
+          variant="danger"
+          icon={<Upload size={16} />}
         >
-          {isImporting ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-          <span className="text-sm font-medium">Restore Backup</span>
-        </button>
+          Restore Backup
+        </Button>
       </div>
 
       <div className="space-y-3 pt-4 border-t border-white/5">
@@ -270,14 +278,15 @@ export const DataSettings: React.FC<DataSettingsProps> = ({
             Manual Bulk Import
           </h4>
           <button
+            type="button"
             onClick={() => setShowTemplateRef(!showTemplateRef)}
-            className="text-xs text-slate-500 flex items-center gap-1"
+            className="text-xs text-slate-500 hover:text-slate-300 flex items-center gap-1 transition-colors"
           >
             {showTemplateRef ? <ChevronUp size={12} /> : <ChevronDown size={12} />} Template
           </button>
         </div>
         {showTemplateRef && (
-          <div className="bg-black/30 rounded-lg p-3 border border-white/5">
+          <div className="bg-black/30 rounded-lg p-3 border border-white/5 max-h-40 overflow-y-auto custom-scrollbar">
             <pre className="text-[10px] text-slate-400 font-mono whitespace-pre-wrap">
               {BULK_TASK_TEMPLATE_JSON}
             </pre>
@@ -285,10 +294,11 @@ export const DataSettings: React.FC<DataSettingsProps> = ({
         )}
         <div className="grid grid-cols-2 gap-2">
           <button
+            type="button"
             onClick={handleDownloadTemplate}
-            className="w-full p-2 bg-white/5 border border-white/10 rounded-lg text-slate-400 text-xs hover:text-white"
+            className="w-full p-2.5 bg-white/5 border border-white/10 rounded-lg text-slate-400 text-xs hover:text-white transition-colors"
           >
-            Download JSON Template
+            Download template
           </button>
           <input
             ref={bulkFileRef}
@@ -298,11 +308,12 @@ export const DataSettings: React.FC<DataSettingsProps> = ({
             className="hidden"
           />
           <button
+            type="button"
             onClick={() => bulkFileRef.current?.click()}
-            className="flex items-center justify-center gap-2 w-full p-2 bg-white/5 border border-white/10 rounded-lg text-slate-400 text-xs hover:text-white"
+            className="flex items-center justify-center gap-2 w-full p-2.5 bg-white/5 border border-white/10 rounded-lg text-slate-400 text-xs hover:text-white transition-colors"
           >
             <FolderOpen size={14} />
-            Choose JSON file...
+            Choose JSON file…
           </button>
         </div>
         <textarea
@@ -314,32 +325,52 @@ export const DataSettings: React.FC<DataSettingsProps> = ({
           }}
           onDragLeave={() => setDragTarget(null)}
           onDrop={(e) => handleDrop(e, setBulkTasksJson)}
-          placeholder="...or paste or drop a bulk tasks JSON here"
-          className={`w-full h-32 bg-[#05080f] border rounded-xl p-3 text-xs text-slate-400 font-mono resize-none transition-colors ${
-            dragTarget === "bulk" ? "border-cyan-500/60 bg-cyan-900/10" : "border-white/10"
-          }`}
+          placeholder="…or paste or drop a bulk tasks JSON here"
+          className={`h-32 ${dropZoneClass("bulk")}`}
         />
-        <button
+        {bulkImportError && (
+          <p role="alert" className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+            {bulkImportError}
+          </p>
+        )}
+        <Button
           onClick={handleBulkImport}
           disabled={!bulkTasksJson.trim() || isBulkImporting || !onBulkCreateTasks}
-          className="w-full p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-blue-400 disabled:opacity-50"
+          isLoading={isBulkImporting}
+          fullWidth
+          color="red"
+          icon={<FileJson size={16} />}
         >
-          {isBulkImporting ? (
-            <Loader2 size={16} className="animate-spin" />
-          ) : (
-            <FileJson size={16} />
-          )}
-          <span className="text-sm font-medium">Import Tasks to Current Project</span>
-        </button>
+          Import Tasks to Current Project
+        </Button>
       </div>
 
       <div className="pt-4 border-t border-white/5">
-        <button
-          onClick={handleReset}
-          className="flex items-center gap-2 text-xs font-medium text-slate-500 hover:text-red-400 transition-colors w-full justify-center"
-        >
-          <RefreshCw size={14} /> Reset App to Defaults
-        </button>
+        {showResetConfirm ? (
+          <DestructiveConfirm
+            message={
+              <>
+                This will erase all projects, tasks, and settings. Type <strong>RESET</strong> to
+                confirm.
+              </>
+            }
+            confirmWord="RESET"
+            confirmLabel="Reset app"
+            onConfirm={() => {
+              handleReset();
+              setShowResetConfirm(false);
+            }}
+            onCancel={() => setShowResetConfirm(false)}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowResetConfirm(true)}
+            className="flex items-center gap-2 text-xs font-medium text-slate-500 hover:text-red-400 transition-colors w-full justify-center py-2"
+          >
+            <RefreshCw size={14} /> Reset app to defaults…
+          </button>
+        )}
       </div>
     </div>
   );

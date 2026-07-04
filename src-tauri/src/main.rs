@@ -31,13 +31,21 @@ use serde::Serialize;
 use serde_json::{Map, Value};
 use tauri::{AppHandle, Manager, State};
 
+mod encryption;
+mod secure_key_store;
+use encryption::{
+    decrypt_bytes, decrypt_from_envelope, disable_encryption_key, enable_encryption, encrypt_bytes,
+    encrypt_to_envelope, encryption_status, is_encrypted_payload, lock_encryption, read_meta,
+    storage_opaque_key, unlock_encryption, write_meta, EncryptionStatus,
+};
+
 // ---------------------------------------------------------------------------
 // Constants (mirrors electron/main.cts)
 // ---------------------------------------------------------------------------
 
 const MAX_WORKSPACE_SEARCH_RESULTS: usize = 20;
 const MAX_WORKSPACE_FILE_SIZE_BYTES: u64 = 256 * 1024;
-const MAX_STORAGE_SIZE_BYTES: usize = 10_000_000;
+const MAX_STORAGE_SIZE_BYTES: usize = 50_000_000;
 const STORAGE_FILE_NAME: &str = "storage.json";
 
 const FORBIDDEN_STORAGE_KEYS: [&str; 3] = ["__proto__", "constructor", "prototype"];
@@ -78,26 +86,45 @@ const SKIPPED_WORKSPACE_DIR_NAMES: &[&str] = &[
 /// promise write-queue for the same reason).
 struct StorageGuard(Mutex<()>);
 
-fn storage_path(app: &AppHandle) -> Result<PathBuf, String> {
-    let dir = app
-        .path()
+fn app_data_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    app.path()
         .app_data_dir()
-        .map_err(|e| format!("Unable to resolve app data dir: {e}"))?;
-    Ok(dir.join(STORAGE_FILE_NAME))
+        .map_err(|e| format!("Unable to resolve app data dir: {e}"))
+}
+
+fn storage_path(app: &AppHandle) -> Result<PathBuf, String> {
+    Ok(app_data_dir(app)?.join(STORAGE_FILE_NAME))
+}
+
+fn storage_encryption_enabled(app: &AppHandle) -> Result<bool, String> {
+    let dir = app_data_dir(app)?;
+    if read_meta(&dir).map(|m| m.enabled).unwrap_or(false) {
+        return Ok(true);
+    }
+    let path = storage_path(app)?;
+    let bytes = fs::read(&path).unwrap_or_default();
+    Ok(is_encrypted_payload(&bytes))
 }
 
 fn read_storage(app: &AppHandle) -> Result<Map<String, Value>, String> {
     let path = storage_path(app)?;
-    match fs::read_to_string(&path) {
-        Ok(raw) => match serde_json::from_str::<Value>(&raw) {
-            Ok(Value::Object(map)) => Ok(map),
-            // Corrupt / non-object payload -> treat as empty, matching the
-            // defensive behaviour of the Electron implementation.
-            Ok(_) => Ok(Map::new()),
-            Err(e) => Err(format!("Failed to parse storage file: {e}")),
-        },
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Map::new()),
-        Err(e) => Err(format!("Failed to read storage file: {e}")),
+    let bytes = match fs::read(&path) {
+        Ok(raw) => raw,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Map::new()),
+        Err(e) => return Err(format!("Failed to read storage file: {e}")),
+    };
+
+    let json_bytes = if is_encrypted_payload(&bytes) {
+        decrypt_bytes(&bytes)?
+    } else {
+        bytes
+    };
+
+    let raw = String::from_utf8(json_bytes).map_err(|e| format!("Invalid UTF-8 in storage: {e}"))?;
+    match serde_json::from_str::<Value>(&raw) {
+        Ok(Value::Object(map)) => Ok(map),
+        Ok(_) => Ok(Map::new()),
+        Err(e) => Err(format!("Failed to parse storage file: {e}")),
     }
 }
 
@@ -107,11 +134,19 @@ fn write_storage(app: &AppHandle, data: &Map<String, Value>) -> Result<(), Strin
     if serialised.len() > MAX_STORAGE_SIZE_BYTES {
         return Err("Storage size limit exceeded".to_string());
     }
+
     let path = storage_path(app)?;
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|e| format!("Failed to create storage dir: {e}"))?;
     }
-    fs::write(&path, serialised).map_err(|e| format!("Failed to write storage file: {e}"))
+
+    let payload = if storage_encryption_enabled(app)? {
+        encrypt_bytes(serialised.as_bytes())?
+    } else {
+        serialised.into_bytes()
+    };
+
+    fs::write(&path, payload).map_err(|e| format!("Failed to write storage file: {e}"))
 }
 
 /// Validate a renderer-supplied storage key (mirrors VALID_STORAGE_KEY_RE +
@@ -179,6 +214,88 @@ fn storage_has(app: AppHandle, key: String) -> Result<bool, String> {
     validate_storage_key(&key)?;
     let data = read_storage(&app)?;
     Ok(data.contains_key(&key))
+}
+
+// ---------------------------------------------------------------------------
+// Encryption commands
+// ---------------------------------------------------------------------------
+
+#[tauri::command(rename_all = "camelCase")]
+fn encryption_status_cmd(app: AppHandle) -> Result<EncryptionStatus, String> {
+    let path = storage_path(&app)?;
+    let bytes = fs::read(&path).ok();
+    let status = encryption_status(
+        &app_data_dir(&app)?,
+        bytes.as_deref(),
+    );
+    Ok(status)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn encryption_unlock() -> Result<(), String> {
+    unlock_encryption()
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn encryption_lock() -> Result<(), String> {
+    lock_encryption();
+    Ok(())
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn encryption_enable(
+    app: AppHandle,
+    guard: State<'_, StorageGuard>,
+) -> Result<(), String> {
+    let _lock = guard.0.lock().map_err(|_| "Storage lock poisoned".to_string())?;
+    let path = storage_path(&app)?;
+    let plaintext = match fs::read(&path) {
+        Ok(bytes) if is_encrypted_payload(&bytes) => return Ok(()),
+        Ok(bytes) => bytes,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => b"{}".to_vec(),
+        Err(e) => return Err(format!("Failed to read storage file: {e}")),
+    };
+
+    let encrypted = enable_encryption(&app_data_dir(&app)?, &plaintext)?;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("Failed to create storage dir: {e}"))?;
+    }
+    fs::write(&path, encrypted).map_err(|e| format!("Failed to write encrypted storage: {e}"))
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn encryption_encrypt_blob(plaintext: String) -> Result<String, String> {
+    encrypt_to_envelope(plaintext.as_bytes())
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn encryption_decrypt_blob(envelope: String) -> Result<String, String> {
+    let bytes = decrypt_from_envelope(&envelope)?;
+    String::from_utf8(bytes).map_err(|e| format!("Decrypted payload is not valid UTF-8: {e}"))
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn encryption_opaque_storage_key(store_name: String, logical_id: String) -> Result<String, String> {
+    storage_opaque_key(&store_name, &logical_id)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn encryption_disable(
+    app: AppHandle,
+    guard: State<'_, StorageGuard>,
+) -> Result<(), String> {
+    let _lock = guard.0.lock().map_err(|_| "Storage lock poisoned".to_string())?;
+    let dir = app_data_dir(&app)?;
+    let path = storage_path(&app)?;
+    let bytes = fs::read(&path).map_err(|e| format!("Failed to read storage file: {e}"))?;
+
+    if is_encrypted_payload(&bytes) {
+        let plaintext = decrypt_bytes(&bytes)?;
+        fs::write(&path, plaintext).map_err(|e| format!("Failed to write storage file: {e}"))?;
+    }
+
+    disable_encryption_key()?;
+    write_meta(&dir, false)
 }
 
 // ---------------------------------------------------------------------------
@@ -573,6 +690,14 @@ fn main() {
             storage_delete,
             storage_clear,
             storage_has,
+            encryption_status_cmd,
+            encryption_unlock,
+            encryption_lock,
+            encryption_enable,
+            encryption_encrypt_blob,
+            encryption_decrypt_blob,
+            encryption_opaque_storage_key,
+            encryption_disable,
             workspace_get_paths,
             workspace_set_paths,
             workspace_read_file,

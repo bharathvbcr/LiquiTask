@@ -16,9 +16,15 @@ import {
   DEFAULT_PROJECTS,
   STORAGE_KEYS,
 } from "../constants";
-import { getNativeStorageApi } from "../runtime/runtimeEnvironment";
+import { getNativeStorageApi, isTauri } from "../runtime/runtimeEnvironment";
 import { trySaveToStorage } from "../utils/storageQuota";
 import { validateAndTransformImportedData } from "../utils/validation";
+import {
+  encryptPayload,
+  decryptPayload,
+  isEncryptedEnvelope,
+  isEncryptionActive,
+} from "./encryptionService";
 import { indexedDBService } from "./indexedDBService";
 import { CURRENT_DATA_VERSION, migrationService } from "./migrationService";
 
@@ -111,6 +117,10 @@ class StorageService {
     }
 
     try {
+      if (isEncryptionActive() && isTauri()) {
+        return defaultValue;
+      }
+
       const stored = localStorage.getItem(key);
       if (stored) {
         const parsed = JSON.parse(stored);
@@ -130,9 +140,46 @@ class StorageService {
     return defaultValue;
   }
 
+  /** Load encrypted browser localStorage entries into the in-memory cache after unlock. */
+  async hydrateEncryptedLocalStorage(): Promise<void> {
+    if (!isEncryptionActive() || isTauri()) return;
+
+    for (const key of Object.values(STORAGE_KEYS)) {
+      if (StorageService.SENSITIVE_KEYS.has(key)) continue;
+
+      const stored = localStorage.getItem(key);
+      if (!stored) continue;
+
+      try {
+        if (isEncryptedEnvelope(stored)) {
+          const decrypted = await decryptPayload(stored);
+          if (key === STORAGE_KEYS.TASKS) {
+            this.cache.set(key, parseTasks(decrypted as Record<string, unknown>[]));
+          } else {
+            this.cache.set(key, decrypted);
+          }
+          continue;
+        }
+
+        const parsed = JSON.parse(stored);
+        if (key === STORAGE_KEYS.TASKS) {
+          this.cache.set(key, parseTasks(parsed));
+        } else {
+          this.cache.set(key, parsed);
+        }
+        await this.set(key, this.cache.get(key));
+      } catch (e) {
+        console.warn(`Failed to hydrate encrypted storage for ${key}:`, e);
+      }
+    }
+  }
+
   async initialize(): Promise<void> {
     const nativeStorage = getNativeStorageApi();
-    if (!nativeStorage) return;
+    if (!nativeStorage) {
+      await this.hydrateEncryptedLocalStorage();
+      return;
+    }
 
     try {
       // One-time cleanup: unconditionally purge sensitive keys from plaintext
@@ -297,14 +344,18 @@ class StorageService {
     }
 
     // Save to localStorage as backup/fallback for non-sensitive keys only.
-    // Credential-bearing keys (AI_CONFIG, GEMINI_API_KEY) are intentionally
-    // excluded: localStorage is accessible to any JS on the same origin and
-    // is stored as plaintext on disk in the Chromium profile.
+    // When encryption at rest is enabled, avoid plaintext localStorage copies.
     if (!StorageService.SENSITIVE_KEYS.has(key)) {
       try {
-        const serialized = JSON.stringify(value);
-        const result = trySaveToStorage(key, serialized);
-        if (!result.success) throw new Error(result.error);
+        if (isEncryptionActive() && !isTauri()) {
+          const envelope = await encryptPayload(value);
+          const result = trySaveToStorage(key, envelope);
+          if (!result.success) throw new Error(result.error);
+        } else if (!isEncryptionActive()) {
+          const serialized = JSON.stringify(value);
+          const result = trySaveToStorage(key, serialized);
+          if (!result.success) throw new Error(result.error);
+        }
       } catch (e) {
         console.error(`Failed to save ${key} to localStorage:`, e);
       }
@@ -318,9 +369,13 @@ class StorageService {
       (r): r is PromiseRejectedResult => r.status === "rejected",
     );
     if (failures.length > 0) {
+      const reasons = failures.map((f) => f.reason);
       console.error(
         `Failed to persist "${key}" to ${failures.length} of ${asyncWrites.length} async backend(s):`,
-        ...failures.map((f) => f.reason),
+        ...reasons,
+      );
+      throw new Error(
+        `Failed to persist "${key}": ${reasons.map((r) => (r instanceof Error ? r.message : String(r))).join("; ")}`,
       );
     }
   }
@@ -344,6 +399,9 @@ class StorageService {
       localStorage.removeItem(key);
     });
     localStorage.clear();
+    if (indexedDBService.isAvailable()) {
+      indexedDBService.clearAllLocalData().catch(console.error);
+    }
   }
 
   // Get all app data

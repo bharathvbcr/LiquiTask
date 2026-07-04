@@ -345,7 +345,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {isMenuOpen && (
               <div
                 ref={menuRef}
-                className="absolute top-8 right-0 w-48 bg-[#0a0e17] border border-white/10 rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.5)] z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100"
+                className="absolute top-8 right-0 w-48 bg-[#0a0505] border border-white/10 rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.5)] z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100"
               >
                 <div className="p-1 flex flex-col gap-0.5">
                   <button
@@ -356,7 +356,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     }}
                     className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
                   >
-                    <FolderPlus size={14} className="text-emerald-400" /> Add Sub-project
+                    <FolderPlus size={14} className="text-slate-400" /> Add Sub-project
                   </button>
                   <button
                     onClick={(e) => {
@@ -366,7 +366,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     }}
                     className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
                   >
-                    <Edit2 size={14} className="text-blue-400" /> Edit
+                    <Edit2 size={14} className="text-slate-400" /> Edit
                   </button>
                   <div className="h-px bg-white/5 my-0.5" />
                   <button
@@ -494,7 +494,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="flex justify-end px-4 mb-4">
           <button
             onClick={toggleSidebar}
-            className="p-2.5 text-slate-300 hover:text-white rounded-xl hover:bg-white/5 transition-colors duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]"
+            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="p-2.5 text-slate-300 hover:text-white rounded-xl hover:bg-white/5 transition-colors duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
           >
             {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
           </button>
@@ -515,6 +516,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 type="button"
                 onClick={() => onChangeView("dashboard")}
                 aria-label="Open Dashboard"
+                aria-current={currentView === "dashboard" ? "page" : undefined}
                 onMouseEnter={(e) => {
                   if (isEffectivelyCollapsed) {
                     const rect = e.currentTarget.getBoundingClientRect();
@@ -529,7 +531,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 group px-3 py-2.5 rounded-xl cursor-pointer transition-[background-color,color,transform] duration-300
                 flex w-full items-center relative overflow-hidden border border-transparent
                 ${isEffectivelyCollapsed ? "justify-center" : ""}
-                ${currentView === "dashboard" ? "bg-red-500/10 border-red-500/20 text-red-50" : "text-slate-400 hover:text-slate-100 hover:bg-white/5"}
+                ${currentView === "dashboard" ? "bg-red-500/10 border-red-500/20 text-red-50" : "text-slate-400 hover:text-slate-100 hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-red-500/50"}
               `}
               >
                 <div className="relative z-10 flex items-center gap-3">
@@ -552,6 +554,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 type="button"
                 onClick={() => onChangeView("archive")}
                 aria-label="Open Archive"
+                aria-current={currentView === "archive" ? "page" : undefined}
                 onMouseEnter={(e) => {
                   if (isEffectivelyCollapsed) {
                     const rect = e.currentTarget.getBoundingClientRect();
@@ -566,7 +569,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 group px-3 py-2.5 rounded-xl cursor-pointer transition-[background-color,color,transform] duration-300
                 flex w-full items-center relative overflow-hidden border border-transparent
                 ${isEffectivelyCollapsed ? "justify-center" : ""}
-                ${currentView === "archive" ? "bg-red-500/10 border-red-500/20 text-red-50" : "text-slate-400 hover:text-slate-100 hover:bg-white/5"}
+                ${currentView === "archive" ? "bg-red-500/10 border-red-500/20 text-red-50" : "text-slate-400 hover:text-slate-100 hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-red-500/50"}
               `}
               >
                 <div className="relative z-10 flex items-center gap-3">
@@ -668,13 +671,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="mt-auto border-t border-white/5 bg-white/[0.02] p-4">
+        <div
+          className={`mt-auto shrink-0 border-t border-white/5 bg-white/[0.02] ${isEffectivelyCollapsed ? "p-3" : "p-4"}`}
+        >
           <Tooltip
             content="Settings"
             position={isEffectivelyCollapsed ? "right" : "top"}
             delay={300}
           >
             <button
+              type="button"
               onClick={onOpenSettings}
               aria-label="Settings"
               onMouseEnter={(e) => {
@@ -687,14 +693,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }
               }}
               onMouseLeave={() => setHoveredItem(null)}
-              className={`flex items-center gap-3 w-full rounded-xl hover:bg-white/5 cursor-pointer text-slate-400 hover:text-slate-100 transition-[background-color,color] border border-transparent hover:border-white/5 ${isEffectivelyCollapsed ? "justify-center px-2 py-3.5" : "px-3 py-3"}`}
+              className={`
+                group flex w-full items-center rounded-xl hover:bg-white/5 cursor-pointer
+                text-slate-400 hover:text-slate-100 transition-[background-color,color]
+                border border-transparent hover:border-white/5 focus-visible:ring-2 focus-visible:ring-red-500/50
+                ${isEffectivelyCollapsed ? "justify-center px-3 py-2.5" : "gap-3 px-3 py-3"}
+              `}
             >
-              <Settings size={isEffectivelyCollapsed ? 26 : 22} />
-              <span
-                className={`text-sm font-medium overflow-hidden transition-[max-width,opacity,transform] duration-300 ease-out ${isEffectivelyCollapsed ? "max-w-0 opacity-0 -translate-x-2" : "max-w-[120px] opacity-100 translate-x-0"}`}
-              >
-                Settings
-              </span>
+              <Settings size={18} className="shrink-0 group-hover:text-red-400 transition-colors" />
+              {!isEffectivelyCollapsed && (
+                <span className="text-sm font-medium">Settings</span>
+              )}
             </button>
           </Tooltip>
         </div>
@@ -715,10 +724,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* eslint-disable-next-line react/forbid-dom-props */}
       {isEffectivelyCollapsed && hoveredProject && (
         <div
-          className="fixed left-24 px-3 py-1.5 bg-[#1a1a2e] border border-white/10 rounded-lg shadow-2xl pointer-events-none whitespace-nowrap z-[9999] animate-in fade-in duration-150"
+          className="fixed left-24 px-3 py-1.5 bg-[#0a0505] border border-white/10 rounded-lg shadow-2xl pointer-events-none whitespace-nowrap z-[9999] animate-in fade-in duration-150"
           style={{ top: hoveredProject.top, transform: "translateY(-50%)" }}
         >
-          <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-[#1a1a2e] border-l border-b border-white/10 rotate-45"></div>
+          <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-[#0a0505] border-l border-b border-white/10 rotate-45"></div>
           <span className="text-sm font-medium text-white">{hoveredProject.project.name}</span>
           {hoveredProject.project.pinned && (
             <Pin size={10} className="inline-block ml-1.5 text-red-500 fill-red-500 rotate-45" />
@@ -731,10 +740,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* eslint-disable-next-line react/forbid-dom-props */}
       {isEffectivelyCollapsed && hoveredItem && (
         <div
-          className="fixed left-24 px-3 py-1.5 bg-[#1a1a2e] border border-white/10 rounded-lg shadow-2xl pointer-events-none whitespace-nowrap z-[9999] animate-in fade-in duration-150"
+          className="fixed left-24 px-3 py-1.5 bg-[#0a0505] border border-white/10 rounded-lg shadow-2xl pointer-events-none whitespace-nowrap z-[9999] animate-in fade-in duration-150"
           style={{ top: hoveredItem.top, transform: "translateY(-50%)" }}
         >
-          <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-[#1a1a2e] border-l border-b border-white/10 rotate-45"></div>
+          <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-[#0a0505] border-l border-b border-white/10 rotate-45"></div>
           <span className="text-sm font-medium text-white">{hoveredItem.label}</span>
         </div>
       )}

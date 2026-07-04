@@ -39,13 +39,13 @@ const OPERATION_META: Record<
   deduplication: {
     label: "Deduplicate",
     icon: <Merge size={14} />,
-    color: "text-blue-400",
+    color: "text-red-400",
     description: "Detect and merge duplicate tasks",
   },
   clustering: {
     label: "Cluster",
     icon: <Brain size={14} />,
-    color: "text-purple-400",
+    color: "text-slate-400",
     description: "Group tasks by theme and add tags",
   },
   autoTagging: {
@@ -63,7 +63,7 @@ const OPERATION_META: Record<
   projectAssignment: {
     label: "Project Move",
     icon: <FolderInput size={14} />,
-    color: "text-cyan-400",
+    color: "text-slate-400",
     description: "Suggest better project assignments",
   },
   tagConsolidation: {
@@ -75,11 +75,11 @@ const OPERATION_META: Record<
 };
 
 const CHANGE_TYPE_META: Record<string, { label: string; color: string }> = {
-  merge: { label: "Merge", color: "text-blue-400" },
+  merge: { label: "Merge", color: "text-red-400" },
   tag: { label: "Tag", color: "text-emerald-400" },
-  cluster: { label: "Cluster", color: "text-purple-400" },
+  cluster: { label: "Cluster", color: "text-red-400" },
   hierarchy: { label: "Hierarchy", color: "text-amber-400" },
-  "project-move": { label: "Move", color: "text-cyan-400" },
+  "project-move": { label: "Move", color: "text-red-400" },
   "tag-consolidate": { label: "Tag Merge", color: "text-red-400" },
 };
 
@@ -201,7 +201,7 @@ export const AutoOrganizePanel: React.FC<AutoOrganizePanelProps> = ({
       return;
     }
 
-    const { applied } = await autoOrganizeService.applyChanges(toApply, {
+    const { applied } = await autoOrganizeService.applyChanges(toApply, allTasks, {
       onUpdateTask,
       onArchiveTask,
       onMoveTask,
@@ -253,6 +253,11 @@ export const AutoOrganizePanel: React.FC<AutoOrganizePanelProps> = ({
 
   const renderConfigureTab = () => (
     <div className="space-y-6">
+      {allTasks.length === 0 && (
+        <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-sm">
+          No tasks to organize yet. Create some tasks first, then run auto-organize.
+        </div>
+      )}
       <div>
         <h3 className="text-sm font-semibold text-white mb-3">Operations</h3>
         <div className="grid grid-cols-2 gap-2">
@@ -263,7 +268,7 @@ export const AutoOrganizePanel: React.FC<AutoOrganizePanelProps> = ({
                 aria-pressed={enabled}
                 key={key}
                 onClick={() => toggleOperation(key as keyof AutoOrganizeConfig["operations"])}
-                className={`p-3 rounded-lg border text-left transition-all ${
+                className={`p-3 rounded-lg border text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 ${
                   enabled
                     ? "bg-white/5 border-white/10"
                     : "bg-transparent border-white/5 opacity-50"
@@ -286,7 +291,7 @@ export const AutoOrganizePanel: React.FC<AutoOrganizePanelProps> = ({
           <div>
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs text-slate-400">Auto-apply threshold</span>
-              <span className="text-xs font-mono text-cyan-400">
+              <span className="text-xs font-mono text-red-400">
                 {Math.round(config.autoApplyThreshold * 100)}%
               </span>
             </div>
@@ -298,7 +303,7 @@ export const AutoOrganizePanel: React.FC<AutoOrganizePanelProps> = ({
               onChange={(e) =>
                 saveConfig({ ...config, autoApplyThreshold: Number(e.target.value) / 100 })
               }
-              className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-cyan-500"
+              className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-red-500"
             />
             <p className="text-[10px] text-slate-600 mt-1">
               Changes above this confidence are applied automatically
@@ -337,9 +342,9 @@ export const AutoOrganizePanel: React.FC<AutoOrganizePanelProps> = ({
               aria-pressed={config.schedule === s}
               type="button"
               onClick={() => saveConfig({ ...config, schedule: s })}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 ${
                 config.schedule === s
-                  ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
+                  ? "bg-red-500/20 text-red-400 border border-red-500/30"
                   : "bg-white/5 text-slate-400 border border-white/5 hover:text-white"
               }`}
             >
@@ -353,7 +358,7 @@ export const AutoOrganizePanel: React.FC<AutoOrganizePanelProps> = ({
         <button
           onClick={runOrganize}
           disabled={isRunning || allTasks.length === 0}
-          className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-sm font-semibold hover:from-cyan-400 hover:to-blue-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-red-500 to-red-700 text-white text-sm font-semibold hover:from-red-400 hover:to-red-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
         >
           {isRunning ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
           {isRunning ? "Analyzing..." : "Run Auto-Organize"}
@@ -366,7 +371,7 @@ export const AutoOrganizePanel: React.FC<AutoOrganizePanelProps> = ({
     if (isRunning) {
       return (
         <div className="flex flex-col items-center justify-center py-16">
-          <Loader2 size={32} className="text-cyan-400 animate-spin mb-4" />
+          <Loader2 size={32} className="text-red-400 animate-spin mb-4" />
           <p className="text-sm text-white font-medium">{progress || "Analyzing tasks..."}</p>
           <p className="text-xs text-slate-500 mt-1">{allTasks.length} tasks being analyzed</p>
         </div>
@@ -380,7 +385,7 @@ export const AutoOrganizePanel: React.FC<AutoOrganizePanelProps> = ({
           <p className="text-sm">No results yet. Configure and run auto-organize first.</p>
           <button
             onClick={() => setActiveTab("configure")}
-            className="mt-3 text-xs text-cyan-400 hover:text-cyan-300"
+            className="mt-3 text-xs text-red-400 hover:text-red-300"
           >
             Go to Configuration →
           </button>
@@ -488,7 +493,7 @@ export const AutoOrganizePanel: React.FC<AutoOrganizePanelProps> = ({
                         <div id={`change-detail-${change.id}`} className="px-3 pb-3 text-xs text-slate-400 space-y-2 border-t border-white/5 pt-2">
                           <p>{change.reasoning}</p>
                           {change.clusterTheme && (
-                            <p className="text-purple-400">Cluster: {change.clusterTheme}</p>
+                            <p className="text-red-400">Cluster: {change.clusterTheme}</p>
                           )}
                           <div className="flex gap-4">
                             <div>
@@ -563,7 +568,7 @@ export const AutoOrganizePanel: React.FC<AutoOrganizePanelProps> = ({
       >
         <div className="flex items-center justify-between p-6 border-b border-white/10 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-cyan-500/20 text-cyan-400">
+            <div className="p-2 rounded-lg bg-red-500/20 text-red-400">
               <Sparkles size={20} />
             </div>
             <div>
@@ -577,7 +582,7 @@ export const AutoOrganizePanel: React.FC<AutoOrganizePanelProps> = ({
             ref={closeButtonRef}
             onClick={onClose}
             aria-label="Close dialog"
-            className="p-2 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
+            className="p-2 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
           >
             <X size={16} />
           </button>
@@ -608,9 +613,9 @@ export const AutoOrganizePanel: React.FC<AutoOrganizePanelProps> = ({
               aria-selected={activeTab === tab.id}
               aria-controls={`${tab.id}-panel`}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-medium transition-all border-b-2 ${
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-medium transition-all border-b-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-500/50 ${
                 activeTab === tab.id
-                  ? "text-cyan-400 border-cyan-400 bg-cyan-500/5"
+                  ? "text-red-400 border-red-400 bg-red-500/5"
                   : "text-slate-500 border-transparent hover:text-slate-300"
               }`}
             >

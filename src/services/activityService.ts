@@ -9,7 +9,7 @@ export const activityService = {
     newValue?: unknown,
   ): ActivityItem {
     return {
-      id: `act-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      id: `act-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       type,
       timestamp: new Date(),
       userId: "current-user", // Mock user for now

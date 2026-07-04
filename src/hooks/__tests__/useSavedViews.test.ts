@@ -1,6 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FilterState, SavedView } from "../../../types";
+import storageService from "../../services/storageService";
 import { useSavedViews } from "../useSavedViews";
 
 // Mock localStorage
@@ -33,6 +34,10 @@ describe("useSavedViews", () => {
     vi.clearAllMocks();
     vi.spyOn(console, "warn").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});
+    // useSavedViews now reads/writes through storageService, whose in-memory
+    // cache is a singleton — reset it so state doesn't leak between tests.
+    storageService.clear();
+    localStorageMock.setItem.mockClear();
   });
 
   describe("initialization", () => {

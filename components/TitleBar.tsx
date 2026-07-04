@@ -62,6 +62,7 @@ export const TitleBar: React.FC = () => {
           <Tooltip content="Minimize" position="bottom" delay={300}>
             <button
               onClick={handleMinimize}
+              aria-label="Minimize"
               className="h-full px-4 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
             >
               <Minus size={14} />
@@ -70,6 +71,7 @@ export const TitleBar: React.FC = () => {
           <Tooltip content={isMaximized ? "Restore" : "Maximize"} position="bottom" delay={300}>
             <button
               onClick={handleMaximize}
+              aria-label={isMaximized ? "Restore" : "Maximize"}
               className="h-full px-4 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
             >
               {isMaximized ? <Copy size={12} /> : <Square size={12} />}
@@ -78,6 +80,7 @@ export const TitleBar: React.FC = () => {
           <Tooltip content="Close" position="bottom" delay={300}>
             <button
               onClick={handleClose}
+              aria-label="Close"
               className="h-full px-4 flex items-center justify-center text-slate-400 hover:text-white hover:bg-red-500/80 transition-colors"
             >
               <X size={14} />

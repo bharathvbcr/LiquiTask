@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { Mock } from "vitest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { aiService } from "../../../src/services/aiService";
 import storageService from "../../../src/services/storageService";
 import { AiSettings } from "../AiSettings";
 
@@ -142,6 +143,38 @@ describe("AiSettings Component", () => {
       fireEvent.click(reorganizeBtn);
     });
     expect(mockOpenReorganize).toHaveBeenCalled();
+  });
+
+  it("persists provider 'ollama' when Ollama is selected so model listing does not silently route to Gemini", async () => {
+    // Regression guard. The stored config defaults to provider "gemini". The
+    // bug: fetchModels re-persisted that config overriding only ollamaBaseUrl,
+    // leaving provider "gemini". aiService.getProvider() then built a
+    // GeminiProvider (which has no listModels), so listModels() silently
+    // returned [] and the model dropdown never populated — the empty
+    // "Make sure Ollama is running…" state — with no error surfaced.
+    (aiService.listModels as Mock).mockResolvedValue(["gemma4:31b-mlx", "llama3"]);
+
+    await renderAiSettings();
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Ollama"));
+    });
+
+    // The config persisted for the model fetch must carry provider "ollama",
+    // otherwise model listing routes to the wrong provider and returns [].
+    await waitFor(() => {
+      expect(storageService.set).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          provider: "ollama",
+          ollamaBaseUrl: expect.stringContaining("11434"),
+        }),
+      );
+    });
+
+    // And the fetched models populate the dropdown instead of the empty state.
+    expect(await screen.findByRole("option", { name: "gemma4:31b-mlx" })).toBeDefined();
+    expect(screen.queryByText(/Make sure Ollama is running/)).toBeNull();
   });
 
   it("loads and displays workspace paths", async () => {

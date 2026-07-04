@@ -13,10 +13,12 @@ import type {
   ToastType,
 } from "../../types";
 import { STORAGE_KEYS } from "../constants";
-import { archiveService } from "../services/archiveService";
+import { archiveService, loadArchiveSettings } from "../services/archiveService";
+import { bootstrapEncryptionAtRest } from "../services/encryptionSetup";
 import type { AutomationRule, AutomationTrigger, TaskContext } from "../services/automationService";
 import { indexedDBService } from "../services/indexedDBService";
 import storageService from "../services/storageService";
+import { getBacklogColumnId, getCompletedColumnIds, isTaskComplete } from "../utils/taskUtils";
 import type { FilterGroup } from "../types/queryTypes";
 
 type CurrentView = "project" | "dashboard" | "gantt" | "archive";
@@ -40,8 +42,15 @@ type NotificationServiceLike = {
     silent?: boolean;
     onClick?: () => void;
   }) => void;
-  startPeriodicCheck: (getTasks: () => NotificationTask[], intervalMs?: number) => void;
+  startPeriodicCheck: (
+    getTasks: () => NotificationTask[],
+    intervalMs?: number,
+    options?: { getCompletedColumnIds?: () => Set<string> },
+  ) => void;
   stopPeriodicCheck: () => void;
+  scheduleTaskReminder: (taskId: string, taskTitle: string, dueDate: Date) => void;
+  cancelTaskReminder: (taskId: string) => void;
+  clearOverdueNotification: (taskId: string) => void;
 };
 
 type ActivityServiceLike = {
@@ -88,6 +97,7 @@ type RecurringTaskServiceLike = {
 type PushUndoAction = { type: "task-create"; taskId: string };
 
 interface InitializationProps {
+  isLoaded: boolean;
   setIsLoaded: (val: boolean) => void;
   setColumns: (cols: BoardColumn[]) => void;
   setProjectTypes: (types: ProjectType[]) => void;
@@ -110,11 +120,19 @@ interface InitializationProps {
   notificationServiceRef: MutableRefObject<NotificationServiceLike | null>;
   recurringTaskServiceRef: MutableRefObject<RecurringTaskServiceLike | null>;
   tasks: Task[];
+  columns: BoardColumn[];
   addToast: (msg: string, type?: ToastType) => void;
   pushUndo: (action: PushUndoAction) => void;
+  /**
+   * Bumped after the web-encryption passphrase is unlocked so the initial data
+   * load re-runs with the in-memory key available (instead of forcing a full
+   * page reload, which would discard the derived key and re-lock the app).
+   */
+  encryptionEpoch?: number;
 }
 
 export const useAppInitialization = ({
+  isLoaded,
   setIsLoaded,
   setColumns,
   setProjectTypes,
@@ -137,11 +155,16 @@ export const useAppInitialization = ({
   notificationServiceRef,
   recurringTaskServiceRef,
   tasks,
+  columns,
   addToast,
   pushUndo,
+  encryptionEpoch = 0,
 }: InitializationProps) => {
   const tasksRef = useRef(tasks);
   tasksRef.current = tasks;
+  const columnsRef = useRef(columns);
+  columnsRef.current = columns;
+  const prevReminderTaskIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const loadData = async () => {
@@ -152,11 +175,29 @@ export const useAppInitialization = ({
       }
 
       try {
+        await storageService.initialize();
+      } catch (error) {
+        console.warn("[Storage] Storage initialization failed:", error);
+      }
+
+      try {
+        await bootstrapEncryptionAtRest();
+      } catch (error) {
+        console.warn("[Storage] Encryption bootstrap failed:", error);
+      }
+
+      try {
         await archiveService.initialize();
+        if (indexedDBService.isAvailable()) {
+          const archiveSettings = loadArchiveSettings();
+          indexedDBService
+            .purgeOldArchivedTasks(archiveSettings.retentionDays)
+            .catch(console.error);
+        }
       } catch (err) {
         console.warn('[Storage] Archive service init failed, continuing without archive:', err);
       }
-      await storageService.initialize();
+
       const data = storageService.getAllData();
 
       if (data.columns) {
@@ -230,9 +271,11 @@ export const useAppInitialization = ({
     };
 
     void loadData();
-    // The initialization flow intentionally runs once on mount and populates stable refs.
+    // Runs on mount and again whenever encryptionEpoch changes (i.e. after the
+    // user unlocks web encryption), so decrypted data loads without a page reload.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    encryptionEpoch,
     activityServiceRef,
     advancedFilterExecutorRef,
     automationServiceRef,
@@ -262,7 +305,9 @@ export const useAppInitialization = ({
       if (!isActive) return;
       notificationServiceRef.current = notificationService;
       notificationServiceInstance = notificationService;
-      notificationService.startPeriodicCheck(() => tasksRef.current, 60000);
+      notificationService.startPeriodicCheck(() => tasksRef.current, 60000, {
+        getCompletedColumnIds: () => getCompletedColumnIds(columnsRef.current),
+      });
     });
 
     return () => {
@@ -272,6 +317,47 @@ export const useAppInitialization = ({
     // Ref is populated once as part of a mount-only effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notificationServiceRef]);
+
+  // Sync due-date reminder timers whenever tasks or column config change.
+  useEffect(() => {
+    if (!isLoaded) return;
+    const notificationService = notificationServiceRef.current;
+    if (!notificationService) return;
+
+    const completedColumnIds = getCompletedColumnIds(columns);
+    const activeIds = new Set<string>();
+    const currentTasks = tasks;
+
+    for (const task of currentTasks) {
+      activeIds.add(task.id);
+
+      if (isTaskComplete(task, completedColumnIds)) {
+        notificationService.cancelTaskReminder(task.id);
+        notificationService.clearOverdueNotification(task.id);
+        continue;
+      }
+
+      if (task.dueDate) {
+        const dueDate = task.dueDate instanceof Date ? task.dueDate : new Date(task.dueDate);
+        if (!Number.isNaN(dueDate.getTime())) {
+          notificationService.scheduleTaskReminder(task.id, task.title, dueDate);
+        } else {
+          notificationService.cancelTaskReminder(task.id);
+        }
+      } else {
+        notificationService.cancelTaskReminder(task.id);
+      }
+    }
+
+    for (const id of prevReminderTaskIdsRef.current) {
+      if (!activeIds.has(id)) {
+        notificationService.cancelTaskReminder(id);
+        notificationService.clearOverdueNotification(id);
+      }
+    }
+
+    prevReminderTaskIdsRef.current = activeIds;
+  }, [isLoaded, tasks, columns, notificationServiceRef]);
 
   useEffect(() => {
     let isActive = true;
@@ -286,15 +372,27 @@ export const useAppInitialization = ({
             onCreateTask: (newTask: Task) => {
               pushUndo({ type: "task-create", taskId: newTask.id });
               setTasks((prev) => [...prev, newTask]);
+              searchIndexServiceRef.current?.updateTask?.(newTask);
+              if (indexedDBService.isAvailable()) {
+                indexedDBService.saveTask(newTask).catch(console.error);
+              }
               addToast(`Recurring task "${newTask.title}" created`, "info");
             },
             onUpdateTask: (taskId: string, updates: Partial<Task>) => {
-              setTasks((prev) =>
-                prev.map((t) =>
+              setTasks((prev) => {
+                const next = prev.map((t) =>
                   t.id === taskId ? { ...t, ...updates, updatedAt: new Date() } : t,
-                ),
-              );
+                );
+                if (indexedDBService.isAvailable()) {
+                  const saved = next.find((t) => t.id === taskId);
+                  if (saved) {
+                    indexedDBService.saveTask(saved).catch(console.error);
+                  }
+                }
+                return next;
+              });
             },
+            getDefaultStatus: () => getBacklogColumnId(columnsRef.current),
           });
           service = getRecurringTaskService();
         }
@@ -308,5 +406,5 @@ export const useAppInitialization = ({
       isActive = false;
       recurringTaskServiceRef.current?.stop();
     };
-  }, [addToast, pushUndo, setTasks, recurringTaskServiceRef]);
+  }, [addToast, pushUndo, setTasks, recurringTaskServiceRef, searchIndexServiceRef]);
 };

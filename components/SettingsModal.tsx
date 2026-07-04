@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import logo from "../src/assets/logo.png";
 
 import { useKeybinding } from "../src/context/KeybindingContext";
+import { isTauri } from "../src/runtime/runtimeEnvironment";
 import storageService from "../src/services/storageService";
 import { generateTemplateBlob, validateBulkTasks } from "../src/utils/bulkTaskSchema";
 import { validateAndTransformImportedData } from "../src/utils/validation";
@@ -21,9 +22,12 @@ import { ModalWrapper } from "./ModalWrapper";
 import { AiSettings } from "./settings/AiSettings";
 import { AutomationSettings } from "./settings/AutomationSettings";
 import { DataSettings } from "./settings/DataSettings";
+import { ArchiveSettings } from "./settings/ArchiveSettings";
 // Sub-components
 import { GeneralSettings } from "./settings/GeneralSettings";
+import { EncryptionAtRestSettings } from "./settings/EncryptionAtRestSettings";
 import { PrioritySettings } from "./settings/PrioritySettings";
+import { ShortcutSettings } from "./settings/ShortcutSettings";
 import { WorkflowSettings } from "./settings/WorkflowSettings";
 
 interface ImportedData {
@@ -32,6 +36,10 @@ interface ImportedData {
   columns?: BoardColumn[];
   priorities?: PriorityDefinition[];
   customFields?: CustomFieldDefinition[];
+  projectTypes?: ProjectType[];
+  activeProjectId?: string;
+  grouping?: GroupingOption;
+  sidebarCollapsed?: boolean;
 }
 
 interface SettingsModalProps {
@@ -64,6 +72,9 @@ interface SettingsModalProps {
   onBulkCreateTasks?: (tasks: Partial<Task>[]) => void;
   showSubWorkspaceTasks: boolean;
   onUpdateShowSubWorkspaceTasks?: (s: boolean) => void;
+  onRunAutoArchive?: (options?: { force?: boolean }) => Promise<number>;
+  onEnableEncryption?: () => Promise<void>;
+  onDisableEncryption?: () => Promise<void>;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -89,6 +100,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onOpenBulkOperations,
   onOpenAutoOrganize,
   onOpenInsights,
+  onRunAutoArchive,
+  onEnableEncryption,
+  onDisableEncryption,
 }) => {
   const [activeTab, setActiveTab] = useState("general");
   const [localGrouping, setLocalGrouping] = useState<GroupingOption>(grouping);
@@ -244,14 +258,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
         <div className="min-w-0 flex-1 p-8 overflow-y-auto custom-scrollbar">
           {activeTab === "general" && (
-            <GeneralSettings
-              localGrouping={localGrouping}
-              setLocalGrouping={setLocalGrouping}
-              showSubWorkspaceTasks={showSubWorkspaceTasks}
-              onUpdateShowSubWorkspaceTasks={onUpdateShowSubWorkspaceTasks}
-              addToast={addToast}
-              saveAll={saveAll}
-            />
+            <>
+              <GeneralSettings
+                localGrouping={localGrouping}
+                setLocalGrouping={setLocalGrouping}
+                showSubWorkspaceTasks={showSubWorkspaceTasks}
+                onUpdateShowSubWorkspaceTasks={onUpdateShowSubWorkspaceTasks}
+                addToast={addToast}
+                onUpdateGrouping={onUpdateGrouping}
+              />
+              {onEnableEncryption && onDisableEncryption && (
+                <EncryptionAtRestSettings
+                  addToast={addToast}
+                  onEnableEncryption={onEnableEncryption}
+                  onDisableEncryption={onDisableEncryption}
+                  onEncryptionChanged={() => {
+                    if (!isTauri()) window.location.reload();
+                  }}
+                />
+              )}
+            </>
           )}
           {activeTab === "workflow" && (
             <WorkflowSettings
@@ -273,65 +299,49 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             />
           )}
           {activeTab === "data" && (
-            <DataSettings
-              downloadLink={downloadLink}
-              appData={appData}
-              addToast={addToast}
-              importText={importText}
-              setImportText={setImportText}
-              importError={importError}
-              handleImport={handleImport}
-              isImporting={isImporting}
-              showTemplateRef={showTemplateRef}
-              setShowTemplateRef={setShowTemplateRef}
-              handleDownloadTemplate={() => {
-                const b = generateTemplateBlob();
-                const u = URL.createObjectURL(b);
-                const a = document.createElement("a");
-                a.href = u;
-                a.download = "template.json";
-                a.click();
-              }}
-              setBulkTasksJson={setBulkTasksJson}
-              bulkTasksJson={bulkTasksJson}
-              bulkImportError={bulkImportError}
-              handleBulkImport={handleBulkImport}
-              isBulkImporting={isBulkImporting}
-              onBulkCreateTasks={onBulkCreateTasks}
-              handleReset={() => {
-                if (confirm("Reset all?")) {
+            <>
+              <DataSettings
+                downloadLink={downloadLink}
+                appData={appData}
+                addToast={addToast}
+                importText={importText}
+                setImportText={setImportText}
+                importError={importError}
+                handleImport={handleImport}
+                isImporting={isImporting}
+                showTemplateRef={showTemplateRef}
+                setShowTemplateRef={setShowTemplateRef}
+                handleDownloadTemplate={() => {
+                  const b = generateTemplateBlob();
+                  const u = URL.createObjectURL(b);
+                  const a = document.createElement("a");
+                  a.href = u;
+                  a.download = "template.json";
+                  a.click();
+                }}
+                setBulkTasksJson={setBulkTasksJson}
+                bulkTasksJson={bulkTasksJson}
+                bulkImportError={bulkImportError}
+                handleBulkImport={handleBulkImport}
+                isBulkImporting={isBulkImporting}
+                onBulkCreateTasks={onBulkCreateTasks}
+                handleReset={() => {
                   storageService.clear();
                   window.location.reload();
-                }
-              }}
-            />
+                }}
+              />
+              {onRunAutoArchive && (
+                <ArchiveSettings onRunAutoArchive={onRunAutoArchive} addToast={addToast} />
+              )}
+            </>
           )}
           {activeTab === "shortcuts" && (
-            <div className="space-y-4">
-              <button onClick={resetKeybindings} className="text-xs text-red-400 mb-4">
-                Reset Defaults
-              </button>
-              {Object.entries(keybindings).map(([id, keys]) => (
-                <div
-                  key={id}
-                  className="flex justify-between items-center p-3 bg-white/5 rounded-xl"
-                >
-                  <span className="text-sm text-white capitalize">{id.replace(/[-:]/g, " ")}</span>
-                  <input
-                    type="text"
-                    value={(keys as string[]).join(", ")}
-                    onChange={(e) => {
-                      const conflict = updateKeybinding(
-                        id,
-                        e.target.value.split(",").map((k) => k.trim()),
-                      );
-                      if (conflict) addToast(conflict, "error");
-                    }}
-                    className="bg-black/20 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-300 w-48 text-right"
-                  />
-                </div>
-              ))}
-            </div>
+            <ShortcutSettings
+              keybindings={keybindings}
+              updateKeybinding={updateKeybinding}
+              resetKeybindings={resetKeybindings}
+              addToast={addToast}
+            />
           )}
           {activeTab === "automation" && (
             <AutomationSettings

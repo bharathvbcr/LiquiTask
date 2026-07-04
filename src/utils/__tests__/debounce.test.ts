@@ -119,4 +119,30 @@ describe("debounce", () => {
 
     expect(func).toHaveBeenCalledTimes(1);
   });
+
+  it("should flush pending invocation immediately", () => {
+    const func = vi.fn();
+    const debouncedFunc = debounce(func, 100);
+
+    debouncedFunc("pending");
+    debouncedFunc.flush();
+
+    expect(func).toHaveBeenCalledTimes(1);
+    expect(func).toHaveBeenCalledWith("pending");
+
+    vi.advanceTimersByTime(100);
+    expect(func).toHaveBeenCalledTimes(1);
+  });
+
+  it("should cancel without flushing pending invocation", () => {
+    const func = vi.fn();
+    const debouncedFunc = debounce(func, 100);
+
+    debouncedFunc("dropped");
+    debouncedFunc.cancel();
+
+    debouncedFunc.flush();
+    vi.advanceTimersByTime(100);
+    expect(func).not.toHaveBeenCalled();
+  });
 });

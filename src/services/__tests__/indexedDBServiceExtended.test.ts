@@ -75,6 +75,20 @@ describe("IndexedDBService", () => {
     expect(all).toHaveLength(0);
   });
 
+  it("should remove stale tasks when saveTasks replaces the full set", async () => {
+    await service.saveTasks([
+      { id: "t1", title: "T1", jobId: "J1", projectId: "p1", status: "Todo" },
+      { id: "t2", title: "T2", jobId: "J2", projectId: "p1", status: "Todo" },
+    ] as any);
+    await service.saveTasks([
+      { id: "t1", title: "T1", jobId: "J1", projectId: "p1", status: "Todo" },
+    ] as any);
+
+    const all = await service.getAllTasks();
+    expect(all).toHaveLength(1);
+    expect(all[0].id).toBe("t1");
+  });
+
   it("should save and get projects", async () => {
     const project = { id: "p1", name: "P1", type: "custom" } as any;
     await service.saveProject(project);

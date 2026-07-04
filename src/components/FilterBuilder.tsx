@@ -47,6 +47,23 @@ const OPERATORS_BY_TYPE: Record<string, ComparisonOperator[]> = {
   number: ["equals", "not-equals", "greater-than", "less-than", "is-empty", "is-not-empty"],
 };
 
+/** Human-readable labels so the operator dropdown never shows raw enum text. */
+const OPERATOR_LABELS: Record<string, string> = {
+  contains: "contains",
+  "not-contains": "does not contain",
+  equals: "equals",
+  "not-equals": "does not equal",
+  "starts-with": "starts with",
+  "ends-with": "ends with",
+  "is-empty": "is empty",
+  "is-not-empty": "is not empty",
+  "matches-regex": "matches regex",
+  before: "before",
+  after: "after",
+  "greater-than": "greater than",
+  "less-than": "less than",
+};
+
 interface GroupRendererProps {
   group: FilterGroup;
   depth?: number;
@@ -78,14 +95,18 @@ const GroupRenderer: React.FC<GroupRendererProps> = ({
       <div className="flex items-center gap-2 mb-2">
         <div className="flex bg-black/40 rounded-lg p-0.5 border border-white/10">
           <button
+            type="button"
+            aria-pressed={group.operator === "AND"}
             onClick={() => onUpdateGroup(group.id, (g) => ({ ...g, operator: "AND" }))}
-            className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${group.operator === "AND" ? "bg-red-500 text-white" : "text-slate-500 hover:text-slate-300"}`}
+            className={`px-3 py-1 text-xs font-bold rounded-md transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 ${group.operator === "AND" ? "bg-red-500 text-white" : "text-slate-500 hover:text-slate-300"}`}
           >
             AND
           </button>
           <button
+            type="button"
+            aria-pressed={group.operator === "OR"}
             onClick={() => onUpdateGroup(group.id, (g) => ({ ...g, operator: "OR" }))}
-            className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${group.operator === "OR" ? "bg-blue-500 text-white" : "text-slate-500 hover:text-slate-300"}`}
+            className={`px-3 py-1 text-xs font-bold rounded-md transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 ${group.operator === "OR" ? "bg-red-500 text-white" : "text-slate-500 hover:text-slate-300"}`}
           >
             OR
           </button>
@@ -166,7 +187,7 @@ const GroupRenderer: React.FC<GroupRendererProps> = ({
                     }
                   }}
                   aria-label="Filter field"
-                  className="bg-black/20 border border-white/10 rounded px-2 py-1.5 text-xs text-slate-300 focus:border-red-500/50 outline-none max-w-[120px]"
+                  className="bg-black/20 border border-white/10 rounded px-2 py-1.5 text-xs text-slate-300 focus:border-red-500/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 outline-none max-w-[120px]"
                 >
                   <optgroup label="Standard Fields">
                     {FIELD_OPTIONS.map((opt) => (
@@ -199,7 +220,7 @@ const GroupRenderer: React.FC<GroupRendererProps> = ({
                     })
                   }
                   aria-label="Comparison operator"
-                  className="bg-black/20 border border-white/10 rounded px-2 py-1.5 text-xs text-slate-300 focus:border-red-500/50 outline-none max-w-[120px]"
+                  className="bg-black/20 border border-white/10 rounded px-2 py-1.5 text-xs text-slate-300 focus:border-red-500/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 outline-none max-w-[120px]"
                 >
                   {(() => {
                     const fieldType =
@@ -211,7 +232,7 @@ const GroupRenderer: React.FC<GroupRendererProps> = ({
 
                     return OPERATORS_BY_TYPE[fieldType]?.map((op) => (
                       <option key={op} value={op}>
-                        {op.replace(/-/g, " ")}
+                        {OPERATOR_LABELS[op] ?? op.replace(/-/g, " ")}
                       </option>
                     ));
                   })()}
@@ -236,14 +257,15 @@ const GroupRenderer: React.FC<GroupRendererProps> = ({
                       }
                       onUpdateRule(item.id, { value: raw });
                     }}
-                    className="flex-1 bg-black/20 border border-white/10 rounded px-2 py-1.5 text-xs text-slate-300 focus:border-red-500/50 outline-none min-w-[100px]"
+                    className="flex-1 bg-black/20 border border-white/10 rounded px-2 py-1.5 text-xs text-slate-300 focus:border-red-500/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 outline-none min-w-[100px]"
                     placeholder="Value..."
                   />
                 )}
 
                 <button
+                  type="button"
                   onClick={() => onRemove(group.id, item.id)}
-                  className="p-1.5 text-slate-600 hover:text-red-400 transition-colors ml-auto"
+                  className="p-1.5 text-slate-600 hover:text-red-400 transition-colors ml-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 rounded"
                   aria-label="Remove filter rule"
                   title="Remove filter rule"
                 >
@@ -258,15 +280,17 @@ const GroupRenderer: React.FC<GroupRendererProps> = ({
       {/* Add Actions */}
       <div className="flex gap-2 mt-2">
         <button
+          type="button"
           onClick={() => onAddRule(group.id)}
-          className="flex items-center gap-1 px-2 py-1.5 text-xs text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 rounded border border-white/5 transition-colors"
+          className="flex items-center gap-1 px-2 py-1.5 text-xs text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 rounded border border-white/5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
         >
           <Plus size={12} /> Add Rule
         </button>
         {depth < 2 && (
           <button
+            type="button"
             onClick={() => onAddGroup(group.id)}
-            className="flex items-center gap-1 px-2 py-1.5 text-xs text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 rounded border border-white/5 transition-colors"
+            className="flex items-center gap-1 px-2 py-1.5 text-xs text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 rounded border border-white/5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
           >
             <FolderOpenIcon size={12} /> Add Group
           </button>
@@ -281,7 +305,7 @@ export const FilterBuilder: React.FC<FilterBuilderProps> = ({
   onChange,
   customFields,
 }) => {
-  const genId = () => Math.random().toString(36).substr(2, 9);
+  const genId = () => Math.random().toString(36).slice(2, 11);
 
   const updateGroup = (groupId: string, updater: (group: FilterGroup) => FilterGroup) => {
     const recursiveUpdate = (currentGroup: FilterGroup): FilterGroup => {

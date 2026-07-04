@@ -1,8 +1,11 @@
 import type { RecurringConfig, Task } from "../../types";
+import { generateTaskId } from "../utils/taskUtils";
 
 export interface RecurringTaskServiceOptions {
   onCreateTask: (task: Task) => void;
   onUpdateTask: (taskId: string, updates: Partial<Task>) => void;
+  /** Returns the backlog / first-open column id for new recurring instances. */
+  getDefaultStatus?: () => string;
 }
 
 /**
@@ -13,10 +16,12 @@ export class RecurringTaskService {
   private isRunning = false;
   private onCreateTask: (task: Task) => void;
   private onUpdateTask: (taskId: string, updates: Partial<Task>) => void;
+  private getDefaultStatus: () => string;
 
   constructor(options: RecurringTaskServiceOptions) {
     this.onCreateTask = options.onCreateTask;
     this.onUpdateTask = options.onUpdateTask;
+    this.getDefaultStatus = options.getDefaultStatus ?? (() => "Pending");
   }
 
   /**
@@ -83,12 +88,11 @@ export class RecurringTaskService {
     const now = new Date();
     const newTask: Task = {
       ...originalTask,
-      id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: generateTaskId(),
       jobId: `TSK-${Math.floor(Math.random() * 9000) + 1000}`,
       createdAt: now,
       updatedAt: now,
-      // Reset status to first column (typically "Pending")
-      status: originalTask.status, // Or could reset to first column
+      status: this.getDefaultStatus(),
       // Reset completion state
       completedAt: undefined,
       // Calculate next occurrence

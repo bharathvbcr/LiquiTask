@@ -58,6 +58,7 @@ export class AutomationService {
     getAllTasks: () => Task[];
     applyTaskUpdates: (taskId: string, updates: Partial<Task>) => void;
     notify?: (message: string) => void;
+    getColumns?: () => BoardColumn[];
   } | null = null;
 
   /**
@@ -109,6 +110,7 @@ export class AutomationService {
     getAllTasks: () => Task[];
     applyTaskUpdates: (taskId: string, updates: Partial<Task>) => void;
     notify?: (message: string) => void;
+    getColumns?: () => BoardColumn[];
   }): void {
     this.schedulerContext = context;
     this.startScheduler();
@@ -253,6 +255,7 @@ export class AutomationService {
     this.scheduleInterval = setInterval(() => {
       const now = new Date();
       const tasks = this.schedulerContext?.getAllTasks?.() || [];
+      const columns = this.schedulerContext?.getColumns?.();
 
       rules
         .filter((r) => r.enabled && r.trigger === "onSchedule" && r.schedule)
@@ -264,6 +267,7 @@ export class AutomationService {
           tasks.forEach((task) => {
             const updates = this.processTaskEvent("onSchedule", { newTask: task }, tasks, {
               onNotify: this.schedulerContext?.notify,
+              columns,
             });
             if (updates) {
               this.schedulerContext?.applyTaskUpdates(task.id, updates);

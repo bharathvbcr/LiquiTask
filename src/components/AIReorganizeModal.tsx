@@ -183,7 +183,7 @@ export const AIReorganizeModal: React.FC<AIReorganizeModalProps> = ({
       <ModalWrapper isOpen={isOpen} onClose={onClose} title="Analyzing Task Clusters">
         <div className="flex flex-col items-center justify-center py-12 space-y-6">
           <div className="relative flex items-center justify-center">
-            <Loader2 size={48} className="animate-spin text-cyan-400" />
+            <Loader2 size={48} className="animate-spin text-red-400" />
             <span className="absolute text-[10px] font-bold text-white">{percent}%</span>
           </div>
           <div className="text-center space-y-2">
@@ -193,7 +193,7 @@ export const AIReorganizeModal: React.FC<AIReorganizeModalProps> = ({
 
           <div className="w-full max-w-xs bg-slate-800 rounded-full h-1.5 overflow-hidden">
             <div
-              className="bg-cyan-500 h-full transition-all duration-300 ease-out"
+              className="bg-red-500 h-full transition-all duration-300 ease-out"
               style={{ width: `${percent}%` }}
             />
           </div>
@@ -206,7 +206,7 @@ export const AIReorganizeModal: React.FC<AIReorganizeModalProps> = ({
     <ModalWrapper isOpen={isOpen} onClose={onClose} title="Smart Reorganize Tasks" size="xl">
       <div className="space-y-6">
         <div className="flex items-start gap-3">
-          <div className="p-2 rounded-lg bg-cyan-500/20 text-cyan-400">
+          <div className="p-2 rounded-lg bg-red-500/20 text-red-400">
             <Sparkles size={20} />
           </div>
           <div className="flex-1">
@@ -270,7 +270,7 @@ export const AIReorganizeModal: React.FC<AIReorganizeModalProps> = ({
                 <button
                   onClick={applyApprovedClusters}
                   disabled={applying || !clusters.some((c) => c.approved)}
-                  className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-slate-950 rounded-lg text-sm font-bold shadow-lg shadow-cyan-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-500 text-slate-950 rounded-lg text-sm font-bold shadow-lg shadow-red-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {applying ? (
                     <Loader2 size={16} className="animate-spin" />
@@ -304,12 +304,12 @@ const ClusterCard: React.FC<ClusterCardProps> = ({
   return (
     <div
       className={`relative bg-white/5 border rounded-xl p-4 transition-all ${
-        approved ? "border-cyan-500/50 bg-cyan-500/5" : "border-white/10"
+        approved ? "border-red-500/50 bg-red-500/5" : "border-white/10"
       }`}
     >
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
-          <FolderOpen size={16} className="text-cyan-500" />
+          <FolderOpen size={16} className="text-red-500" />
           <span className="text-sm font-medium text-white">
             {cluster.taskIds.length} related tasks
           </span>
@@ -318,7 +318,7 @@ const ClusterCard: React.FC<ClusterCardProps> = ({
           onClick={onToggleApproval}
           className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
             approved
-              ? "bg-cyan-500 text-slate-950"
+              ? "bg-red-500 text-slate-950"
               : "bg-white/5 text-slate-400 hover:text-white hover:bg-white/10"
           }`}
         >
@@ -337,7 +337,7 @@ const ClusterCard: React.FC<ClusterCardProps> = ({
           type="text"
           value={projectName}
           onChange={(e) => onUpdateProjectName(e.target.value)}
-          className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500"
+          className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-red-500"
           placeholder="Enter project name"
         />
       </div>
@@ -359,9 +359,9 @@ const ClusterCard: React.FC<ClusterCardProps> = ({
       {cluster.theme && (
         <div className="p-3 bg-slate-800/30 border border-slate-700 rounded-lg">
           <div className="flex items-start gap-2">
-            <Brain size={14} className="text-cyan-400 mt-0.5 flex-shrink-0" />
+            <Brain size={14} className="text-red-400 mt-0.5 flex-shrink-0" />
             <div>
-              <p className="text-xs font-medium text-cyan-400 mb-1">AI Analysis</p>
+              <p className="text-xs font-medium text-red-400 mb-1">AI Analysis</p>
               <p className="text-xs text-slate-300">{cluster.theme}</p>
             </div>
           </div>

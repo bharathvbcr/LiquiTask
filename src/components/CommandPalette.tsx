@@ -352,12 +352,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           </span>
         )}
         {parsedTask.dueDate && (
-          <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">
+          <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-slate-300">
             <Calendar size={10} /> {parsedTask.dueDate.toLocaleDateString()}
           </span>
         )}
         {parsedTask.projectName && (
-          <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400">
+          <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-slate-300">
             <FolderOpen size={10} /> {parsedTask.projectName}
           </span>
         )}
@@ -399,6 +399,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
               ref={inputRef}
               type="text"
               role="combobox"
+              aria-label="Search commands or create a task"
               aria-expanded={true}
               aria-autocomplete="list"
               aria-controls="cmd-listbox"
@@ -417,8 +418,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
               ESC
             </kbd>
             <button
+              type="button"
               onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors sm:hidden"
+              aria-label="Close command palette"
+              className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors sm:hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
             >
               <X size={18} />
             </button>
@@ -431,8 +434,22 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             className="max-h-[50vh] overflow-y-auto custom-scrollbar"
           >
             {filteredActions.length === 0 ? (
-              <div className="p-8 text-center text-slate-500">
-                No commands found for &quot;{query}&quot;
+              <div className="p-8 text-center">
+                <Search size={32} className="mx-auto mb-3 text-slate-600 opacity-50" aria-hidden="true" />
+                <p className="text-slate-400 text-sm font-medium mb-1">
+                  No commands found for &quot;{query}&quot;
+                </p>
+                <p className="text-slate-500 text-xs mb-4">
+                  Try a different keyword, or type a task like &quot;Buy milk !high @tomorrow&quot;
+                </p>
+                <div className="flex items-center justify-center gap-4 text-[10px] text-slate-500">
+                  <span className="flex items-center gap-1">
+                    <kbd className="px-1 bg-white/5 rounded">↑↓</kbd> navigate
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <kbd className="px-1 bg-white/5 rounded">ESC</kbd> close
+                  </span>
+                </div>
               </div>
             ) : (
               Object.entries(groupedActions).map(

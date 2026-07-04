@@ -1,5 +1,24 @@
 import { getDesktopApi, getRuntimeKind, isDesktop } from "../runtime/runtimeEnvironment";
+import { isTaskComplete } from "../utils/taskUtils";
 
+interface NotificationTask {
+  id: string;
+  title: string;
+  dueDate?: Date;
+  status?: string;
+  completedAt?: Date;
+}
+
+interface NotificationCheckOptions {
+  /** Static set of completed column ids (used when columns do not change). */
+  completedColumnIds?: Set<string>;
+  /** Live getter for completed column ids (preferred — tracks column config changes). */
+  getCompletedColumnIds?: () => Set<string>;
+}
+
+function resolveCompletedColumnIds(options: NotificationCheckOptions): Set<string> {
+  return options.getCompletedColumnIds?.() ?? options.completedColumnIds ?? new Set<string>();
+}
 interface NotificationOptions {
   title: string;
   body: string;
@@ -140,25 +159,21 @@ class NotificationService {
 
   // Check for overdue tasks and return categorized results
   checkOverdueTasks(
-    tasks: Array<{
-      id: string;
-      title: string;
-      dueDate?: Date;
-      status?: string;
-      completedAt?: Date;
-    }>,
+    tasks: NotificationTask[],
+    options: NotificationCheckOptions = {},
   ): {
-    overdue: typeof tasks;
-    dueSoon: typeof tasks;
+    overdue: NotificationTask[];
+    dueSoon: NotificationTask[];
   } {
     const now = new Date();
     const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
+    const completedColumnIds = resolveCompletedColumnIds(options);
 
-    const overdue: typeof tasks = [];
-    const dueSoon: typeof tasks = [];
+    const overdue: NotificationTask[] = [];
+    const dueSoon: NotificationTask[] = [];
 
     tasks.forEach((task) => {
-      if (!task.dueDate || task.status === "Done" || task.completedAt) return;
+      if (!task.dueDate || isTaskComplete(task, completedColumnIds)) return;
 
       const dueDate = new Date(task.dueDate);
 
@@ -194,14 +209,9 @@ class NotificationService {
   private notifiedOverdueIds: Set<string> = new Set();
 
   startPeriodicCheck(
-    getTasks: () => Array<{
-      id: string;
-      title: string;
-      dueDate?: Date;
-      status?: string;
-      completedAt?: Date;
-    }>,
+    getTasks: () => NotificationTask[],
     intervalMs: number = 60000,
+    options: NotificationCheckOptions = {},
   ): void {
     if (this.checkIntervalId) {
       this.stopPeriodicCheck();
@@ -209,12 +219,11 @@ class NotificationService {
 
     const check = () => {
       const tasks = getTasks();
-      const { overdue } = this.checkOverdueTasks(tasks);
+      const completedColumnIds = resolveCompletedColumnIds(options);
+      const { overdue } = this.checkOverdueTasks(tasks, { completedColumnIds });
 
       const activeIds = new Set(
-        tasks
-          .filter((t) => t.status !== "Done" && !t.completedAt)
-          .map((t) => t.id)
+        tasks.filter((t) => !isTaskComplete(t, completedColumnIds)).map((t) => t.id),
       );
       for (const id of this.notifiedOverdueIds) {
         if (!activeIds.has(id)) this.notifiedOverdueIds.delete(id);

@@ -96,10 +96,7 @@ const buildTauriDesktopApi = (): DesktopAPI => {
           console.error(`Failed to get storage key "${key}":`, err);
           return undefined;
         }),
-      set: (key, value) =>
-        invoke<void>("storage_set", { key, value }).catch((err) => {
-          console.error(`Failed to set storage key "${key}":`, err);
-        }),
+      set: (key, value) => invoke<void>("storage_set", { key, value }),
       delete: (key) =>
         invoke<void>("storage_delete", { key }).catch((err) => {
           console.error(`Failed to delete storage key "${key}":`, err);

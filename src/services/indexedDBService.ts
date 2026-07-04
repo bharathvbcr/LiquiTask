@@ -5,6 +5,12 @@ import type {
   Project,
   Task,
 } from "../../types";
+import {
+  deriveOpaqueStorageKey,
+  isEncryptionActive,
+  encryptPayload,
+  decryptPayload,
+} from "./encryptionService";
 
 const DATE_FIELDS = new Set([
   "createdAt",
@@ -150,45 +156,24 @@ export class IndexedDBService {
    * Get tasks by project
    */
   async getTasksByProject(projectId: string): Promise<Task[]> {
-    if (!this.db) return [];
-    const transaction = this.db.transaction(["tasks"], "readonly");
-    const store = transaction.objectStore("tasks");
-    const index = store.index("projectId");
-    const request = index.getAll(projectId);
-    return new Promise((resolve, reject) => {
-      request.onsuccess = () => resolve(request.result as Task[]);
-      request.onerror = () => reject(request.error);
-    });
+    const all = await this.getAllTasks();
+    return all.filter((task) => task.projectId === projectId);
   }
 
   /**
    * Get tasks by status
    */
   async getTasksByStatus(status: string): Promise<Task[]> {
-    if (!this.db) return [];
-    const transaction = this.db.transaction(["tasks"], "readonly");
-    const store = transaction.objectStore("tasks");
-    const index = store.index("status");
-    const request = index.getAll(status);
-    return new Promise((resolve, reject) => {
-      request.onsuccess = () => resolve(request.result as Task[]);
-      request.onerror = () => reject(request.error);
-    });
+    const all = await this.getAllTasks();
+    return all.filter((task) => task.status === status);
   }
 
   /**
    * Get tasks by assignee
    */
   async getTasksByAssignee(assignee: string): Promise<Task[]> {
-    if (!this.db) return [];
-    const transaction = this.db.transaction(["tasks"], "readonly");
-    const store = transaction.objectStore("tasks");
-    const index = store.index("assignee");
-    const request = index.getAll(assignee);
-    return new Promise((resolve, reject) => {
-      request.onsuccess = () => resolve(request.result as Task[]);
-      request.onerror = () => reject(request.error);
-    });
+    const all = await this.getAllTasks();
+    return all.filter((task) => task.assignee === assignee);
   }
 
   /**
@@ -200,35 +185,12 @@ export class IndexedDBService {
   }
 
   /**
-   * Save multiple tasks
+   * Save multiple tasks — full sync: upserts supplied tasks and removes any
+   * stored records whose ids are no longer present.
    */
   async saveTasks(tasks: Task[]): Promise<void> {
     if (!this.db) return;
-    const transaction = this.db.transaction(["tasks"], "readwrite");
-    const store = transaction.objectStore("tasks");
-
-    // Resolve only after the transaction fully commits, not just when individual
-    // puts fire onsuccess. An IDBTransaction can still abort after per-record
-    // successes (e.g. on quota exceeded), so we must wait for oncomplete.
-    return new Promise<void>((resolve, reject) => {
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error);
-      transaction.onabort = () => reject(transaction.error ?? new DOMException("Transaction aborted", "AbortError"));
-
-      tasks.forEach((task) => {
-        const request = store.put(this.serializeDates(task));
-        request.onerror = () => {
-          // Abort the whole transaction on the first record error so the batch
-          // is atomic — no subset of tasks is committed. The transaction-level
-          // onabort/onerror handlers above perform the rejection.
-          try {
-            transaction.abort();
-          } catch {
-            // Transaction may already be aborting; rejection is handled above.
-          }
-        };
-      });
-    });
+    await this.syncAll("tasks", tasks as unknown as Array<Record<string, unknown>>, "id");
   }
 
   /**
@@ -254,6 +216,10 @@ export class IndexedDBService {
   async saveArchivedTasks(tasks: Task[]): Promise<void> {
     const db = this.db;
     if (!db) return;
+    const preparedTasks = await Promise.all(
+      tasks.map((task) => this.prepareForStore("archivedTasks", task)),
+    );
+
     return new Promise<void>((resolve, reject) => {
       const transaction = db.transaction(["archivedTasks"], "readwrite");
       const store = transaction.objectStore("archivedTasks");
@@ -271,11 +237,9 @@ export class IndexedDBService {
         }
       };
 
-      // Requests run in issue order within a transaction, so clear() completes
-      // before the puts are applied.
       store.clear().onerror = fail;
-      for (const task of tasks) {
-        store.put(this.serializeDates(task)).onerror = fail;
+      for (const prepared of preparedTasks) {
+        store.put(prepared).onerror = fail;
       }
     });
   }
@@ -345,24 +309,70 @@ export class IndexedDBService {
   }
 
   /**
+   * Re-encrypt all existing plaintext records (called once when enabling encryption).
+   */
+  async migrateToEncryptedStorage(): Promise<void> {
+    if (!this.db || !isEncryptionActive()) return;
+    const db = this.db;
+
+    for (const storeConfig of OBJECT_STORES) {
+      const storeName = storeConfig.name;
+      const rawItems = await new Promise<unknown[]>((resolve, reject) => {
+        const transaction = db.transaction([storeName], "readonly");
+        const store = transaction.objectStore(storeName);
+        const request = store.getAll();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+
+      const toMigrate: unknown[] = [];
+      for (const item of rawItems) {
+        if (item && typeof item === "object" && "__enc" in (item as Record<string, unknown>)) {
+          continue;
+        }
+        toMigrate.push(await this.parseFromStore(item));
+      }
+
+      if (toMigrate.length === 0) continue;
+
+      const preparedItems = await Promise.all(
+        toMigrate.map((item) => this.prepareForStore(storeName, item)),
+      );
+      await new Promise<void>((resolve, reject) => {
+        const transaction = db.transaction([storeName], "readwrite");
+        const store = transaction.objectStore(storeName);
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+        transaction.onabort = () =>
+          reject(transaction.error ?? new DOMException("Transaction aborted", "AbortError"));
+
+        for (const prepared of preparedItems) {
+          store.put(prepared).onerror = (e) => reject((e.target as IDBRequest).error);
+        }
+      });
+    }
+  }
+
+  /**
    * Generic get all
    */
   private async getAll(storeName: string): Promise<unknown[]> {
     const db = this.db;
     if (!db) return [];
-    return new Promise((resolve, reject) => {
+    const rawItems = await new Promise<unknown[]>((resolve, reject) => {
       const transaction = db.transaction([storeName], "readonly");
       const store = transaction.objectStore(storeName);
       const request = store.getAll();
 
-      request.onsuccess = () => {
-        // Convert date strings back to Date objects
-        const items = request.result.map((item: unknown) => this.deserializeDates(item));
-        resolve(items);
-      };
-
+      request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
+
+    const items: unknown[] = [];
+    for (const item of rawItems) {
+      items.push(await this.parseFromStore(item));
+    }
+    return items;
   }
 
   /**
@@ -373,19 +383,24 @@ export class IndexedDBService {
    * still abort after individual request.onsuccess callbacks fire (e.g. on
    * quota exceeded), so waiting for oncomplete is required for correctness.
    */
+  private async resolveStorageKey(storeName: string, logicalKey: string): Promise<string> {
+    if (!isEncryptionActive()) return logicalKey;
+    return deriveOpaqueStorageKey(storeName, logicalKey);
+  }
+
   private async put(storeName: string, item: unknown): Promise<void> {
     const db = this.db;
     if (!db) return;
+    const prepared = await this.prepareForStore(storeName, item);
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([storeName], "readwrite");
       const store = transaction.objectStore(storeName);
-      const serialized = this.serializeDates(item);
 
       transaction.oncomplete = () => resolve();
       transaction.onerror = () => reject(transaction.error);
       transaction.onabort = () => reject(transaction.error ?? new DOMException("Transaction aborted", "AbortError"));
 
-      store.put(serialized).onerror = (e) => reject((e.target as IDBRequest).error);
+      store.put(prepared).onerror = (e) => reject((e.target as IDBRequest).error);
     });
   }
 
@@ -398,9 +413,10 @@ export class IndexedDBService {
    * fire, leaving the record still present on disk while the caller believes it
    * was deleted.
    */
-  private async delete(storeName: string, key: string): Promise<void> {
+  private async delete(storeName: string, logicalKey: string): Promise<void> {
     const db = this.db;
     if (!db) return;
+    const storageKey = await this.resolveStorageKey(storeName, logicalKey);
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([storeName], "readwrite");
       const store = transaction.objectStore(storeName);
@@ -409,7 +425,7 @@ export class IndexedDBService {
       transaction.onerror = () => reject(transaction.error);
       transaction.onabort = () => reject(transaction.error ?? new DOMException("Transaction aborted", "AbortError"));
 
-      store.delete(key).onerror = (e) => reject((e.target as IDBRequest).error);
+      store.delete(storageKey).onerror = (e) => reject((e.target as IDBRequest).error);
     });
   }
 
@@ -422,34 +438,37 @@ export class IndexedDBService {
   private async syncAll(
     storeName: string,
     items: Array<Record<string, unknown>>,
-    keyPath: string,
+    _keyPath: string,
   ): Promise<void> {
     if (!this.db) return;
+    const preparedItems = await Promise.all(
+      items.map((item) => this.prepareForStore(storeName, item)),
+    );
+    const newKeys = new Set(
+      preparedItems.map((item) => (item as Record<string, unknown>).id as IDBValidKey),
+    );
     const transaction = this.db.transaction([storeName], "readwrite");
     const store = transaction.objectStore(storeName);
 
     return new Promise<void>((resolve, reject) => {
       transaction.oncomplete = () => resolve();
       transaction.onerror = () => reject(transaction.error);
-      transaction.onabort = () => reject(transaction.error ?? new DOMException("Transaction aborted", "AbortError"));
+      transaction.onabort = () =>
+        reject(transaction.error ?? new DOMException("Transaction aborted", "AbortError"));
 
-      // First pass: collect existing keys, then put new items and delete stale ones.
       const keysRequest = store.getAllKeys();
       keysRequest.onerror = () => reject(keysRequest.error);
       keysRequest.onsuccess = () => {
-        const newKeys = new Set(items.map((i) => i[keyPath] as IDBValidKey));
         const existingKeys = keysRequest.result as IDBValidKey[];
 
-        // Delete keys that no longer exist in the new set.
         existingKeys.forEach((key) => {
           if (!newKeys.has(key)) {
             store.delete(key).onerror = (e) => reject((e.target as IDBRequest).error);
           }
         });
 
-        // Upsert all items.
-        items.forEach((item) => {
-          const request = store.put(this.serializeDates(item));
+        preparedItems.forEach((prepared) => {
+          const request = store.put(prepared);
           request.onerror = () => reject(request.error);
         });
       };
@@ -476,6 +495,39 @@ export class IndexedDBService {
       return result;
     }
     return obj;
+  }
+
+  private async prepareForStore(storeName: string, item: unknown): Promise<unknown> {
+    const serialized = this.serializeDates(item);
+    if (!isEncryptionActive() || !serialized || typeof serialized !== "object") {
+      return serialized;
+    }
+
+    const record = serialized as Record<string, unknown>;
+    const id = record.id;
+    if (typeof id !== "string") {
+      return serialized;
+    }
+
+    const opaqueId = await deriveOpaqueStorageKey(storeName, id);
+    return {
+      id: opaqueId,
+      __enc: await encryptPayload(record),
+    };
+  }
+
+  private async parseFromStore(item: unknown): Promise<unknown> {
+    if (!item || typeof item !== "object") {
+      return item;
+    }
+
+    const record = item as Record<string, unknown>;
+    if (typeof record.__enc === "string") {
+      const decrypted = await decryptPayload(record.__enc);
+      return this.deserializeDates(decrypted);
+    }
+
+    return this.deserializeDates(item);
   }
 
   /**
@@ -527,8 +579,8 @@ export class IndexedDBService {
   /**
    * Purge archived tasks older than `retentionDays` (default: 90 days).
    *
-   * PRIVACY NOTE: IndexedDB stores all task data — titles, assignees, due
-   * dates, custom fields — in plaintext on disk at the Chromium profile path.
+   * With encryption enabled, records are AES-256-GCM blobs addressed by opaque
+   * HMAC-derived keys — no task metadata is readable on disk.
    * This data is NOT removed when the Electron app is uninstalled.  Call this
    * method periodically (e.g. on app startup) to enforce a retention policy.
    *
@@ -541,43 +593,18 @@ export class IndexedDBService {
     cutoff.setDate(cutoff.getDate() - retentionDays);
     const cutoffMs = cutoff.getTime();
 
-    const transaction = this.db.transaction(["archivedTasks"], "readwrite");
-    const store = transaction.objectStore("archivedTasks");
-
-    return new Promise<number>((resolve, reject) => {
-      let deletedCount = 0;
-
-      transaction.oncomplete = () => resolve(deletedCount);
-      transaction.onerror = () => reject(transaction.error);
-      transaction.onabort = () => reject(transaction.error ?? new DOMException("Transaction aborted", "AbortError"));
-
-      const cursorRequest = store.openCursor();
-      cursorRequest.onerror = () => reject(cursorRequest.error);
-      cursorRequest.onsuccess = () => {
-        const cursor = cursorRequest.result;
-        if (!cursor) return; // done — transaction.oncomplete fires next
-
-        const record = cursor.value as Record<string, unknown>;
-        const completedAt = record.completedAt;
-        let recordTime: number | null = null;
-
-        if (completedAt instanceof Date) {
-          recordTime = completedAt.getTime();
-        } else if (typeof completedAt === "string") {
-          recordTime = new Date(completedAt).getTime();
-        } else if (typeof completedAt === "number") {
-          recordTime = completedAt;
-        }
-
-        if (recordTime !== null && recordTime < cutoffMs) {
-          const delReq = cursor.delete();
-          delReq.onerror = () => reject(delReq.error);
-          delReq.onsuccess = () => { deletedCount++; };
-        }
-
-        cursor.continue();
-      };
+    const archived = await this.getAllArchivedTasks();
+    const stale = archived.filter((task) => {
+      const candidate = task.completedAt ?? task.updatedAt ?? task.createdAt;
+      if (!candidate) return false;
+      return new Date(candidate).getTime() < cutoffMs;
     });
+
+    for (const task of stale) {
+      await this.delete("archivedTasks", task.id);
+    }
+
+    return stale.length;
   }
 
   /**

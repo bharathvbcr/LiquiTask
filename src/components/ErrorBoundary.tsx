@@ -1,5 +1,6 @@
 import { AlertTriangle, Home, RefreshCw } from "lucide-react";
 import { Component, type ErrorInfo, type ReactNode, Suspense } from "react";
+import { reportError } from "../utils/errorReporting";
 
 interface Props {
   children: ReactNode;
@@ -35,10 +36,10 @@ export class ErrorBoundary extends Component<Props, State> {
       errorInfo,
     });
 
-    // Log to error tracking service (e.g., Sentry) in production
-    if (process.env.NODE_ENV === "production") {
-      // TODO: Add error tracking service integration
-    }
+    reportError(error, {
+      componentStack: errorInfo.componentStack,
+      source: "ErrorBoundary",
+    });
   }
 
   handleReset = (): void => {
@@ -88,15 +89,17 @@ export class ErrorBoundary extends Component<Props, State> {
 
             <div className="flex gap-3">
               <button
+                type="button"
                 onClick={this.handleReset}
-                className="flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl text-white font-medium transition-all"
+                className="flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl text-white font-medium transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
               >
                 <RefreshCw size={16} />
                 Try Again
               </button>
               <button
+                type="button"
                 onClick={this.handleReload}
-                className="flex items-center gap-2 px-4 py-2.5 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-400 font-medium rounded-xl transition-all"
+                className="flex items-center gap-2 px-4 py-2.5 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-400 font-medium rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
               >
                 <Home size={16} />
                 Reload App
@@ -134,6 +137,11 @@ class PanelBoundaryInner extends Component<PanelBoundaryProps, { hasError: boole
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
     console.error(`[PanelBoundary:${this.props.name}]`, error, info);
+    reportError(error, {
+      componentStack: info.componentStack,
+      source: "PanelBoundary",
+      panel: this.props.name,
+    });
   }
 
   render() {

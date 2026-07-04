@@ -19,14 +19,66 @@ vi.mock("../services/storageService", () => ({
     getAllData: mockGetAllData,
     get: mockGet,
     set: mockSet,
+    hydrateEncryptedLocalStorage: vi.fn().mockResolvedValue(undefined),
   },
   storageService: {
     initialize: mockInitialize,
     getAllData: mockGetAllData,
     get: mockGet,
     set: mockSet,
+    hydrateEncryptedLocalStorage: vi.fn().mockResolvedValue(undefined),
   },
 }));
+
+vi.mock("../runtime/runtimeEnvironment", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../runtime/runtimeEnvironment")>();
+  return {
+    ...actual,
+    isTauri: vi.fn().mockReturnValue(true),
+    isDesktop: vi.fn().mockReturnValue(true),
+    isWeb: vi.fn().mockReturnValue(false),
+    getRuntimeState: vi.fn().mockReturnValue({ kind: "tauri", hasCustomWindowControls: true }),
+  };
+});
+
+vi.mock("../../src/services/encryptionSetup", () => ({
+  bootstrapEncryptionAtRest: vi.fn().mockResolvedValue(false),
+  activateEncryptionAtRest: vi.fn().mockResolvedValue(undefined),
+  deactivateEncryptionAtRest: vi.fn().mockResolvedValue(undefined),
+  needsWebEncryptionUnlock: vi.fn().mockResolvedValue(false),
+  needsDesktopEncryptionUnlock: vi.fn().mockResolvedValue(false),
+  completeEncryptionUnlock: vi.fn().mockResolvedValue(undefined),
+  getEncryptionStatus: vi.fn().mockResolvedValue({
+    enabled: false,
+    keychainAvailable: false,
+    biometricAvailable: false,
+    unlocked: false,
+    mode: "none",
+  }),
+  isEncryptionActive: vi.fn().mockReturnValue(false),
+  isEncryptionUnlocked: vi.fn().mockReturnValue(false),
+}));
+
+vi.mock("../../src/services/webEncryptionService", () => ({
+  isWebEncryptionConfigured: vi.fn().mockReturnValue(false),
+}));
+
+vi.mock("../../src/services/encryptionService", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../src/services/encryptionService")>();
+  return {
+    ...actual,
+    isEncryptedEnvelope: vi.fn().mockReturnValue(false),
+    isEncryptionUnlocked: vi.fn().mockReturnValue(false),
+    initEncryptionService: vi.fn().mockResolvedValue(undefined),
+    getEncryptionStatus: vi.fn().mockResolvedValue({
+      enabled: false,
+      keychainAvailable: false,
+      biometricAvailable: false,
+      unlocked: false,
+      mode: "none",
+    }),
+  };
+});
 
 // Mock icons to speed up rendering and avoid SVG issues
 vi.mock("lucide-react", async (importOriginal) => {
@@ -74,6 +126,8 @@ describe("App Integration", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
+    sessionStorage.clear();
     window.desktopAPI = undefined;
     window.electronAPI = undefined;
     vi.spyOn(console, "warn").mockImplementation(() => {});

@@ -165,7 +165,7 @@ describe("AutoOrganizeService", () => {
         onMoveTask: vi.fn(),
       };
 
-      const result = await autoOrganizeService.applyChanges(changes, callbacks);
+      const result = await autoOrganizeService.applyChanges(changes, mockTasks, callbacks);
 
       expect(result.applied).toBe(3);
       expect(callbacks.onUpdateTask).toHaveBeenCalledWith(
@@ -189,7 +189,7 @@ describe("AutoOrganizeService", () => {
           status: "rejected",
         },
       ];
-      const result = await autoOrganizeService.applyChanges(changes, {
+      const result = await autoOrganizeService.applyChanges(changes, [], {
         onUpdateTask: vi.fn(),
         onArchiveTask: vi.fn(),
         onMoveTask: vi.fn(),

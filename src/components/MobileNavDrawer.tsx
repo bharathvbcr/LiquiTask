@@ -4,11 +4,12 @@ import {
   ChevronRight,
   Folder,
   LayoutDashboard,
+  Search,
   Settings,
   X,
 } from "lucide-react";
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Project } from "../../types";
 
 type NavigationView = "project" | "dashboard" | "gantt" | "archive";
@@ -37,6 +38,13 @@ export const MobileNavDrawer: React.FC<MobileNavDrawerProps> = ({
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(
     new Set(projects.map((p) => p.id)),
   );
+  const [projectSearch, setProjectSearch] = useState("");
+
+  useEffect(() => {
+    if (!isOpen) {
+      setProjectSearch("");
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -89,11 +97,24 @@ export const MobileNavDrawer: React.FC<MobileNavDrawerProps> = ({
     .filter((p) => !p.parentId)
     .sort((a, b) => (a.order || 0) - (b.order || 0));
 
+  const filteredRootProjects = useMemo(() => {
+    const query = projectSearch.trim().toLowerCase();
+    if (!query) return rootProjects;
+    return rootProjects.filter((p) => {
+      const matchesSelf = p.name.toLowerCase().includes(query);
+      const hasMatchingChild = projects.some(
+        (child) => child.parentId === p.id && child.name.toLowerCase().includes(query),
+      );
+      return matchesSelf || hasMatchingChild;
+    });
+  }, [projectSearch, projects, rootProjects]);
+
   return (
     <div
       className={`fixed inset-0 z-50 md:hidden transition-opacity duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
         isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
       }`}
+      aria-hidden={!isOpen}
     >
       {/* Backdrop */}
       <div
@@ -103,6 +124,9 @@ export const MobileNavDrawer: React.FC<MobileNavDrawerProps> = ({
 
       {/* Drawer Panel */}
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Navigation menu"
         className={`absolute inset-y-0 left-0 w-80 max-w-[85vw] liquid-glass rounded-none border-r border-white/10 shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
@@ -147,8 +171,22 @@ export const MobileNavDrawer: React.FC<MobileNavDrawerProps> = ({
                 </h2>
               </div>
 
+              {projects.length > 0 && (
+                <div className="relative px-3 mb-2">
+                  <Search size={14} className="absolute left-5 top-2.5 text-slate-500" aria-hidden="true" />
+                  <input
+                    type="search"
+                    value={projectSearch}
+                    onChange={(e) => setProjectSearch(e.target.value)}
+                    placeholder="Search projects..."
+                    aria-label="Search projects"
+                    className="w-full bg-black/20 border border-white/10 rounded-lg pl-8 pr-3 py-2 text-xs text-slate-300 placeholder-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 focus:border-red-500/50"
+                  />
+                </div>
+              )}
+
               <div className="space-y-0.5">
-                {rootProjects.map((project) => (
+                {filteredRootProjects.map((project) => (
                   <ProjectItem
                     key={project.id}
                     project={project}
@@ -159,12 +197,19 @@ export const MobileNavDrawer: React.FC<MobileNavDrawerProps> = ({
                     onSelect={handleSelectProject}
                     onToggleExpand={toggleProjectExpand}
                     depth={0}
+                    searchQuery={projectSearch.trim().toLowerCase()}
                   />
                 ))}
 
                 {rootProjects.length === 0 && (
                   <div className="px-4 py-6 text-center text-xs text-slate-600 italic border border-dashed border-white/5 rounded-xl">
                     No projects yet.
+                  </div>
+                )}
+
+                {rootProjects.length > 0 && filteredRootProjects.length === 0 && (
+                  <div className="px-4 py-4 text-center text-xs text-slate-500">
+                    No projects match &quot;{projectSearch}&quot;
                   </div>
                 )}
               </div>
@@ -178,7 +223,8 @@ export const MobileNavDrawer: React.FC<MobileNavDrawerProps> = ({
                 onOpenSettings();
                 onClose();
               }}
-              className="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-colors border border-transparent hover:border-white/5 min-h-[44px]"
+              aria-label="Preferences"
+              className="flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-colors border border-transparent hover:border-white/5 min-h-[44px] focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
             >
               <Settings size={18} className="shrink-0" />
               <span>Settings</span>
@@ -199,8 +245,10 @@ interface NavButtonProps {
 
 const NavButton: React.FC<NavButtonProps> = ({ icon, label, isActive, onClick }) => (
   <button
+    type="button"
     onClick={onClick}
-    className={`relative w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-all duration-200 min-h-[44px] ${
+    aria-current={isActive ? "page" : undefined}
+    className={`relative w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-all duration-200 min-h-[44px] focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 ${
       isActive
         ? "liquid-card text-white liquid-glow-red"
         : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
@@ -223,6 +271,7 @@ interface ProjectItemProps {
   onSelect: (id: string) => void;
   onToggleExpand: (e: React.MouseEvent, projectId: string) => void;
   depth: number;
+  searchQuery?: string;
 }
 
 const ProjectItem: React.FC<ProjectItemProps> = ({
@@ -234,21 +283,29 @@ const ProjectItem: React.FC<ProjectItemProps> = ({
   onSelect,
   onToggleExpand,
   depth,
+  searchQuery = "",
 }) => {
   const children = allProjects
     .filter((p) => p.parentId === project.id)
-    .sort((a, b) => (a.order || 0) - (b.order || 0));
+    .sort((a, b) => (a.order || 0) - (b.order || 0))
+    .filter((p) => !searchQuery || p.name.toLowerCase().includes(searchQuery));
 
   const hasChildren = children.length > 0;
-  const isExpanded = expandedProjects.has(project.id);
+  const isExpanded = expandedProjects.has(project.id) || Boolean(searchQuery);
   const isActive = project.id === activeProjectId && currentView === "project";
   const indent = depth * 12;
+
+  if (searchQuery && !project.name.toLowerCase().includes(searchQuery) && children.length === 0) {
+    return null;
+  }
 
   return (
     <div className="flex flex-col gap-0.5">
       <button
+        type="button"
         onClick={() => onSelect(project.id)}
-        className={`relative w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 min-h-[44px] ${
+        aria-current={isActive ? "page" : undefined}
+        className={`relative w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 min-h-[44px] focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 ${
           isActive
             ? "bg-white/5 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
             : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
@@ -261,8 +318,18 @@ const ProjectItem: React.FC<ProjectItemProps> = ({
 
         {hasChildren ? (
           <div
+            role="button"
+            tabIndex={0}
+            aria-label={isExpanded ? `Collapse ${project.name}` : `Expand ${project.name}`}
+            aria-expanded={isExpanded}
             onClick={(e) => onToggleExpand(e, project.id)}
-            className="p-1 hover:bg-white/10 rounded-lg transition-colors shrink-0 min-w-[28px] min-h-[28px] flex items-center justify-center"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onToggleExpand(e as unknown as React.MouseEvent, project.id);
+              }
+            }}
+            className="p-1 hover:bg-white/10 rounded-lg transition-colors shrink-0 min-w-[28px] min-h-[28px] flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
           >
             {isExpanded ? (
               <ChevronDown size={12} className="text-slate-400" />
@@ -292,6 +359,7 @@ const ProjectItem: React.FC<ProjectItemProps> = ({
               onSelect={onSelect}
               onToggleExpand={onToggleExpand}
               depth={depth + 1}
+              searchQuery={searchQuery}
             />
           ))}
         </div>

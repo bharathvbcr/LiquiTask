@@ -1,6 +1,5 @@
 // Barrel exports for components
 
-export { ConfirmDialog } from "./ConfirmDialog";
 export { Dashboard } from "./Dashboard";
 // UI Elements
 export { LiquidButton } from "./LiquidButton";

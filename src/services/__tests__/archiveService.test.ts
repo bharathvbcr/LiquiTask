@@ -1,7 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Task } from "../../types";
-import { type ArchiveConfig, ArchiveService } from "../archiveService";
+import type { Task } from "../../../types";
+import { STORAGE_KEYS } from "../../constants";
+import {
+  type ArchiveConfig,
+  ArchiveService,
+  buildArchiveConfig,
+  DEFAULT_ARCHIVE_SETTINGS,
+  loadArchiveSettings,
+  saveArchiveSettings,
+} from "../archiveService";
 import storageService from "../storageService";
+
+vi.mock("../indexedDBService", () => ({
+  indexedDBService: { isAvailable: vi.fn().mockReturnValue(false) },
+}));
 
 vi.mock("../storageService", () => ({
   default: {
@@ -59,6 +71,7 @@ describe("ArchiveService", () => {
       autoArchiveAfterDays: 5,
       archiveCompleted: true,
       archiveStorage: "localStorage",
+      completedColumnIds: new Set(["Completed"]),
     };
 
     // Only Task 1 is completed AND older than 5 days. Task 3 is completed but
@@ -117,5 +130,56 @@ describe("ArchiveService", () => {
     expect(stats.total).toBe(2);
     expect(stats.oldestDate).not.toBeNull();
     expect(stats.newestDate).not.toBeNull();
+  });
+
+  it("should archive completed-column tasks using updatedAt when completedAt is missing", async () => {
+    const oldUpdatedAt = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+    const tasks = [
+      {
+        id: "4",
+        title: "Done without completedAt",
+        status: "Done",
+        jobId: "T4",
+        tags: [],
+        createdAt: new Date(),
+        updatedAt: oldUpdatedAt,
+      } as Task,
+    ];
+
+    const config: ArchiveConfig = {
+      autoArchiveAfterDays: 5,
+      archiveCompleted: true,
+      archiveStorage: "localStorage",
+      completedColumnIds: new Set(["Done"]),
+    };
+
+    const activeTasks = await service.archiveTasks(tasks, config);
+    expect(activeTasks).toHaveLength(0);
+    expect(await service.getAllArchived()).toHaveLength(1);
+  });
+
+  it("loads, clamps, and saves archive settings", () => {
+    vi.mocked(storageService.get).mockReturnValue({
+      enabled: true,
+      autoArchiveAfterDays: 99999,
+      retentionDays: 0,
+    });
+
+    const loaded = loadArchiveSettings();
+    expect(loaded.enabled).toBe(true);
+    expect(loaded.autoArchiveAfterDays).toBe(3650);
+    expect(loaded.retentionDays).toBe(1);
+
+    saveArchiveSettings(loaded);
+    expect(storageService.set).toHaveBeenCalledWith(STORAGE_KEYS.ARCHIVE_SETTINGS, loaded);
+  });
+
+  it("builds archive config from settings and columns", () => {
+    const config = buildArchiveConfig(DEFAULT_ARCHIVE_SETTINGS, [
+      { id: "Done", title: "Done", color: "#000", isCompleted: true },
+    ]);
+    expect(config.archiveCompleted).toBe(false);
+    expect(config.completedColumnIds).toEqual(new Set(["Done"]));
+    expect(config.archiveStorage).toBe("localStorage");
   });
 });

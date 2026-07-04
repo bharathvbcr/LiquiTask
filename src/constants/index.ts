@@ -27,6 +27,10 @@ export const STORAGE_KEYS = {
   AUTO_ORGANIZE_HISTORY: "liquitask-auto-organize-history",
   AI_ORGANIZE_CACHE: "liquitask-ai-organize-cache",
   SAVED_VIEWS: "liquitask-saved-views",
+  ARCHIVE_SETTINGS: "liquitask-archive-settings",
+  ENCRYPTION_AT_REST: "liquitask-encryption-at-rest",
+  WEB_ENCRYPTION_SALT: "liquitask-web-encryption-salt",
+  WEB_ENCRYPTION_VERIFIER: "liquitask-web-encryption-verifier",
 } as const;
 
 export const FEATURE_FLAGS = {

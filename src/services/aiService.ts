@@ -1752,7 +1752,7 @@ Return JSON array of strings: ["keyword1", "keyword2", ...]`;
       ...(aiConfig || { provider: "gemini" }),
       autoOrganize: config,
     };
-    storageService.set(STORAGE_KEYS.AI_CONFIG, updated);
+    storageService.set(STORAGE_KEYS.AI_CONFIG, updated).catch(console.error);
   }
 
   getOrganizeHistory(): AutoOrganizeResult[] {
@@ -1763,7 +1763,7 @@ Return JSON array of strings: ["keyword1", "keyword2", ...]`;
     const history = this.getOrganizeHistory();
     history.unshift(result);
     if (history.length > 50) history.pop();
-    storageService.set(STORAGE_KEYS.AUTO_ORGANIZE_HISTORY, history);
+    storageService.set(STORAGE_KEYS.AUTO_ORGANIZE_HISTORY, history).catch(console.error);
   }
 
   clearOrganizeCache(): void {

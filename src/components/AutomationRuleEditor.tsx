@@ -137,12 +137,12 @@ export const AutomationRuleEditor: React.FC<AutomationRuleEditorProps> = ({
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* AI Generation Box */}
-          <div className="bg-cyan-900/10 border border-cyan-500/20 rounded-xl p-4">
+          <div className="bg-red-900/10 border border-red-500/20 rounded-xl p-4">
             <div className="flex items-start gap-3">
-              <Brain className="text-cyan-400 mt-1" size={20} />
+              <Brain className="text-red-400 mt-1" size={20} />
               <div className="flex-1 space-y-3">
                 <div>
-                  <h3 className="text-sm font-medium text-cyan-400">Describe your rule</h3>
+                  <h3 className="text-sm font-medium text-red-400">Describe your rule</h3>
                   <p className="text-xs text-slate-400">
                     e.g., "Whenever a task is created, set priority to high and assign it to Review
                     column"
@@ -157,12 +157,12 @@ export const AutomationRuleEditor: React.FC<AutomationRuleEditorProps> = ({
                       if (e.key === "Enter") handleGenerateFromNL();
                     }}
                     placeholder="Describe what the automation should do..."
-                    className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500/50"
+                    className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-red-500/50"
                   />
                   <button
                     onClick={handleGenerateFromNL}
                     disabled={isGenerating || !nlQuery.trim()}
-                    className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-slate-950 rounded-lg text-sm font-bold shadow-lg transition-all flex items-center gap-2"
+                    className="px-4 py-2 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-slate-950 rounded-lg text-sm font-bold shadow-lg transition-all flex items-center gap-2"
                   >
                     {isGenerating ? (
                       <Loader2 size={16} className="animate-spin" />

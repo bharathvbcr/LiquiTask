@@ -16,7 +16,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) => {
             {...props}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-blue-400 hover:underline"
+            className="text-red-400 hover:underline"
           />
         ),
       }}

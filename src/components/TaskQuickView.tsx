@@ -1,5 +1,6 @@
 import { Calendar, CheckSquare, Clock, ExternalLink, Paperclip, User, X } from "lucide-react";
 import type React from "react";
+import { useEffect } from "react";
 import type { PriorityDefinition, Task } from "../../types";
 import { formatMinutes } from "../hooks/useTimer";
 
@@ -26,11 +27,20 @@ export const TaskQuickView: React.FC<TaskQuickViewProps> = ({
   const totalSubtasks = task.subtasks?.length || 0;
   const progress = totalSubtasks > 0 ? (completedSubtasks / totalSubtasks) * 100 : 0;
 
-  // Position the panel to avoid going off-screen
+  // Close on Escape for keyboard users
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [onClose]);
+
+  // Position the panel to stay fully on-screen (clamped to both edges)
   const style: React.CSSProperties = {
     position: "fixed",
-    left: Math.min(position.x, window.innerWidth - 320),
-    top: Math.min(position.y, window.innerHeight - 300),
+    left: Math.max(8, Math.min(position.x, window.innerWidth - 320)),
+    top: Math.max(8, Math.min(position.y, window.innerHeight - 300)),
     zIndex: 60,
   };
 
@@ -109,7 +119,9 @@ export const TaskQuickView: React.FC<TaskQuickViewProps> = ({
             {task.attachments?.length > 0 && (
               <div className="flex items-center gap-1.5 text-slate-400">
                 <Paperclip size={12} />
-                <span>{task.attachments.length} files</span>
+                <span>
+                  {task.attachments.length} attachment{task.attachments.length === 1 ? "" : "s"}
+                </span>
               </div>
             )}
           </div>
@@ -129,7 +141,7 @@ export const TaskQuickView: React.FC<TaskQuickViewProps> = ({
               <div className="h-1.5 bg-black/40 rounded-full overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all ${
-                    progress === 100 ? "bg-emerald-500" : "bg-blue-500"
+                    progress === 100 ? "bg-emerald-500" : "bg-red-500"
                   }`}
                   style={{ width: `${progress}%` }}
                 />

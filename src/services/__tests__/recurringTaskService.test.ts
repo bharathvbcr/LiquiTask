@@ -111,6 +111,46 @@ describe("RecurringTaskService", () => {
       expect(createdTask.id).not.toBe(task.id);
     });
 
+    it("should reset status to the configured default for new instances", () => {
+      const now = new Date();
+      const pastDate = new Date(now.getTime() - 10000);
+      const customService = new RecurringTaskService({
+        onCreateTask: mockOnCreate,
+        onUpdateTask: mockOnUpdate,
+        getDefaultStatus: () => "Pending",
+      });
+
+      const task: Task = {
+        id: "t1",
+        jobId: "job-1",
+        title: "Recurring Task",
+        subtitle: "",
+        summary: "",
+        status: "Completed",
+        projectId: "p1",
+        createdAt: now,
+        updatedAt: now,
+        priority: "medium",
+        assignee: "",
+        subtasks: [],
+        attachments: [],
+        tags: [],
+        timeEstimate: 0,
+        timeSpent: 0,
+        recurring: {
+          enabled: true,
+          frequency: "daily",
+          interval: 1,
+          nextOccurrence: pastDate,
+        },
+      };
+
+      customService.start(() => [task]);
+      expect(mockOnCreate).toHaveBeenCalled();
+      expect(mockOnCreate.mock.calls[0][0].status).toBe("Pending");
+      customService.stop();
+    });
+
     it("should not generate task if not due", () => {
       const now = new Date();
       const futureDate = new Date(now.getTime() + 10000); // 10s future
