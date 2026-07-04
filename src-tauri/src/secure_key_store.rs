@@ -173,8 +173,8 @@ use macos::{delete_key as macos_delete_key, load_key as macos_load_key, store_ke
 #[cfg(target_os = "windows")]
 mod windows {
     use super::*;
-    use windows::core::HSTRING;
-    use windows::Security::Credentials::UI::{
+    use ::windows::core::HSTRING;
+    use ::windows::Security::Credentials::UI::{
         UserConsentVerificationResult, UserConsentVerifier, UserConsentVerifierAvailability,
     };
 

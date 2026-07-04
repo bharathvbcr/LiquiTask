@@ -1,6 +1,6 @@
 [package]
 name = "liquitask"
-version = "2.6.0"
+version = "2.6.1"
 description = "A premium Kanban task management desktop app with a stunning liquid glass aesthetic"
 authors = ["LiquidTask <support@liquitask.com>"]
 edition = "2021"
