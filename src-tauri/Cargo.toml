@@ -58,6 +58,11 @@ windows = { version = "0.58", features = [
   "Win32_System_Threading",
 ] }
 
+[dev-dependencies]
+# Real temp SQLite files for agent_devcouncil_evidence.rs tests (mirrors a real
+# .devcouncil/state.db, not just an in-memory fixture).
+tempfile = "3"
+
 [features]
 # This feature is used for production builds or when a dev server is not running.
 custom-protocol = ["tauri/custom-protocol"]
