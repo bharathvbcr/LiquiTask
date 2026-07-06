@@ -46,6 +46,9 @@ tsc_output.txt
 .agent/
 agent/
 **/agent/
+# liquitask-agentd's internal/agent is real application source (ported Multica
+# backends), not local agent-tool scratch state — exempt it from the blanket rule above.
+!liquitask-agentd/internal/agent/
 .gemini/
 .devcouncil/
 .claude/
@@ -84,6 +87,10 @@ src-tauri/target/
 crates/**/target/
 src-tauri/gen/
 src-tauri/binaries/semantic-layer-*
+src-tauri/binaries/liquitask-agentd*
+
+# liquitask-agentd (Go sidecar) — source is tracked; the compiled binary is not.
+liquitask-agentd/liquitask-agentd
 
 # Semantic layer PyInstaller build artifacts
 semantic_layer/.build-venv/
