@@ -13,7 +13,9 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager as _};
+
+use crate::agentd_store::AgentdStore;
 
 pub const AGENTD_RUN_EVENT: &str = "agentd-run-event";
 pub const AGENTD_HEALTH_EVENT: &str = "agentd-health";
@@ -96,8 +98,6 @@ fn agentd_bundled_binary_name() -> &'static str {
 /// runtime resolution time — but since we spawn it ourselves (no
 /// tauri-plugin-shell), we resolve the resource/exe-adjacent path directly.
 fn resolve_bundled_agentd(app: &AppHandle) -> Option<PathBuf> {
-    use tauri::Manager as _;
-
     let name = agentd_bundled_binary_name();
 
     // 1. Next to the running executable (typical for NSIS/most bundles).
@@ -221,6 +221,9 @@ pub fn agentd_start(app: &AppHandle, state: &AgentdState) -> Result<(), String> 
                             .and_then(|x| x.as_str())
                             .unwrap_or("message")
                             .to_string();
+                        if let Some(store) = app_clone.try_state::<AgentdStore>() {
+                            let _ = store.record_event(&app_clone, &run_id, &kind, params);
+                        }
                         let _ = app_clone.emit(
                             AGENTD_RUN_EVENT,
                             AgentdRunEventPayload {
@@ -288,16 +291,33 @@ pub fn agentd_ensure(app: AppHandle, state: tauri::State<'_, AgentdState>) -> Re
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub fn agentd_detect(app: AppHandle, state: tauri::State<'_, AgentdState>) -> Result<Vec<AgentdRuntime>, String> {
+pub fn agentd_detect(
+    app: AppHandle,
+    state: tauri::State<'_, AgentdState>,
+    store: tauri::State<'_, AgentdStore>,
+) -> Result<Vec<AgentdRuntime>, String> {
     agentd_start(&app, &state)?;
     let result = rpc_call(&state, "detect", json!({}))?;
-    serde_json::from_value(result).map_err(|e| e.to_string())
+    let runtimes: Vec<AgentdRuntime> = serde_json::from_value(result).map_err(|e| e.to_string())?;
+    for rt in &runtimes {
+        let _ = store.upsert_agent(
+            &app,
+            &rt.id,
+            &rt.name,
+            &rt.binary,
+            rt.path.as_deref(),
+            rt.version.as_deref(),
+            rt.ready,
+        );
+    }
+    Ok(runtimes)
 }
 
 #[tauri::command(rename_all = "camelCase")]
 pub fn agentd_run_start(
     app: AppHandle,
     state: tauri::State<'_, AgentdState>,
+    store: tauri::State<'_, AgentdStore>,
     task_id: String,
     runtime: String,
     prompt: String,
@@ -319,11 +339,13 @@ pub fn agentd_run_start(
         "mcpConfig": mcp_config,
     });
     let result = rpc_call(&state, "run.start", params)?;
-    result
+    let run_id = result
         .get("runId")
         .and_then(|x| x.as_str())
         .map(|s| s.to_string())
-        .ok_or_else(|| "missing runId".to_string())
+        .ok_or_else(|| "missing runId".to_string())?;
+    let _ = store.record_run_start(&app, &run_id, &task_id, &runtime, model.as_deref(), cwd.as_deref());
+    Ok(run_id)
 }
 
 #[tauri::command(rename_all = "camelCase")]

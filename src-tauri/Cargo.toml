@@ -37,6 +37,10 @@ regex = "1"
 fastembed = "4"
 chrono = { version = "0.4", features = ["serde"] }
 liquitask-core = { path = "../crates/liquitask-core" }
+# Bundled: statically links SQLite, no system dependency. Backs the agentd
+# run/event/agent index (Rework Plan §3.3) — separate from the file-based
+# run_store.rs journal, which stays as-is for the legacy claude-only runner.
+rusqlite = { version = "0.32", features = ["bundled"] }
 
 [target.'cfg(unix)'.dependencies]
 # Process-group liveness (kill -0) + subtree kill for durable/headless agent runs.

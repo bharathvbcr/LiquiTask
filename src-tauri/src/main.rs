@@ -33,6 +33,7 @@ use tauri::{AppHandle, Manager, State};
 
 mod agent_runner;
 mod agentd;
+mod agentd_store;
 mod agent_mcp;
 mod agent_git;
 mod github_sync;
@@ -62,6 +63,7 @@ use agentd::{
     agentd_run_inject, agentd_run_pause, agentd_run_reattach, agentd_run_resume,
     agentd_run_start, AgentdState,
 };
+use agentd_store::{agentd_store_list_agents, agentd_store_list_run_events, agentd_store_list_runs, AgentdStore};
 use agent_mcp::{
     agent_mcp_cleanup, agent_mcp_init, agent_mcp_list_requests, agent_mcp_resolve_bridge,
     agent_mcp_write_config, agent_mcp_write_response,
@@ -763,6 +765,7 @@ fn main() {
         .manage(SemanticLayerState(tokio::sync::Mutex::new(None)))
         .manage(AgentProcessRegistry(Mutex::new(std::collections::HashMap::new())))
         .manage(AgentdState::default())
+        .manage(AgentdStore::default())
         .setup(|app| {
             setup_tray(app.handle())?;
             Ok(())
@@ -806,6 +809,9 @@ fn main() {
             agentd_run_inject,
             agentd_run_reattach,
             agentd_permission_respond,
+            agentd_store_list_runs,
+            agentd_store_list_run_events,
+            agentd_store_list_agents,
             agent_run_start,
             agent_run_cancel,
             agent_runner_pause,
