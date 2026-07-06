@@ -414,7 +414,9 @@ func (b *kiroBackend) Execute(ctx context.Context, prompt string, opts ExecOptio
 		}
 	}()
 
-	return &Session{Messages: msgCh, Result: resCh}, nil
+	sess := &Session{Messages: msgCh, Result: resCh}
+	sess.pid.Store(int32(cmd.Process.Pid))
+	return sess, nil
 }
 
 func isKiroGoalCompleteCloseError(err error) bool {

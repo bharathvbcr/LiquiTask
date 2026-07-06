@@ -435,5 +435,7 @@ func (b *traecliBackend) Execute(ctx context.Context, prompt string, opts ExecOp
 		}
 	}()
 
-	return &Session{Messages: msgStream.ch, Result: resCh}, nil
+	sess := &Session{Messages: msgStream.ch, Result: resCh}
+	sess.pid.Store(int32(cmd.Process.Pid))
+	return sess, nil
 }

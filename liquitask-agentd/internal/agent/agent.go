@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"sync/atomic"
 	"time"
 )
 
@@ -79,6 +80,22 @@ type Session struct {
 	Messages <-chan Message
 	// Result receives exactly one value — the final outcome — then closes.
 	Result <-chan Result
+
+	// pid holds the OS process ID of the backend's primary/top-level
+	// subprocess, once known. Zero means "not yet known" or "no single
+	// top-level subprocess to report" (e.g. a future backend with a
+	// per-turn or multi-process model). Populated by backends immediately
+	// after a successful cmd.Start() so callers outside this package can
+	// send OS signals (e.g. SIGSTOP/SIGCONT for run.pause/run.resume)
+	// without the agent package exposing the *exec.Cmd itself.
+	pid atomic.Int32
+}
+
+// PID returns the OS process ID of the session's primary subprocess, or 0
+// if the backend has not populated one (either it hasn't started yet, or
+// its architecture has no single top-level subprocess to report).
+func (s *Session) PID() int {
+	return int(s.pid.Load())
 }
 
 // MessageType identifies the kind of Message.

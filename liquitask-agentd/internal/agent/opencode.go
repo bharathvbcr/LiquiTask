@@ -253,7 +253,9 @@ func (b *opencodeBackend) Execute(ctx context.Context, prompt string, opts ExecO
 		}
 	}()
 
-	return &Session{Messages: msgCh, Result: resCh}, nil
+	sess := &Session{Messages: msgCh, Result: resCh}
+	sess.pid.Store(int32(cmd.Process.Pid))
+	return sess, nil
 }
 
 // ── Event handlers ──

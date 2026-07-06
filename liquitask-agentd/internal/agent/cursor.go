@@ -223,7 +223,9 @@ func (b *cursorBackend) Execute(ctx context.Context, prompt string, opts ExecOpt
 		}
 	}()
 
-	return &Session{Messages: msgCh, Result: resCh}, nil
+	sess := &Session{Messages: msgCh, Result: resCh}
+	sess.pid.Store(int32(cmd.Process.Pid))
+	return sess, nil
 }
 
 func (b *cursorBackend) handleCursorAssistant(evt *cursorStreamEvent, ch chan<- Message, output *strings.Builder) {

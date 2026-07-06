@@ -1080,7 +1080,9 @@ func (b *codexBackend) Execute(ctx context.Context, prompt string, opts ExecOpti
 		}
 	}()
 
-	return &Session{Messages: msgCh, Result: resCh}, nil
+	sess := &Session{Messages: msgCh, Result: resCh}
+	sess.pid.Store(int32(cmd.Process.Pid))
+	return sess, nil
 }
 
 // startOrResumeThread picks between Codex's thread/resume and thread/start

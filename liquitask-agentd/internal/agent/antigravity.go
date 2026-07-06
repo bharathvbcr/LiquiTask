@@ -212,7 +212,9 @@ func (b *antigravityBackend) Execute(ctx context.Context, prompt string, opts Ex
 		}
 	}()
 
-	return &Session{Messages: msgCh, Result: resCh}, nil
+	sess := &Session{Messages: msgCh, Result: resCh}
+	sess.pid.Store(int32(cmd.Process.Pid))
+	return sess, nil
 }
 
 // antigravityConversationIDRe matches the glog line printmode.go writes when
