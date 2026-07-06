@@ -2,10 +2,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RecurringConfig, Task } from "../../../types";
 import { RecurringTaskService } from "../recurringTaskService";
 
+// The scheduler now computes occurrences through the async native bridge
+// (Rust on desktop, JS fallback on web/in tests). Generation therefore resolves
+// on microtasks after start(); this drains them. Promises are not faked by
+// vi.useFakeTimers(), so this works under fake timers.
+const flushMicrotasks = async () => {
+  for (let i = 0; i < 50; i++) await Promise.resolve();
+};
+
 describe("RecurringTaskService", () => {
   let service: RecurringTaskService;
   const mockOnCreate = vi.fn();
   const mockOnUpdate = vi.fn();
+  const mockOnAgentRecurring = vi.fn();
 
   beforeEach(() => {
     service = new RecurringTaskService({
@@ -71,7 +80,7 @@ describe("RecurringTaskService", () => {
   });
 
   describe("checkAndGenerate", () => {
-    it("should generate new task when due", () => {
+    it("should generate new task when due", async () => {
       const now = new Date();
       const pastDate = new Date(now.getTime() - 10000); // 10s ago
 
@@ -101,6 +110,7 @@ describe("RecurringTaskService", () => {
       };
 
       service.start(() => [task]);
+      await flushMicrotasks();
 
       expect(mockOnCreate).toHaveBeenCalled();
       expect(mockOnUpdate).toHaveBeenCalled();
@@ -111,7 +121,7 @@ describe("RecurringTaskService", () => {
       expect(createdTask.id).not.toBe(task.id);
     });
 
-    it("should reset status to the configured default for new instances", () => {
+    it("should reset status to the configured default for new instances", async () => {
       const now = new Date();
       const pastDate = new Date(now.getTime() - 10000);
       const customService = new RecurringTaskService({
@@ -146,12 +156,13 @@ describe("RecurringTaskService", () => {
       };
 
       customService.start(() => [task]);
+      await flushMicrotasks();
       expect(mockOnCreate).toHaveBeenCalled();
       expect(mockOnCreate.mock.calls[0][0].status).toBe("Pending");
       customService.stop();
     });
 
-    it("should not generate task if not due", () => {
+    it("should not generate task if not due", async () => {
       const now = new Date();
       const futureDate = new Date(now.getTime() + 10000); // 10s future
 
@@ -181,7 +192,98 @@ describe("RecurringTaskService", () => {
       };
 
       service.start(() => [task]);
+      await flushMicrotasks();
       expect(mockOnCreate).not.toHaveBeenCalled();
+    });
+
+    it("calls onAgentRecurringTask when a due instance has an agent assignee", async () => {
+      const agentService = new RecurringTaskService({
+        onCreateTask: mockOnCreate,
+        onUpdateTask: mockOnUpdate,
+        onAgentRecurringTask: mockOnAgentRecurring,
+      });
+      const now = new Date();
+      const pastDate = new Date(now.getTime() - 10000);
+
+      const task: Task = {
+        id: "t1",
+        jobId: "job-1",
+        title: "Nightly sync",
+        subtitle: "",
+        summary: "",
+        status: "Done",
+        projectId: "p1",
+        createdAt: now,
+        updatedAt: now,
+        priority: "medium",
+        assignee: "Worker Bot",
+        subtasks: [],
+        attachments: [],
+        tags: [],
+        timeEstimate: 0,
+        timeSpent: 0,
+        recurring: {
+          enabled: true,
+          frequency: "daily",
+          interval: 1,
+          nextOccurrence: pastDate,
+        },
+      };
+
+      agentService.start(() => [task]);
+      await flushMicrotasks();
+
+      expect(mockOnCreate).toHaveBeenCalled();
+      expect(mockOnAgentRecurring).toHaveBeenCalledTimes(1);
+      expect(mockOnAgentRecurring).toHaveBeenCalledWith(
+        expect.objectContaining({
+          assignee: "Worker Bot",
+          title: "Nightly sync",
+        }),
+      );
+      agentService.stop();
+    });
+
+    it("does not call onAgentRecurringTask when assignee is empty", async () => {
+      const agentService = new RecurringTaskService({
+        onCreateTask: mockOnCreate,
+        onUpdateTask: mockOnUpdate,
+        onAgentRecurringTask: mockOnAgentRecurring,
+      });
+      const now = new Date();
+      const pastDate = new Date(now.getTime() - 10000);
+
+      const task: Task = {
+        id: "t1",
+        jobId: "job-1",
+        title: "Manual recurring",
+        subtitle: "",
+        summary: "",
+        status: "todo",
+        projectId: "p1",
+        createdAt: now,
+        updatedAt: now,
+        priority: "medium",
+        assignee: "",
+        subtasks: [],
+        attachments: [],
+        tags: [],
+        timeEstimate: 0,
+        timeSpent: 0,
+        recurring: {
+          enabled: true,
+          frequency: "daily",
+          interval: 1,
+          nextOccurrence: pastDate,
+        },
+      };
+
+      agentService.start(() => [task]);
+      await flushMicrotasks();
+
+      expect(mockOnCreate).toHaveBeenCalled();
+      expect(mockOnAgentRecurring).not.toHaveBeenCalled();
+      agentService.stop();
     });
   });
 });

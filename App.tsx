@@ -10,6 +10,12 @@ import type { CommandAction } from "./src/components/CommandPalette";
 import { ViewTransition } from "./src/components/ViewTransition";
 import { FEATURE_FLAGS, STORAGE_KEYS } from "./src/constants";
 import { useConfirmation } from "./src/contexts/ConfirmationContext";
+import { AgentRunsDock } from "./src/components/agents/AgentRunsDock";
+import { AgentStandupCard } from "./src/components/agents/AgentStandupCard";
+import { WarRoom } from "./src/components/agents/WarRoom";
+import { useAgentStandupDigest } from "./src/hooks/useAgentStandupDigest";
+import { useAgentTeammates } from "./src/hooks/useAgentTeammates";
+import { useGitHubSync } from "./src/hooks/useGitHubSync";
 import { useAiKeyboardShortcuts } from "./src/hooks/useAiKeyboardShortcuts";
 import { useAppInitialization } from "./src/hooks/useAppInitialization";
 import { useAutoArchive } from "./src/hooks/useAutoArchive";
@@ -22,10 +28,12 @@ import { useTaskAssistant } from "./src/hooks/useTaskAssistant";
 import { useTaskController } from "./src/hooks/useTaskController";
 import { getRuntimeState, isTauri } from "./src/runtime/runtimeEnvironment";
 import { aiService } from "./src/services/aiService";
+import agentRunService from "./src/services/agents/agentRunService";
 import { archiveService } from "./src/services/archiveService";
 import {
   activateEncryptionAtRest,
   deactivateEncryptionAtRest,
+  type EncryptionChangeReason,
   needsDesktopEncryptionUnlock,
   needsWebEncryptionUnlock,
 } from "./src/services/encryptionSetup";
@@ -346,22 +354,28 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const checkEncryptionGate = async () => {
-      if (isTauri()) {
-        const needsUnlock = await needsDesktopEncryptionUnlock();
-        setDesktopEncryptionBlocked(needsUnlock);
+      try {
+        if (isTauri()) {
+          const needsUnlock = await needsDesktopEncryptionUnlock();
+          setDesktopEncryptionBlocked(needsUnlock);
+          setWebEncryptionBlocked(false);
+          return;
+        }
+
+        const needsUnlock = await needsWebEncryptionUnlock();
+        if (needsUnlock) {
+          setWebEncryptionBlocked(true);
+          setDesktopEncryptionBlocked(false);
+          return;
+        }
+
         setWebEncryptionBlocked(false);
-        return;
-      }
-
-      const needsUnlock = await needsWebEncryptionUnlock();
-      if (needsUnlock) {
-        setWebEncryptionBlocked(true);
         setDesktopEncryptionBlocked(false);
-        return;
+      } catch (error) {
+        console.error("[Encryption] Failed to check encryption gate:", error);
+        setWebEncryptionBlocked(false);
+        setDesktopEncryptionBlocked(false);
       }
-
-      setWebEncryptionBlocked(false);
-      setDesktopEncryptionBlocked(false);
     };
 
     void checkEncryptionGate();
@@ -390,6 +404,26 @@ const App: React.FC = () => {
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [creatingSubProjectFor, setCreatingSubProjectFor] = useState<string | undefined>(undefined);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const handleEncryptionChange = useCallback((change: EncryptionChangeReason) => {
+    setIsSettingsModalOpen(false);
+
+    if (change === "locked") {
+      setIsLoaded(false);
+      if (isTauri()) {
+        setDesktopEncryptionBlocked(true);
+        setWebEncryptionBlocked(false);
+      } else {
+        setWebEncryptionBlocked(true);
+        setDesktopEncryptionBlocked(false);
+      }
+      return;
+    }
+
+    setDesktopEncryptionBlocked(false);
+    setWebEncryptionBlocked(false);
+    setIsLoaded(false);
+    setEncryptionEpoch((epoch) => epoch + 1);
+  }, []);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
   const [isKeyboardShortcutsOpen, setIsKeyboardShortcutsOpen] = useState(false);
@@ -464,6 +498,7 @@ const App: React.FC = () => {
   const recurringTaskServiceRef = useRef<RecurringTaskServiceHandle | null>(null);
   const searchIndexServiceRef = useRef<SearchIndexServiceHandle | null>(null);
   const automationServiceRef = useRef<AutomationServiceHandle | null>(null);
+  const assignToAgentRef = useRef<((taskId: string, agentId: string) => void) | null>(null);
   const templateServiceRef = useRef<TemplateServiceHandle | null>(null);
   const activityServiceRef = useRef<ActivityServiceHandle | null>(null);
   const advancedFilterExecutorRef = useRef<AdvancedFilterExecutor | null>(null);
@@ -525,6 +560,7 @@ const App: React.FC = () => {
     recurringTaskServiceRef,
     searchIndexServiceRef,
     aiServiceRef,
+    assignToAgentRef,
   });
 
   // Initialization
@@ -567,10 +603,76 @@ const App: React.FC = () => {
     addToast,
   });
 
+  // Agent teammates (Multica-style): assign tasks to Claude Code agents.
+  const {
+    agents,
+    agentRuns,
+    refreshAgents,
+    startAgentRun,
+    cancelAgentRun,
+    openRunInTerminal,
+    assignTaskToAgent,
+    followUpRun,
+    pauseAgentRun,
+    resumeAgentRun,
+    injectGuidance,
+    approveAgentWork,
+    rejectAgentWork,
+    mergeWorktree,
+    discardWorktree,
+  } = useAgentTeammates({
+    isLoaded,
+    tasks,
+    columns,
+    handleUpdateTask,
+    handleCreateTask: (partial) => {
+      handleCreateOrUpdateTask(partial, null);
+    },
+    addToast,
+  });
+
+  useGitHubSync(tasks, columns, isLoaded);
+
+  const [standupDismissed, setStandupDismissed] = useState(false);
+  const agentStandup = useAgentStandupDigest(tasks, {
+    notifyOnLoad: isTauri() && isLoaded,
+    hours: 12,
+  });
+
+  useEffect(() => {
+    if (!isTauri()) return;
+    let cancelled = false;
+    const unsubs: Array<() => void> = [];
+    void import("@tauri-apps/api/event").then(({ listen }) => {
+      if (cancelled) return;
+      void listen("tray-cancel-all", () => {
+        for (const run of agentRunService.getRuns()) {
+          if (run.status === "queued" || run.status === "running" || run.status === "verifying") {
+            void cancelAgentRun(run.id);
+          }
+        }
+      }).then((u) => unsubs.push(u));
+      void listen("tray-view-runs", () => {
+        addToast("Agent runs dock is at the bottom-right", "info");
+      }).then((u) => unsubs.push(u));
+    });
+    return () => {
+      cancelled = true;
+      unsubs.forEach((u) => u());
+    };
+  }, [cancelAgentRun, addToast]);
+
   const tasksRef = useRef(tasks);
   tasksRef.current = tasks;
   const columnsRef = useRef(columns);
   columnsRef.current = columns;
+
+  useEffect(() => {
+    assignToAgentRef.current = (taskId, agentId) => {
+      const task = tasksRef.current.find((t) => t.id === taskId);
+      if (task) void assignTaskToAgent(task, agentId);
+    };
+  }, [assignTaskToAgent]);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -1644,6 +1746,12 @@ const App: React.FC = () => {
           </div>
 
           <div className="px-6 md:px-8 pb-6">
+          {isTauri() && !standupDismissed && currentView === "dashboard" && (
+            <AgentStandupCard
+              digest={agentStandup}
+              onDismiss={() => setStandupDismissed(true)}
+            />
+          )}
           <ViewTransition
             transitionKey={`${currentView}-${activeProjectId}-${viewMode}`}
             type="fade"
@@ -1752,6 +1860,12 @@ const App: React.FC = () => {
                   onMoveBlocked={(msg) => addToast(msg, "error")}
                   onMoveToWorkspace={handleMoveTaskToWorkspace}
                   canMoveTask={canMoveTask}
+                  agents={agents}
+                  onAssignTaskToAgent={(task, agentId) => void assignTaskToAgent(task, agentId)}
+                  onApproveAgentWork={(task, run) => void approveAgentWork(task, run)}
+                  onRejectAgentWork={(task, run, feedback) =>
+                    void rejectAgentWork(task, run, feedback)
+                  }
                 />
               )}
             </Suspense>
@@ -1913,8 +2027,55 @@ const App: React.FC = () => {
             onRunAutoArchive={runAutoArchive}
             onEnableEncryption={activateEncryptionAtRest}
             onDisableEncryption={deactivateEncryptionAtRest}
+            onEncryptionChanged={handleEncryptionChange}
+            onAgentsChanged={refreshAgents}
+            activeProjectId={activeProjectId}
+            onImportGitHubTasks={(newTasks) => {
+              setTasks((prev) => [...prev, ...newTasks]);
+              newTasks.forEach((t) => searchIndexServiceRef.current?.updateTask?.(t));
+              if (indexedDBService.isAvailable()) {
+                indexedDBService.saveTasks(newTasks).catch(console.error);
+              }
+              addToast(`Added ${newTasks.length} task(s) from GitHub`, "success");
+            }}
           />
         </Suspense>
+      )}
+
+      {isTauri() && (
+        <WarRoom
+          tasks={tasks}
+          columns={columns}
+          agents={agents}
+          onCreateTasks={(newTasks) => {
+            setTasks((prev) => [...prev, ...newTasks]);
+            newTasks.forEach((t) => searchIndexServiceRef.current?.updateTask?.(t));
+            if (indexedDBService.isAvailable()) {
+              indexedDBService.saveTasks(newTasks).catch(console.error);
+            }
+          }}
+          addToast={addToast}
+        />
+      )}
+
+      {isTauri() && (
+        <AgentRunsDock
+          tasks={tasks}
+          columns={columns}
+          agents={agents}
+          runs={agentRuns}
+          onStart={(task) => void startAgentRun(task)}
+          onCancel={(runId) => void cancelAgentRun(runId)}
+          onPause={(runId) => void pauseAgentRun(runId)}
+          onResume={(runId) => void resumeAgentRun(runId)}
+          onInjectGuidance={(runId, msg) => void injectGuidance(runId, msg)}
+          onOpenTerminal={(run) => void openRunInTerminal(run)}
+          onFollowUp={(runId, msg) => void followUpRun(runId, msg)}
+          onApprove={(task, run) => void approveAgentWork(task, run)}
+          onReject={(task, run, feedback) => void rejectAgentWork(task, run, feedback)}
+          onMergeWorktree={(run) => void mergeWorktree(run)}
+          onDiscardWorktree={(run) => void discardWorktree(run)}
+        />
       )}
 
       {isCommandPaletteOpen && (

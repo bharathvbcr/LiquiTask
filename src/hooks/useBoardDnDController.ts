@@ -43,7 +43,12 @@ interface UseBoardDnDControllerProps {
   ) => { allowed: boolean; reason?: string };
   getTasksByContext: (statusId: string, priorityId?: string) => Task[];
   showToast: (message: string, type?: "success" | "error" | "info") => void;
+  /** Called when a task card is dropped on an agent chip (`agent-drop:<id>`). */
+  onAssignToAgent?: (task: Task, agentId: string) => void;
 }
+
+/** Droppable id prefix used by the agent handoff tray. */
+export const AGENT_DROP_ID_PREFIX = "agent-drop:";
 
 export const useBoardDnDController = ({
   columns,
@@ -54,6 +59,7 @@ export const useBoardDnDController = ({
   canMoveTask,
   getTasksByContext,
   showToast,
+  onAssignToAgent,
 }: UseBoardDnDControllerProps) => {
   const [activeDrag, setActiveDrag] = useState<ActiveDrag | null>(null);
   const [highlightedZone, setHighlightedZone] = useState<string | null>(null);
@@ -194,7 +200,9 @@ export const useBoardDnDController = ({
       }
 
       const overId = String(over.id);
-      if (activeDrag.type === "column") {
+      if (activeDrag.type === "task" && overId.startsWith(AGENT_DROP_ID_PREFIX)) {
+        onAssignToAgent?.(activeDrag.data, overId.slice(AGENT_DROP_ID_PREFIX.length));
+      } else if (activeDrag.type === "column") {
         handleColumnReorder(activeDrag.id, overId);
       } else if (activeDrag.type === "task") {
         handleTaskDrop(activeDrag.data, overId);
@@ -203,7 +211,7 @@ export const useBoardDnDController = ({
       setActiveDrag(null);
       setHighlightedZone(null);
     },
-    [activeDrag, handleColumnReorder, handleTaskDrop],
+    [activeDrag, handleColumnReorder, handleTaskDrop, onAssignToAgent],
   );
 
   const handleDragCancel = useCallback(() => {

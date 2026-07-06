@@ -19,6 +19,7 @@ import {
 import { getNativeStorageApi, isTauri } from "../runtime/runtimeEnvironment";
 import { trySaveToStorage } from "../utils/storageQuota";
 import { validateAndTransformImportedData } from "../utils/validation";
+import { isNativeBackend, nativeParseTasks, nativeSerializeTasks } from "./nativeBridge";
 import {
   encryptPayload,
   decryptPayload,
@@ -45,7 +46,7 @@ export interface AppData {
 // Re-export current data version from migration service
 export { CURRENT_DATA_VERSION };
 
-// Parse tasks with proper date handling
+// Parse tasks with proper date handling (web fallback; desktop uses Rust via nativeParseTasks).
 function parseTasks(data: Record<string, unknown>[]): Task[] {
   return data.map((t) => {
     const errorLogs = Array.isArray(t.errorLogs)
@@ -94,8 +95,20 @@ function parseTasks(data: Record<string, unknown>[]): Task[] {
             timestamp: new Date(item.timestamp as string | number | Date),
           }))
         : undefined,
+      githubIssue: t.githubIssue as Task["githubIssue"],
     };
   });
+}
+
+async function parseTasksFromStorage(data: Record<string, unknown>[]): Promise<Task[]> {
+  if (isNativeBackend()) {
+    try {
+      return await nativeParseTasks(data);
+    } catch (err) {
+      console.warn("[storage] native task parse failed; falling back to JS:", err);
+    }
+  }
+  return parseTasks(data);
 }
 
 // Storage service with localStorage fallback
@@ -123,6 +136,11 @@ class StorageService {
 
       const stored = localStorage.getItem(key);
       if (stored) {
+        if (isEncryptedEnvelope(stored)) {
+          console.warn(`Encrypted value for ${key} is unavailable in synchronous storage read`);
+          return defaultValue;
+        }
+
         const parsed = JSON.parse(stored);
         // Special handling for tasks
         if (key === STORAGE_KEYS.TASKS) {
@@ -138,6 +156,58 @@ class StorageService {
     }
 
     return defaultValue;
+  }
+
+  /** Load plaintext browser localStorage entries into the in-memory cache. */
+  hydratePlaintextLocalStorage(): void {
+    if (isTauri()) return;
+
+    for (const key of Object.values(STORAGE_KEYS)) {
+      if (StorageService.SENSITIVE_KEYS.has(key)) continue;
+
+      const stored = localStorage.getItem(key);
+      if (!stored || isEncryptedEnvelope(stored)) continue;
+
+      try {
+        const parsed = JSON.parse(stored);
+        if (key === STORAGE_KEYS.TASKS) {
+          this.cache.set(key, parseTasks(parsed));
+        } else {
+          this.cache.set(key, parsed);
+        }
+      } catch (e) {
+        console.warn(`Failed to hydrate plaintext storage for ${key}:`, e);
+      }
+    }
+  }
+
+  /** Decrypt browser localStorage envelopes back to plaintext (before disabling encryption). */
+  async decryptLocalStorageToPlaintext(): Promise<void> {
+    if (!isEncryptionActive() || isTauri()) return;
+
+    for (const key of Object.values(STORAGE_KEYS)) {
+      if (StorageService.SENSITIVE_KEYS.has(key)) continue;
+
+      const stored = localStorage.getItem(key);
+      if (!stored || !isEncryptedEnvelope(stored)) continue;
+
+      try {
+        const decrypted = await decryptPayload(stored);
+        const value =
+          key === STORAGE_KEYS.TASKS
+            ? parseTasks(decrypted as Record<string, unknown>[])
+            : decrypted;
+        this.cache.set(key, value);
+        const serialized = JSON.stringify(value);
+        const result = trySaveToStorage(key, serialized);
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+      } catch (e) {
+        console.warn(`Failed to decrypt storage for ${key}:`, e);
+        throw e;
+      }
+    }
   }
 
   /** Load encrypted browser localStorage entries into the in-memory cache after unlock. */
@@ -177,61 +247,91 @@ class StorageService {
   async initialize(): Promise<void> {
     const nativeStorage = getNativeStorageApi();
     if (!nativeStorage) {
-      await this.hydrateEncryptedLocalStorage();
+      if (isEncryptionActive()) {
+        await this.hydrateEncryptedLocalStorage();
+      } else {
+        this.hydratePlaintextLocalStorage();
+      }
       return;
     }
 
     try {
-      // One-time cleanup: unconditionally purge sensitive keys from plaintext
-      // localStorage, regardless of whether native storage has a copy. This
-      // removes any credentials written by app versions prior to the
-      // SENSITIVE_KEYS guard being introduced.
-      for (const key of StorageService.SENSITIVE_KEYS) {
-        localStorage.removeItem(key);
-      }
-
-      // Load all keys from native storage
-      const keys = Object.values(STORAGE_KEYS);
-      for (const key of keys) {
-        const value = await nativeStorage.get(key);
-
-        if (value != null) {
-          if (key === STORAGE_KEYS.TASKS) {
-            this.cache.set(key, parseTasks(value as Record<string, unknown>[]));
-          } else {
-            this.cache.set(key, value);
-          }
-        } else {
-          // Fallback to localStorage (Migration) — skip sensitive keys because
-          // the unconditional purge above has already removed them, and we must
-          // not read plaintext credentials from localStorage even during migration.
-          if (StorageService.SENSITIVE_KEYS.has(key)) {
-            continue;
-          }
-          const local = localStorage.getItem(key);
-          if (local) {
-            try {
-              const parsed = JSON.parse(local);
-              if (key === STORAGE_KEYS.TASKS) {
-                this.cache.set(key, parseTasks(parsed));
-              } else {
-                this.cache.set(key, parsed);
-              }
-              // Save to native storage for next time
-              await nativeStorage.set(key, parsed);
-              // Migration complete for key
-            } catch (e) {
-              console.error(`Failed to migrate ${key}`, e);
-            }
-          }
-        }
-      }
-
-      // Run data schema migrations after loading all data
-      await this.runDataMigrations();
+      await this.loadFromNativeStorage(nativeStorage);
     } catch (error) {
       console.error("Failed to initialize storage service:", error);
     }
+  }
+
+  /** Reload from disk after encryption state changes (e.g. disable on desktop). */
+  async reinitialize(): Promise<void> {
+    this.cache.clear();
+    const nativeStorage = getNativeStorageApi();
+    if (!nativeStorage) {
+      if (isEncryptionActive()) {
+        await this.hydrateEncryptedLocalStorage();
+      } else {
+        this.hydratePlaintextLocalStorage();
+      }
+      return;
+    }
+
+    try {
+      await this.loadFromNativeStorage(nativeStorage);
+    } catch (error) {
+      console.error("Failed to reinitialize storage service:", error);
+    }
+  }
+
+  private async loadFromNativeStorage(
+    nativeStorage: NonNullable<ReturnType<typeof getNativeStorageApi>>,
+  ): Promise<void> {
+    // One-time cleanup: unconditionally purge sensitive keys from plaintext
+    // localStorage, regardless of whether native storage has a copy. This
+    // removes any credentials written by app versions prior to the
+    // SENSITIVE_KEYS guard being introduced.
+    for (const key of StorageService.SENSITIVE_KEYS) {
+      localStorage.removeItem(key);
+    }
+
+    // Load all keys from native storage
+    const keys = Object.values(STORAGE_KEYS);
+    for (const key of keys) {
+      const value = await nativeStorage.get(key);
+
+      if (value != null) {
+        if (key === STORAGE_KEYS.TASKS) {
+          this.cache.set(key, await parseTasksFromStorage(value as Record<string, unknown>[]));
+        } else {
+          this.cache.set(key, value);
+        }
+      } else {
+        // Fallback to localStorage (Migration) — skip sensitive keys because
+        // the unconditional purge above has already removed them, and we must
+        // not read plaintext credentials from localStorage even during migration.
+        if (StorageService.SENSITIVE_KEYS.has(key)) {
+          continue;
+        }
+        const local = localStorage.getItem(key);
+        if (local) {
+          try {
+            const parsed = JSON.parse(local);
+            if (key === STORAGE_KEYS.TASKS) {
+              this.cache.set(key, parseTasks(parsed));
+            } else {
+              this.cache.set(key, parsed);
+            }
+            // Save to native storage for next time
+            await nativeStorage.set(key, parsed);
+            // Migration complete for key
+          } catch (e) {
+            console.error(`Failed to migrate ${key}`, e);
+          }
+        }
+      }
+    }
+
+    // Run data schema migrations after loading all data
+    await this.runDataMigrations();
   }
 
   /**
@@ -340,7 +440,16 @@ class StorageService {
       // safeStorage) so that credentials are not persisted in plaintext on
       // disk. Verify that getNativeStorageApi() returns an encrypted
       // implementation before shipping to production.
-      asyncWrites.push(nativeStorage.set(key, value));
+      if (key === STORAGE_KEYS.TASKS && isNativeBackend()) {
+        asyncWrites.push(
+          (async () => {
+            const serialized = await nativeSerializeTasks(value as Task[]);
+            await nativeStorage.set(key, serialized);
+          })(),
+        );
+      } else {
+        asyncWrites.push(nativeStorage.set(key, value));
+      }
     }
 
     // Save to localStorage as backup/fallback for non-sensitive keys only.

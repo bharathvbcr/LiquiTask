@@ -7,6 +7,7 @@ import { STORAGE_KEYS } from "../../src/constants";
 import { useConfirmation } from "../../src/contexts/ConfirmationContext";
 import type { AutomationRule } from "../../src/services/automationService";
 import { automationService } from "../../src/services/automationService";
+import agentService from "../../src/services/agents/agentService";
 import { persistStorageQuiet } from "../../src/utils/persistStorage";
 import storageService from "../../src/services/storageService";
 import type { BoardColumn, PriorityDefinition, ToastType } from "../../types";
@@ -198,6 +199,7 @@ export const AutomationSettings: React.FC<AutomationSettingsProps> = ({
           }}
           availableColumns={availableColumns}
           availablePriorities={availablePriorities}
+          availableAgents={agentService.getAgents().map((a) => ({ id: a.id, name: a.name }))}
         />
       )}
     </div>

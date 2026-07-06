@@ -197,6 +197,33 @@ export const isWeb = () => getRuntimeKind() === "web";
 export const isDesktop = () => !isWeb();
 
 /**
+ * Bridge for logic ported to the native `liquitask-core` Rust crate.
+ *
+ * On the Tauri desktop build the Rust command is the source of truth. The
+ * web/PWA build has no Tauri backend, so it transparently runs the JavaScript
+ * `fallback`. If a native call throws (e.g. an older shell that predates the
+ * command), we also degrade to `fallback` so the renderer never breaks.
+ *
+ * This is the single seam every migrated service uses, which keeps the desktop
+ * and web code paths behaviourally identical and easy to mock in tests.
+ */
+export async function callNative<T>(
+  command: string,
+  args: Record<string, unknown>,
+  fallback: () => T | Promise<T>,
+): Promise<T> {
+  if (isTauri()) {
+    try {
+      return await invoke<T>(command, args);
+    } catch (err) {
+      console.warn(`[callNative] "${command}" failed; falling back to JS:`, err);
+      return await fallback();
+    }
+  }
+  return await fallback();
+}
+
+/**
  * HTTP transport for talking to the local Ollama server.
  *
  * We use the plain browser `fetch` on every runtime. On macOS Ollama's default

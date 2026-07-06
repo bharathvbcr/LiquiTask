@@ -53,7 +53,7 @@ describe("AutomationService", () => {
     expect(service.getRules()).toHaveLength(0);
   });
 
-  it("should process task event and return updates", () => {
+  it("should process task event and return updates", async () => {
     const rule: AutomationRule = {
       id: "r1",
       name: "Rule 1",
@@ -66,14 +66,14 @@ describe("AutomationService", () => {
     };
     service.addRule(rule);
 
-    const updates = service.processTaskEvent("onCreate", { newTask: mockTask }, [mockTask]);
+    const updates = await service.processTaskEvent("onCreate", { newTask: mockTask }, [mockTask]);
     expect(updates).toEqual({
       tags: ["tag1", "auto"],
       priority: "High",
     });
   });
 
-  it("should not process disabled rules", () => {
+  it("should not process disabled rules", async () => {
     const rule: AutomationRule = {
       id: "r1",
       name: "Rule 1",
@@ -83,11 +83,11 @@ describe("AutomationService", () => {
     };
     service.addRule(rule);
 
-    const updates = service.processTaskEvent("onCreate", { newTask: mockTask }, [mockTask]);
+    const updates = await service.processTaskEvent("onCreate", { newTask: mockTask }, [mockTask]);
     expect(updates).toBeNull();
   });
 
-  it("should evaluate conditions correctly", () => {
+  it("should evaluate conditions correctly", async () => {
     const rule: AutomationRule = {
       id: "r1",
       name: "Rule 1",
@@ -103,18 +103,18 @@ describe("AutomationService", () => {
     service.addRule(rule);
 
     // Matches condition
-    const updates = service.processTaskEvent("onUpdate", { newTask: mockTask }, [mockTask]);
+    const updates = await service.processTaskEvent("onUpdate", { newTask: mockTask }, [mockTask]);
     expect(updates).toEqual({ priority: "High" });
 
     // Does not match condition
     const nonMatchingTask = { ...mockTask, status: "Done" } as Task;
-    const updates2 = service.processTaskEvent("onUpdate", { newTask: nonMatchingTask }, [
+    const updates2 = await service.processTaskEvent("onUpdate", { newTask: nonMatchingTask }, [
       nonMatchingTask,
     ]);
     expect(updates2).toBeNull();
   });
 
-  it("should handle removeTag action", () => {
+  it("should handle removeTag action", async () => {
     const rule: AutomationRule = {
       id: "r1",
       name: "Rule 1",
@@ -124,11 +124,11 @@ describe("AutomationService", () => {
     };
     service.addRule(rule);
 
-    const updates = service.processTaskEvent("onUpdate", { newTask: mockTask }, [mockTask]);
+    const updates = await service.processTaskEvent("onUpdate", { newTask: mockTask }, [mockTask]);
     expect(updates?.tags).toEqual([]);
   });
 
-  it("should handle moveToColumn action", () => {
+  it("should handle moveToColumn action", async () => {
     const rule: AutomationRule = {
       id: "r1",
       name: "Rule 1",
@@ -138,11 +138,11 @@ describe("AutomationService", () => {
     };
     service.addRule(rule);
 
-    const updates = service.processTaskEvent("onUpdate", { newTask: mockTask }, [mockTask]);
+    const updates = await service.processTaskEvent("onUpdate", { newTask: mockTask }, [mockTask]);
     expect(updates?.status).toBe("Done");
   });
 
-  it("should handle setField action", () => {
+  it("should handle setField action", async () => {
     const rule: AutomationRule = {
       id: "r1",
       name: "Rule 1",
@@ -152,11 +152,11 @@ describe("AutomationService", () => {
     };
     service.addRule(rule);
 
-    const updates = service.processTaskEvent("onUpdate", { newTask: mockTask }, [mockTask]);
+    const updates = await service.processTaskEvent("onUpdate", { newTask: mockTask }, [mockTask]);
     expect((updates as Record<string, unknown>).assignee).toBe("Bob");
   });
 
-  it("should handle notify action", () => {
+  it("should handle notify action", async () => {
     const onNotify = vi.fn();
     const rule: AutomationRule = {
       id: "r1",
@@ -167,7 +167,7 @@ describe("AutomationService", () => {
     };
     service.addRule(rule);
 
-    service.processTaskEvent("onUpdate", { newTask: mockTask }, [mockTask], {
+    await service.processTaskEvent("onUpdate", { newTask: mockTask }, [mockTask], {
       onNotify,
     });
     expect(onNotify).toHaveBeenCalledWith("Hello World");
@@ -201,7 +201,7 @@ describe("AutomationService", () => {
     });
 
     // Advance 1 minute to 12:01:00
-    vi.advanceTimersByTime(60000);
+    await vi.advanceTimersByTimeAsync(60000);
 
     expect(applyTaskUpdates).toHaveBeenCalledWith(
       mockTask.id,

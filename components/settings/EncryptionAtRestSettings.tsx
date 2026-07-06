@@ -6,11 +6,13 @@ import { Input } from "../../src/components/common/Input";
 import {
   type EncryptionStatus,
   getEncryptionStatus,
-  isEncryptionUnlocked,
+  initEncryptionService,
   lockEncryption,
   setupWebEncryptionAtRest,
   unlockEncryptionWithPassphrase,
 } from "../../src/services/encryptionService";
+import { completeEncryptionUnlock } from "../../src/services/encryptionSetup";
+import type { EncryptionChangeReason } from "../../src/services/encryptionSetup";
 import { isTauri } from "../../src/runtime/runtimeEnvironment";
 import { isWebEncryptionConfigured } from "../../src/services/webEncryptionService";
 import type { ToastType } from "../../types";
@@ -20,7 +22,7 @@ interface EncryptionAtRestSettingsProps {
   addToast: (msg: string, type: ToastType) => void;
   onEnableEncryption: () => Promise<void>;
   onDisableEncryption: () => Promise<void>;
-  onEncryptionChanged?: () => void;
+  onEncryptionChanged?: (change: EncryptionChangeReason) => void;
 }
 
 type DisableConfirmTarget = "desktop" | "web" | null;
@@ -48,7 +50,13 @@ export const EncryptionAtRestSettings: React.FC<EncryptionAtRestSettingsProps> =
   const [disableConfirm, setDisableConfirm] = useState<DisableConfirmTarget>(null);
 
   const refreshStatus = useCallback(async () => {
-    setStatus(await getEncryptionStatus());
+    try {
+      await initEncryptionService();
+      setStatus(await getEncryptionStatus());
+    } catch (error) {
+      console.error("[Encryption] Failed to load encryption status:", error);
+      setStatus(null);
+    }
   }, []);
 
   useEffect(() => {
@@ -57,7 +65,7 @@ export const EncryptionAtRestSettings: React.FC<EncryptionAtRestSettingsProps> =
 
   const desktop = isTauri();
   const enabled = status?.enabled ?? false;
-  const unlocked = isEncryptionUnlocked();
+  const unlocked = status?.unlocked ?? false;
   const biometricHint = status ? desktopBiometricHint(status) : null;
 
   const statusBadge = (() => {
@@ -80,7 +88,7 @@ export const EncryptionAtRestSettings: React.FC<EncryptionAtRestSettingsProps> =
       await onEnableEncryption();
       addToast("Encryption at rest enabled", "success");
       await refreshStatus();
-      onEncryptionChanged?.();
+      onEncryptionChanged?.("enabled");
     } catch (error) {
       addToast(error instanceof Error ? error.message : String(error), "error");
     } finally {
@@ -95,17 +103,26 @@ export const EncryptionAtRestSettings: React.FC<EncryptionAtRestSettingsProps> =
       addToast("Encryption at rest disabled", "info");
       resetDisableConfirm();
       await refreshStatus();
-      onEncryptionChanged?.();
+      onEncryptionChanged?.("disabled");
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : String(error), "error");
     } finally {
       setIsWorking(false);
     }
   };
 
-  const handleDesktopLock = () => {
-    lockEncryption();
-    addToast("Encryption locked for this session", "info");
-    void refreshStatus();
-    onEncryptionChanged?.();
+  const handleDesktopLock = async () => {
+    setIsWorking(true);
+    try {
+      await lockEncryption();
+      addToast("Encryption locked for this session", "info");
+      await refreshStatus();
+      onEncryptionChanged?.("locked");
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : String(error), "error");
+    } finally {
+      setIsWorking(false);
+    }
   };
 
   const handleWebSetup = async () => {
@@ -120,12 +137,12 @@ export const EncryptionAtRestSettings: React.FC<EncryptionAtRestSettingsProps> =
     setIsWorking(true);
     try {
       await setupWebEncryptionAtRest(webPassphrase);
-      await onEnableEncryption();
+      await completeEncryptionUnlock();
       addToast("Browser encryption enabled", "success");
       setWebPassphrase("");
       setWebConfirm("");
       await refreshStatus();
-      onEncryptionChanged?.();
+      onEncryptionChanged?.("enabled");
     } catch (error) {
       addToast(error instanceof Error ? error.message : String(error), "error");
     } finally {
@@ -141,20 +158,30 @@ export const EncryptionAtRestSettings: React.FC<EncryptionAtRestSettingsProps> =
         addToast("Incorrect passphrase", "error");
         return;
       }
+      await completeEncryptionUnlock();
       addToast("Encryption unlocked", "success");
       setWebPassphrase("");
       await refreshStatus();
-      onEncryptionChanged?.();
+      onEncryptionChanged?.("unlocked");
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : String(error), "error");
     } finally {
       setIsWorking(false);
     }
   };
 
-  const handleWebLock = () => {
-    lockEncryption();
-    addToast("Encryption locked for this session", "info");
-    void refreshStatus();
-    onEncryptionChanged?.();
+  const handleWebLock = async () => {
+    setIsWorking(true);
+    try {
+      await lockEncryption();
+      addToast("Encryption locked for this session", "info");
+      await refreshStatus();
+      onEncryptionChanged?.("locked");
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : String(error), "error");
+    } finally {
+      setIsWorking(false);
+    }
   };
 
   const handleWebDisable = async () => {
@@ -164,7 +191,9 @@ export const EncryptionAtRestSettings: React.FC<EncryptionAtRestSettingsProps> =
       addToast("Browser encryption removed", "info");
       resetDisableConfirm();
       await refreshStatus();
-      onEncryptionChanged?.();
+      onEncryptionChanged?.("disabled");
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : String(error), "error");
     } finally {
       setIsWorking(false);
     }

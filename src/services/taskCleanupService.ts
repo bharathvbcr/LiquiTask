@@ -6,12 +6,58 @@ import type {
   PriorityDefinition,
   Project,
   RedundancyAnalysis,
+  Subtask,
   Task,
   TaskCluster,
 } from "../../types";
 import { STORAGE_KEYS } from "../constants";
+import { toCoreTask } from "../runtime/coreDto";
+import { callNative } from "../runtime/runtimeEnvironment";
 import { aiService } from "./aiService";
 import storageService from "./storageService";
+
+/**
+ * Structural (id-free) shapes returned by the `liquitask-core` Rust commands.
+ *
+ * The Rust core computes only deterministic structural data — task-id
+ * groupings, confidences, reasoning, suggested actions, merged fields — WITHOUT
+ * the random `id`/`reasons` fields the original assembled with `Date.now()` /
+ * `Math.random()`. Those non-deterministic expressions are regenerated here in
+ * TS (see the assemblers below) so the id formats stay byte-for-byte identical
+ * while the heuristic computation runs natively.
+ */
+interface CoreDuplicateGroup {
+  taskIds: string[];
+  confidence: number;
+}
+
+interface CoreMergeSuggestion {
+  keepTaskId: string;
+  archiveTaskIds: string[];
+  mergedFields: {
+    subtasks: Subtask[];
+    tags: string[];
+    summary: string;
+    timeEstimate: number;
+    timeSpent: number;
+  };
+  reasoning: string;
+}
+
+interface CoreCategorySuggestion {
+  taskId: string;
+  suggestedTags: string[];
+  suggestedPriority: string;
+  confidence: number;
+  reasoning: string;
+}
+
+interface CoreTaskCluster {
+  taskIds: string[];
+  theme: string;
+  suggestedTags: string[];
+  confidence: number;
+}
 
 class TaskCleanupService {
   private static instance: TaskCleanupService;
@@ -87,10 +133,44 @@ class TaskCleanupService {
       }
     } catch (error) {
       console.error("AI duplicate detection failed, falling back to heuristic:", error);
-      return this.heuristicDuplicateDetection(allTasks, threshold);
+      // Native (Rust) heuristic on the desktop build; identical JS heuristic on
+      // the web/PWA build (proven equivalent by the differential oracle).
+      return this.heuristicDuplicateDetectionNative(allTasks, threshold);
     }
 
     return duplicateGroups;
+  }
+
+  /**
+   * Rust-backed duplicate detection. The `cleanup_heuristic_duplicates` command
+   * returns id-free `{ taskIds, confidence }` groups; this method assembles the
+   * final `DuplicateGroup[]`, generating the `dup-heuristic-*` ids and the fixed
+   * `reasons` exactly as the original JS did. On the web build (or if the native
+   * call throws) it degrades to the pure JS `heuristicDuplicateDetection`.
+   */
+  private async heuristicDuplicateDetectionNative(
+    allTasks: Task[],
+    threshold: number,
+  ): Promise<DuplicateGroup[]> {
+    const groups = await callNative<CoreDuplicateGroup[]>(
+      "cleanup_heuristic_duplicates",
+      { tasks: allTasks.map(toCoreTask), threshold },
+      () =>
+        // Web fallback: reuse the existing JS heuristic, projected to the
+        // structural shape so a single assembler generates the ids.
+        this.heuristicDuplicateDetection(allTasks, threshold).map((g) => ({
+          taskIds: g.tasks.map((t) => t.id),
+          confidence: g.confidence,
+        })),
+    );
+
+    const byId = new Map(allTasks.map((t) => [t.id, t]));
+    return groups.map((g) => ({
+      id: `dup-heuristic-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+      tasks: g.taskIds.map((id) => byId.get(id)).filter((t): t is Task => t !== undefined),
+      confidence: g.confidence,
+      reasons: ["Heuristic match: similar titles and/or tags"],
+    }));
   }
 
   private heuristicDuplicateDetection(allTasks: Task[], threshold: number): DuplicateGroup[] {
@@ -196,8 +276,52 @@ class TaskCleanupService {
       return await aiService.suggestMerge(group, context);
     } catch (error) {
       console.error("AI merge suggestion failed, using heuristic:", error);
-      return this.heuristicMergeSuggestion(group);
+      return this.heuristicMergeSuggestionNative(group);
     }
+  }
+
+  /**
+   * Rust-backed merge suggestion. `cleanup_heuristic_merge` returns the
+   * deterministic keep/archive ids, merged fields and reasoning; the shape maps
+   * 1:1 to `MergeSuggestion` (no random ids here), so we return it directly. On
+   * the web build (or native failure) it degrades to the JS heuristic.
+   */
+  private async heuristicMergeSuggestionNative(group: DuplicateGroup): Promise<MergeSuggestion> {
+    const result = await callNative<CoreMergeSuggestion>(
+      "cleanup_heuristic_merge",
+      { tasks: group.tasks.map(toCoreTask) },
+      () => {
+        // Web fallback: reuse the existing JS heuristic, projected to the
+        // structural Core shape (its `mergedFields` is typed `Partial<Task>`,
+        // but the heuristic always populates exactly these five fields).
+        const s = this.heuristicMergeSuggestion(group);
+        return {
+          keepTaskId: s.keepTaskId,
+          archiveTaskIds: s.archiveTaskIds,
+          mergedFields: {
+            subtasks: s.mergedFields.subtasks ?? [],
+            tags: s.mergedFields.tags ?? [],
+            summary: s.mergedFields.summary ?? "",
+            timeEstimate: s.mergedFields.timeEstimate ?? 0,
+            timeSpent: s.mergedFields.timeSpent ?? 0,
+          },
+          reasoning: s.reasoning,
+        };
+      },
+    );
+
+    return {
+      keepTaskId: result.keepTaskId,
+      archiveTaskIds: result.archiveTaskIds,
+      mergedFields: {
+        subtasks: result.mergedFields.subtasks,
+        tags: result.mergedFields.tags,
+        summary: result.mergedFields.summary,
+        timeEstimate: result.mergedFields.timeEstimate,
+        timeSpent: result.mergedFields.timeSpent,
+      },
+      reasoning: result.reasoning,
+    };
   }
 
   private heuristicMergeSuggestion(group: DuplicateGroup): MergeSuggestion {
@@ -255,11 +379,27 @@ class TaskCleanupService {
     }
   }
 
+  /**
+   * Redundancy analysis. This method has NO AI path — it is fully deterministic —
+   * so the whole body delegates to the `cleanup_analyze_redundancy` Rust command
+   * (with `nowMs` supplying the reference clock) and falls back to the identical
+   * JS implementation on the web build. The command's output already matches the
+   * `RedundancyAnalysis` shape 1:1 (no ids), so it is returned directly.
+   */
   async analyzeRedundancy(allTasks: Task[]): Promise<RedundancyAnalysis[]> {
+    const nowMs = Date.now();
+    return callNative<RedundancyAnalysis[]>(
+      "cleanup_analyze_redundancy",
+      { tasks: allTasks.map(toCoreTask), nowMs },
+      () => this.analyzeRedundancyJs(allTasks, new Date(nowMs)),
+    );
+  }
+
+  /** Pure JS redundancy analysis (web fallback). `now` replaces `new Date()`. */
+  private analyzeRedundancyJs(allTasks: Task[], now: Date): RedundancyAnalysis[] {
     const analyses: RedundancyAnalysis[] = [];
     const completedTasks = allTasks.filter((t) => t.status === "Completed" || t.completedAt);
     const activeTasks = allTasks.filter((t) => t.status !== "Completed" && !t.completedAt);
-    const now = new Date();
 
     for (const task of activeTasks) {
       for (const completed of completedTasks) {
@@ -350,14 +490,46 @@ class TaskCleanupService {
       return await aiService.categorizeTasks(allTasks, context);
     } catch (error) {
       console.error("AI categorization failed:", error);
-      return this.heuristicCategorization(allTasks);
+      return this.heuristicCategorizationNative(allTasks);
     }
   }
 
-  private heuristicCategorization(allTasks: Task[]): AICategorySuggestion[] {
+  /**
+   * Rust-backed categorization. `cleanup_heuristic_categorize` returns
+   * `{ taskId, suggestedTags, suggestedPriority, confidence, reasoning }` per
+   * task (no ids). `nowMs` replaces the original `Date.now()` the priority
+   * heuristic read. Degrades to the JS heuristic on the web build.
+   */
+  private async heuristicCategorizationNative(allTasks: Task[]): Promise<AICategorySuggestion[]> {
+    const nowMs = Date.now();
+    const results = await callNative<CoreCategorySuggestion[]>(
+      "cleanup_heuristic_categorize",
+      { tasks: allTasks.map(toCoreTask), nowMs },
+      () =>
+        // Web fallback: reuse the existing JS heuristic, projected to the
+        // structural Core shape (the heuristic always sets `suggestedPriority`).
+        this.heuristicCategorization(allTasks, nowMs).map((c) => ({
+          taskId: c.taskId,
+          suggestedTags: c.suggestedTags,
+          suggestedPriority: c.suggestedPriority ?? "medium",
+          confidence: c.confidence,
+          reasoning: c.reasoning,
+        })),
+    );
+
+    return results.map((r) => ({
+      taskId: r.taskId,
+      suggestedTags: r.suggestedTags,
+      suggestedPriority: r.suggestedPriority,
+      confidence: r.confidence,
+      reasoning: r.reasoning,
+    }));
+  }
+
+  private heuristicCategorization(allTasks: Task[], nowMs: number = Date.now()): AICategorySuggestion[] {
     return allTasks.map((task) => {
       const suggestedTags = this.extractTagsFromContent(task);
-      const suggestedPriority = this.suggestPriority(task);
+      const suggestedPriority = this.suggestPriority(task, nowMs);
 
       return {
         taskId: task.id,
@@ -394,9 +566,9 @@ class TaskCleanupService {
     return tagPatterns.filter((tag) => content.includes(tag));
   }
 
-  private suggestPriority(task: Task): string {
+  private suggestPriority(task: Task, nowMs: number = Date.now()): string {
     if (task.dueDate) {
-      const daysUntilDue = (new Date(task.dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+      const daysUntilDue = (new Date(task.dueDate).getTime() - nowMs) / (1000 * 60 * 60 * 24);
       if (daysUntilDue < 2) return "high";
       if (daysUntilDue < 7) return "medium";
     }
@@ -421,8 +593,36 @@ class TaskCleanupService {
       return await aiService.clusterTasks(allTasks, context);
     } catch (error) {
       console.error("AI clustering failed:", error);
-      return this.heuristicClustering(allTasks);
+      return this.heuristicClusteringNative(allTasks);
     }
+  }
+
+  /**
+   * Rust-backed clustering. `cleanup_heuristic_cluster` returns id-free
+   * `{ taskIds, theme, suggestedTags, confidence }` clusters; this assembler
+   * generates the `cluster-*` ids exactly as the original JS did. Degrades to
+   * the JS heuristic on the web build.
+   */
+  private async heuristicClusteringNative(allTasks: Task[]): Promise<TaskCluster[]> {
+    const clusters = await callNative<CoreTaskCluster[]>(
+      "cleanup_heuristic_cluster",
+      { tasks: allTasks.map(toCoreTask) },
+      () =>
+        this.heuristicClustering(allTasks).map((c) => ({
+          taskIds: c.taskIds,
+          theme: c.theme,
+          suggestedTags: c.suggestedTags,
+          confidence: c.confidence,
+        })),
+    );
+
+    return clusters.map((c) => ({
+      id: `cluster-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+      taskIds: c.taskIds,
+      theme: c.theme,
+      suggestedTags: c.suggestedTags,
+      confidence: c.confidence,
+    }));
   }
 
   private heuristicClustering(allTasks: Task[]): TaskCluster[] {

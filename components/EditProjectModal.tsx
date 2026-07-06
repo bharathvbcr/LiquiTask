@@ -233,23 +233,18 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
           )}
         </div>
 
-        <div className="flex gap-3 pt-2">
+        <div className="flex gap-3 pt-4 mt-2 border-t border-white/5">
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 bg-white/5 hover:bg-white/10 text-slate-300 font-medium py-3 rounded-xl transition-all"
+            className="flex-1 whitespace-nowrap bg-white/5 hover:bg-white/10 text-slate-300 font-medium py-3 px-4 rounded-xl transition-all"
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="flex-1 bg-slate-100 hover:bg-white text-black font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2"
+            className="flex-1 whitespace-nowrap bg-red-600 hover:bg-red-500 text-white font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(220,38,38,0.25)] hover:shadow-[0_0_28px_rgba(220,38,38,0.35)]"
           >
-            {(() => {
-              const SelectedIconComponent =
-                AVAILABLE_ICONS.find((i) => i.key === selectedIcon)?.icon || Folder;
-              return <SelectedIconComponent size={18} />;
-            })()}
             Save Changes
           </button>
         </div>

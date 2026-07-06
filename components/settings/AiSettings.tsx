@@ -24,10 +24,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { STORAGE_KEYS } from "../../src/constants";
 import { getDesktopApi } from "../../src/runtime/runtimeEnvironment";
 import { aiService } from "../../src/services/aiService";
+import { DEFAULT_SEMANTIC_LAYER_SETTINGS, semanticLayerService, type SemanticLayerRuntimeStatus } from "../../src/services/semanticLayerService";
 import { persistStorageQuiet } from "../../src/utils/persistStorage";
 import storageService from "../../src/services/storageService";
 import { sanitizeUrl } from "../../src/utils/validation";
-import type { AIConfig, AutoOrganizeConfig, ToastType } from "../../types";
+import type { AIConfig, AutoOrganizeConfig, SemanticLayerSettings, ToastType } from "../../types";
 import { Tooltip } from "../Tooltip";
 
 interface AiSettingsProps {
@@ -52,6 +53,18 @@ const DEFAULT_AI_CONFIG: AIConfig = {
   // "connection refused". The explicit IPv4 address avoids that resolution.
   ollamaBaseUrl: "http://127.0.0.1:11434",
   ollamaModel: "",
+  semanticLayer: {
+    enabled: true,
+    serviceUrl: "http://127.0.0.1:8765",
+    autoStart: true,
+    cacheThreshold: 0.88,
+    cacheMaxEntries: 10_000,
+    enableCache: true,
+    enableCompression: true,
+    smallModel: "llama3.2:1b",
+    mediumModel: "llama3.2:3b",
+    largeModel: "llama3.1:8b",
+  },
 };
 
 export const AiSettings: React.FC<AiSettingsProps> = ({
@@ -110,6 +123,8 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [modelFetchError, setModelFetchError] = useState<string | null>(null);
+  const [semanticStatus, setSemanticStatus] = useState<SemanticLayerRuntimeStatus>("off");
+  const [showSemanticAdvanced, setShowSemanticAdvanced] = useState(false);
 
   const persistAiConfig = useCallback(
     (nextConfig: AIConfig) => {
@@ -214,12 +229,31 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
   }, []);
 
   useEffect(() => {
+    if (config.provider !== "ollama") {
+      setSemanticStatus("off");
+      return;
+    }
+    return semanticLayerService.subscribeStatus(setSemanticStatus);
+  }, [config.provider]);
+
+  useEffect(() => {
     if (config.provider === "ollama") {
       fetchModels(config.ollamaBaseUrl || "http://127.0.0.1:11434");
     }
   }, [config.provider, config.ollamaBaseUrl, fetchModels]);
 
-  const handleSave = () => {
+  const updateSemanticLayer = (patch: Partial<SemanticLayerSettings>) => {
+    setConfig((prev) => ({
+      ...prev,
+      semanticLayer: {
+        ...DEFAULT_SEMANTIC_LAYER_SETTINGS,
+        ...prev.semanticLayer,
+        ...patch,
+      },
+    }));
+  };
+
+  const handleSave = async () => {
     const sanitizedConfig = {
       ...config,
       ollamaBaseUrl: sanitizeUrl(config.ollamaBaseUrl),
@@ -232,6 +266,9 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
     };
     persistAiConfig(sanitizedConfig);
     setConfig(sanitizedConfig);
+    if (sanitizedConfig.provider === "ollama") {
+      await semanticLayerService.reinitialize();
+    }
     addToast("AI configuration saved successfully", "success");
   };
 
@@ -566,6 +603,154 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
                 </div>
               </div>
             )}
+
+            <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-4 space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Zap size={16} className="text-amber-300" />
+                  <div>
+                    <h4 className="text-sm font-bold text-white">Smart Local AI</h4>
+                    <p className="text-[10px] text-slate-500">
+                      Faster responses via caching and smarter model routing. Runs automatically.
+                    </p>
+                  </div>
+                </div>
+                <SemanticStatusBadge status={semanticStatus} enabled={config.semanticLayer?.enabled !== false} />
+              </div>
+
+              <label className="flex items-center justify-between gap-3 py-1">
+                <span className="text-xs text-slate-300">Enable smart optimization</span>
+                <input
+                  type="checkbox"
+                  checked={config.semanticLayer?.enabled !== false}
+                  onChange={(e) => updateSemanticLayer({ enabled: e.target.checked })}
+                  className="rounded border-white/20 bg-black/40 text-amber-500 focus:ring-amber-500/30"
+                />
+              </label>
+
+              {config.semanticLayer?.enabled !== false && (
+                <>
+                  {semanticStatus === "degraded" && (
+                    <p className="text-[10px] text-amber-400/80">
+                      Optimizer unavailable — AI still works directly through Ollama.
+                    </p>
+                  )}
+                  {semanticStatus === "starting" && (
+                    <p className="text-[10px] text-slate-400 flex items-center gap-1">
+                      <Loader2 size={10} className="animate-spin" /> Starting optimizer…
+                    </p>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setShowSemanticAdvanced((v) => !v)}
+                    className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider hover:text-slate-300 transition-colors"
+                  >
+                    {showSemanticAdvanced ? "Hide advanced" : "Advanced settings"}
+                  </button>
+
+                  {showSemanticAdvanced && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1 border-t border-white/5">
+                      <div>
+                        <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1 block">
+                          Service URL
+                        </label>
+                        <input
+                          type="text"
+                          value={config.semanticLayer?.serviceUrl ?? DEFAULT_SEMANTIC_LAYER_SETTINGS.serviceUrl}
+                          onChange={(e) =>
+                            updateSemanticLayer({ serviceUrl: sanitizeUrl(e.target.value) })
+                          }
+                          className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1 block">
+                          Cache similarity
+                        </label>
+                        <input
+                          type="number"
+                          min={0.5}
+                          max={0.99}
+                          step={0.01}
+                          value={config.semanticLayer?.cacheThreshold ?? DEFAULT_SEMANTIC_LAYER_SETTINGS.cacheThreshold}
+                          onChange={(e) =>
+                            updateSemanticLayer({ cacheThreshold: Number(e.target.value) })
+                          }
+                          className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1 block">
+                          Cache size
+                        </label>
+                        <input
+                          type="number"
+                          min={100}
+                          step={100}
+                          value={
+                            config.semanticLayer?.cacheMaxEntries ??
+                            DEFAULT_SEMANTIC_LAYER_SETTINGS.cacheMaxEntries
+                          }
+                          onChange={(e) =>
+                            updateSemanticLayer({ cacheMaxEntries: Number(e.target.value) })
+                          }
+                          className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-2 justify-end">
+                        <label className="flex items-center gap-2 text-xs text-slate-300">
+                          <input
+                            type="checkbox"
+                            checked={config.semanticLayer?.enableCompression !== false}
+                            onChange={(e) =>
+                              updateSemanticLayer({ enableCompression: e.target.checked })
+                            }
+                            className="rounded border-white/20 bg-black/40 text-amber-500"
+                          />
+                          Context compression
+                        </label>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1 block">
+                          Small model
+                        </label>
+                        <input
+                          type="text"
+                          value={config.semanticLayer?.smallModel ?? DEFAULT_SEMANTIC_LAYER_SETTINGS.smallModel}
+                          onChange={(e) => updateSemanticLayer({ smallModel: e.target.value })}
+                          className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1 block">
+                          Medium model
+                        </label>
+                        <input
+                          type="text"
+                          value={
+                            config.semanticLayer?.mediumModel ?? DEFAULT_SEMANTIC_LAYER_SETTINGS.mediumModel
+                          }
+                          onChange={(e) => updateSemanticLayer({ mediumModel: e.target.value })}
+                          className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1 block">
+                          Large model
+                        </label>
+                        <input
+                          type="text"
+                          value={config.semanticLayer?.largeModel ?? config.ollamaModel ?? DEFAULT_SEMANTIC_LAYER_SETTINGS.largeModel}
+                          onChange={(e) => updateSemanticLayer({ largeModel: e.target.value })}
+                          className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         )}
 
@@ -840,6 +1025,51 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
         Your AI credentials and settings are stored locally on this device and never shared.
       </div>
     </div>
+  );
+};
+
+interface SemanticStatusBadgeProps {
+  status: SemanticLayerRuntimeStatus;
+  enabled: boolean;
+}
+
+const SemanticStatusBadge: React.FC<SemanticStatusBadgeProps> = ({ status, enabled }) => {
+  if (!enabled) {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-slate-500/20 text-slate-400 border border-slate-500/30">
+        <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+        Off
+      </span>
+    );
+  }
+
+  const styles: Record<Exclude<SemanticLayerRuntimeStatus, "off">, { label: string; className: string; dot: string }> = {
+    starting: {
+      label: "Starting",
+      className: "bg-slate-500/20 text-slate-300 border border-slate-500/30",
+      dot: "bg-slate-300 animate-pulse",
+    },
+    running: {
+      label: "Running",
+      className: "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30",
+      dot: "bg-emerald-400",
+    },
+    degraded: {
+      label: "Degraded",
+      className: "bg-amber-500/20 text-amber-300 border border-amber-500/30",
+      dot: "bg-amber-400",
+    },
+  };
+
+  const resolved = styles[status === "off" ? "degraded" : status];
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${resolved.className}`}
+    >
+      <span className={`w-1.5 h-1.5 rounded-full ${resolved.dot}`} />
+      {resolved.label}
+    </span>
   );
 };
 

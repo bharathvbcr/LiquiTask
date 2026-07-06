@@ -10,6 +10,10 @@ vi.mock("../../src/components/InlineEditable", () => ({
   InlineDatePicker: () => <span>Date</span>,
 }));
 
+vi.mock("../../src/components/TimeTracker", () => ({
+  default: () => null,
+}));
+
 describe("TaskCard Features", () => {
   const mockOnMoveTask = vi.fn();
   const mockOnEditTask = vi.fn();
@@ -87,5 +91,16 @@ describe("TaskCard Features", () => {
 
     fireEvent.click(screen.getByLabelText(/Edit task/i));
     expect(mockOnEditTask).toHaveBeenCalled();
+  });
+
+  it("opens quick view in a body portal above the board", async () => {
+    render(<TaskCard {...baseProps} task={mockTask} />);
+
+    fireEvent.click(screen.getByLabelText(/Open task quick view/i));
+
+    const dialog = await screen.findByRole("dialog", { name: /Quick view: Test Task/i });
+    expect(document.body.contains(dialog)).toBe(true);
+    expect(dialog.closest(".fixed.inset-0")).toHaveClass("z-[9990]");
+    expect(screen.getByText("Open Full View")).toBeInTheDocument();
   });
 });

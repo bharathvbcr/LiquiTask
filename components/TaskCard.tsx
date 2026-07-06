@@ -1,68 +1,18 @@
-import {
-  AlignLeft,
-  Calendar,
-  Check,
-  CheckCircle,
-  CheckSquare,
-  ChevronDown,
-  ChevronRight,
-  ChevronUp,
-  Clock,
-  Copy,
-  Edit2,
-  FileText,
-  Folder,
-  GripVertical,
-  Info,
-  Lock,
-  Paperclip,
-  Pencil,
-  Square,
-  Trash2,
-} from "lucide-react";
 import type React from "react";
-import { lazy, memo, Suspense, useEffect, useState } from "react";
-import { InlineDatePicker, InlineEditable, InlineSelect } from "../src/components/InlineEditable";
+import { lazy, memo, Suspense, useState } from "react";
+import { useAgentTaskStatus } from "../src/hooks/useAgentTaskStatus";
+import { useTaskEstimateHint } from "../src/hooks/useEstimateSuggestion";
 import { useTaskCardContextMenu } from "../src/hooks/useTaskCardContextMenu";
-import { getSafeExternalUrl } from "../src/utils/safeUrl";
-import { getDueDateStatus, getPriorityIcon, getProgressStyles } from "../src/utils/taskCardUtils";
-import type { PriorityDefinition, Project, Task } from "../types";
-import { Tooltip } from "./Tooltip";
+import { COLUMN_STATUS } from "../src/constants";
+import { getDueDateStatus } from "../src/utils/taskCardUtils";
+import type { AgentRun, PriorityDefinition, Project, Task } from "../types";
+import { TaskCardAgentReview } from "./taskCard/TaskCardAgentReview";
+import { TaskCardBody } from "./taskCard/TaskCardBody";
+import { TaskCardContextMenu } from "./taskCard/TaskCardContextMenu";
+import { TaskCardFooter } from "./taskCard/TaskCardFooter";
+import { TaskCardHeader } from "./taskCard/TaskCardHeader";
 
-const MarkdownRenderer = lazy(() => import("../src/components/MarkdownRenderer"));
 const TaskQuickView = lazy(() => import("../src/components/TaskQuickView"));
-const TimeTracker = lazy(() => import("../src/components/TimeTracker"));
-
-interface SubtaskTitleInputProps {
-  subtask: { id: string; title: string; completed: boolean };
-  onCommit: (id: string, title: string) => void;
-}
-
-const SubtaskTitleInput: React.FC<SubtaskTitleInputProps> = ({ subtask, onCommit }) => {
-  const [value, setValue] = useState(subtask.title);
-
-  useEffect(() => { setValue(subtask.title); }, [subtask.title]);
-
-  const commit = () => {
-    const trimmed = value.trim();
-    if (trimmed && trimmed !== subtask.title) {
-      onCommit(subtask.id, trimmed);
-    } else {
-      setValue(subtask.title);
-    }
-  };
-
-  return (
-    <input
-      type="text"
-      value={value}
-      onChange={(e) => setValue(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commit(); } }}
-      className={`bg-transparent border-none outline-none text-xs w-full p-0.5 rounded ${subtask.completed ? 'text-slate-400 line-through' : 'text-slate-300'}`}
-    />
-  );
-};
 
 interface TaskCardProps {
   task: Task;
@@ -81,6 +31,12 @@ interface TaskCardProps {
   isFocused?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (taskId: string, shiftKey?: boolean) => void;
+  onApproveAgentWork?: (task: Task, run: AgentRun) => void;
+  onRejectAgentWork?: (task: Task, run: AgentRun, feedback: string) => void;
+  sortableRef?: React.Ref<HTMLDivElement>;
+  sortableStyle?: React.CSSProperties;
+  sortableAttributes?: React.HTMLAttributes<HTMLDivElement>;
+  sortableListeners?: Record<string, unknown>;
 }
 
 export const TaskCard: React.FC<TaskCardProps> = ({
@@ -100,9 +56,26 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   isFocused = false,
   isSelected = false,
   onToggleSelect,
+  onApproveAgentWork,
+  onRejectAgentWork,
+  sortableRef,
+  sortableStyle,
+  sortableAttributes,
+  sortableListeners,
 }) => {
   const [isSubtasksExpanded, setIsSubtasksExpanded] = useState(false);
   const [quickViewPosition, setQuickViewPosition] = useState<{ x: number; y: number } | null>(null);
+  const [rejectFeedback, setRejectFeedback] = useState("");
+  const { isAgentTask, runStatus, completedRun } = useAgentTaskStatus(task.id, task.assignee);
+  const agentWorking = runStatus === "running" || runStatus === "verifying";
+  const estimateHint = useTaskEstimateHint(task, allTasks);
+  const showAgentReview =
+    isAgentTask &&
+    task.status === COLUMN_STATUS.REVIEW &&
+    !agentWorking &&
+    completedRun?.status === "completed" &&
+    onApproveAgentWork &&
+    onRejectAgentWork;
 
   const {
     contextMenuVisible,
@@ -120,15 +93,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     onCopyTask,
     onMoveToWorkspace,
   });
-
-  useEffect(() => {
-    if (!contextMenuVisible) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setContextMenuVisible(false);
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [contextMenuVisible, setContextMenuVisible]);
 
   const handleSubtaskToggle = (e: React.MouseEvent, subtaskId: string) => {
     e.stopPropagation();
@@ -152,8 +116,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   const completedSubtasks = subtasks.filter((s) => s.completed).length;
   const progress = subtasks.length > 0 ? (completedSubtasks / subtasks.length) * 100 : 0;
   const priorityDef = priorities.find((p) => p.id === task.priority) || {
+    id: task.priority,
     label: "Unknown",
     color: "#64748b",
+    level: 0,
     icon: undefined,
   };
 
@@ -174,409 +140,98 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   return (
     <>
       <div
+        ref={sortableRef}
+        style={sortableStyle}
+        {...sortableAttributes}
+        {...sortableListeners}
         role="article"
         aria-label={`Task: ${task.title}`}
         onContextMenu={handleContextMenu}
         className={`
-          liquid-card group relative w-full rounded-2xl ${isCompact ? "p-3.5" : "p-5"} cursor-grab active:cursor-grabbing
+          liquid-card group relative w-full min-w-0 overflow-hidden rounded-2xl ${isCompact ? "p-3.5" : "p-5"} cursor-grab active:cursor-grabbing
           border border-white/10 hover:border-white/20 outline-none
           focus-visible:ring-2 focus-visible:ring-red-500/50
           ${isBlocked ? "border-l-2 border-l-red-500/50" : ""}
           ${isFocused ? "ring-2 ring-red-500/70 shadow-[0_0_20px_rgba(239,68,68,0.4)] scale-[1.02]" : ""}
           ${isSelected ? "ring-2 ring-cyan-400/80 border-cyan-400/50 shadow-[0_0_24px_rgba(34,211,238,0.22)]" : ""}
-          hover:shadow-lg hover:scale-[1.01]
+          hover:shadow-lg
         `}
         tabIndex={0}
       >
-        {/* Header */}
-        <div className={`flex justify-between items-center ${isCompact ? "mb-2" : "mb-3"}`}>
-          <div className="flex items-center gap-2">
-            {onToggleSelect && (
-              <Tooltip content={isSelected ? "Deselect task" : "Select task"} position="top">
-                <button
-                  type="button"
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onToggleSelect(task.id, e.shiftKey);
-                  }}
-                  aria-label={isSelected ? "Deselect task" : "Select task"}
-                  aria-pressed={isSelected}
-                  className={`flex h-7 w-7 items-center justify-center rounded-lg border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 ${
-                    isSelected
-                      ? "border-cyan-400/70 bg-cyan-400/15 text-cyan-200"
-                      : "border-white/10 bg-black/30 text-slate-400 hover:text-white"
-                  }`}
-                >
-                  {isSelected ? <CheckSquare size={14} /> : <Square size={14} />}
-                </button>
-              </Tooltip>
-            )}
-            <div
-              className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-transparent"
-              style={{
-                backgroundColor: `${priorityDef.color}25`,
-                color: priorityDef.color,
-                borderColor: `${priorityDef.color}30`,
-              }}
-            >
-              {priorityDef.icon ? (
-                <span className="opacity-90">{getPriorityIcon(priorityDef.icon)}</span>
-              ) : (
-                <div
-                  className="w-2 h-2 rounded-full"
-                  style={{ backgroundColor: priorityDef.color }}
-                ></div>
-              )}
-              <InlineSelect
-                value={task.priority}
-                options={priorities.map((p) => ({
-                  id: p.id,
-                  label: p.label,
-                  color: p.color,
-                }))}
-                onSave={(np) => onUpdateTask({ ...task, priority: np })}
-              />
-            </div>
-            {isBlocked && (
-              <Tooltip content={`Blocked by: ${blockerIds}`} position="top">
-                <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-red-600/20 text-red-400 border border-red-500/30 text-[10px] font-bold uppercase cursor-help">
-                  <Lock size={10} /> Blocked
-                </div>
-              </Tooltip>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity bg-black/40 rounded-lg p-0.5 border border-white/5 backdrop-blur-sm">
-              <Tooltip content="Edit task" position="top">
-                <button
-                  onClick={() => onEditTask(task)}
-                  aria-label="Edit task"
-                  className="p-2 text-slate-400 hover:text-white rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
-                >
-                  <Pencil size={12} />
-                </button>
-              </Tooltip>
-              <Tooltip content="Quick view" position="top">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setQuickViewPosition({ x: e.clientX + 12, y: e.clientY + 12 });
-                  }}
-                  aria-label="Open task quick view"
-                  className="p-2 text-slate-400 hover:text-white rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
-                >
-                  <Info size={12} />
-                </button>
-              </Tooltip>
-              <Tooltip content="Delete task" position="top">
-                <button
-                  onClick={() => onDeleteTask(task.id)}
-                  aria-label="Delete task"
-                  className="p-2 text-slate-400 hover:text-red-400 rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
-                >
-                  <Trash2 size={12} />
-                </button>
-              </Tooltip>
-            </div>
-            <span className="text-[10px] font-mono text-slate-300 bg-black/30 px-2 py-0.5 rounded border border-white/5">
-              {task.jobId}
-            </span>
-            <GripVertical
-              size={14}
-              className="text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity"
-            />
-          </div>
-        </div>
+        <TaskCardHeader
+          task={task}
+          isCompact={isCompact}
+          priorityDef={priorityDef}
+          priorities={priorities}
+          isBlocked={isBlocked}
+          blockerIds={blockerIds}
+          isSelected={isSelected}
+          onToggleSelect={onToggleSelect}
+          onEditTask={onEditTask}
+          onDeleteTask={onDeleteTask}
+          onUpdateTask={onUpdateTask}
+          onQuickView={setQuickViewPosition}
+        />
 
-        {/* Title & Subtitle */}
-        <div
-          onDoubleClick={() => onEditTask(task)}
-          className={`cursor-text group/title relative ${isCompact ? "mb-1" : "mb-3"}`}
-        >
-          <h3
-            className={`${isCompact ? "text-sm" : "text-lg"} font-bold text-slate-100 leading-tight mb-1 line-clamp-2`}
-          >
-            <InlineEditable
-              value={task.title}
-              onSave={(nt) => onUpdateTask({ ...task, title: nt })}
-              placeholder="Untitled task"
-            />
-            <Edit2
-              size={12}
-              className="inline-block ml-1 opacity-0 group-hover/title:opacity-40 transition-opacity duration-200 text-slate-400"
-            />
-          </h3>
-          {!isCompact && (
-            <p className="text-xs text-slate-400 font-semibold uppercase">
-              <InlineEditable
-                value={task.subtitle ?? ""}
-                onSave={(ns) => onUpdateTask({ ...task, subtitle: ns })}
-                placeholder="Add subtitle..."
-              />
-            </p>
-          )}
-        </div>
+        <TaskCardBody
+          task={task}
+          isCompact={isCompact}
+          isAgentTask={isAgentTask}
+          agentWorking={agentWorking}
+          dueInfo={dueInfo}
+          subtasks={subtasks}
+          completedSubtasks={completedSubtasks}
+          progress={progress}
+          isSubtasksExpanded={isSubtasksExpanded}
+          onToggleSubtasksExpanded={() => setIsSubtasksExpanded(!isSubtasksExpanded)}
+          onEditTask={onEditTask}
+          onUpdateTask={onUpdateTask}
+          onSubtaskToggle={handleSubtaskToggle}
+          onSubtaskTitleChange={handleSubtaskTitleChange}
+        />
 
-        {/* Compact Indicators */}
-        {isCompact && (
-          <div className="flex items-center gap-3 mt-2 text-slate-300">
-            {task.assignee && (
-              <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
-                <div className="w-4 h-4 rounded-full bg-gradient-to-tr from-slate-700 to-slate-900 flex items-center justify-center border border-white/10">
-                  <span className="text-[9px] font-bold">
-                    {task.assignee.charAt(0).toUpperCase()}
-                  </span>
-                </div>
-              </div>
-            )}
-            {dueInfo && (
-              <div className={`flex items-center gap-1 text-[10px] font-medium ${dueInfo.color}`}>
-                <Clock size={10} />
-                <span>
-                  {dueInfo.status === "today" || dueInfo.status === "overdue" ? dueInfo.label : ""}
-                </span>
-              </div>
-            )}
-            <div className="flex items-center gap-2 ml-auto">
-              {task.attachments?.length ? (
-                <span className="flex items-center gap-0.5 text-[10px]">
-                  <Paperclip size={10} />
-                  {task.attachments.length}
-                </span>
-              ) : null}
-              {subtasks.length > 0 && (
-                <span className="flex items-center gap-0.5 text-[10px]">
-                  <CheckSquare size={10} />
-                  {completedSubtasks}/{subtasks.length}
-                </span>
-              )}
-            </div>
-          </div>
+        {!isCompact && (
+          <TaskCardFooter
+            task={task}
+            isCompletedColumn={isCompletedColumn}
+            isAgentTask={isAgentTask}
+            agentWorking={agentWorking}
+            runStatus={runStatus}
+            dueInfo={dueInfo}
+            estimateHint={estimateHint}
+            onMoveTask={onMoveTask}
+            onUpdateTask={onUpdateTask}
+          />
         )}
 
-        {/* Expanded Content */}
-        {!isCompact && (
-          <>
-            {task.summary && (
-              <div className="bg-[#050000]/40 rounded-xl p-3 border border-white/5 mb-3 max-h-32 overflow-y-auto custom-scrollbar group/markdown">
-                <div className="flex items-start gap-2 h-full">
-                  <AlignLeft size={14} className="text-slate-300 mt-1 shrink-0" />
-                  <div className="text-sm text-slate-300 leading-relaxed font-medium w-full markdown-content">
-                    <Suspense fallback={<p className="whitespace-pre-wrap">{task.summary}</p>}>
-                      <MarkdownRenderer content={task.summary} />
-                    </Suspense>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Custom Fields & Attachments (Simplified for brevity) */}
-            <div className="flex flex-wrap gap-2 mb-3">
-              {Object.entries(task.customFieldValues || {}).map(
-                ([key, val]) =>
-                  val && (
-                    <div
-                      key={key}
-                      className="flex items-center gap-1 px-2 py-1 rounded bg-white/5 text-[10px] text-slate-300 border border-white/5"
-                    >
-                      <Info size={10} className="text-slate-300" />
-                      {(() => {
-                        const safeUrl = typeof val === "string" ? getSafeExternalUrl(val) : null;
-                        return safeUrl ? (
-                          <a
-                            href={safeUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-red-400 hover:underline"
-                          >
-                            Link
-                          </a>
-                        ) : (
-                          <span>{val as string}</span>
-                        );
-                      })()}
-                    </div>
-                  ),
-              )}
-            </div>
-
-            {/* Progress */}
-            {subtasks.length > 0 && (
-              <div className="mt-3 mb-4 group/progress" onClick={(e) => e.stopPropagation()}>
-                <div
-                  className="flex justify-between items-center text-[10px] text-slate-300 mb-1.5 font-medium uppercase cursor-pointer"
-                  onClick={() => setIsSubtasksExpanded(!isSubtasksExpanded)}
-                >
-                  <div className="flex items-center gap-1.5">
-                    <CheckSquare size={12} />
-                    <span>Progress</span>
-                    {isSubtasksExpanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span>
-                      {completedSubtasks}/{subtasks.length}
-                    </span>
-                    <span className={progress === 100 ? "text-emerald-400" : ""}>
-                      {Math.round(progress)}%
-                    </span>
-                  </div>
-                </div>
-                <div
-                  className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden border border-white/5 p-[1px] cursor-pointer"
-                  onClick={() => setIsSubtasksExpanded(!isSubtasksExpanded)}
-                >
-                  <div
-                    className={`h-full rounded-full transition-all duration-700 ${getProgressStyles(progress)}`}
-                    style={{ width: `${progress}%` }}
-                  ></div>
-                </div>
-                {isSubtasksExpanded && (
-                  <div className="mt-3 space-y-1 pl-1">
-                    {subtasks.map((s) => (
-                      <div key={s.id} className="flex items-center gap-2">
-                        <button
-                          onClick={(e) => handleSubtaskToggle(e, s.id)}
-                          aria-label={`Toggle subtask ${s.title}`}
-                          className={`w-4 h-4 rounded border flex items-center justify-center ${s.completed ? "bg-emerald-500/20 border-emerald-500 text-emerald-500" : "border-slate-700 bg-black/20 text-transparent"}`}
-                        >
-                          <Check size={10} />
-                        </button>
-                        <SubtaskTitleInput subtask={s} onCommit={handleSubtaskTitleChange} />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Footer */}
-            <div className="mb-3">
-              <Suspense fallback={null}>
-                <TimeTracker
-                  task={task}
-                  isCompact={true}
-                  onSaveTime={(taskId, timeSpent) => {
-                    if (taskId === task.id) {
-                      onUpdateTask({ ...task, timeSpent, updatedAt: new Date() });
-                    }
-                  }}
-                />
-              </Suspense>
-            </div>
-            <div className="flex items-center justify-between mt-auto pt-3 border-t border-white/5">
-              <div className="flex items-center gap-2 text-xs">
-                <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-slate-700 to-slate-900 flex items-center justify-center border border-white/10">
-                  <span className="text-[10px] font-bold">
-                    {task.assignee ? task.assignee.charAt(0).toUpperCase() : "U"}
-                  </span>
-                </div>
-                <InlineEditable
-                  value={task.assignee || ""}
-                  onSave={(na) => onUpdateTask({ ...task, assignee: na })}
-                  placeholder="Unassigned"
-                />
-              </div>
-              <div
-                className={`flex items-center gap-1.5 text-xs font-semibold ${dueInfo?.color || "text-slate-400"}`}
-              >
-                <Calendar size={14} />
-                <InlineDatePicker
-                  value={task.dueDate || null}
-                  onSave={(nd) => onUpdateTask({ ...task, dueDate: nd || undefined })}
-                />
-              </div>
-            </div>
-            {isCompletedColumn && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onMoveTask(task.id, "Delivered");
-                }}
-                className="mt-3 w-full flex items-center justify-center gap-2 bg-emerald-900/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 p-2.5 rounded-xl transition-all"
-              >
-                <CheckCircle size={16} />
-                <span className="text-xs font-bold uppercase">Mark Verified & Close</span>
-              </button>
-            )}
-          </>
+        {showAgentReview && completedRun && onApproveAgentWork && onRejectAgentWork && (
+          <TaskCardAgentReview
+            task={task}
+            completedRun={completedRun}
+            isCompact={isCompact}
+            rejectFeedback={rejectFeedback}
+            onRejectFeedbackChange={setRejectFeedback}
+            onApproveAgentWork={onApproveAgentWork}
+            onRejectAgentWork={onRejectAgentWork}
+          />
         )}
       </div>
 
-      {/* Context Menu */}
-      {contextMenuVisible && (
-        <div
-          role="menu"
-          aria-label="Task actions"
-          className="fixed z-[100] bg-[#1a0a0a] border border-red-500/30 rounded-xl shadow-2xl py-2 min-w-[200px]"
-          style={{
-            left: `${contextMenuPosition.x}px`,
-            top: `${contextMenuPosition.y}px`,
-            transform: "translate(-10px, -10px)",
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {projects.length > 0 && onMoveToWorkspace && (
-            <div
-              className="relative"
-              onMouseEnter={handleWorkspaceSubmenuEnter}
-              onMouseLeave={handleWorkspaceSubmenuLeave}
-            >
-              <button role="menuitem" aria-haspopup="true" aria-expanded={showWorkspaceSubmenu} className="w-full px-4 py-2.5 text-left text-sm text-slate-200 hover:bg-red-500/20 flex items-center justify-between focus:outline-none focus-visible:bg-red-500/20">
-                <div className="flex items-center gap-2">
-                  <Folder size={14} className="text-red-400" />
-                  <span>Move to Workspace</span>
-                </div>
-                <ChevronRight size={14} className="text-slate-300" />
-              </button>
-              {showWorkspaceSubmenu && (
-                <div className="absolute left-full top-0 ml-1 bg-[#1a0a0a] border border-red-500/30 rounded-xl shadow-2xl py-2 min-w-[200px] max-h-[300px] overflow-y-auto">
-                  {projects
-                    .filter((p) => p.id !== task.projectId)
-                    .map((p) => (
-                      <button
-                        key={p.id}
-                        role="menuitem"
-                        onClick={() => handleMoveToWorkspace(p.id)}
-                        className="w-full px-4 py-2.5 text-left text-sm hover:bg-red-500/20 flex items-center gap-2 focus:outline-none focus-visible:bg-red-500/20"
-                      >
-                        <Folder size={14} className="text-red-400" />
-                        <span className="truncate">{p.name}</span>
-                      </button>
-                    ))}
-                </div>
-              )}
-            </div>
-          )}
-          <button
-            role="menuitem"
-            onClick={handleCopyAsJson}
-            className="w-full px-4 py-2.5 text-left text-sm hover:bg-red-500/20 flex items-center gap-2 focus:outline-none focus-visible:bg-red-500/20"
-          >
-            <Copy size={14} className="text-red-400" />
-            <span>Copy as JSON</span>
-          </button>
-          <button
-            role="menuitem"
-            onClick={async () => {
-              try {
-                const { templateService } = await import("../src/services/templateService");
-                templateService.saveAsTemplate(task, `Template: ${task.title}`);
-                onCopyTask?.("Task saved as template");
-              } catch {
-                onCopyTask?.("Failed to save template");
-              } finally {
-                setContextMenuVisible(false);
-              }
-            }}
-            className="w-full px-4 py-2.5 text-left text-sm hover:bg-red-500/20 flex items-center gap-2 focus:outline-none focus-visible:bg-red-500/20"
-          >
-            <FileText size={14} className="text-red-400" />
-            <span>Save as Template</span>
-          </button>
-        </div>
-      )}
+      <TaskCardContextMenu
+        visible={contextMenuVisible}
+        position={contextMenuPosition}
+        showWorkspaceSubmenu={showWorkspaceSubmenu}
+        task={task}
+        projects={projects}
+        onMoveToWorkspace={onMoveToWorkspace}
+        onCopyTask={onCopyTask}
+        onClose={() => setContextMenuVisible(false)}
+        onWorkspaceSubmenuEnter={handleWorkspaceSubmenuEnter}
+        onWorkspaceSubmenuLeave={handleWorkspaceSubmenuLeave}
+        onCopyAsJson={handleCopyAsJson}
+        onMoveToWorkspaceSelect={handleMoveToWorkspace}
+      />
+
       {quickViewPosition && (
         <Suspense fallback={null}>
           <TaskQuickView

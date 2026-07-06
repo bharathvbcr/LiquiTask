@@ -1,6 +1,7 @@
 import { X } from "lucide-react";
 import type React from "react";
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useFocusTrap } from "../src/hooks/useFocusTrap";
 import { acquireScrollLock, releaseScrollLock } from "../src/utils/scrollLock";
 import { Tooltip } from "./Tooltip";
@@ -57,7 +58,7 @@ export const ModalWrapper: React.FC<ModalWrapperProps> = ({
     full: "max-w-full mx-4",
   };
 
-  return (
+  const modalContent = (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
@@ -114,4 +115,6 @@ export const ModalWrapper: React.FC<ModalWrapperProps> = ({
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 };

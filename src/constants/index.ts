@@ -31,6 +31,13 @@ export const STORAGE_KEYS = {
   ENCRYPTION_AT_REST: "liquitask-encryption-at-rest",
   WEB_ENCRYPTION_SALT: "liquitask-web-encryption-salt",
   WEB_ENCRYPTION_VERIFIER: "liquitask-web-encryption-verifier",
+  AGENTS: "liquitask-agents",
+  AGENT_RUNS: "liquitask-agent-runs",
+  AGENT_SKILLS: "liquitask-agent-skills",
+  /** When true, agent permission prompts are auto-approved without user dialog. */
+  AGENT_AUTO_APPROVE_PERMISSIONS: "liquitask-agent-auto-approve-permissions",
+  GITHUB_SYNC: "liquitask-github-sync",
+  AGENT_STANDUP_DISMISSED: "liquitask-agent-standup-dismissed",
 } as const;
 
 export const FEATURE_FLAGS = {
@@ -48,6 +55,7 @@ export const DEFAULT_COLUMNS = [
     isCompleted: true,
     wipLimit: 0,
   },
+  { id: "Review", title: "Review", color: "#f59e0b", wipLimit: 5 },
   { id: "Delivered", title: "Delivered", color: "#a855f7", wipLimit: 0 },
 ] as const;
 
@@ -76,6 +84,7 @@ export const COLUMN_STATUS = {
   IN_PROGRESS: "InProgress",
   COMPLETED: "Completed",
   DELIVERED: "Delivered",
+  REVIEW: "Review",
 } as const;
 
 // Link types

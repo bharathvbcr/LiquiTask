@@ -18,6 +18,16 @@ describe("StorageService", () => {
     expect(val).toBe("default");
   });
 
+  it("should not parse encrypted localStorage envelopes in synchronous get", () => {
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_PROJECT, "LTENC1:abc");
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const val = storageService.get(STORAGE_KEYS.ACTIVE_PROJECT, "default");
+
+    expect(val).toBe("default");
+    expect(warnSpy).toHaveBeenCalled();
+  });
+
   it("should set and get values from localStorage", () => {
     storageService.set("test-key", { foo: "bar" });
     expect(localStorage.getItem("test-key")).toBe(JSON.stringify({ foo: "bar" }));

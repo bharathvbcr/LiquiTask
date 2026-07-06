@@ -1,5 +1,6 @@
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
+import { Popover } from "./common/Popover";
 
 interface InlineEditableProps {
   value: string;
@@ -76,7 +77,6 @@ export const InlineEditable: React.FC<InlineEditableProps> = ({
   };
 
   const handleBlur = () => {
-    // Delay to allow click events to fire first
     setTimeout(() => {
       if (!savedRef.current) {
         handleSave();
@@ -94,9 +94,10 @@ export const InlineEditable: React.FC<InlineEditableProps> = ({
         onChange={(e) => setEditValue(e.target.value)}
         onKeyDown={handleKeyDown}
         onBlur={handleBlur}
+        onPointerDown={(e) => e.stopPropagation()}
         placeholder={placeholder}
-        className={`liquid-input rounded-xl px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-red-500/50 ${className}`}
-        style={{ minWidth: "120px", minHeight: multiline ? "80px" : "auto" }}
+        className={`liquid-input w-full max-w-full min-w-0 rounded-xl px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-red-500/50 ${className}`}
+        style={{ minHeight: multiline ? "80px" : "auto" }}
       />
     );
   }
@@ -105,8 +106,9 @@ export const InlineEditable: React.FC<InlineEditableProps> = ({
     <span
       onClick={(e) => { e.stopPropagation(); handleStartEdit(); }}
       onDoubleClick={(e) => e.stopPropagation()}
-      className={`cursor-text hover:bg-white/5 rounded px-1 py-0.5 transition-colors ${className}`}
-      title="Click to edit"
+      onPointerDown={(e) => e.stopPropagation()}
+      className={`block min-w-0 max-w-full truncate cursor-text hover:bg-white/5 rounded px-1 py-0.5 transition-colors ${className}`}
+      title={value || placeholder}
     >
       {value || <span className="text-slate-500 italic">{placeholder}</span>}
     </span>
@@ -127,20 +129,6 @@ export const InlineSelect: React.FC<InlineSelectProps> = ({
   className = "",
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [isOpen]);
 
   const currentOption = options.find((opt) => opt.id === value) ?? options[0] ?? { id: '', label: '—', color: undefined };
 
@@ -152,33 +140,53 @@ export const InlineSelect: React.FC<InlineSelectProps> = ({
   };
 
   return (
-    <div ref={containerRef} className={`relative ${className}`}>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-white/10 transition-colors cursor-pointer"
-        style={currentOption.color ? { color: currentOption.color } : {}}
+    <Popover
+      open={isOpen}
+      onOpenChange={setIsOpen}
+      className={className}
+      contentClassName="min-w-[150px]"
+      trigger={
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsOpen(!isOpen);
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          aria-haspopup="listbox"
+          aria-expanded={isOpen}
+          className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-white/10 transition-colors cursor-pointer"
+          style={currentOption.color ? { color: currentOption.color } : {}}
+        >
+          <span className="text-xs font-medium">{currentOption.label}</span>
+          <span className="text-[10px] opacity-50">▼</span>
+        </button>
+      }
+    >
+      <div
+        role="listbox"
+        className="liquid-glass max-h-[220px] overflow-y-auto rounded-xl p-1 shadow-2xl animate-in fade-in zoom-in-95 duration-200"
       >
-        <span className="text-xs font-medium">{currentOption.label}</span>
-        <span className="text-[10px] opacity-50">▼</span>
-      </button>
-
-      {isOpen && (
-        <div className="absolute top-full left-0 mt-2 liquid-glass z-50 min-w-[150px] max-h-[220px] overflow-y-auto rounded-xl p-1 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-          {options.map((option) => (
-            <button
-              key={option.id}
-              onClick={() => handleSelect(option.id)}
-              className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-white/10 rounded transition-colors text-left ${
-                option.id === value ? "bg-red-500/20" : ""
-              }`}
-              style={option.color ? { color: option.color } : {}}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+        {options.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            role="option"
+            aria-selected={option.id === value}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleSelect(option.id);
+            }}
+            className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-white/10 rounded transition-colors text-left ${
+              option.id === value ? "bg-red-500/20" : ""
+            }`}
+            style={option.color ? { color: option.color } : {}}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </Popover>
   );
 };
 
@@ -195,20 +203,6 @@ export const InlineDatePicker: React.FC<InlineDatePickerProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [tempDate, setTempDate] = useState(value ? value.toISOString().split("T")[0] : "");
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [isOpen]);
 
   useEffect(() => {
     setTempDate(value ? value.toISOString().split("T")[0] : "");
@@ -235,36 +229,53 @@ export const InlineDatePicker: React.FC<InlineDatePickerProps> = ({
   };
 
   return (
-    <div ref={containerRef} className={`relative ${className}`}>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-white/10 transition-colors cursor-pointer text-xs"
+    <Popover
+      open={isOpen}
+      onOpenChange={setIsOpen}
+      className={className}
+      placement="bottom-end"
+      trigger={
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsOpen(!isOpen);
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          aria-haspopup="dialog"
+          aria-expanded={isOpen}
+          className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-white/10 transition-colors cursor-pointer text-xs"
+        >
+          <span>{formatDate(value)}</span>
+          <span className="text-[10px] opacity-50">▼</span>
+        </button>
+      }
+    >
+      <div
+        role="dialog"
+        aria-label="Due date picker"
+        className="liquid-glass rounded-xl shadow-2xl p-4 animate-in fade-in zoom-in-95 duration-200"
       >
-        <span>{formatDate(value)}</span>
-        <span className="text-[10px] opacity-50">▼</span>
-      </button>
-
-      {isOpen && (
-        <div className="absolute top-full left-0 mt-2 liquid-glass rounded-xl shadow-2xl z-50 p-4 animate-in fade-in zoom-in-95 duration-200">
-          <input
-            type="date"
-            value={tempDate}
-            onChange={handleDateChange}
-            className="liquid-input rounded-lg px-3 py-2 text-sm text-slate-200 [color-scheme:dark] outline-none w-full"
-            aria-label="Select due date"
-            title="Select due date"
-          />
-          <button
-            onClick={() => {
-              onSave(null);
-              setIsOpen(false);
-            }}
-            className="w-full mt-2 px-2 py-1 text-xs text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
-          >
-            Clear Date
-          </button>
-        </div>
-      )}
-    </div>
+        <input
+          type="date"
+          value={tempDate}
+          onChange={handleDateChange}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="liquid-input rounded-lg px-3 py-2 text-sm text-slate-200 [color-scheme:dark] outline-none w-full"
+          aria-label="Select due date"
+          title="Select due date"
+        />
+        <button
+          type="button"
+          onClick={() => {
+            onSave(null);
+            setIsOpen(false);
+          }}
+          className="w-full mt-2 px-2 py-1 text-xs text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
+        >
+          Clear Date
+        </button>
+      </div>
+    </Popover>
   );
 };

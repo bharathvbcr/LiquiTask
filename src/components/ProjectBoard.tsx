@@ -6,7 +6,8 @@ import {
 import type React from "react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef } from "react";
 
-import type { BoardColumn, PriorityDefinition, Project, Task } from "../../types";
+import type { AgentProfile, AgentRun, BoardColumn, PriorityDefinition, Project, Task } from "../../types";
+import { AgentDropTray } from "./agents/AgentDropTray";
 import { useBoardDnDController } from "../hooks/useBoardDnDController";
 import { useBoardKeyboardNav } from "../hooks/useBoardKeyboardNav";
 import { useBulkSelection } from "../hooks/useBulkSelection";
@@ -43,6 +44,12 @@ interface ProjectBoardProps {
   onMoveToWorkspace?: (taskId: string, projectId: string) => void;
   onMoveBlocked?: (message: string) => void;
   addToast?: (message: string, type: "success" | "error" | "info") => void;
+  /** Agent teammates available as drag-and-drop handoff targets. */
+  agents?: AgentProfile[];
+  /** Called when a card is dropped on an agent chip. */
+  onAssignTaskToAgent?: (task: Task, agentId: string) => void;
+  onApproveAgentWork?: (task: Task, run: AgentRun) => void;
+  onRejectAgentWork?: (task: Task, run: AgentRun, feedback: string) => void;
 }
 
 const BoardLoadingFallback: React.FC = () => (
@@ -97,6 +104,10 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = (props) => {
     projects = [],
     onMoveToWorkspace,
     addToast,
+    agents = [],
+    onAssignTaskToAgent,
+    onApproveAgentWork,
+    onRejectAgentWork,
   } = props;
 
   const boardRef = useRef<HTMLDivElement>(null);
@@ -150,6 +161,7 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = (props) => {
     canMoveTask,
     getTasksByContext,
     showToast,
+    onAssignToAgent: onAssignTaskToAgent,
   });
 
   const {
@@ -181,6 +193,11 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = (props) => {
   const activeTask = activeDrag?.type === "task" ? activeDrag.data : null;
   const activeColumn = activeDrag?.type === "column" ? activeDrag.data : null;
 
+  const agentTray =
+    agents.length > 0 && onAssignTaskToAgent ? (
+      <AgentDropTray agents={agents} visible={activeTask !== null} />
+    ) : undefined;
+
   const commonProps = {
     sensors,
     collisionDetection: kanbanCollisionDetection,
@@ -210,6 +227,9 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = (props) => {
     projectName,
     projects,
     onMoveToWorkspace,
+    agentTray,
+    onApproveAgentWork,
+    onRejectAgentWork,
   };
 
   const updateSelectedTasks = useCallback(

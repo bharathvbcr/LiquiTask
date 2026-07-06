@@ -1,0 +1,11 @@
+sentence-transformers>=3.0.0
+faiss-cpu>=1.8.0
+numpy>=1.26.0
+httpx>=0.27.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+pydantic>=2.0.0
+psutil>=5.9.0
+# Optional: faiss-gpu>=1.8.0  # CUDA FAISS
+# Optional: chromadb>=0.5.0   # alternate vector store (FAISS is default)
+# Optional: onnxruntime>=1.18.0

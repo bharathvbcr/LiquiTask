@@ -13,7 +13,7 @@ import { horizontalListSortingStrategy, SortableContext } from "@dnd-kit/sortabl
 import type React from "react";
 import { createPortal } from "react-dom";
 import { TaskCard } from "../../../components/TaskCard";
-import type { BoardColumn, PriorityDefinition, Project, Task } from "../../../types";
+import type { AgentRun, BoardColumn, PriorityDefinition, Project, Task } from "../../../types";
 import { SortableColumn } from "./SortableColumn";
 
 interface StandardBoardViewProps {
@@ -53,6 +53,10 @@ interface StandardBoardViewProps {
   projectName?: string;
   projects?: Project[];
   onMoveToWorkspace?: (taskId: string, projectId: string) => void;
+  /** Agent handoff chips shown while a card is dragged (rendered inside DndContext). */
+  agentTray?: React.ReactNode;
+  onApproveAgentWork?: (task: Task, run: AgentRun) => void;
+  onRejectAgentWork?: (task: Task, run: AgentRun, feedback: string) => void;
 }
 
 const StandardBoardView: React.FC<StandardBoardViewProps> = ({
@@ -87,6 +91,9 @@ const StandardBoardView: React.FC<StandardBoardViewProps> = ({
   projectName,
   projects = [],
   onMoveToWorkspace,
+  agentTray,
+  onApproveAgentWork,
+  onRejectAgentWork,
 }) => {
   return (
     <DndContext
@@ -128,6 +135,8 @@ const StandardBoardView: React.FC<StandardBoardViewProps> = ({
                   focusedTaskId={focusedTaskId}
                   selectedTaskIds={selectedTaskIds}
                   onToggleTaskSelection={onToggleTaskSelection}
+                  onApproveAgentWork={onApproveAgentWork}
+                  onRejectAgentWork={onRejectAgentWork}
                 />
               );
             })}
@@ -166,6 +175,7 @@ const StandardBoardView: React.FC<StandardBoardViewProps> = ({
         </DragOverlay>,
         document.body,
       )}
+      {agentTray && createPortal(agentTray, document.body)}
     </DndContext>
   );
 };

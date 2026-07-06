@@ -36,6 +36,12 @@
     "targets": [
       "nsis"
     ],
+    "externalBin": [
+      "binaries/semantic-layer"
+    ],
+    "resources": {
+      "../scripts/liquitask-mcp-bridge.mjs": "scripts/liquitask-mcp-bridge.mjs"
+    },
     "category": "Productivity",
     "icon": [
       "icons/32x32.png",

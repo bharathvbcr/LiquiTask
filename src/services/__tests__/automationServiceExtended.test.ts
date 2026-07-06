@@ -34,7 +34,7 @@ describe("AutomationService Extended", () => {
     expect(service.getRules()).toHaveLength(0);
   });
 
-  it("processes actions correctly: setField, addTag, removeTag, moveToColumn", () => {
+  it("processes actions correctly: setField, addTag, removeTag, moveToColumn", async () => {
     const rule: AutomationRule = {
       id: "r1",
       name: "R1",
@@ -50,7 +50,7 @@ describe("AutomationService Extended", () => {
     };
     service.loadRules([rule]);
 
-    const updates = service.processTaskEvent("onCreate", { newTask: mockTask }, [mockTask]);
+    const updates = await service.processTaskEvent("onCreate", { newTask: mockTask }, [mockTask]);
     expect(updates?.assignee).toBe("Bob");
     expect(updates?.tags).toContain("new");
     expect(updates?.tags).not.toContain("old");
@@ -58,7 +58,7 @@ describe("AutomationService Extended", () => {
     expect(updates?.priority).toBe("high");
   });
 
-  it("handles notifications", () => {
+  it("handles notifications", async () => {
     const mockNotify = vi.fn();
     const rule: AutomationRule = {
       id: "r1",
@@ -69,7 +69,7 @@ describe("AutomationService Extended", () => {
     };
     service.loadRules([rule]);
 
-    service.processTaskEvent("onCreate", { newTask: mockTask }, [mockTask], {
+    await service.processTaskEvent("onCreate", { newTask: mockTask }, [mockTask], {
       onNotify: mockNotify,
     });
     expect(mockNotify).toHaveBeenCalledWith("Hello");
@@ -94,7 +94,7 @@ describe("AutomationService Extended", () => {
       expect((service as any).isRuleDue(rule, wrongTime)).toBe(false);
     });
 
-    it("scheduler triggers updates", () => {
+    it("scheduler triggers updates", async () => {
       vi.useFakeTimers();
       const mockApply = vi.fn();
       const rule: AutomationRule = {
@@ -119,7 +119,7 @@ describe("AutomationService Extended", () => {
       // Advance by 2 seconds to reach 10:00:01
       // The interval check runs every 60s. We need to make sure the interval callback sees 10:00.
 
-      vi.advanceTimersByTime(60000);
+      await vi.advanceTimersByTimeAsync(60000);
 
       // Since interval runs every 60s, if it started at 09:59:59,
       // the first call is at 10:00:59. At that time, isRuleDue(10:00) should be true (if only HH:mm checked).

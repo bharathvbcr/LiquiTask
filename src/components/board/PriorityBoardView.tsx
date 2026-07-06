@@ -14,7 +14,7 @@ import { ClipboardList, Inbox } from "lucide-react";
 import type React from "react";
 import { createPortal } from "react-dom";
 import { TaskCard } from "../../../components/TaskCard";
-import type { BoardColumn, PriorityDefinition, Project, Task } from "../../../types";
+import type { AgentRun, BoardColumn, PriorityDefinition, Project, Task } from "../../../types";
 import { DroppableCell } from "./DroppableCell";
 import { SortableTask } from "./SortableTask";
 
@@ -52,6 +52,10 @@ interface PriorityBoardViewProps {
   projectName?: string;
   projects?: Project[];
   onMoveToWorkspace?: (taskId: string, projectId: string) => void;
+  /** Agent handoff chips shown while a card is dragged (rendered inside DndContext). */
+  agentTray?: React.ReactNode;
+  onApproveAgentWork?: (task: Task, run: AgentRun) => void;
+  onRejectAgentWork?: (task: Task, run: AgentRun, feedback: string) => void;
 }
 
 const getDropZoneId = (priorityId: string, statusId: string) => `${priorityId}::${statusId}`;
@@ -85,6 +89,9 @@ const PriorityBoardView: React.FC<PriorityBoardViewProps> = ({
   projectName,
   projects = [],
   onMoveToWorkspace,
+  agentTray,
+  onApproveAgentWork,
+  onRejectAgentWork,
 }) => {
   return (
     <DndContext
@@ -176,6 +183,8 @@ const PriorityBoardView: React.FC<PriorityBoardViewProps> = ({
                           isFocused={task.id === focusedTaskId}
                           isSelected={selectedTaskIds?.has(task.id) ?? false}
                           onToggleSelect={onToggleTaskSelection}
+                          onApproveAgentWork={onApproveAgentWork}
+                          onRejectAgentWork={onRejectAgentWork}
                         />
                       ))}
                     </SortableContext>
@@ -231,6 +240,7 @@ const PriorityBoardView: React.FC<PriorityBoardViewProps> = ({
         </DragOverlay>,
         document.body,
       )}
+      {agentTray && createPortal(agentTray, document.body)}
     </DndContext>
   );
 };

@@ -80,7 +80,7 @@ describe("RecurringTaskService Extended", () => {
   });
 
   describe("checkAndGenerate", () => {
-    it("should generate task if nextOccurrence has passed", () => {
+    it("should generate task if nextOccurrence has passed", async () => {
       const tasks: Task[] = [
         {
           id: "t1",
@@ -96,8 +96,9 @@ describe("RecurringTaskService Extended", () => {
         } as any,
       ];
 
-      // Access private method via cast
-      (service as any).checkAndGenerate(tasks);
+      // Access private method via cast. Now async because occurrence math
+      // routes through the Rust core (falls back to JS off-Tauri).
+      await (service as any).checkAndGenerate(tasks);
 
       expect(mockOnCreateTask).toHaveBeenCalled();
       expect(mockOnUpdateTask).toHaveBeenCalledWith(

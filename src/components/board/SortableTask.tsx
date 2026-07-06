@@ -2,7 +2,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type React from "react";
 import { TaskCard } from "../../../components/TaskCard";
-import type { PriorityDefinition, Project, Task } from "../../../types";
+import type { AgentRun, PriorityDefinition, Project, Task } from "../../../types";
 
 interface SortableTaskProps {
   task: Task;
@@ -21,6 +21,8 @@ interface SortableTaskProps {
   isFocused?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (taskId: string, shiftKey?: boolean) => void;
+  onApproveAgentWork?: (task: Task, run: AgentRun) => void;
+  onRejectAgentWork?: (task: Task, run: AgentRun, feedback: string) => void;
 }
 
 export const SortableTask: React.FC<SortableTaskProps> = ({
@@ -39,7 +41,7 @@ export const SortableTask: React.FC<SortableTaskProps> = ({
     data: { type: "task", task },
   });
 
-  const style: React.CSSProperties = {
+  const sortableStyle: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.4 : 1,
@@ -47,25 +49,20 @@ export const SortableTask: React.FC<SortableTaskProps> = ({
   };
 
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-      data-task-id={task.id}
-      className={isFocused ? "ring-2 ring-red-500/70 rounded-lg" : ""}
-    >
-      <TaskCard
-        task={task}
-        {...props}
-        onCopyTask={onCopyTask}
-        projectName={projectName}
-        projects={projects}
-        onMoveToWorkspace={onMoveToWorkspace}
-        isFocused={isFocused}
-        isSelected={isSelected}
-        onToggleSelect={onToggleSelect}
-      />
-    </div>
+    <TaskCard
+      task={task}
+      {...props}
+      onCopyTask={onCopyTask}
+      projectName={projectName}
+      projects={projects}
+      onMoveToWorkspace={onMoveToWorkspace}
+      isFocused={isFocused}
+      isSelected={isSelected}
+      onToggleSelect={onToggleSelect}
+      sortableRef={setNodeRef}
+      sortableStyle={sortableStyle}
+      sortableAttributes={attributes}
+      sortableListeners={listeners}
+    />
   );
 };

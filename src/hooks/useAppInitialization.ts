@@ -12,13 +12,15 @@ import type {
   TaskTemplate,
   ToastType,
 } from "../../types";
-import { STORAGE_KEYS } from "../constants";
+import { COLUMN_STATUS, STORAGE_KEYS } from "../constants";
 import { archiveService, loadArchiveSettings } from "../services/archiveService";
-import { bootstrapEncryptionAtRest } from "../services/encryptionSetup";
+import { bootstrapEncryptionAtRest, isEncryptedStorageAccessible } from "../services/encryptionSetup";
 import type { AutomationRule, AutomationTrigger, TaskContext } from "../services/automationService";
 import { indexedDBService } from "../services/indexedDBService";
 import storageService from "../services/storageService";
+import { semanticLayerService } from "../services/semanticLayerService";
 import { getBacklogColumnId, getCompletedColumnIds, isTaskComplete } from "../utils/taskUtils";
+import { shouldRunAgentOnRecurrence } from "../services/agents/agentRecurrence";
 import type { FilterGroup } from "../types/queryTypes";
 
 type CurrentView = "project" | "dashboard" | "gantt" | "archive";
@@ -187,12 +189,22 @@ export const useAppInitialization = ({
       }
 
       try {
-        await archiveService.initialize();
-        if (indexedDBService.isAvailable()) {
-          const archiveSettings = loadArchiveSettings();
-          indexedDBService
-            .purgeOldArchivedTasks(archiveSettings.retentionDays)
-            .catch(console.error);
+        await semanticLayerService.initialize();
+        semanticLayerService.startHealthMonitor();
+      } catch (error) {
+        console.warn("[SemanticLayer] Initialization failed:", error);
+      }
+
+      try {
+        const storageAccessible = await isEncryptedStorageAccessible();
+        if (storageAccessible) {
+          await archiveService.initialize();
+          if (indexedDBService.isAvailable()) {
+            const archiveSettings = loadArchiveSettings();
+            indexedDBService
+              .purgeOldArchivedTasks(archiveSettings.retentionDays)
+              .catch(console.error);
+          }
         }
       } catch (err) {
         console.warn('[Storage] Archive service init failed, continuing without archive:', err);
@@ -201,9 +213,10 @@ export const useAppInitialization = ({
       const data = storageService.getAllData();
 
       if (data.columns) {
-        setColumns(data.columns);
+        const cols = ensureReviewColumn(data.columns);
+        setColumns(cols);
         if (indexedDBService.isAvailable())
-          indexedDBService.saveColumns(data.columns).catch(console.error);
+          indexedDBService.saveColumns(cols).catch(console.error);
       }
       if (data.projectTypes) setProjectTypes(data.projectTypes);
       if (data.priorities) {
@@ -393,6 +406,18 @@ export const useAppInitialization = ({
               });
             },
             getDefaultStatus: () => getBacklogColumnId(columnsRef.current),
+            onAgentRecurringTask: (newTask: Task) => {
+              void import("../services/agents/agentService").then(({ default: agentService }) => {
+                void import("../services/agents/agentRunService").then(
+                  ({ default: agentRunService }) => {
+                    const agent = agentService.getAgentByAssignee(newTask.assignee);
+                    if (agent && shouldRunAgentOnRecurrence(agent)) {
+                      void agentRunService.assign(newTask, agent);
+                    }
+                  },
+                );
+              });
+            },
           });
           service = getRecurringTaskService();
         }
@@ -407,4 +432,27 @@ export const useAppInitialization = ({
       recurringTaskServiceRef.current?.stop();
     };
   }, [addToast, pushUndo, setTasks, recurringTaskServiceRef, searchIndexServiceRef]);
+
+  useEffect(() => {
+    return () => {
+      semanticLayerService.stopHealthMonitor();
+      void semanticLayerService.shutdown();
+    };
+  }, []);
 };
+
+/** Ensure the Review column exists for agent approval workflow (idempotent). */
+function ensureReviewColumn(columns: BoardColumn[]): BoardColumn[] {
+  if (columns.some((c) => c.id === COLUMN_STATUS.REVIEW)) return columns;
+  const deliveredIdx = columns.findIndex((c) => c.id === COLUMN_STATUS.DELIVERED);
+  const reviewCol: BoardColumn = {
+    id: COLUMN_STATUS.REVIEW,
+    title: "Review",
+    color: "#f59e0b",
+    wipLimit: 5,
+  };
+  if (deliveredIdx >= 0) {
+    return [...columns.slice(0, deliveredIdx), reviewCol, ...columns.slice(deliveredIdx)];
+  }
+  return [...columns, reviewCol];
+}

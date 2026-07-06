@@ -1,0 +1,20 @@
+[package]
+name = "liquitask-core"
+version = "2.6.1"
+edition = "2021"
+rust-version = "1.77"
+description = "Pure, framework-free business logic for LiquiTask (ported from src/services/*.ts). No Tauri, no I/O, no clock — fully unit-testable."
+license = "MIT"
+
+# IMPORTANT: keep this crate dependency-light and platform-agnostic.
+# Only serde/serde_json (already in the workspace lockfile) so it compiles
+# anywhere WITHOUT system libraries — including CI and sandboxes that cannot
+# build the full Tauri crate. All time is passed in as epoch-millis params;
+# never read the clock here.
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[lib]
+name = "liquitask_core"
+path = "src/lib.rs"

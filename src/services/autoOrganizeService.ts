@@ -11,6 +11,8 @@ import type {
   Task,
 } from "../../types";
 import { STORAGE_KEYS } from "../constants";
+import { toCoreTask } from "../runtime/coreDto";
+import { callNative } from "../runtime/runtimeEnvironment";
 import { aiService } from "./aiService";
 import storageService from "./storageService";
 
@@ -35,16 +37,41 @@ class AutoOrganizeService {
     return aiService.getAutoOrganizeConfig();
   }
 
-  private filterTasks(allTasks: Task[]): Task[] {
+  /**
+   * Pure pre-filter: exclude configured project ids, then cap to the batch size.
+   *
+   * The kept-id computation is delegated to the `liquitask-core` Rust crate via
+   * `autoorg_filter_task_ids` (desktop) and falls back to the identical JS on
+   * the web/PWA build. Rust returns only the ids; we re-hydrate them back into
+   * `Task[]` here so the public shape is unchanged.
+   */
+  private async filterTasks(allTasks: Task[]): Promise<Task[]> {
     const config = this.getConfig();
-    let filtered = allTasks;
-    if (config.excludedProjectIds.length > 0) {
-      filtered = filtered.filter((t) => !config.excludedProjectIds.includes(t.projectId));
-    }
-    if (filtered.length > config.maxTasksPerBatch) {
-      filtered = filtered.slice(0, config.maxTasksPerBatch);
-    }
-    return filtered;
+
+    const jsFilterIds = (): string[] => {
+      let filtered = allTasks;
+      if (config.excludedProjectIds.length > 0) {
+        filtered = filtered.filter((t) => !config.excludedProjectIds.includes(t.projectId));
+      }
+      if (filtered.length > config.maxTasksPerBatch) {
+        filtered = filtered.slice(0, config.maxTasksPerBatch);
+      }
+      return filtered.map((t) => t.id);
+    };
+
+    const keptIds = await callNative<string[]>(
+      "autoorg_filter_task_ids",
+      {
+        tasks: allTasks.map(toCoreTask),
+        excludedProjectIds: config.excludedProjectIds,
+        maxTasksPerBatch: config.maxTasksPerBatch,
+      },
+      jsFilterIds,
+    );
+
+    // Re-hydrate ids -> Task[] preserving the returned order.
+    const byId = new Map(allTasks.map((t) => [t.id, t]));
+    return keptIds.map((id) => byId.get(id)).filter((t): t is Task => t !== undefined);
   }
 
   async runAutoOrganize(
@@ -54,7 +81,7 @@ class AutoOrganizeService {
     const startTime = Date.now();
     const config = this.getConfig();
     const context = this.getContext();
-    const tasks = this.filterTasks(allTasks);
+    const tasks = await this.filterTasks(allTasks);
     const changes: AutoOrganizeChange[] = [];
 
     // Define phases grouped by independence
@@ -139,33 +166,52 @@ class AutoOrganizeService {
     const changes: AutoOrganizeChange[] = [];
     if (tasks.length < 2) return changes;
 
-    const taskPairs: Array<{ task1: Task; task2: Task }> = [];
-    const titleIndex = new Map<string, string[]>();
-
-    for (const task of tasks) {
-      const words = task.title
-        .toLowerCase()
-        .split(/\s+/)
-        .filter((w) => w.length > 2);
-      for (const word of words) {
-        if (!titleIndex.has(word)) titleIndex.set(word, []);
-        titleIndex.get(word)?.push(task.id);
+    // Candidate-pair generation (the deterministic step BEFORE aiService) is
+    // delegated to the `liquitask-core` Rust crate via
+    // `autoorg_dedup_candidate_pairs`, with the identical JS as web fallback.
+    // Rust returns unique unordered id-pairs; we map them back to task refs.
+    const jsCandidatePairs = (): Array<[string, string]> => {
+      const titleIndex = new Map<string, string[]>();
+      for (const task of tasks) {
+        const words = task.title
+          .toLowerCase()
+          .split(/\s+/)
+          .filter((w) => w.length > 2);
+        for (const word of words) {
+          if (!titleIndex.has(word)) titleIndex.set(word, []);
+          titleIndex.get(word)?.push(task.id);
+        }
       }
-    }
 
-    const pairSet = new Set<string>();
-    for (const [, ids] of titleIndex) {
-      for (let i = 0; i < ids.length; i++) {
-        for (let j = i + 1; j < ids.length; j++) {
-          const key = [ids[i], ids[j]].sort().join("-");
-          if (!pairSet.has(key)) {
-            pairSet.add(key);
-            const t1 = tasks.find((t) => t.id === ids[i]);
-            const t2 = tasks.find((t) => t.id === ids[j]);
-            if (t1 && t2) taskPairs.push({ task1: t1, task2: t2 });
+      const pairSet = new Set<string>();
+      const out: Array<[string, string]> = [];
+      for (const [, ids] of titleIndex) {
+        for (let i = 0; i < ids.length; i++) {
+          for (let j = i + 1; j < ids.length; j++) {
+            const sorted = [ids[i], ids[j]].sort();
+            const key = sorted.join("-");
+            if (!pairSet.has(key)) {
+              pairSet.add(key);
+              out.push([sorted[0], sorted[1]]);
+            }
           }
         }
       }
+      return out;
+    };
+
+    const candidateIdPairs = await callNative<Array<[string, string]>>(
+      "autoorg_dedup_candidate_pairs",
+      { tasks: tasks.map(toCoreTask) },
+      jsCandidatePairs,
+    );
+
+    const taskById = new Map(tasks.map((t) => [t.id, t]));
+    const taskPairs: Array<{ task1: Task; task2: Task }> = [];
+    for (const [id1, id2] of candidateIdPairs) {
+      const t1 = taskById.get(id1);
+      const t2 = taskById.get(id2);
+      if (t1 && t2) taskPairs.push({ task1: t1, task2: t2 });
     }
 
     if (taskPairs.length === 0) return changes;
@@ -536,16 +582,25 @@ class AutoOrganizeService {
 
           case "tag-consolidate":
             if (change.relatedTaskIds) {
+              const before = change.before.tags as string[];
+              const suggested = (change.after.tags as string[])[0];
               for (const taskId of [change.taskId, ...change.relatedTaskIds]) {
                 // Use the in-memory map instead of re-reading from storage (fixes issues #2 and #3)
                 const task = taskMap.get(taskId);
                 if (task) {
-                  const newTags = task.tags.map((t) =>
-                    (change.before.tags as string[]).includes(t)
-                      ? (change.after.tags as string[])[0]
-                      : t,
+                  // Tag remap + dedupe delegated to the `liquitask-core` Rust
+                  // crate via `autoorg_consolidate_tags`, JS fallback for web.
+                  const jsConsolidate = (): string[] => {
+                    const newTags = task.tags.map((t) =>
+                      before.includes(t) ? suggested : t,
+                    );
+                    return Array.from(new Set(newTags));
+                  };
+                  const dedupedTags = await callNative<string[]>(
+                    "autoorg_consolidate_tags",
+                    { tags: task.tags, before, suggested },
+                    jsConsolidate,
                   );
-                  const dedupedTags = Array.from(new Set(newTags));
                   callbacks.onUpdateTask(taskId, { tags: dedupedTags });
                   // Keep the map in sync so subsequent consolidations see the updated tags
                   taskMap.set(taskId, { ...task, tags: dedupedTags });

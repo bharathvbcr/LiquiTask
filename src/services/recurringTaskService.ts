@@ -1,4 +1,7 @@
 import type { RecurringConfig, Task } from "../../types";
+import { callNative, isTauri } from "../runtime/runtimeEnvironment";
+import { toCoreRecurring } from "../runtime/coreDto";
+import { isNativeBackend, nativeCalculateNextOccurrence } from "./nativeBridge";
 import { generateTaskId } from "../utils/taskUtils";
 
 export interface RecurringTaskServiceOptions {
@@ -6,6 +9,8 @@ export interface RecurringTaskServiceOptions {
   onUpdateTask: (taskId: string, updates: Partial<Task>) => void;
   /** Returns the backlog / first-open column id for new recurring instances. */
   getDefaultStatus?: () => string;
+  /** When a recurring instance is assigned to an agent, trigger a run. */
+  onAgentRecurringTask?: (task: Task) => void;
 }
 
 /**
@@ -17,11 +22,13 @@ export class RecurringTaskService {
   private onCreateTask: (task: Task) => void;
   private onUpdateTask: (taskId: string, updates: Partial<Task>) => void;
   private getDefaultStatus: () => string;
+  private onAgentRecurringTask?: (task: Task) => void;
 
   constructor(options: RecurringTaskServiceOptions) {
     this.onCreateTask = options.onCreateTask;
     this.onUpdateTask = options.onUpdateTask;
     this.getDefaultStatus = options.getDefaultStatus ?? (() => "Pending");
+    this.onAgentRecurringTask = options.onAgentRecurringTask;
   }
 
   /**
@@ -38,12 +45,12 @@ export class RecurringTaskService {
     this.isRunning = true;
 
     // Check immediately on start
-    this.checkAndGenerate(getTasks());
+    void this.checkAndGenerate(getTasks());
 
     // Then check every 5 minutes, fetching the live task list each time
     this.checkInterval = setInterval(
       () => {
-        this.checkAndGenerate(getTasks());
+        void this.checkAndGenerate(getTasks());
       },
       5 * 60 * 1000,
     ); // 5 minutes
@@ -63,29 +70,29 @@ export class RecurringTaskService {
   /**
    * Check all tasks and generate recurring instances as needed
    */
-  private checkAndGenerate(tasks: Task[]): void {
+  private async checkAndGenerate(tasks: Task[]): Promise<void> {
     const now = new Date();
 
-    tasks.forEach((originalTask) => {
-      if (!originalTask.recurring?.enabled) return;
-      if (!originalTask.recurring.nextOccurrence) return;
+    for (const originalTask of tasks) {
+      if (!originalTask.recurring?.enabled) continue;
+      if (!originalTask.recurring.nextOccurrence) continue;
 
       const nextOccurrence = new Date(originalTask.recurring.nextOccurrence);
 
-      // Check if it's time to generate a new instance
       if (now >= nextOccurrence) {
-        this.generateRecurringInstance(originalTask);
+        await this.generateRecurringInstance(originalTask);
       }
-    });
+    }
   }
 
   /**
    * Generate a new instance of a recurring task
    */
-  private generateRecurringInstance(originalTask: Task): void {
+  private async generateRecurringInstance(originalTask: Task): Promise<void> {
     if (!originalTask.recurring) return;
 
     const now = new Date();
+    const nextOcc = await this.calculateNextOccurrenceNative(originalTask.recurring, now);
     const newTask: Task = {
       ...originalTask,
       id: generateTaskId(),
@@ -93,14 +100,11 @@ export class RecurringTaskService {
       createdAt: now,
       updatedAt: now,
       status: this.getDefaultStatus(),
-      // Reset completion state
       completedAt: undefined,
-      // Calculate next occurrence
       recurring: {
         ...originalTask.recurring,
-        nextOccurrence: this.calculateNextOccurrence(originalTask.recurring, now),
+        nextOccurrence: nextOcc,
       },
-      // Reset activity log for new instance
       activity: [
         {
           id: `act-${Date.now()}`,
@@ -112,20 +116,46 @@ export class RecurringTaskService {
       ],
     };
 
-    // Create the new task
     this.onCreateTask(newTask);
+    if (newTask.assignee?.trim()) {
+      this.onAgentRecurringTask?.(newTask);
+    }
 
-    // Update the original task's nextOccurrence (and disable if past endDate)
-    const endDate = originalTask.recurring.endDate ? new Date(originalTask.recurring.endDate) : null;
-    const nextOcc = this.calculateNextOccurrence(originalTask.recurring, now);
-    const shouldDisable = endDate !== null && nextOcc > endDate;
+    const advance = await this.advanceRecurring(originalTask.recurring, now);
     this.onUpdateTask(originalTask.id, {
       recurring: {
         ...originalTask.recurring,
-        nextOccurrence: shouldDisable ? undefined : nextOcc,
-        enabled: shouldDisable ? false : originalTask.recurring.enabled,
+        nextOccurrence: advance.nextOccurrence,
+        enabled: advance.enabled,
       },
     });
+  }
+
+  private async advanceRecurring(
+    config: RecurringConfig,
+    now: Date = new Date(),
+  ): Promise<{ nextOccurrence?: Date; enabled: boolean }> {
+    const jsFallback = () => {
+      const nextOccurrence = this.calculateNextOccurrence(config, now);
+      const endDate = config.endDate ? new Date(config.endDate) : null;
+      const pastEnd = endDate !== null && nextOccurrence > endDate;
+      return {
+        nextOccurrence: pastEnd ? undefined : nextOccurrence.getTime(),
+        enabled: pastEnd ? false : config.enabled,
+      };
+    };
+
+    const result = await callNative<{ nextOccurrence?: number; enabled: boolean }>(
+      "recurring_advance",
+      { config: toCoreRecurring(config), nowMs: now.getTime() },
+      jsFallback,
+    );
+
+    return {
+      nextOccurrence:
+        result.nextOccurrence != null ? new Date(result.nextOccurrence) : undefined,
+      enabled: result.enabled,
+    };
   }
 
   /**
@@ -192,28 +222,55 @@ export class RecurringTaskService {
   }
 
   /**
+   * Rust-backed next-occurrence computation for the desktop build. Delegates to
+   * the `liquitask-core` crate via the `recurring_next_occurrence` Tauri command
+   * and falls back to the identical synchronous JS implementation on the
+   * web/PWA build (proven equivalent by the differential oracle). Kept async
+   * because Tauri `invoke` is async; the legacy sync method above is retained
+   * for the existing synchronous call sites and web fallback.
+   */
+  async calculateNextOccurrenceNative(
+    config: RecurringConfig,
+    fromDate: Date = new Date(),
+  ): Promise<Date> {
+    if (isTauri()) {
+      return callNative<number>(
+        "recurring_next_occurrence",
+        { config: toCoreRecurring(config), fromMs: fromDate.getTime() },
+        () => this.calculateNextOccurrence(config, fromDate).getTime(),
+      ).then((millis) => new Date(millis));
+    }
+
+    if (isNativeBackend()) {
+      try {
+        return await nativeCalculateNextOccurrence(config, fromDate);
+      } catch (err) {
+        console.warn("[recurring] native calculate failed; falling back to JS:", err);
+      }
+    }
+    return this.calculateNextOccurrence(config, fromDate);
+  }
+
+  /**
    * Manually trigger generation for a specific task (for testing or manual triggers)
    */
   generateNow(task: Task): void {
     if (!task.recurring?.enabled) return;
-    this.generateRecurringInstance(task);
+    void this.generateRecurringInstance(task);
   }
 
   /**
    * Update nextOccurrence for a task (useful when task is completed)
    */
-  updateNextOccurrence(task: Task): void {
+  async updateNextOccurrence(task: Task): Promise<void> {
     if (!task.recurring?.enabled) return;
 
-    const nextOccurrence = this.calculateNextOccurrence(task.recurring);
-    // Stop recurring once the next occurrence would fall past the configured end date.
-    const endDate = task.recurring.endDate ? new Date(task.recurring.endDate) : null;
-    const pastEnd = endDate !== null && nextOccurrence > endDate;
+    const advance = await this.advanceRecurring(task.recurring);
     this.onUpdateTask(task.id, {
       recurring: {
         ...task.recurring,
-        nextOccurrence: pastEnd ? undefined : nextOccurrence,
-        enabled: pastEnd ? false : task.recurring.enabled,
+        nextOccurrence: advance.nextOccurrence,
+        enabled: advance.enabled,
       },
     });
   }
@@ -242,5 +299,7 @@ export const recurringTaskService = {
   stop: () => _recurringTaskService?.stop(),
   calculateNextOccurrence: (config: RecurringConfig, fromDate?: Date) =>
     _recurringTaskService?.calculateNextOccurrence(config, fromDate),
+  calculateNextOccurrenceNative: (config: RecurringConfig, fromDate?: Date) =>
+    _recurringTaskService?.calculateNextOccurrenceNative(config, fromDate),
   updateNextOccurrence: (task: Task) => _recurringTaskService?.updateNextOccurrence(task),
 };

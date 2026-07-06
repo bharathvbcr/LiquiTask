@@ -1,5 +1,7 @@
 import type { AIContext, Task } from "../../types";
 import { aiService } from "./aiService";
+import { callNative } from "../runtime/runtimeEnvironment";
+import { toCoreTask } from "../runtime/coreDto";
 
 export interface RiskAssessment {
   taskId: string;
@@ -31,8 +33,33 @@ class RiskAnalysisService {
    * Analyze project risks based on task dependencies and estimates
    */
   async analyzeProjectRisks(tasks: Task[], context: AIContext): Promise<ProjectRiskSummary> {
-    const criticalPath = this.calculateCriticalPath(tasks);
-    const heuristicRisks = this.calculateHeuristicRisks(tasks, criticalPath);
+    // Heuristic half (critical path + heuristic risks + overall score +
+    // prediction message) is computed by the native `liquitask-core` crate on
+    // the desktop build, and by the identical JS heuristics on web/PWA (proven
+    // equivalent by the differential oracle). The AI enrichment and merge below
+    // stay in TS because they call `aiService`.
+    const heuristics = await callNative<{
+      criticalPath: string[];
+      risks: RiskAssessment[];
+      overallScore: number;
+      predictionMessage: string;
+    }>(
+      "risk_heuristics",
+      { tasks: tasks.map(toCoreTask), nowMs: Date.now() },
+      () => {
+        const cp = this.calculateCriticalPath(tasks);
+        const r = this.calculateHeuristicRisks(tasks, cp);
+        return {
+          criticalPath: cp,
+          risks: r,
+          overallScore: this.calculateOverallScore(r),
+          predictionMessage: this.generatePredictionMessage(r, cp.length),
+        };
+      },
+    );
+
+    const criticalPath = heuristics.criticalPath;
+    const heuristicRisks = heuristics.risks;
 
     try {
       // Enhance with AI insights for high-risk projects

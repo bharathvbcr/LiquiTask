@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { InlineEditable } from "../InlineEditable";
+import { InlineDatePicker, InlineEditable, InlineSelect } from "../InlineEditable";
 
 describe("InlineEditable", () => {
   beforeEach(() => {
@@ -74,5 +74,87 @@ describe("InlineEditable", () => {
 
     const textarea = screen.getByDisplayValue("Multi");
     expect(textarea.tagName).toBe("TEXTAREA");
+  });
+});
+
+describe("InlineSelect", () => {
+  const options = [
+    { id: "low", label: "Low", color: "#00ff00" },
+    { id: "high", label: "High", color: "#ff0000" },
+  ];
+
+  it("renders current option label", () => {
+    render(<InlineSelect value="high" options={options} onSave={() => {}} />);
+    expect(screen.getByText("High")).toBeInTheDocument();
+  });
+
+  it("opens listbox and calls onSave when option selected", () => {
+    const onSave = vi.fn();
+    render(<InlineSelect value="low" options={options} onSave={onSave} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Low/i }));
+    fireEvent.click(screen.getByRole("option", { name: "High" }));
+
+    expect(onSave).toHaveBeenCalledWith("high");
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  });
+
+  it("stops pointerdown propagation on trigger", () => {
+    const outerHandler = vi.fn();
+    render(
+      <div onPointerDown={outerHandler}>
+        <InlineSelect value="low" options={options} onSave={() => {}} />
+      </div>,
+    );
+
+    fireEvent.pointerDown(screen.getByRole("button", { name: /Low/i }));
+    expect(outerHandler).not.toHaveBeenCalled();
+  });
+});
+
+describe("InlineDatePicker", () => {
+  it("renders formatted date", () => {
+    render(
+      <InlineDatePicker value={new Date(2026, 6, 5)} onSave={() => {}} />,
+    );
+    expect(screen.getByText("Jul 5")).toBeInTheDocument();
+  });
+
+  it("opens picker and calls onSave when date changes", () => {
+    const onSave = vi.fn();
+    render(<InlineDatePicker value={null} onSave={onSave} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /No date/i }));
+    const input = screen.getByLabelText("Select due date");
+    fireEvent.change(input, { target: { value: "2026-07-05" } });
+
+    expect(onSave).toHaveBeenCalled();
+    const savedDate = onSave.mock.calls[0][0] as Date;
+    expect(savedDate.getFullYear()).toBe(2026);
+    expect(savedDate.getMonth()).toBe(6);
+    expect(savedDate.getDate()).toBe(5);
+  });
+
+  it("clears date when Clear Date is clicked", () => {
+    const onSave = vi.fn();
+    render(<InlineDatePicker value={new Date(2026, 6, 5)} onSave={onSave} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Jul 5/i }));
+    fireEvent.click(screen.getByText("Clear Date"));
+
+    expect(onSave).toHaveBeenCalledWith(null);
+  });
+
+  it("stops pointerdown propagation on date input", () => {
+    const outerHandler = vi.fn();
+    render(
+      <div onPointerDown={outerHandler}>
+        <InlineDatePicker value={null} onSave={() => {}} />
+      </div>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /No date/i }));
+    fireEvent.pointerDown(screen.getByLabelText("Select due date"));
+    expect(outerHandler).not.toHaveBeenCalled();
   });
 });

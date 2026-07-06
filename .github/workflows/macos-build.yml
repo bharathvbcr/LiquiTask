@@ -41,6 +41,14 @@ jobs:
       - name: Install dependencies
         run: npm ci --loglevel=error --fund=false
 
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Build semantic layer sidecar (macOS universal)
+        run: npm run build:semantic-sidecar:macos
+
       - name: Run type check
         run: npm run typecheck
 

@@ -31,6 +31,7 @@ describe("AiService Ollama", () => {
     provider: "ollama",
     ollamaBaseUrl: "http://localhost:11434",
     ollamaModel: "llama3",
+    semanticLayer: { enabled: false },
   };
 
   beforeEach(() => {

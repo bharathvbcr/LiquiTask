@@ -27,11 +27,9 @@ export const useTaskCardContextMenu = ({
     e.preventDefault();
     e.stopPropagation();
 
-    const menuWidth = 200;
-    const x = Math.min(e.clientX, window.innerWidth - menuWidth - 10);
-    const y = Math.min(e.clientY, window.innerHeight - 100);
-
-    setContextMenuPosition({ x, y });
+    // Raw cursor coords — TaskCard measures the rendered menu and clamps
+    // it to the viewport, so no size guessing is needed here.
+    setContextMenuPosition({ x: e.clientX, y: e.clientY });
     setContextMenuVisible(true);
   }, []);
 

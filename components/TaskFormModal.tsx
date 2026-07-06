@@ -36,6 +36,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Input } from "../src/components/common/Input";
+import { useEstimateSuggestion } from "../src/hooks/useEstimateSuggestion";
 import { aiService } from "../src/services/aiService";
 import { getSafeExternalUrl } from "../src/utils/safeUrl";
 import { getBacklogColumnId } from "../src/utils/taskUtils";
@@ -147,6 +148,18 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
     title: string;
     confidence: number;
   } | null>(null);
+
+  const estimateTask = {
+    title: formData.title,
+    priority: formData.priority,
+    tags: initialData?.tags ?? [],
+    assignee: formData.assignee,
+    timeEstimate: formData.timeEstimate,
+  };
+  const { suggestion: learnedEstimate, hint: learnedHint } = useEstimateSuggestion(
+    estimateTask,
+    availableTasks,
+  );
   const [autoFillSuggestions, setAutoFillSuggestions] = useState<{
     tags: string[];
     priority: string;
@@ -1221,22 +1234,39 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1 flex items-center gap-2">
                     <Clock size={12} /> Est. Time (mins)
                   </label>
-                  <Tooltip content="AI Estimate based on title and description" position="top">
-                    <button
-                      type="button"
-                      onClick={handleSuggestTimeEstimate}
-                      disabled={isEstimating || !formData.title.trim()}
-                      className="text-[10px] font-bold text-red-300 hover:text-red-200 flex items-center gap-1 transition-colors px-2 py-1 rounded bg-red-500/10 border border-red-500/20"
-                    >
-                      {isEstimating ? (
-                        <Loader2 size={10} className="animate-spin" />
-                      ) : (
-                        <Sparkles size={10} />
-                      )}
-                      AI Estimate
-                    </button>
-                  </Tooltip>
+                  <div className="flex items-center gap-2">
+                    {learnedEstimate && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFormData((f) => ({ ...f, timeEstimate: learnedEstimate.minutes }))
+                        }
+                        className="text-[10px] font-medium text-sky-300/90 hover:text-sky-200 px-2 py-1 rounded bg-sky-500/10 border border-sky-500/20"
+                        title={learnedHint ?? undefined}
+                      >
+                        ~{learnedEstimate.minutes}m from runs
+                      </button>
+                    )}
+                    <Tooltip content="AI Estimate based on title and description" position="top">
+                      <button
+                        type="button"
+                        onClick={handleSuggestTimeEstimate}
+                        disabled={isEstimating || !formData.title.trim()}
+                        className="text-[10px] font-bold text-red-300 hover:text-red-200 flex items-center gap-1 transition-colors px-2 py-1 rounded bg-red-500/10 border border-red-500/20"
+                      >
+                        {isEstimating ? (
+                          <Loader2 size={10} className="animate-spin" />
+                        ) : (
+                          <Sparkles size={10} />
+                        )}
+                        AI Estimate
+                      </button>
+                    </Tooltip>
+                  </div>
                 </div>
+                {learnedHint && (
+                  <p className="text-[10px] text-slate-500 pl-1 mb-1">{learnedHint}</p>
+                )}
                 <Tooltip content="Task time estimate in minutes" position="top">
                   <input
                     type="number"

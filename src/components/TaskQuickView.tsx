@@ -1,6 +1,7 @@
 import { Calendar, CheckSquare, Clock, ExternalLink, Paperclip, User, X } from "lucide-react";
 import type React from "react";
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { PriorityDefinition, Task } from "../../types";
 import { formatMinutes } from "../hooks/useTimer";
 
@@ -36,22 +37,52 @@ export const TaskQuickView: React.FC<TaskQuickViewProps> = ({
     return () => document.removeEventListener("keydown", handleKey);
   }, [onClose]);
 
-  // Position the panel to stay fully on-screen (clamped to both edges)
-  const style: React.CSSProperties = {
+  // Measure the rendered panel and clamp it to the viewport. Rendered in a
+  // portal on document.body so column transforms/backdrop-filters can't
+  // reposition or stack it under sibling cards.
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [style, setStyle] = useState<React.CSSProperties>({
     position: "fixed",
-    left: Math.max(8, Math.min(position.x, window.innerWidth - 320)),
-    top: Math.max(8, Math.min(position.y, window.innerHeight - 300)),
-    zIndex: 60,
+    left: 0,
+    top: 0,
+    visibility: "hidden",
+  });
+
+  useLayoutEffect(() => {
+    const el = panelRef.current;
+    if (!el) return;
+    const margin = 8;
+    setStyle({
+      position: "fixed",
+      left: Math.max(margin, Math.min(position.x, window.innerWidth - el.offsetWidth - margin)),
+      top: Math.max(margin, Math.min(position.y, window.innerHeight - el.offsetHeight - margin)),
+      visibility: "visible",
+    });
+  }, [position]);
+
+  if (typeof document === "undefined") return null;
+
+  const stopDragPropagation = (e: React.PointerEvent) => {
+    e.stopPropagation();
   };
 
-  return (
-    <>
+  return createPortal(
+    <div className="fixed inset-0 z-[9990]">
       {/* Invisible backdrop to close on click outside */}
-      <div className="fixed inset-0 z-50" onClick={onClose} />
+      <div
+        className="absolute inset-0"
+        onClick={onClose}
+        onPointerDown={stopDragPropagation}
+      />
 
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-label={`Quick view: ${task.title}`}
         style={style}
-        className="w-[300px] liquid-surface overflow-hidden animate-in zoom-in-95 fade-in duration-100 z-60 liquid-topline"
+        onPointerDown={stopDragPropagation}
+        onClick={(e) => e.stopPropagation()}
+        className="relative z-10 w-[300px] liquid-surface overflow-hidden animate-in zoom-in-95 fade-in duration-100 liquid-topline"
       >
         {/* Header */}
         <div className="p-3 border-b border-white/5 flex items-start justify-between gap-2">
@@ -175,7 +206,8 @@ export const TaskQuickView: React.FC<TaskQuickViewProps> = ({
           </button>
         </div>
       </div>
-    </>
+    </div>,
+    document.body,
   );
 };
 

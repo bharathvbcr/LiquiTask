@@ -82,6 +82,21 @@ const OBJECT_STORES: ObjectStore[] = [
 export class IndexedDBService {
   private db: IDBDatabase | null = null;
   private initPromise: Promise<void> | null = null;
+  private static readonly MIGRATION_BATCH_SIZE = 25;
+
+  private async mapInBatches<T, R>(
+    items: T[],
+    mapper: (item: T) => Promise<R>,
+    batchSize = IndexedDBService.MIGRATION_BATCH_SIZE,
+  ): Promise<R[]> {
+    const results: R[] = [];
+    for (let index = 0; index < items.length; index += batchSize) {
+      const batch = items.slice(index, index + batchSize);
+      const batchResults = await Promise.all(batch.map(mapper));
+      results.push(...batchResults);
+    }
+    return results;
+  }
 
   /**
    * Initialize IndexedDB
@@ -325,18 +340,26 @@ export class IndexedDBService {
         request.onerror = () => reject(request.error);
       });
 
-      const toMigrate: unknown[] = [];
+      const toMigrate: Array<{ logicalId: string; item: unknown }> = [];
       for (const item of rawItems) {
         if (item && typeof item === "object" && "__enc" in (item as Record<string, unknown>)) {
           continue;
         }
-        toMigrate.push(await this.parseFromStore(item));
+        try {
+          const parsed = await this.parseFromStore(item);
+          if (!parsed || typeof parsed !== "object") continue;
+          const logicalId = (parsed as Record<string, unknown>).id;
+          if (typeof logicalId !== "string") continue;
+          toMigrate.push({ logicalId, item: parsed });
+        } catch (error) {
+          console.warn(`[IndexedDB] Skipping ${storeName} record during encrypt migration:`, error);
+        }
       }
 
       if (toMigrate.length === 0) continue;
 
-      const preparedItems = await Promise.all(
-        toMigrate.map((item) => this.prepareForStore(storeName, item)),
+      const preparedItems = await this.mapInBatches(toMigrate, ({ item }) =>
+        this.prepareForStore(storeName, item),
       );
       await new Promise<void>((resolve, reject) => {
         const transaction = db.transaction([storeName], "readwrite");
@@ -348,6 +371,67 @@ export class IndexedDBService {
 
         for (const prepared of preparedItems) {
           store.put(prepared).onerror = (e) => reject((e.target as IDBRequest).error);
+        }
+
+        for (const { logicalId } of toMigrate) {
+          store.delete(logicalId).onerror = (e) => reject((e.target as IDBRequest).error);
+        }
+      });
+    }
+  }
+
+  /**
+   * Decrypt all encrypted records back to plaintext (called when disabling encryption).
+   */
+  async migrateToDecryptedStorage(): Promise<void> {
+    if (!this.db || !isEncryptionActive()) return;
+    const db = this.db;
+
+    for (const storeConfig of OBJECT_STORES) {
+      const storeName = storeConfig.name;
+      const rawItems = await new Promise<unknown[]>((resolve, reject) => {
+        const transaction = db.transaction([storeName], "readonly");
+        const store = transaction.objectStore(storeName);
+        const request = store.getAll();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+
+      const toRestore: Array<{ opaqueId: string; item: unknown }> = [];
+      const encryptedItems = rawItems.filter(
+        (item): item is Record<string, unknown> =>
+          Boolean(item) &&
+          typeof item === "object" &&
+          typeof (item as Record<string, unknown>).__enc === "string" &&
+          typeof (item as Record<string, unknown>).id === "string",
+      );
+
+      await this.mapInBatches(encryptedItems, async (record) => {
+        try {
+          const decrypted = await decryptPayload(record.__enc as string);
+          toRestore.push({
+            opaqueId: record.id as string,
+            item: this.deserializeDates(decrypted),
+          });
+        } catch (error) {
+          console.warn(`[IndexedDB] Skipping encrypted ${storeName} record during decrypt migration:`, error);
+        }
+      });
+
+      if (toRestore.length === 0) continue;
+
+      await new Promise<void>((resolve, reject) => {
+        const transaction = db.transaction([storeName], "readwrite");
+        const store = transaction.objectStore(storeName);
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+        transaction.onabort = () =>
+          reject(transaction.error ?? new DOMException("Transaction aborted", "AbortError"));
+
+        for (const { opaqueId, item } of toRestore) {
+          const serialized = this.serializeDates(item);
+          store.put(serialized).onerror = (e) => reject((e.target as IDBRequest).error);
+          store.delete(opaqueId).onerror = (e) => reject((e.target as IDBRequest).error);
         }
       });
     }
@@ -370,7 +454,10 @@ export class IndexedDBService {
 
     const items: unknown[] = [];
     for (const item of rawItems) {
-      items.push(await this.parseFromStore(item));
+      const parsed = await this.parseFromStore(item);
+      if (parsed != null) {
+        items.push(parsed);
+      }
     }
     return items;
   }
@@ -523,8 +610,17 @@ export class IndexedDBService {
 
     const record = item as Record<string, unknown>;
     if (typeof record.__enc === "string") {
-      const decrypted = await decryptPayload(record.__enc);
-      return this.deserializeDates(decrypted);
+      if (!isEncryptionActive()) {
+        console.warn("[IndexedDB] Encrypted record present while encryption is locked");
+        return null;
+      }
+      try {
+        const decrypted = await decryptPayload(record.__enc);
+        return this.deserializeDates(decrypted);
+      } catch (error) {
+        console.warn("[IndexedDB] Failed to decrypt stored record:", error);
+        return null;
+      }
     }
 
     return this.deserializeDates(item);

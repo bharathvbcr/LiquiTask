@@ -22,7 +22,9 @@ import { STORAGE_KEYS } from "../constants";
 import { getHttpFetch } from "../runtime/runtimeEnvironment";
 import type { FilterGroup } from "../types/queryTypes";
 import { sanitizeUrl } from "../utils/validation";
+import { isNativeBackend, nativeOllamaChat, nativeOllamaHealth } from "./nativeBridge";
 import storageService from "./storageService";
+import { isSemanticLayerEnabled, semanticLayerService } from "./semanticLayerService";
 
 const DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite";
 
@@ -57,6 +59,50 @@ const parseDueDateLocal = (value?: string): Date | undefined => {
     ? new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]))
     : new Date(value);
   return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+};
+
+const parseJsonFromLlmContent = (content: string): unknown => {
+  try {
+    return JSON.parse(content);
+  } catch {
+    const startBrace = content.indexOf("{");
+    const startBracket = content.indexOf("[");
+    const start =
+      startBrace !== -1 && (startBracket === -1 || startBrace < startBracket)
+        ? startBrace
+        : startBracket;
+    const endBrace = content.lastIndexOf("}");
+    const endBracket = content.lastIndexOf("]");
+    const end = Math.max(endBrace, endBracket);
+    if (start !== -1 && end !== -1 && end > start) {
+      return JSON.parse(content.substring(start, end + 1));
+    }
+    throw new Error("Failed to parse Ollama response");
+  }
+};
+
+const parseAgentToolCalls = (
+  rawContent: string,
+): { content: string; toolCalls: ToolCall[] } => {
+  try {
+    const start = rawContent.indexOf("{");
+    const end = rawContent.lastIndexOf("}");
+    if (start !== -1 && end > start) {
+      const parsed = JSON.parse(rawContent.substring(start, end + 1)) as {
+        tool_call?: { name?: string; args?: Record<string, unknown> };
+      };
+      if (parsed.tool_call?.name) {
+        return {
+          content: "",
+          toolCalls: [{ name: parsed.tool_call.name, args: parsed.tool_call.args ?? {} }],
+        };
+      }
+    }
+  } catch {
+    // Not a tool call, return as plain text
+  }
+
+  return { content: rawContent, toolCalls: [] };
 };
 
 // Optimization: Strip unnecessary task data before sending to AI to save tokens (similar to Pydantic v2 lean models)
@@ -507,10 +553,79 @@ class OllamaProvider implements AIProvider {
     return `Ollama server unreachable at ${this.getBaseUrl()}. Ensure Ollama is running and the URL is correct.`;
   }
 
-  private async request(systemInstruction: string, userMessage: string): Promise<unknown> {
+  private extractRagFromContent(content: string): {
+    prompt: string;
+    ragDocuments: Array<{ id: string; content: string }>;
+  } {
+    const match = content.match(/<task_context>\n([\s\S]*?)\n<\/task_context>/);
+    if (!match) {
+      return { prompt: content, ragDocuments: [] };
+    }
+
+    return {
+      prompt: content.replace(
+        /<task_context>\n[\s\S]*?\n<\/task_context>\n\nNote:[^\n]*\n\n/,
+        "",
+      ),
+      ragDocuments: [{ id: "task_context", content: match[1] }],
+    };
+  }
+
+  private async trySemanticRequest(
+    systemInstruction: string,
+    userMessage: string,
+    ragDocuments?: Array<{ id: string; content: string }>,
+    signal?: AbortSignal,
+  ): Promise<string | null> {
+    if (!isSemanticLayerEnabled(this.config)) return null;
+
+    const result = await semanticLayerService.chat({
+      prompt: userMessage,
+      systemPrompt: systemInstruction,
+      ragDocuments,
+      temperature: 0.4,
+      ollamaBaseUrl: this.getBaseUrl(),
+      signal,
+    });
+
+    return result?.text ?? null;
+  }
+
+  private async request(
+    systemInstruction: string,
+    userMessage: string,
+    signal?: AbortSignal,
+  ): Promise<unknown> {
     const baseUrl = this.getBaseUrl();
     const model = this.getModelName();
     if (!model) throw new Error("Ollama model name is not configured.");
+
+    const semanticText = await this.trySemanticRequest(
+      systemInstruction,
+      userMessage,
+      undefined,
+      signal,
+    );
+    if (semanticText !== null) {
+      return parseJsonFromLlmContent(semanticText);
+    }
+
+    if (isNativeBackend()) {
+      try {
+        const result = await nativeOllamaChat({
+          baseUrl,
+          model,
+          messages: [
+            { role: "system", content: systemInstruction },
+            { role: "user", content: userMessage },
+          ],
+          formatJson: true,
+        });
+        return parseJsonFromLlmContent(result.content);
+      } catch (err) {
+        console.warn("[ai] native Ollama chat failed; falling back to fetch:", err);
+      }
+    }
 
     const httpFetch = getHttpFetch();
     const response = await httpFetch(`${baseUrl}/api/chat`, {
@@ -537,23 +652,7 @@ class OllamaProvider implements AIProvider {
 
     const data = await response.json();
     const content = data.message?.content || "";
-    try {
-      return JSON.parse(content);
-    } catch {
-      const startBrace = content.indexOf("{");
-      const startBracket = content.indexOf("[");
-      const start =
-        startBrace !== -1 && (startBracket === -1 || startBrace < startBracket)
-          ? startBrace
-          : startBracket;
-      const endBrace = content.lastIndexOf("}");
-      const endBracket = content.lastIndexOf("]");
-      const end = Math.max(endBrace, endBracket);
-      if (start !== -1 && end !== -1 && end > start) {
-        return JSON.parse(content.substring(start, end + 1));
-      }
-      throw new Error("Failed to parse Ollama response");
-    }
+    return parseJsonFromLlmContent(content);
   }
 
   async extractTasks(input: string, context: AIContext): Promise<AITaskSchema[]> {
@@ -789,17 +888,37 @@ Today's Date: ${new Date().toISOString()}`;
     }
 
     try {
+      if (isNativeBackend()) {
+        const ok = await nativeOllamaHealth(baseUrl);
+        if (!ok) {
+          return {
+            ok: false,
+            stage: "service",
+            message: `Ollama service unreachable at ${baseUrl}`,
+          };
+        }
+      } else {
+        const httpFetch = getHttpFetch();
+        const healthResponse = await httpFetch(`${baseUrl}/api/tags`);
+        if (!healthResponse.ok) {
+          return {
+            ok: false,
+            stage: "service",
+            message: `Ollama service returned ${healthResponse.status}`,
+          };
+        }
+      }
+
       const httpFetch = getHttpFetch();
-      const healthResponse = await httpFetch(`${baseUrl}/api/tags`);
-      if (!healthResponse.ok) {
+      const tagsResponse = await httpFetch(`${baseUrl}/api/tags`);
+      if (!tagsResponse.ok) {
         return {
           ok: false,
           stage: "service",
-          message: `Ollama service returned ${healthResponse.status}`,
+          message: `Ollama service returned ${tagsResponse.status}`,
         };
       }
-
-      const tagsData = await healthResponse.json();
+      const tagsData = await tagsResponse.json();
       const models = Array.isArray(tagsData.models)
         ? tagsData.models.map((m: { name: string }) => m.name)
         : [];
@@ -917,6 +1036,38 @@ ${TOOL_SCHEMA}`;
         .join("\n");
     }
 
+    const { prompt: semanticPrompt, ragDocuments } = this.extractRagFromContent(lastContent);
+    const historyPrefix = chatMessages.length
+      ? `${chatMessages.map((m) => `${m.role}: ${m.content}`).join("\n")}\nuser: ${semanticPrompt}`
+      : semanticPrompt;
+
+    const semanticText = await this.trySemanticRequest(
+      systemInstruction,
+      historyPrefix,
+      ragDocuments,
+      signal,
+    );
+    if (semanticText !== null) {
+      return parseAgentToolCalls(semanticText);
+    }
+
+    if (isNativeBackend()) {
+      try {
+        const result = await nativeOllamaChat({
+          baseUrl,
+          model,
+          messages: [
+            { role: "system", content: systemInstruction },
+            ...chatMessages,
+            { role: "user", content: lastContent },
+          ],
+        });
+        return parseAgentToolCalls(result.content);
+      } catch (err) {
+        console.warn("[ai] native Ollama agent chat failed; falling back to fetch:", err);
+      }
+    }
+
     const httpFetch = getHttpFetch();
     const response = await httpFetch(`${baseUrl}/api/chat`, {
       method: "POST",
@@ -940,25 +1091,7 @@ ${TOOL_SCHEMA}`;
 
     const data = await response.json();
     const rawContent: string = data.message?.content || "";
-
-    // Try to parse as a tool call
-    try {
-      const start = rawContent.indexOf("{");
-      const end = rawContent.lastIndexOf("}");
-      if (start !== -1 && end > start) {
-        const parsed = JSON.parse(rawContent.substring(start, end + 1));
-        if (parsed.tool_call?.name) {
-          return {
-            content: "",
-            toolCalls: [{ name: parsed.tool_call.name, args: parsed.tool_call.args ?? {} }],
-          };
-        }
-      }
-    } catch {
-      // Not a tool call, return as plain text
-    }
-
-    return { content: rawContent, toolCalls: [] };
+    return parseAgentToolCalls(rawContent);
   }
 }
 

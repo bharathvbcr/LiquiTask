@@ -3,7 +3,7 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-
 import { CSS } from "@dnd-kit/utilities";
 import { AlertOctagon, ClipboardList, Inbox } from "lucide-react";
 import type React from "react";
-import type { BoardColumn, PriorityDefinition, Project, Task } from "../../../types";
+import type { AgentRun, BoardColumn, PriorityDefinition, Project, Task } from "../../../types";
 import { useVirtualTaskList } from "../../hooks/useVirtualScroll";
 import { SortableTask } from "./SortableTask";
 
@@ -26,6 +26,8 @@ interface SortableColumnProps {
   focusedTaskId?: string | null;
   selectedTaskIds?: Set<string>;
   onToggleTaskSelection?: (taskId: string, shiftKey?: boolean) => void;
+  onApproveAgentWork?: (task: Task, run: AgentRun) => void;
+  onRejectAgentWork?: (task: Task, run: AgentRun, feedback: string) => void;
 }
 
 export const SortableColumn: React.FC<SortableColumnProps> = ({
@@ -47,6 +49,8 @@ export const SortableColumn: React.FC<SortableColumnProps> = ({
   focusedTaskId = null,
   selectedTaskIds,
   onToggleTaskSelection,
+  onApproveAgentWork,
+  onRejectAgentWork,
 }) => {
   // Column header is draggable for reordering columns
   const {
@@ -183,6 +187,8 @@ export const SortableColumn: React.FC<SortableColumnProps> = ({
                       isFocused={task.id === focusedTaskId}
                       isSelected={selectedTaskIds?.has(task.id) ?? false}
                       onToggleSelect={onToggleTaskSelection}
+                      onApproveAgentWork={onApproveAgentWork}
+                      onRejectAgentWork={onRejectAgentWork}
                     />
                   ))
                 ) : (
@@ -239,6 +245,8 @@ export const SortableColumn: React.FC<SortableColumnProps> = ({
                     isFocused={task.id === focusedTaskId}
                     isSelected={selectedTaskIds?.has(task.id) ?? false}
                     onToggleSelect={onToggleTaskSelection}
+                    onApproveAgentWork={onApproveAgentWork}
+                    onRejectAgentWork={onRejectAgentWork}
                   />
                 ))
               ) : (

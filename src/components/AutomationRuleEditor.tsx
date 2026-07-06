@@ -17,6 +17,7 @@ interface AutomationRuleEditorProps {
   onCancel: () => void;
   availablePriorities: Array<{ id: string; label: string }>;
   availableColumns: Array<{ id: string; title: string }>;
+  availableAgents?: Array<{ id: string; name: string }>;
 }
 
 export const AutomationRuleEditor: React.FC<AutomationRuleEditorProps> = ({
@@ -25,6 +26,7 @@ export const AutomationRuleEditor: React.FC<AutomationRuleEditorProps> = ({
   onCancel,
   availablePriorities,
   availableColumns,
+  availableAgents = [],
 }) => {
   const [name, setName] = useState(rule?.name || "");
   const [enabled, setEnabled] = useState(rule?.enabled ?? true);
@@ -274,6 +276,7 @@ export const AutomationRuleEditor: React.FC<AutomationRuleEditorProps> = ({
                       <option value="moveToColumn">Move to Column</option>
                       <option value="setPriority">Set Priority</option>
                       <option value="notify">Notify</option>
+                      <option value="assignToAgent">Hand to Agent</option>
                     </select>
                     <button
                       onClick={() => handleRemoveAction(index)}
@@ -351,6 +354,21 @@ export const AutomationRuleEditor: React.FC<AutomationRuleEditorProps> = ({
                       placeholder="Notification message"
                       className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-red-500/50 outline-none"
                     />
+                  )}
+                  {action.type === "assignToAgent" && (
+                    <select
+                      value={(action.value as string) || ""}
+                      onChange={(e) => handleUpdateAction(index, { value: e.target.value })}
+                      className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-red-500/50 outline-none"
+                      aria-label="Select agent"
+                    >
+                      <option value="">Select agent</option>
+                      {availableAgents.map((agent) => (
+                        <option key={agent.id} value={agent.id}>
+                          {agent.name}
+                        </option>
+                      ))}
+                    </select>
                   )}
                 </div>
               ))}

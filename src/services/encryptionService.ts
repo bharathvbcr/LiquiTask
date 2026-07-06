@@ -41,17 +41,28 @@ export function isEncryptionUnlocked(): boolean {
 
 export async function getEncryptionStatus(): Promise<EncryptionStatus> {
   if (isTauri()) {
-    const status = await invoke<{
-      enabled: boolean;
-      keychainAvailable: boolean;
-      biometricAvailable: boolean;
-      unlocked: boolean;
-    }>("encryption_status_cmd");
-    encryptionActive = status.enabled && status.unlocked;
-    return {
-      ...status,
-      mode: "desktop",
-    };
+    try {
+      const status = await invoke<{
+        enabled: boolean;
+        keychainAvailable: boolean;
+        biometricAvailable: boolean;
+        unlocked: boolean;
+      }>("encryption_status_cmd");
+      encryptionActive = status.enabled && status.unlocked;
+      return {
+        ...status,
+        mode: "desktop",
+      };
+    } catch (error) {
+      console.error("[Encryption] Failed to read desktop encryption status:", error);
+      return {
+        enabled: false,
+        keychainAvailable: false,
+        biometricAvailable: false,
+        unlocked: false,
+        mode: "desktop",
+      };
+    }
   }
 
   const configured = isWebEncryptionConfigured();
@@ -175,9 +186,9 @@ export async function setupWebEncryptionAtRest(passphrase: string): Promise<void
   encryptionActive = true;
 }
 
-export function lockEncryption(): void {
+export async function lockEncryption(): Promise<void> {
   if (isTauri()) {
-    void lockDesktopEncryption();
+    await lockDesktopEncryption();
     return;
   }
   lockWebEncryption();

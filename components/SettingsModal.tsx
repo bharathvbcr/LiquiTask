@@ -1,10 +1,10 @@
-import { Database, Flag, Kanban, Keyboard, Settings, Sparkles, Zap } from "lucide-react";
+import { Bot, Database, Flag, Kanban, Keyboard, Settings, Sparkles, Zap } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 import logo from "../src/assets/logo.png";
 
 import { useKeybinding } from "../src/context/KeybindingContext";
-import { isTauri } from "../src/runtime/runtimeEnvironment";
+import type { EncryptionChangeReason } from "../src/services/encryptionSetup";
 import storageService from "../src/services/storageService";
 import { generateTemplateBlob, validateBulkTasks } from "../src/utils/bulkTaskSchema";
 import { validateAndTransformImportedData } from "../src/utils/validation";
@@ -19,6 +19,7 @@ import type {
   ToastType,
 } from "../types";
 import { ModalWrapper } from "./ModalWrapper";
+import { AgentSettings } from "./settings/AgentSettings";
 import { AiSettings } from "./settings/AiSettings";
 import { AutomationSettings } from "./settings/AutomationSettings";
 import { DataSettings } from "./settings/DataSettings";
@@ -75,6 +76,10 @@ interface SettingsModalProps {
   onRunAutoArchive?: (options?: { force?: boolean }) => Promise<number>;
   onEnableEncryption?: () => Promise<void>;
   onDisableEncryption?: () => Promise<void>;
+  onEncryptionChanged?: (change: EncryptionChangeReason) => void;
+  onAgentsChanged?: () => void;
+  activeProjectId?: string;
+  onImportGitHubTasks?: (tasks: Task[]) => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -103,6 +108,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onRunAutoArchive,
   onEnableEncryption,
   onDisableEncryption,
+  onEncryptionChanged,
+  onAgentsChanged,
+  activeProjectId,
+  onImportGitHubTasks,
 }) => {
   const [activeTab, setActiveTab] = useState("general");
   const [localGrouping, setLocalGrouping] = useState<GroupingOption>(grouping);
@@ -232,6 +241,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     { id: "shortcuts", icon: <Keyboard size={16} />, label: "Shortcuts" },
     { id: "automation", icon: <Zap size={16} />, label: "Automation" },
     { id: "ai", icon: <Sparkles size={16} />, label: "AI Settings" },
+    { id: "agents", icon: <Bot size={16} />, label: "Agents" },
   ];
 
   return (
@@ -272,9 +282,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   addToast={addToast}
                   onEnableEncryption={onEnableEncryption}
                   onDisableEncryption={onDisableEncryption}
-                  onEncryptionChanged={() => {
-                    if (!isTauri()) window.location.reload();
-                  }}
+                  onEncryptionChanged={onEncryptionChanged}
                 />
               )}
             </>
@@ -361,6 +369,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               onOpenBulkOperations={onOpenBulkOperations}
               onOpenAutoOrganize={onOpenAutoOrganize}
               onOpenInsights={onOpenInsights}
+            />
+          )}
+          {activeTab === "agents" && (
+            <AgentSettings
+              addToast={addToast}
+              onAgentsChanged={onAgentsChanged}
+              projects={appData.projects}
+              activeProjectId={activeProjectId ?? appData.projects[0]?.id ?? ""}
+              tasks={appData.tasks}
+              columns={appData.columns}
+              onImportGitHubTasks={onImportGitHubTasks}
             />
           )}
         </div>

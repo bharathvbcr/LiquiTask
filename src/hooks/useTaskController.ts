@@ -14,6 +14,11 @@ import type {
 import { COLUMN_STATUS } from "../constants";
 import type { AutomationTrigger, TaskContext } from "../services/automationService";
 import { indexedDBService } from "../services/indexedDBService";
+import {
+  isNativeBackend,
+  nativeMutateTasks,
+  type TaskMutateOp,
+} from "../services/nativeBridge";
 import { generateTaskId, getBacklogColumnId } from "../utils/taskUtils";
 
 interface UndoAction {
@@ -39,8 +44,22 @@ type AutomationServiceLike = {
     event: AutomationTrigger,
     context: TaskContext,
     allTasks: Task[],
-    options?: { onNotify?: (message: string) => void; columns?: BoardColumn[] },
+    options?: {
+      onNotify?: (message: string) => void;
+      onAssignToAgent?: (taskId: string, agentId: string) => void;
+      columns?: BoardColumn[];
+    },
   ) => Partial<Task> | null;
+  processTaskEventNative?: (
+    event: AutomationTrigger,
+    context: TaskContext,
+    allTasks: Task[],
+    options?: {
+      onNotify?: (message: string) => void;
+      onAssignToAgent?: (taskId: string, agentId: string) => void;
+      columns?: BoardColumn[];
+    },
+  ) => Promise<Partial<Task> | null>;
 };
 
 type AiServiceLike = {
@@ -109,6 +128,7 @@ interface TaskControllerProps {
   recurringTaskServiceRef: MutableRefObject<RecurringTaskServiceLike | null>;
   searchIndexServiceRef: MutableRefObject<SearchIndexServiceLike | null>;
   aiServiceRef?: MutableRefObject<AiServiceLike | null>;
+  assignToAgentRef?: MutableRefObject<((taskId: string, agentId: string) => void) | null>;
 }
 
 export const useTaskController = ({
@@ -123,8 +143,19 @@ export const useTaskController = ({
   recurringTaskServiceRef,
   searchIndexServiceRef,
   aiServiceRef,
+  assignToAgentRef,
 }: TaskControllerProps) => {
+  const automationOpts = useCallback(
+    () => ({
+      columns,
+      onNotify: (message: string) => addToast(message, "info"),
+      onAssignToAgent: assignToAgentRef?.current ?? undefined,
+    }),
+    [columns, addToast, assignToAgentRef],
+  );
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
+  const tasksRef = useRef(tasks);
+  tasksRef.current = tasks;
   const undoStack = useRef<UndoAction[]>([]);
   const [canUndo, setCanUndo] = useState(false);
   const MAX_UNDO = 20;
@@ -138,6 +169,66 @@ export const useTaskController = ({
       isMountedRef.current = false;
     };
   }, []);
+
+  const persistIndexedDB = useCallback(
+    (action: { kind: "task"; task: Task } | { kind: "tasks"; tasks: Task[] } | { kind: "delete"; taskId: string }) => {
+      if (!indexedDBService.isAvailable()) return;
+      if (action.kind === "task") {
+        indexedDBService.saveTask(action.task).catch(console.error);
+      } else if (action.kind === "tasks") {
+        indexedDBService.saveTasks(action.tasks).catch(console.error);
+      } else {
+        indexedDBService.deleteTask(action.taskId).catch(console.error);
+      }
+    },
+    [],
+  );
+
+  const commitTaskMutation = useCallback(
+    (
+      optimisticTasks: Task[],
+      nativeRequest: {
+        op: TaskMutateOp;
+        task?: Task;
+        taskId?: string;
+        taskIds?: string[];
+        patch?: Partial<Task>;
+        newTasks?: Task[];
+      },
+      indexedDBAction?: { kind: "task"; task: Task } | { kind: "tasks"; tasks: Task[] } | { kind: "delete"; taskId: string },
+    ) => {
+      const prevTasks = tasksRef.current;
+      setTasks(optimisticTasks);
+
+      if (isNativeBackend()) {
+        void nativeMutateTasks({ tasks: prevTasks, ...nativeRequest })
+          .then((result) => {
+            if (isMountedRef.current) setTasks(result);
+          })
+          .catch((err) => console.error("[useTaskController] nativeMutateTasks failed:", err));
+        return;
+      }
+
+      if (indexedDBAction) persistIndexedDB(indexedDBAction);
+    },
+    [persistIndexedDB],
+  );
+
+  const resolveAutomationUpdates = useCallback(
+    (
+      event: AutomationTrigger,
+      context: TaskContext,
+      allTasks: Task[],
+    ): Partial<Task> | null | Promise<Partial<Task> | null> => {
+      const service = automationServiceRef.current;
+      if (!service) return null;
+      if (isNativeBackend() && service.processTaskEventNative) {
+        return service.processTaskEventNative(event, context, allTasks, automationOpts());
+      }
+      return service.processTaskEvent(event, context, allTasks, automationOpts()) ?? null;
+    },
+    [automationServiceRef, automationOpts],
+  );
 
   const augmentTaskSemantically = useCallback(
     async (task: Task) => {
@@ -178,54 +269,56 @@ export const useTaskController = ({
       case "task-delete":
         if (action.task) {
           const deletedTask = action.task;
-          setTasks((prev) => [...prev, deletedTask]);
+          commitTaskMutation(
+            [...tasksRef.current, deletedTask],
+            { op: "create", task: deletedTask },
+            { kind: "task", task: deletedTask },
+          );
           searchIndexServiceRef.current?.updateTask?.(deletedTask);
-          if (indexedDBService.isAvailable()) {
-            indexedDBService.saveTask(deletedTask).catch(console.error);
-          }
           addToast(`Restored "${deletedTask.title}"`, "success");
         }
         break;
       case "task-update":
         if (action.previousState) {
           const previousState = action.previousState;
-          setTasks((prev) => prev.map((t) => (t.id === previousState.id ? previousState : t)));
+          commitTaskMutation(
+            tasksRef.current.map((t) => (t.id === previousState.id ? previousState : t)),
+            { op: "update", taskId: previousState.id, patch: previousState },
+            { kind: "task", task: previousState },
+          );
           searchIndexServiceRef.current?.updateTask?.(previousState, action.task);
-          if (indexedDBService.isAvailable()) {
-            indexedDBService.saveTask(previousState).catch(console.error);
-          }
           addToast("Change undone", "info");
         }
         break;
       case "task-create":
         if (action.taskId) {
           const undoTaskId = action.taskId;
-          setTasks((prev) => {
-            const createdTask = prev.find((t) => t.id === undoTaskId);
-            if (createdTask) {
-              searchIndexServiceRef.current?.removeTask?.(createdTask);
-              if (indexedDBService.isAvailable()) {
-                indexedDBService.deleteTask(createdTask.id).catch(console.error);
-              }
-            }
-            return prev.filter((t) => t.id !== undoTaskId);
-          });
+          const createdTask = tasksRef.current.find((t) => t.id === undoTaskId);
+          if (createdTask) {
+            searchIndexServiceRef.current?.removeTask?.(createdTask);
+          }
+          commitTaskMutation(
+            tasksRef.current.filter((t) => t.id !== undoTaskId),
+            { op: "delete", taskId: undoTaskId },
+            { kind: "delete", taskId: undoTaskId },
+          );
           addToast("Task creation undone", "info");
         }
         break;
       case "task-move":
         if (action.previousState) {
           const previousState = action.previousState;
-          setTasks((prev) => prev.map((t) => (t.id === previousState.id ? previousState : t)));
+          commitTaskMutation(
+            tasksRef.current.map((t) => (t.id === previousState.id ? previousState : t)),
+            { op: "update", taskId: previousState.id, patch: previousState },
+            { kind: "task", task: previousState },
+          );
           searchIndexServiceRef.current?.updateTask?.(previousState, action.task);
-          if (indexedDBService.isAvailable()) {
-            indexedDBService.saveTask(previousState).catch(console.error);
-          }
           addToast("Move undone", "info");
         }
         break;
     }
-  }, [addToast, searchIndexServiceRef]);
+  }, [addToast, searchIndexServiceRef, commitTaskMutation]);
 
   const handleUpdateTask = useCallback(
     (taskOrId: Task | string, updates?: Partial<Task>) => {
@@ -251,14 +344,15 @@ export const useTaskController = ({
         task: updatedTask,
         previousState: previousTask,
       });
-      setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
-      if (indexedDBService.isAvailable()) {
-        indexedDBService.saveTask(updatedTask).catch(console.error);
-      }
+      commitTaskMutation(
+        tasks.map((t) => (t.id === taskId ? updatedTask : t)),
+        { op: "update", taskId, patch: updatedTask },
+        { kind: "task", task: updatedTask },
+      );
       searchIndexServiceRef.current?.updateTask?.(updatedTask, previousTask);
       augmentTaskSemantically(updatedTask);
     },
-    [tasks, pushUndo, searchIndexServiceRef, augmentTaskSemantically],
+    [tasks, pushUndo, searchIndexServiceRef, augmentTaskSemantically, commitTaskMutation],
   );
 
   const handleUpdateTaskDueDate = useCallback(
@@ -296,17 +390,18 @@ export const useTaskController = ({
         task: updatedTask,
         previousState: previousTask,
       });
-      setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
+      commitTaskMutation(
+        tasks.map((t) => (t.id === taskId ? updatedTask : t)),
+        { op: "update", taskId, patch: updatedTask },
+        { kind: "task", task: updatedTask },
+      );
       searchIndexServiceRef.current?.updateTask?.(updatedTask, previousTask);
-      if (indexedDBService.isAvailable()) {
-        indexedDBService.saveTask(updatedTask).catch(console.error);
-      }
       augmentTaskSemantically(updatedTask);
 
       const dateStr = normalizedDate.toLocaleDateString();
       addToast(`Due date updated to ${dateStr}`, "success");
     },
-    [tasks, addToast, pushUndo, activityServiceRef, searchIndexServiceRef, augmentTaskSemantically],
+    [tasks, addToast, pushUndo, activityServiceRef, searchIndexServiceRef, augmentTaskSemantically, commitTaskMutation],
   );
 
   const handleMoveTaskToWorkspace = useCallback(
@@ -334,18 +429,19 @@ export const useTaskController = ({
         task: updatedTask,
         previousState: previousTask,
       });
-      setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
+      commitTaskMutation(
+        tasks.map((t) => (t.id === taskId ? updatedTask : t)),
+        { op: "update", taskId, patch: updatedTask },
+        { kind: "task", task: updatedTask },
+      );
       searchIndexServiceRef.current?.updateTask?.(updatedTask, previousTask);
-      if (indexedDBService.isAvailable()) {
-        indexedDBService.saveTask(updatedTask).catch(console.error);
-      }
       addToast(`Task moved to "${targetProject.name}"`, "success");
     },
-    [tasks, projects, addToast, pushUndo, searchIndexServiceRef],
+    [tasks, projects, addToast, pushUndo, searchIndexServiceRef, commitTaskMutation],
   );
 
   const handleCreateOrUpdateTask = useCallback(
-    (taskData: Partial<Task>, editingTask: Task | null) => {
+    async (taskData: Partial<Task>, editingTask: Task | null) => {
       if (editingTask) {
         const previousTask = tasks.find((t) => t.id === editingTask.id);
         const updates = { ...taskData, updatedAt: new Date() };
@@ -354,7 +450,7 @@ export const useTaskController = ({
           ...updates,
         };
 
-        const automationUpdates = automationServiceRef.current?.processTaskEvent(
+        const automationResult = resolveAutomationUpdates(
           "onUpdate",
           {
             previousTask,
@@ -362,8 +458,9 @@ export const useTaskController = ({
             changedFields: Object.keys(updates),
           },
           tasks,
-          { columns },
         );
+        const automationUpdates =
+          automationResult instanceof Promise ? await automationResult : automationResult;
         if (automationUpdates) {
           updatedTask = { ...updatedTask, ...automationUpdates };
         }
@@ -375,12 +472,13 @@ export const useTaskController = ({
             previousState: previousTask,
           });
         }
-        setTasks((prev) => prev.map((t) => (t.id === editingTask.id ? updatedTask : t)));
+        commitTaskMutation(
+          tasks.map((t) => (t.id === editingTask.id ? updatedTask : t)),
+          { op: "update", taskId: editingTask.id, patch: updatedTask },
+          { kind: "task", task: updatedTask },
+        );
         searchIndexServiceRef.current?.updateTask?.(updatedTask, previousTask);
         augmentTaskSemantically(updatedTask);
-        if (indexedDBService.isAvailable()) {
-          indexedDBService.saveTask(updatedTask).catch(console.error);
-        }
 
         const recurringService = recurringTaskServiceRef.current;
         if (
@@ -389,12 +487,14 @@ export const useTaskController = ({
           !updatedTask.recurring.nextOccurrence
         ) {
           const nextOccurrence = recurringService.calculateNextOccurrence(updatedTask.recurring);
-          setTasks((prev) =>
-            prev.map((t) =>
-              t.id === updatedTask.id && t.recurring
-                ? { ...t, recurring: { ...t.recurring, nextOccurrence } }
-                : t,
-            ),
+          const withRecurring = {
+            ...updatedTask,
+            recurring: { ...updatedTask.recurring, nextOccurrence },
+          };
+          commitTaskMutation(
+            tasks.map((t) => (t.id === updatedTask.id ? withRecurring : t)),
+            { op: "update", taskId: updatedTask.id, patch: withRecurring },
+            { kind: "task", task: withRecurring },
           );
         }
 
@@ -436,24 +536,23 @@ export const useTaskController = ({
         );
       }
 
-      const automationUpdates = automationServiceRef.current?.processTaskEvent(
-        "onCreate",
-        { newTask },
-        tasks,
-        { columns },
-      );
+      const createAutomationResult = resolveAutomationUpdates("onCreate", { newTask }, tasks);
+      const automationUpdates =
+        createAutomationResult instanceof Promise
+          ? await createAutomationResult
+          : createAutomationResult;
       if (automationUpdates) {
         Object.assign(newTask, automationUpdates);
       }
 
       pushUndo({ type: "task-create", taskId: newTask.id });
-      setTasks((prev) => [...prev, newTask]);
+      commitTaskMutation(
+        [...tasks, newTask],
+        { op: "create", task: newTask },
+        { kind: "task", task: newTask },
+      );
       searchIndexServiceRef.current?.updateTask?.(newTask);
       augmentTaskSemantically(newTask);
-
-      if (indexedDBService.isAvailable()) {
-        indexedDBService.saveTask(newTask).catch(console.error);
-      }
 
       addToast("Task created successfully (Ctrl+Z to undo)", "success");
     },
@@ -463,11 +562,12 @@ export const useTaskController = ({
       columns,
       pushUndo,
       addToast,
-      automationServiceRef,
       activityServiceRef,
       recurringTaskServiceRef,
       searchIndexServiceRef,
       augmentTaskSemantically,
+      commitTaskMutation,
+      resolveAutomationUpdates,
     ],
   );
 
@@ -497,21 +597,21 @@ export const useTaskController = ({
         errorLogs: taskData.errorLogs || [],
       }));
 
-      setTasks((prev) => [...prev, ...createdTasks]);
+      commitTaskMutation(
+        [...tasks, ...createdTasks],
+        { op: "bulkUpsert", newTasks: createdTasks },
+        { kind: "tasks", tasks: createdTasks },
+      );
       createdTasks.forEach((task) => {
         searchIndexServiceRef.current?.updateTask?.(task);
       });
-
-      if (indexedDBService.isAvailable()) {
-        indexedDBService.saveTasks(createdTasks).catch(console.error);
-      }
 
       // Augment semantically in background
       createdTasks.forEach((task) => {
         void augmentTaskSemantically(task);
       });
     },
-    [activeProjectId, columns, searchIndexServiceRef, augmentTaskSemantically],
+    [tasks, activeProjectId, columns, searchIndexServiceRef, augmentTaskSemantically, commitTaskMutation],
   );
 
   const handleDeleteTaskInternal = useCallback(
@@ -520,18 +620,19 @@ export const useTaskController = ({
       if (!task) return;
 
       pushUndo({ type: "task-delete", task });
-      setTasks((prev) => prev.filter((t) => t.id !== taskId));
+      commitTaskMutation(
+        tasks.filter((t) => t.id !== taskId),
+        { op: "delete", taskId },
+        { kind: "delete", taskId },
+      );
       searchIndexServiceRef.current?.removeTask?.(task);
-      if (indexedDBService.isAvailable()) {
-        indexedDBService.deleteTask(taskId).catch(console.error);
-      }
       addToast("Task deleted (Ctrl+Z to undo)", "info");
     },
-    [tasks, pushUndo, addToast, searchIndexServiceRef],
+    [tasks, pushUndo, addToast, searchIndexServiceRef, commitTaskMutation],
   );
 
   const moveTask = useCallback(
-    (taskId: string, newStatus: string, newPriority?: string, newOrder?: number) => {
+    async (taskId: string, newStatus: string, newPriority?: string, newOrder?: number) => {
       const task = tasks.find((t) => t.id === taskId);
       if (!task) {
         addToast("Task not found", "error");
@@ -622,12 +723,13 @@ export const useTaskController = ({
         activity: [...(task.activity || []), ...activity],
       };
 
-      const automationUpdates = automationServiceRef.current?.processTaskEvent(
+      const moveAutomationResult = resolveAutomationUpdates(
         "onMove",
         { previousTask, newTask: updatedTask },
         tasks,
-        { columns },
       );
+      const automationUpdates =
+        moveAutomationResult instanceof Promise ? await moveAutomationResult : moveAutomationResult;
       if (automationUpdates) {
         updatedTask = { ...updatedTask, ...automationUpdates };
       }
@@ -636,12 +738,15 @@ export const useTaskController = ({
       if (targetColumn.isCompleted && updatedTask.recurring?.enabled && recurringService) {
         recurringService.updateNextOccurrence(updatedTask);
 
-        const completeUpdates = automationServiceRef.current?.processTaskEvent(
+        const completeAutomationResult = resolveAutomationUpdates(
           "onComplete",
           { previousTask, newTask: updatedTask },
           tasks,
-          { columns },
         );
+        const completeUpdates =
+          completeAutomationResult instanceof Promise
+            ? await completeAutomationResult
+            : completeAutomationResult;
         if (completeUpdates) {
           updatedTask = { ...updatedTask, ...completeUpdates };
         }
@@ -652,12 +757,12 @@ export const useTaskController = ({
         task: updatedTask,
         previousState: previousTask,
       });
-      setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
+      commitTaskMutation(
+        tasks.map((t) => (t.id === taskId ? updatedTask : t)),
+        { op: "update", taskId, patch: updatedTask },
+        { kind: "task", task: updatedTask },
+      );
       searchIndexServiceRef.current?.updateTask?.(updatedTask, previousTask);
-
-      if (indexedDBService.isAvailable()) {
-        indexedDBService.saveTask(updatedTask).catch(console.error);
-      }
 
       // Auto-Pilot Subtask Engine
       const currentAiService = aiServiceRef?.current;
@@ -684,17 +789,15 @@ export const useTaskController = ({
                 completed: false,
               }));
 
-              setTasks((prev) =>
-                prev.map((t) => {
-                  if (t.id === taskId) {
-                    const finalTask = { ...t, subtasks: newSubtasks, updatedAt: new Date() };
-                    if (indexedDBService.isAvailable()) {
-                      indexedDBService.saveTask(finalTask).catch(console.error);
-                    }
-                    return finalTask;
-                  }
-                  return t;
-                }),
+              const prev = tasksRef.current;
+              const movedTask = prev.find((t) => t.id === taskId);
+              if (!movedTask) return;
+
+              const finalTask = { ...movedTask, subtasks: newSubtasks, updatedAt: new Date() };
+              commitTaskMutation(
+                prev.map((t) => (t.id === taskId ? finalTask : t)),
+                { op: "update", taskId, patch: finalTask },
+                { kind: "task", task: finalTask },
               );
               addToast(`Auto-pilot added ${subtaskTitles.length} subtasks`, "success");
             }
@@ -710,11 +813,12 @@ export const useTaskController = ({
       columns,
       addToast,
       pushUndo,
-      automationServiceRef,
       activityServiceRef,
       recurringTaskServiceRef,
       searchIndexServiceRef,
       aiServiceRef,
+      commitTaskMutation,
+      resolveAutomationUpdates,
     ],
   );
 

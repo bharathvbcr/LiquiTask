@@ -40,7 +40,11 @@ pub fn create_and_store_data_key() -> Result<[u8; KEY_LEN], String> {
 pub fn store_data_key(key: &[u8; KEY_LEN]) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
-        return macos_store_key(key);
+        if let Err(err) = macos_store_key(key) {
+            eprintln!("[Encryption] Biometric Keychain store failed, falling back to standard keyring: {err}");
+            return legacy_keyring_store(key);
+        }
+        return Ok(());
     }
     #[cfg(not(target_os = "macos"))]
     {

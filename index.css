@@ -173,7 +173,6 @@ body {
     box-shadow 0.4s ease,
     border-color 0.4s ease,
     background 0.4s ease;
-  will-change: transform;
 }
 
 .liquid-card:hover {

@@ -81,10 +81,70 @@ test_output.txt
 # Tauri (Rust) — source is tracked; build output and generated schemas are not.
 # Cargo.lock is intentionally committed for reproducible application builds.
 src-tauri/target/
+crates/**/target/
 src-tauri/gen/
+src-tauri/binaries/semantic-layer-*
+
+# Semantic layer PyInstaller build artifacts
+semantic_layer/.build-venv/
+semantic_layer/.build-cache/
+semantic_layer/build/
+semantic_layer/dist/
 
 # Code-signing material — generated in CI from secrets, never committed.
 src-tauri/tauri.windows.conf.json
 *.pfx
 *.p12
 
+
+# DevCouncil local state
+.devcouncil/*
+!.devcouncil/
+!.devcouncil/config.yaml
+!.devcouncil/graphify.yaml
+
+# Local AI coding agents
+.agents/
+.codex/
+.aider*
+.claude*
+.openhands/
+.opencode/
+.conducor/
+.antigravity/
+.warp/
+
+# Secrets and local databases
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.db
+
+# Temporary, log, and dump artifacts
+log/
+tmp/
+temp/
+.tmp/
+.temp/
+scratch/
+dumps/
+*.tmp
+*.temp
+*.dmp
+*.bak
+*.swp
+
+# Environment, dependency, and cache directories
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+node_modules/
+.env
+.env.local
+.env.*
+!.env.example
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+Thumbs.db
