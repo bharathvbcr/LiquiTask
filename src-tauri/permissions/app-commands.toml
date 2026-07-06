@@ -96,4 +96,5 @@ commands.allow = [
   "github_issue_comment",
   "github_auth_status",
   "tray_update_active_runs",
+  "tray_update_inbox_count",
 ]

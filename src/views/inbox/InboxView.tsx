@@ -12,7 +12,7 @@ import {
 import type React from "react";
 import { useMemo, useState } from "react";
 
-import { COLUMN_STATUS } from "../../constants";
+import { isAwaitingReview, isBlockedRun } from "../../core/inbox/deriveInboxItems";
 import type { AgentStandupDigest } from "../../services/agents/agentStandupDigestService";
 import { ApprovalCard, GlassCard, PresenceRing, StatusPill } from "../../ui";
 import type { PresenceStatus } from "../../ui";
@@ -44,20 +44,6 @@ type InboxCard =
 
 function runTimestamp(run: AgentRun): number {
   return (run.finishedAt ?? run.startedAt ?? run.createdAt).getTime();
-}
-
-/** True while the agent process is paused, or an error mentions a permission/block. */
-function isBlockedRun(run: AgentRun): boolean {
-  if (run.status === "failed" && run.verification && !run.verification.passed) return true;
-  if (run.status === "running" && run.isPaused) return true;
-  const err = (run.error ?? "").toLowerCase();
-  return err.includes("permission") || err.includes("blocked");
-}
-
-/** Mirrors AgentRunsDock's `showReview` gating: finished run, task sitting in Review, no verdict yet. */
-function isAwaitingReview(run: AgentRun, task: Task | undefined): boolean {
-  if (run.status !== "completed" || run.reviewOutcome) return false;
-  return task?.status === COLUMN_STATUS.REVIEW;
 }
 
 function presenceForRun(run: AgentRun): PresenceStatus {

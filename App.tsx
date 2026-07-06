@@ -14,6 +14,7 @@ import { AgentStandupCard } from "./src/components/agents/AgentStandupCard";
 import { WarRoom } from "./src/components/agents/WarRoom";
 import agentMcpService, { type AgentPermissionRequest } from "./src/services/agents/agentMcpService";
 import { localApi } from "./src/core/api/localApi";
+import { deriveInboxCounts } from "./src/core/inbox/deriveInboxItems";
 import { useAgentStandupDigest } from "./src/hooks/useAgentStandupDigest";
 import { useAgentTeammates } from "./src/hooks/useAgentTeammates";
 import { useGitHubSync } from "./src/hooks/useGitHubSync";
@@ -715,6 +716,16 @@ const App: React.FC = () => {
     return agentMcpService.subscribePermissions(setShellPendingPermissions);
   }, []);
 
+  // v3 shell: keep the tray tooltip reflecting the Inbox's actionable count instead of
+  // raw active-run count, once Inbox (not the runs dock) is the primary surface.
+  useEffect(() => {
+    if (!FEATURE_FLAGS.V3_SHELL_ENABLED || !isTauri()) return;
+    const { actionable } = deriveInboxCounts(agentRuns, tasks);
+    void import("@tauri-apps/api/core").then(({ invoke }) =>
+      invoke("tray_update_inbox_count", { count: actionable }).catch(() => undefined),
+    );
+  }, [agentRuns, tasks]);
+
   // v3 shell: populate the Agents surface's runtime-health strip when the sidecar is on,
   // refreshing each time the user switches to that surface.
   useEffect(() => {
@@ -1355,6 +1366,37 @@ const App: React.FC = () => {
           }
         },
       },
+      ...(FEATURE_FLAGS.V3_SHELL_ENABLED
+        ? ([
+            {
+              id: "surface:inbox",
+              label: "Go to Inbox",
+              category: "view",
+              description: "Switch to the Inbox surface — approvals, finished runs, blocked agents",
+              keywords: ["inbox", "surface", "triage", "approvals"],
+              aliases: ["inbox", "triage"],
+              action: () => setActiveSurface("inbox"),
+            },
+            {
+              id: "surface:board",
+              label: "Go to Board",
+              category: "view",
+              description: "Switch to the Board surface",
+              keywords: ["board", "surface", "kanban"],
+              aliases: ["board", "kanban"],
+              action: () => setActiveSurface("board"),
+            },
+            {
+              id: "surface:agents",
+              label: "Go to Agents",
+              category: "view",
+              description: "Switch to the Agents surface — roster, presence, runtime health",
+              keywords: ["agents", "surface", "roster"],
+              aliases: ["agents", "roster"],
+              action: () => setActiveSurface("agents"),
+            },
+          ] as CommandAction[])
+        : []),
       {
         id: "view:project",
         label: "Project View",

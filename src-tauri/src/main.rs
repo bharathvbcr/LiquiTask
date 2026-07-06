@@ -75,7 +75,7 @@ use agent_git::{
 use github_sync::{
     github_auth_status, github_detect_repo, github_issue_close, github_issue_comment, github_issue_list,
 };
-use tray::{on_run_event, setup_tray, tray_update_active_runs};
+use tray::{on_run_event, setup_tray, tray_update_active_runs, tray_update_inbox_count};
 use agent_core::{
     agent_build_council_goal, agent_build_task_prompt, agent_parse_council_report,
     agent_parse_stream_line,
@@ -877,6 +877,7 @@ fn main() {
             github_issue_comment,
             github_auth_status,
             tray_update_active_runs,
+            tray_update_inbox_count,
         ])
         .build(tauri::generate_context!())
         .expect("error while building LiquiTask")

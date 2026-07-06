@@ -84,6 +84,25 @@ pub fn tray_update_active_runs(app: AppHandle, count: u32) -> Result<(), String>
         .map_err(|e| format!("Failed to update tray tooltip: {e}"))
 }
 
+/// v3 shell: reflects the Inbox's actionable count (approvals awaiting review +
+/// blocked runs) rather than raw active-run count — this is what the tray badge
+/// should communicate once Inbox is the primary surface (Rework Plan §3.5).
+#[tauri::command(rename_all = "camelCase")]
+pub fn tray_update_inbox_count(app: AppHandle, count: u32) -> Result<(), String> {
+    let tray = app
+        .tray_by_id(TRAY_ID)
+        .ok_or_else(|| "Tray icon not initialized".to_string())?;
+    let label = if count == 0 {
+        "LiquiTask — you're all caught up".to_string()
+    } else if count == 1 {
+        "LiquiTask — 1 item needs your attention".to_string()
+    } else {
+        format!("LiquiTask — {count} items need your attention")
+    };
+    tray.set_tooltip(Some(label))
+        .map_err(|e| format!("Failed to update tray tooltip: {e}"))
+}
+
 pub fn on_run_event(app: &AppHandle, event: &RunEvent) {
     if let RunEvent::ExitRequested { api, .. } = event {
         if let Some(window) = app.get_webview_window("main") {
