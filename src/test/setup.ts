@@ -1,6 +1,17 @@
 import "@testing-library/jest-dom";
 import { beforeEach, vi } from "vitest";
 
+// Default Tauri API mocks so components/hooks that call listen()/invoke() at
+// mount time don't throw unhandled rejections in jsdom (no __TAURI_INTERNALS__).
+// Individual test files can still override these with their own vi.mock calls.
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn().mockResolvedValue(() => {}),
+  emit: vi.fn().mockResolvedValue(undefined),
+}));
+
 // Mock localStorage
 const store: Record<string, string> = {};
 const localStorageMock = {
