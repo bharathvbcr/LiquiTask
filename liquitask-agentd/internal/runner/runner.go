@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/liquitask/liquitask-agentd/internal/agent"
+	"github.com/liquitask/liquitask-agentd/internal/daemon"
 	"github.com/liquitask/liquitask-agentd/internal/detect"
 	"github.com/liquitask/liquitask-agentd/internal/rpc"
 )
@@ -107,6 +108,25 @@ func New(server *rpc.Server, dataDir string) *Manager {
 // HandleDetect implements detect RPC.
 func (m *Manager) HandleDetect(_ json.RawMessage) (any, *rpc.Error) {
 	return detect.Detect(), nil
+}
+
+// HandleSkillsList implements skills.list — local skill discovery ported from
+// Multica's daemon (internal/daemon/local_skills.go). params.provider empty
+// sweeps every supported runtime's skill root plus ~/.agents/skills.
+func (m *Manager) HandleSkillsList(raw json.RawMessage) (any, *rpc.Error) {
+	var p struct {
+		Provider string `json:"provider"`
+	}
+	if len(raw) > 0 {
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return nil, rpc.ErrInvalidParams("invalid skills.list params")
+		}
+	}
+	skills, err := daemon.ListLocalSkills(p.Provider)
+	if err != nil {
+		return nil, rpc.ErrInternal(err.Error())
+	}
+	return skills, nil
 }
 
 // HandleStart implements run.start. It resolves the runtime's executable via

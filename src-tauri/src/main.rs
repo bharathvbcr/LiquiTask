@@ -61,7 +61,7 @@ use agent_runner::{
 use agentd::{
     agentd_detect, agentd_ensure, agentd_permission_respond, agentd_run_cancel,
     agentd_run_inject, agentd_run_pause, agentd_run_reattach, agentd_run_resume,
-    agentd_run_start, AgentdState,
+    agentd_run_start, agentd_skills_list, AgentdState,
 };
 use agentd_store::{agentd_store_list_agents, agentd_store_list_run_events, agentd_store_list_runs, AgentdStore};
 use agent_mcp::{
@@ -802,6 +802,7 @@ fn main() {
             agent_detect_clis,
             agentd_ensure,
             agentd_detect,
+            agentd_skills_list,
             agentd_run_start,
             agentd_run_cancel,
             agentd_run_pause,

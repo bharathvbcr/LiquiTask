@@ -131,4 +131,18 @@ describe("localApi agentd routing", () => {
     await localApi.ensureAgentd();
     expect(invokeMock).toHaveBeenCalledWith("agentd_ensure", undefined);
   });
+
+  it("listSkills calls agentd_skills_list when enabled and returns undefined when disabled", async () => {
+    setAgentdEnabled(true);
+    invokeMock.mockResolvedValue([{ key: "foo", name: "foo", source_path: "~/.claude/skills/foo", provider: "claude", file_count: 1 }]);
+    const enabled = await localApi.listSkills("claude");
+    expect(invokeMock).toHaveBeenCalledWith("agentd_skills_list", { provider: "claude" });
+    expect(enabled).toHaveLength(1);
+
+    setAgentdEnabled(false);
+    invokeMock.mockClear();
+    const disabled = await localApi.listSkills("claude");
+    expect(invokeMock).not.toHaveBeenCalled();
+    expect(disabled).toBeUndefined();
+  });
 });

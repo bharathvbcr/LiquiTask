@@ -147,6 +147,27 @@ export const localApi = {
     return undefined;
   },
 
+  /**
+   * Installed skill FILES discovered on disk (~/.claude/skills, ~/.agents/skills,
+   * etc.) — distinct from agentSkillsService's captured-run-history skills.
+   * agentd-only (no legacy equivalent); `provider` empty sweeps every supported
+   * runtime's skill root plus the universal fallback.
+   */
+  async listSkills(provider?: string) {
+    if (!FEATURE_FLAGS.AGENTD_SIDECAR_ENABLED) return undefined;
+    return guardedInvoke<
+      Array<{
+        key: string;
+        name: string;
+        description?: string;
+        source_path: string;
+        provider: string;
+        root?: string;
+        file_count: number;
+      }>
+    >("agentd_skills_list", { provider }, { allowWebFallback: true });
+  },
+
   subscribe: subscribeLocalEvent,
 } as const;
 

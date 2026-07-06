@@ -42,6 +42,22 @@ pub struct AgentdRuntime {
     pub ready: bool,
 }
 
+/// Local skill discovered by the Go sidecar's ported local_skills.go — a direct
+/// pass-through of its JSON tags, so snake_case (not camelCase, see
+/// DevVerifyGap in agent_devcouncil.rs for the same convention/rationale).
+#[derive(Serialize, Deserialize, Clone)]
+pub struct AgentdSkill {
+    pub key: String,
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    pub source_path: String,
+    pub provider: String,
+    #[serde(default)]
+    pub root: String,
+    pub file_count: i64,
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentdReattachedRun {
@@ -311,6 +327,20 @@ pub fn agentd_detect(
         );
     }
     Ok(runtimes)
+}
+
+/// Local skill discovery (Rework Plan §5: "skills manager, merge
+/// agentSkillsService.ts + local_skills.go"). `provider` empty sweeps every
+/// supported runtime's skill root plus the universal ~/.agents/skills folder.
+#[tauri::command(rename_all = "camelCase")]
+pub fn agentd_skills_list(
+    app: AppHandle,
+    state: tauri::State<'_, AgentdState>,
+    provider: Option<String>,
+) -> Result<Vec<AgentdSkill>, String> {
+    agentd_start(&app, &state)?;
+    let result = rpc_call(&state, "skills.list", json!({ "provider": provider.unwrap_or_default() }))?;
+    serde_json::from_value(result).map_err(|e| e.to_string())
 }
 
 #[tauri::command(rename_all = "camelCase")]
