@@ -42,6 +42,7 @@ mod agent_analytics;
 mod agent_core;
 mod agent_policy;
 mod agent_devcouncil;
+mod agent_devcouncil_evidence;
 mod agent_skills;
 mod ai_engine;
 mod app_data;
@@ -53,6 +54,7 @@ mod run_store;
 mod secure_key_store;
 mod semantic_layer;
 mod storage_tasks;
+mod task_store;
 use agent_runner::{
     agent_detect_clis, agent_open_in_terminal, agent_run_active, agent_run_cancel,
     agent_runner_inject_guidance, agent_runner_pause, agent_runner_resume, agent_run_start,
@@ -63,7 +65,11 @@ use agentd::{
     agentd_run_inject, agentd_run_pause, agentd_run_reattach, agentd_run_resume,
     agentd_run_start, agentd_skills_list, AgentdState,
 };
-use agentd_store::{agentd_store_list_agents, agentd_store_list_run_events, agentd_store_list_runs, AgentdStore};
+use agentd_store::{
+    agentd_store_list_agents, agentd_store_list_devcouncil_evidence, agentd_store_list_devcouncil_requirements,
+    agentd_store_list_devcouncil_tasks, agentd_store_list_run_events, agentd_store_list_runs, AgentdStore,
+};
+use task_store::{task_store_export_snapshot, task_store_read_snapshot, TaskStore};
 use agent_mcp::{
     agent_mcp_cleanup, agent_mcp_init, agent_mcp_list_requests, agent_mcp_resolve_bridge,
     agent_mcp_write_config, agent_mcp_write_response,
@@ -81,7 +87,10 @@ use agent_core::{
     agent_parse_stream_line,
 };
 use agent_analytics::agent_compute_analytics;
-use agent_devcouncil::{agent_dev_parse_export, agent_dev_plan, agent_dev_repair, agent_dev_verify};
+use agent_devcouncil::{
+    agent_dev_cli_available, agent_dev_parse_export, agent_dev_plan, agent_dev_repair, agent_dev_verify,
+};
+use agent_devcouncil_evidence::agent_dev_mirror_evidence;
 use agent_skills::{agent_skills_capture, agent_skills_delete, agent_skills_filter};
 use ai_engine::{ai_ollama_chat, ai_ollama_generate, ai_ollama_health};
 use app_data::{app_data_load, app_data_patch, app_data_save, app_data_storage_path};
@@ -766,6 +775,7 @@ fn main() {
         .manage(AgentProcessRegistry(Mutex::new(std::collections::HashMap::new())))
         .manage(AgentdState::default())
         .manage(AgentdStore::default())
+        .manage(TaskStore::default())
         .setup(|app| {
             setup_tray(app.handle())?;
             Ok(())
@@ -813,6 +823,11 @@ fn main() {
             agentd_store_list_runs,
             agentd_store_list_run_events,
             agentd_store_list_agents,
+            agentd_store_list_devcouncil_requirements,
+            agentd_store_list_devcouncil_tasks,
+            agentd_store_list_devcouncil_evidence,
+            task_store_export_snapshot,
+            task_store_read_snapshot,
             agent_run_start,
             agent_run_cancel,
             agent_runner_pause,
@@ -842,6 +857,8 @@ fn main() {
             agent_dev_verify,
             agent_dev_repair,
             agent_dev_parse_export,
+            agent_dev_cli_available,
+            agent_dev_mirror_evidence,
             ai_ollama_generate,
             ai_ollama_health,
             ai_ollama_chat,

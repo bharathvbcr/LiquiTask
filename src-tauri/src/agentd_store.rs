@@ -63,6 +63,42 @@ pub struct StoredAgent {
     pub last_detected_at_ms: i64,
 }
 
+/// Mirrored row shapes for the DevCouncil evidence graph (Rework Plan §3.4
+/// item 4). These are LiquiTask's own copies, upserted from DevCouncil's
+/// `.devcouncil/state.db` by `agent_devcouncil_evidence::mirror_evidence_graph` —
+/// kept here (not in that module) so they live next to the schema that owns
+/// them, matching this file's existing `Stored*` convention.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct StoredDevCouncilRequirement {
+    pub id: String,
+    pub title: String,
+    pub description: String,
+    pub priority: Option<String>,
+    pub source: Option<String>,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct StoredDevCouncilTask {
+    pub id: String,
+    pub title: String,
+    pub description: String,
+    pub status: Option<String>,
+    pub requirement_ids_json: Option<String>,
+    pub planned_files_json: Option<String>,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct StoredDevCouncilEvidence {
+    pub id: i64,
+    pub kind: String,
+    pub task_id: Option<String>,
+    pub requirement_id: Option<String>,
+    pub data_json: Option<String>,
+}
+
 fn db_path(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = app
         .path()
@@ -109,6 +145,31 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
             version             TEXT,
             ready               INTEGER NOT NULL,
             last_detected_at_ms INTEGER NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS devcouncil_requirements (
+            id          TEXT PRIMARY KEY,
+            title       TEXT NOT NULL,
+            description TEXT NOT NULL,
+            priority    TEXT,
+            source      TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS devcouncil_tasks (
+            id                     TEXT PRIMARY KEY,
+            title                  TEXT NOT NULL,
+            description            TEXT NOT NULL,
+            status                 TEXT,
+            requirement_ids_json   TEXT,
+            planned_files_json     TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS devcouncil_evidence (
+            id             INTEGER PRIMARY KEY,
+            kind           TEXT NOT NULL,
+            task_id        TEXT,
+            requirement_id TEXT,
+            data_json      TEXT
         );
         ",
     )
@@ -280,6 +341,148 @@ impl AgentdStore {
             rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
         })
     }
+
+    // -----------------------------------------------------------------
+    // DevCouncil evidence-graph mirror (Rework Plan §3.4 item 4)
+    // -----------------------------------------------------------------
+
+    pub fn upsert_devcouncil_requirement(
+        &self,
+        app: &AppHandle,
+        id: &str,
+        title: &str,
+        description: &str,
+        priority: Option<&str>,
+        source: Option<&str>,
+    ) -> Result<(), String> {
+        self.with_conn(app, |conn| {
+            conn.execute(
+                "INSERT INTO devcouncil_requirements (id, title, description, priority, source)
+                 VALUES (?1, ?2, ?3, ?4, ?5)
+                 ON CONFLICT(id) DO UPDATE SET
+                    title = excluded.title, description = excluded.description,
+                    priority = excluded.priority, source = excluded.source",
+                rusqlite::params![id, title, description, priority, source],
+            )
+            .map_err(|e| format!("Failed to upsert devcouncil requirement: {e}"))?;
+            Ok(())
+        })
+    }
+
+    pub fn upsert_devcouncil_task(
+        &self,
+        app: &AppHandle,
+        id: &str,
+        title: &str,
+        description: &str,
+        status: Option<&str>,
+        requirement_ids_json: Option<&str>,
+        planned_files_json: Option<&str>,
+    ) -> Result<(), String> {
+        self.with_conn(app, |conn| {
+            conn.execute(
+                "INSERT INTO devcouncil_tasks (id, title, description, status, requirement_ids_json, planned_files_json)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+                 ON CONFLICT(id) DO UPDATE SET
+                    title = excluded.title, description = excluded.description, status = excluded.status,
+                    requirement_ids_json = excluded.requirement_ids_json,
+                    planned_files_json = excluded.planned_files_json",
+                rusqlite::params![id, title, description, status, requirement_ids_json, planned_files_json],
+            )
+            .map_err(|e| format!("Failed to upsert devcouncil task: {e}"))?;
+            Ok(())
+        })
+    }
+
+    pub fn upsert_devcouncil_evidence(
+        &self,
+        app: &AppHandle,
+        id: i64,
+        kind: &str,
+        task_id: Option<&str>,
+        requirement_id: Option<&str>,
+        data_json: Option<&str>,
+    ) -> Result<(), String> {
+        self.with_conn(app, |conn| {
+            conn.execute(
+                "INSERT INTO devcouncil_evidence (id, kind, task_id, requirement_id, data_json)
+                 VALUES (?1, ?2, ?3, ?4, ?5)
+                 ON CONFLICT(id) DO UPDATE SET
+                    kind = excluded.kind, task_id = excluded.task_id,
+                    requirement_id = excluded.requirement_id, data_json = excluded.data_json",
+                rusqlite::params![id, kind, task_id, requirement_id, data_json],
+            )
+            .map_err(|e| format!("Failed to upsert devcouncil evidence: {e}"))?;
+            Ok(())
+        })
+    }
+
+    pub fn list_devcouncil_requirements(&self, app: &AppHandle) -> Result<Vec<StoredDevCouncilRequirement>, String> {
+        self.with_conn(app, |conn| {
+            let mut stmt = conn
+                .prepare("SELECT id, title, description, priority, source FROM devcouncil_requirements ORDER BY id ASC")
+                .map_err(|e| e.to_string())?;
+            let rows = stmt
+                .query_map([], |row| {
+                    Ok(StoredDevCouncilRequirement {
+                        id: row.get(0)?,
+                        title: row.get(1)?,
+                        description: row.get(2)?,
+                        priority: row.get(3)?,
+                        source: row.get(4)?,
+                    })
+                })
+                .map_err(|e| e.to_string())?;
+            rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+        })
+    }
+
+    pub fn list_devcouncil_tasks(&self, app: &AppHandle) -> Result<Vec<StoredDevCouncilTask>, String> {
+        self.with_conn(app, |conn| {
+            let mut stmt = conn
+                .prepare(
+                    "SELECT id, title, description, status, requirement_ids_json, planned_files_json
+                     FROM devcouncil_tasks ORDER BY id ASC",
+                )
+                .map_err(|e| e.to_string())?;
+            let rows = stmt
+                .query_map([], |row| {
+                    Ok(StoredDevCouncilTask {
+                        id: row.get(0)?,
+                        title: row.get(1)?,
+                        description: row.get(2)?,
+                        status: row.get(3)?,
+                        requirement_ids_json: row.get(4)?,
+                        planned_files_json: row.get(5)?,
+                    })
+                })
+                .map_err(|e| e.to_string())?;
+            rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+        })
+    }
+
+    pub fn list_devcouncil_evidence(&self, app: &AppHandle) -> Result<Vec<StoredDevCouncilEvidence>, String> {
+        self.with_conn(app, |conn| {
+            let mut stmt = conn
+                .prepare(
+                    "SELECT id, kind, task_id, requirement_id, data_json
+                     FROM devcouncil_evidence ORDER BY id ASC",
+                )
+                .map_err(|e| e.to_string())?;
+            let rows = stmt
+                .query_map([], |row| {
+                    Ok(StoredDevCouncilEvidence {
+                        id: row.get(0)?,
+                        kind: row.get(1)?,
+                        task_id: row.get(2)?,
+                        requirement_id: row.get(3)?,
+                        data_json: row.get(4)?,
+                    })
+                })
+                .map_err(|e| e.to_string())?;
+            rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+        })
+    }
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -299,6 +502,30 @@ pub fn agentd_store_list_run_events(
 #[tauri::command(rename_all = "camelCase")]
 pub fn agentd_store_list_agents(app: AppHandle, store: tauri::State<'_, AgentdStore>) -> Result<Vec<StoredAgent>, String> {
     store.list_agents(&app)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn agentd_store_list_devcouncil_requirements(
+    app: AppHandle,
+    store: tauri::State<'_, AgentdStore>,
+) -> Result<Vec<StoredDevCouncilRequirement>, String> {
+    store.list_devcouncil_requirements(&app)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn agentd_store_list_devcouncil_tasks(
+    app: AppHandle,
+    store: tauri::State<'_, AgentdStore>,
+) -> Result<Vec<StoredDevCouncilTask>, String> {
+    store.list_devcouncil_tasks(&app)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn agentd_store_list_devcouncil_evidence(
+    app: AppHandle,
+    store: tauri::State<'_, AgentdStore>,
+) -> Result<Vec<StoredDevCouncilEvidence>, String> {
+    store.list_devcouncil_evidence(&app)
 }
 
 #[cfg(test)]
@@ -373,5 +600,54 @@ mod tests {
         let (count, ready): (i64, i64) = stmt.query_row([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
         assert_eq!(count, 1, "upsert must not create duplicate rows");
         assert_eq!(ready, 0);
+    }
+
+    #[test]
+    fn devcouncil_requirement_upsert_is_idempotent() {
+        let conn = memory_conn();
+        let upsert = |title: &str| {
+            conn.execute(
+                "INSERT INTO devcouncil_requirements (id, title, description, priority, source)
+                 VALUES ('REQ-1', ?1, 'desc', 'high', 'user')
+                 ON CONFLICT(id) DO UPDATE SET title = excluded.title, description = excluded.description,
+                    priority = excluded.priority, source = excluded.source",
+                rusqlite::params![title],
+            )
+            .unwrap();
+        };
+        upsert("First title");
+        upsert("Updated title");
+        let mut stmt = conn.prepare("SELECT COUNT(*), title FROM devcouncil_requirements").unwrap();
+        let (count, title): (i64, String) = stmt.query_row([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+        assert_eq!(count, 1, "upsert must not create duplicate requirement rows");
+        assert_eq!(title, "Updated title");
+    }
+
+    #[test]
+    fn devcouncil_task_and_evidence_roundtrip() {
+        let conn = memory_conn();
+        conn.execute(
+            "INSERT INTO devcouncil_tasks (id, title, description, status, requirement_ids_json, planned_files_json)
+             VALUES ('TASK-1', 'Do it', 'desc', 'planned', '[\"REQ-1\"]', '[]')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO devcouncil_evidence (id, kind, task_id, requirement_id, data_json)
+             VALUES (1, 'command', 'TASK-1', 'REQ-1', '{\"exit_code\":0}')",
+            [],
+        )
+        .unwrap();
+
+        let mut task_stmt = conn.prepare("SELECT id, status FROM devcouncil_tasks WHERE id = 'TASK-1'").unwrap();
+        let (task_id, status): (String, String) =
+            task_stmt.query_row([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+        assert_eq!(task_id, "TASK-1");
+        assert_eq!(status, "planned");
+
+        let mut ev_stmt = conn.prepare("SELECT kind, task_id FROM devcouncil_evidence WHERE id = 1").unwrap();
+        let (kind, ev_task_id): (String, String) = ev_stmt.query_row([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+        assert_eq!(kind, "command");
+        assert_eq!(ev_task_id, "TASK-1");
     }
 }
