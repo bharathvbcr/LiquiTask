@@ -3,6 +3,7 @@ import { isTauri } from "../../runtime/runtimeEnvironment";
 import storageService from "../storageService";
 import type { ActivityItem, BoardColumn, Task } from "../../../types";
 import { generateTaskId } from "../../utils/taskUtils";
+import agentScopeService from "./agentScopeService";
 
 export interface McpToolRequest {
   requestId: string;
@@ -46,6 +47,32 @@ export function buildPermissionResponse(
   };
 }
 
+/** Extract a `file_path`/`filePath` string from a tool-call input, if present. */
+export function extractFilePath(input: unknown): string | undefined {
+  const obj =
+    input && typeof input === "object" && !Array.isArray(input)
+      ? (input as Record<string, unknown>)
+      : {};
+  const filePath = obj.file_path ?? obj.filePath;
+  return filePath ? String(filePath) : undefined;
+}
+
+/**
+ * Best-effort guess at whether a tool call is a write/edit/delete-style
+ * operation that should be checked against DevCouncil's scope whitelist.
+ * False-negatives are safer than false-positives here — this is an additive
+ * safety net, not the only gate.
+ */
+export function isMutatingToolCall(toolName: string, filePath: string | undefined): boolean {
+  const lower = toolName.toLowerCase();
+  return (
+    Boolean(filePath) ||
+    lower.includes("write") ||
+    lower.includes("edit") ||
+    lower.includes("delete")
+  );
+}
+
 /** Human-readable summary for permission UI. */
 export function describePermissionInput(
   toolName: string,
@@ -65,11 +92,10 @@ export function describePermissionInput(
     };
   }
 
-  const filePath = obj.file_path ?? obj.filePath;
+  const filePath = extractFilePath(input);
   if (filePath) {
-    const path = String(filePath);
     return {
-      summary: `${toolName}: ${path}`,
+      summary: `${toolName}: ${filePath}`,
       detail: JSON.stringify(obj, null, 2).slice(0, 1200),
     };
   }
@@ -96,6 +122,12 @@ class AgentMcpService {
   private processingRuns = new Set<string>();
   /** Runs cancelled/finished — new permission prompts auto-deny. */
   private deniedRuns = new Set<string>();
+  /**
+   * In-memory cache for the DevCouncil CLI availability probe. The probe is a
+   * cheap PATH lookup, but there is no reason to re-invoke it on every single
+   * run start — installation state doesn't change mid-session.
+   */
+  private devCliAvailableCache: Promise<boolean> | null = null;
 
   setHooks(hooks: AgentMcpHooks): void {
     this.hooks = hooks;
@@ -154,34 +186,75 @@ class AgentMcpService {
     return mcpDir;
   }
 
-  async prepareMcpConfig(runId: string, taskId: string): Promise<string | null> {
+  async prepareMcpConfig(
+    runId: string,
+    taskId: string,
+    workingDir?: string,
+  ): Promise<string | null> {
     if (!isTauri()) return null;
     const mcpDir = await this.initForRun(runId, taskId);
     if (!mcpDir) return null;
     const { invoke } = await import("@tauri-apps/api/core");
     const bridgePath = await invoke<string>("agent_mcp_resolve_bridge");
-    const config = {
-      mcpServers: {
-        liquitask: {
-          command: "node",
-          args: [bridgePath],
-          env: {
-            LIQUITASK_MCP_DIR: mcpDir,
-            LIQUITASK_TASK_ID: taskId,
-            LIQUITASK_RUN_ID: runId,
-          },
+    const mcpServers: Record<string, unknown> = {
+      liquitask: {
+        command: "node",
+        args: [bridgePath],
+        env: {
+          LIQUITASK_MCP_DIR: mcpDir,
+          LIQUITASK_TASK_ID: taskId,
+          LIQUITASK_RUN_ID: runId,
         },
       },
     };
+
+    // Only self-serve DevCouncil's checkout/verify/repair loop (Rework Plan
+    // §3.4 item 5) when the CLI is actually installed — otherwise this would
+    // register an MCP server pointing at a binary that doesn't exist, which
+    // is a noisy startup failure for users who never touched DevCouncil.
+    //
+    // Invocation matches DevCouncil's own `claude mcp add` wiring
+    // (`_server_args` in devcouncil/integrations/clients/common.py, consumed
+    // by claude.py/codex.py/gemini.py alike): the server name/binary is
+    // `devcouncil`, args `["mcp-server"]`. `resolve_dev_cli()` on the Rust
+    // side accepts either the `dev` or `devcouncil` console-script entry
+    // point, but the CLI's own reference client integrations always spawn it
+    // as `devcouncil mcp-server`, so we mirror that exactly here.
+    if (workingDir && (await this.isDevCliAvailable())) {
+      mcpServers.devcouncil = {
+        command: "devcouncil",
+        args: ["mcp-server"],
+        env: {
+          DEVCOUNCIL_PROJECT_ROOT: workingDir,
+        },
+      };
+    }
+
+    const config = { mcpServers };
     return invoke<string>("agent_mcp_write_config", {
       mcpDir,
       configJson: JSON.stringify(config, null, 2),
     });
   }
 
+  /**
+   * Cheap, cached check for whether the DevCouncil CLI is installed. Result is
+   * memoized in-memory for the lifetime of the app session so repeated run
+   * starts don't re-probe PATH every time.
+   */
+  private async isDevCliAvailable(): Promise<boolean> {
+    if (!this.devCliAvailableCache) {
+      this.devCliAvailableCache = import("../nativeBridge")
+        .then(({ nativeDevCliAvailable }) => nativeDevCliAvailable())
+        .catch(() => false);
+    }
+    return this.devCliAvailableCache;
+  }
+
   async cleanup(runId: string): Promise<void> {
     this.denyAllForRun(runId);
     this.removePendingForRun(runId);
+    agentScopeService.clearScopeForRun(runId);
     const mcpDir = this.activeDirs.get(runId);
     if (!mcpDir || !isTauri()) {
       this.deniedRuns.delete(runId);
@@ -260,6 +333,20 @@ class AgentMcpService {
     const runAlreadyDenied = this.deniedRuns.has(req.runId);
     const autoApprove = !runAlreadyDenied && this.isAutoApproveEnabled();
 
+    // DevCouncil scope enforcement: an additive safety net on top of the
+    // approve/deny decision above. A run with no registered scope (i.e. the
+    // task was never DevCouncil-planned) is always in-scope, so this is a
+    // no-op for the vast majority of runs.
+    const filePath = extractFilePath(input);
+    let scopeDenialReason: string | undefined;
+    if (isMutatingToolCall(toolName, filePath) && filePath) {
+      const operation = toolName.toLowerCase().includes("delete") ? "delete" : "write";
+      const scopeCheck = agentScopeService.checkPath(req.runId, filePath, operation);
+      if (!scopeCheck.inScope) {
+        scopeDenialReason = scopeCheck.reason ?? `${filePath} is outside the planned file scope.`;
+      }
+    }
+
     const pending: AgentPermissionRequest = {
       requestId: req.requestId,
       runId: req.runId,
@@ -269,7 +356,7 @@ class AgentMcpService {
       input,
       receivedAt: new Date(),
     };
-    if (!runAlreadyDenied && !autoApprove) {
+    if (!runAlreadyDenied && !autoApprove && !scopeDenialReason) {
       this.pendingPermissions.push(pending);
       if (this.pendingPermissions.length > 50) {
         this.pendingPermissions.splice(0, this.pendingPermissions.length - 50);
@@ -277,11 +364,17 @@ class AgentMcpService {
       this.notifyPermissionListeners();
     }
 
-    const approved = runAlreadyDenied
+    const decided = runAlreadyDenied
       ? false
-      : autoApprove
-        ? true
-        : await this.waitForUserDecision(req.requestId);
+      : scopeDenialReason
+        ? false
+        : autoApprove
+          ? true
+          : await this.waitForUserDecision(req.requestId);
+
+    // Scope denial overrides any approval, including auto-approve — it is
+    // enforced unconditionally regardless of how the decision above resolved.
+    const approved = scopeDenialReason ? false : decided;
 
     this.removePending(req.requestId);
     this.notifyPermissionListeners();
@@ -291,17 +384,22 @@ class AgentMcpService {
 
     const task = this.hooks?.getTask(req.taskId);
     if (task) {
-      const verb = runAlreadyDenied
-        ? "denied (run ended)"
-        : autoApprove
-          ? "auto-approved"
-          : approved
-            ? "approved"
-            : "denied";
+      const verb = scopeDenialReason
+        ? "denied (out of DevCouncil scope)"
+        : runAlreadyDenied
+          ? "denied (run ended)"
+          : autoApprove
+            ? "auto-approved"
+            : approved
+              ? "approved"
+              : "denied";
+      const detail = scopeDenialReason
+        ? `${verb} ${toolName}: ${scopeDenialReason.slice(0, 200)}`
+        : `${verb} ${toolName}: ${summary.slice(0, 200)}`;
       this.hooks!.updateTask(task.id, {
         activity: [
           ...(task.activity ?? []),
-          activity("agent-permission", `${verb} ${toolName}: ${summary.slice(0, 200)}`),
+          activity("agent-permission", detail),
         ],
       });
     }

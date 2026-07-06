@@ -83,6 +83,11 @@ export interface DevCouncilSubtask {
   priority?: string;
   dependsOn: string[];
   sourceGap?: string;
+  plannedFiles?: Array<{
+    path: string;
+    reason: string;
+    allowedChange: "create" | "modify" | "delete" | "read_only";
+  }>;
 }
 
 export interface DevPlanResult {
@@ -119,6 +124,11 @@ export async function nativeDevRepair(
 
 export async function nativeDevParseExport(raw: string): Promise<DevCouncilSubtask[]> {
   return invoke<DevCouncilSubtask[]>("agent_dev_parse_export", { raw });
+}
+
+/** Cheap PATH-only probe for whether the DevCouncil CLI is installed. */
+export async function nativeDevCliAvailable(): Promise<boolean> {
+  return invoke<boolean>("agent_dev_cli_available");
 }
 
 // Verify gate (`dev verify --json`). Field names are snake_case, matching

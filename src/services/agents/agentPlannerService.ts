@@ -15,6 +15,7 @@ import {
   nativeDevRepair,
   type DevCouncilSubtask,
 } from "../nativeBridge";
+import agentScopeService from "./agentScopeService";
 
 export interface PlannerMaterializeOptions {
   parentTask: Task;
@@ -119,6 +120,8 @@ export function materializeSubtasks(options: PlannerMaterializeOptions): Materia
     );
     tasks.push(task);
     if (agent) assignments.push({ taskId: task.id, agentName: agent.name });
+
+    agentScopeService.setScopeForTask(task.id, subtask.plannedFiles ?? []);
   }
 
   return { tasks, assignments };

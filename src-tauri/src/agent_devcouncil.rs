@@ -25,6 +25,19 @@ use crate::{is_path_authorized, read_storage, safe_workspace_paths};
 // Public result types (serde camelCase for TS)
 // ---------------------------------------------------------------------------
 
+/// Mirrors DevCouncil's `PlannedFile` model (devcouncil.domain.task.PlannedFile).
+/// Serializes camelCase to match the sibling `DevCouncilSubtask` this is nested
+/// under (TS-facing), but deserializes from the raw `dev export --json` CLI
+/// output, which is snake_case — so `allowed_change` is kept as an alias for
+/// deserialization while the wire-out name is `allowedChange`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlannedFile {
+    pub path: String,
+    pub reason: String,
+    #[serde(rename = "allowedChange", alias = "allowed_change")]
+    pub allowed_change: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DevCouncilSubtask {
@@ -37,6 +50,8 @@ pub struct DevCouncilSubtask {
     pub depends_on: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_gap: Option<String>,
+    #[serde(default)]
+    pub planned_files: Vec<PlannedFile>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -90,6 +105,8 @@ struct ExportTask {
     depends_on: Vec<String>,
     #[serde(default)]
     status: Option<String>,
+    #[serde(default)]
+    planned_files: Vec<PlannedFile>,
 }
 
 // ---------------------------------------------------------------------------
@@ -100,7 +117,7 @@ fn resolve_dev_cli() -> Option<std::path::PathBuf> {
     find_executable("dev").or_else(|| find_executable("devcouncil"))
 }
 
-fn validate_working_dir(app: &AppHandle, working_dir: &str) -> Result<std::path::PathBuf, String> {
+pub(crate) fn validate_working_dir(app: &AppHandle, working_dir: &str) -> Result<std::path::PathBuf, String> {
     if working_dir.is_empty() || working_dir.len() > 512 {
         return Err("Invalid working directory".to_string());
     }
@@ -147,6 +164,7 @@ pub fn parse_export_tasks(raw: &str) -> Result<(Vec<DevCouncilSubtask>, usize), 
             priority: t.priority,
             depends_on: t.depends_on,
             source_gap: None,
+            planned_files: t.planned_files,
         })
         .collect();
     Ok((tasks, payload.requirements.len()))
@@ -162,6 +180,7 @@ pub fn subtasks_from_gaps(gaps: &[String]) -> Vec<DevCouncilSubtask> {
             priority: Some("high".to_string()),
             depends_on: Vec::new(),
             source_gap: Some(gap.clone()),
+            planned_files: Vec::new(),
         })
         .collect()
 }
@@ -568,6 +587,14 @@ pub fn agent_dev_parse_export(raw: String) -> Result<Vec<DevCouncilSubtask>, Str
     parse_export_tasks(&raw).map(|(tasks, _)| tasks)
 }
 
+/// Cheap PATH-only probe for whether the DevCouncil CLI is installed, without
+/// running a full `plan`/`verify` cycle. Used to decide whether it's worth
+/// registering the `devcouncil` MCP server entry for an agent run.
+#[tauri::command(rename_all = "camelCase")]
+pub fn agent_dev_cli_available() -> bool {
+    resolve_dev_cli().is_some()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -603,6 +630,69 @@ mod tests {
         assert_eq!(tasks.len(), 2);
         assert_eq!(tasks[0].title, "Implement API");
         assert_eq!(tasks[1].depends_on, vec!["TASK-001".to_string()]);
+        // Neither fixture task carries planned_files — must default to empty, not error.
+        assert!(tasks[0].planned_files.is_empty());
+        assert!(tasks[1].planned_files.is_empty());
+    }
+
+    const FIXTURE_EXPORT_WITH_PLANNED_FILES: &str = r#"{
+  "initialized": true,
+  "requirements": [{"id": "REQ-001"}],
+  "tasks": [
+    {
+      "id": "TASK-001",
+      "title": "Implement API",
+      "description": "Add REST endpoints",
+      "priority": "high",
+      "depends_on": [],
+      "status": "planned",
+      "planned_files": [
+        {"path": "src/api/routes.py", "reason": "New REST endpoints live here", "allowed_change": "create"},
+        {"path": "src/api/__init__.py", "reason": "Register the new router", "allowed_change": "modify"},
+        {"path": "src/api/legacy.py", "reason": "Superseded by routes.py", "allowed_change": "delete"}
+      ]
+    },
+    {
+      "id": "TASK-002",
+      "title": "Write tests",
+      "description": "Cover API layer",
+      "priority": "medium",
+      "depends_on": ["TASK-001"],
+      "status": "planned",
+      "planned_files": [
+        {"path": "src/api/routes.py", "reason": "Read implementation to write matching tests", "allowed_change": "read_only"}
+      ]
+    }
+  ],
+  "gaps": {"blocking_count": 0, "items": []}
+}"#;
+
+    #[test]
+    fn parses_planned_files_from_export_fixture() {
+        let (tasks, _req_count) = parse_export_tasks(FIXTURE_EXPORT_WITH_PLANNED_FILES).expect("parse");
+        assert_eq!(tasks.len(), 2);
+
+        let task_one = &tasks[0];
+        assert_eq!(task_one.planned_files.len(), 3);
+        assert_eq!(task_one.planned_files[0].path, "src/api/routes.py");
+        assert_eq!(task_one.planned_files[0].reason, "New REST endpoints live here");
+        assert_eq!(task_one.planned_files[0].allowed_change, "create");
+        assert_eq!(task_one.planned_files[1].allowed_change, "modify");
+        assert_eq!(task_one.planned_files[2].allowed_change, "delete");
+
+        let task_two = &tasks[1];
+        assert_eq!(task_two.planned_files.len(), 1);
+        assert_eq!(task_two.planned_files[0].allowed_change, "read_only");
+
+        // Round-trip through serde to confirm camelCase wire shape (plannedFiles / allowedChange)
+        // matches what the TS-facing DevCouncilSubtask contract expects.
+        let serialized = serde_json::to_value(task_one).expect("serialize");
+        let planned = serialized
+            .get("plannedFiles")
+            .and_then(|v| v.as_array())
+            .expect("plannedFiles array present");
+        assert_eq!(planned.len(), 3);
+        assert_eq!(planned[0].get("allowedChange").and_then(|v| v.as_str()), Some("create"));
     }
 
     #[test]

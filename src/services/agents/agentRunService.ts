@@ -10,6 +10,7 @@ import {
   nativeParseStreamLine,
 } from "../nativeBridge";
 import agentMcpService from "./agentMcpService";
+import agentScopeService from "./agentScopeService";
 import agentSkillsService from "./agentSkillsService";
 import {
   checkAgentBudget,
@@ -392,12 +393,13 @@ class AgentRunService {
     this.upsert(run);
 
     const { invoke } = await import("@tauri-apps/api/core");
-    const mcpConfig = await agentMcpService.prepareMcpConfig(run.id, run.taskId);
+    const followUpWorkingDir = run.worktreePath ?? context.agent.workingDir;
+    const mcpConfig = await agentMcpService.prepareMcpConfig(run.id, run.taskId, followUpWorkingDir);
     await invoke("agent_run_start", {
       runId: run.id,
       mode: "claude-resume",
       prompt: message,
-      workingDir: run.worktreePath ?? context.agent.workingDir,
+      workingDir: followUpWorkingDir,
       model: context.agent.model || null,
       permissionMode: context.agent.permissionMode,
       maxTurns: context.agent.maxTurns ?? null,
@@ -453,6 +455,29 @@ class AgentRunService {
       feedback,
     ].join("\n\n");
     await this.followUp(runId, prompt);
+  }
+
+  /** Persist human review outcome on a run (approval duration or rejection feedback). */
+  recordReviewOutcome(
+    runId: string,
+    data: {
+      outcome: "approved" | "rejected";
+      feedback?: string;
+      actualMinutes?: number;
+    },
+  ): void {
+    const run = this.runs.get(runId);
+    if (!run) return;
+
+    run.reviewOutcome = data.outcome;
+    if (data.feedback?.trim()) {
+      run.reviewFeedback = data.feedback.trim();
+      this.pushEvent(run, "info", `Reviewer feedback: ${data.feedback.trim().slice(0, 500)}`);
+    }
+    if (data.actualMinutes != null) {
+      run.actualMinutes = data.actualMinutes;
+    }
+    this.upsert(run);
   }
 
   /** Open a GitHub PR for the run's branch (requires `gh` CLI). */
@@ -535,7 +560,7 @@ class AgentRunService {
         }
       }
 
-      const mcpConfig = await agentMcpService.prepareMcpConfig(run.id, task.id);
+      const mcpConfig = await agentMcpService.prepareMcpConfig(run.id, task.id, workingDir);
       const permissionPromptTool = permissionPromptToolFor(agent, mcpConfig);
       const skills = agentSkillsService.getSkillsForWorkingDir(agent.workingDir);
       const taskPrompt =
@@ -809,6 +834,7 @@ class AgentRunService {
       events: [],
     };
     this.runContext.set(run.id, { task, agent });
+    agentScopeService.bindTaskScopeToRun(run.id, task.id);
     return run;
   }
 
