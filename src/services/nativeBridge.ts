@@ -121,6 +121,66 @@ export async function nativeDevParseExport(raw: string): Promise<DevCouncilSubta
   return invoke<DevCouncilSubtask[]>("agent_dev_parse_export", { raw });
 }
 
+// Verify gate (`dev verify --json`). Field names are snake_case, matching
+// DevCouncil's own JSON wire format directly — deliberately NOT camelCase like
+// the plan/repair types above, since this is a pass-through of DevCouncil's
+// Gap/NextAction models rather than a Rust-computed response shape.
+export interface DevVerifyGap {
+  id: string;
+  severity: "low" | "medium" | "high" | "critical";
+  gap_type: string;
+  requirement_id?: string;
+  task_id?: string;
+  description: string;
+  evidence: string[];
+  recommended_fix: string;
+  blocking: boolean;
+  file?: string;
+  line?: number;
+  suggested_command?: string;
+}
+
+export interface DevVerifyNextAction {
+  gap_id: string;
+  gap_type: string;
+  category: string;
+  severity: string;
+  blocking: boolean;
+  action: string;
+  file?: string;
+  line?: number;
+  suggested_command?: string;
+}
+
+export interface DevVerifyTaskResult {
+  task_id: string;
+  status: string;
+  sandbox?: string;
+  gap_count: number;
+  blocking_gap_count: number;
+  gaps: DevVerifyGap[];
+  next_actions: DevVerifyNextAction[];
+  advisory_actions: DevVerifyNextAction[];
+}
+
+export interface DevVerifyResult {
+  ok: boolean;
+  cli_available: boolean;
+  verified_tasks: number;
+  blocked_tasks: number;
+  total_gaps: number;
+  tasks: DevVerifyTaskResult[];
+  error?: string;
+}
+
+/** Run DevCouncil's deterministic verify gate: `dev verify --json [taskId]`. */
+export async function nativeDevVerify(
+  workingDir: string,
+  taskId?: string,
+): Promise<DevVerifyResult> {
+  return invoke<DevVerifyResult>("agent_dev_verify", { workingDir, taskId });
+}
+
 export async function nativeCalculateNextOccurrence(
   config: RecurringConfig,
   fromDate?: Date,

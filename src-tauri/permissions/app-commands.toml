@@ -71,6 +71,7 @@ commands.allow = [
   "agent_parse_stream_line",
   "agent_parse_council_report",
   "agent_dev_plan",
+  "agent_dev_verify",
   "agent_dev_repair",
   "agent_dev_parse_export",
   "ai_ollama_generate",

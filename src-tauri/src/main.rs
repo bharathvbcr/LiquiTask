@@ -81,7 +81,7 @@ use agent_core::{
     agent_parse_stream_line,
 };
 use agent_analytics::agent_compute_analytics;
-use agent_devcouncil::{agent_dev_parse_export, agent_dev_plan, agent_dev_repair};
+use agent_devcouncil::{agent_dev_parse_export, agent_dev_plan, agent_dev_repair, agent_dev_verify};
 use agent_skills::{agent_skills_capture, agent_skills_delete, agent_skills_filter};
 use ai_engine::{ai_ollama_chat, ai_ollama_generate, ai_ollama_health};
 use app_data::{app_data_load, app_data_patch, app_data_save, app_data_storage_path};
@@ -838,6 +838,7 @@ fn main() {
             agent_parse_stream_line,
             agent_parse_council_report,
             agent_dev_plan,
+            agent_dev_verify,
             agent_dev_repair,
             agent_dev_parse_export,
             ai_ollama_generate,

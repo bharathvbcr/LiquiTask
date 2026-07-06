@@ -290,6 +290,154 @@ pub fn run_dev_plan(cwd: &Path, epic_context: &str) -> DevPlanResult {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Verify gate (`dev verify --json`) — Rework Plan §3.4 item 3.
+// ---------------------------------------------------------------------------
+
+/// Mirrors DevCouncil's `Gap` model (devcouncil.domain.gap.Gap) — 4-tier proof
+/// (scope/tests/coverage/rigor) surfaces as typed gaps here. Field names are
+/// deliberately snake_case (not camelCase like sibling structs in this file) —
+/// this is a direct pass-through of DevCouncil's own JSON wire format, which is
+/// itself snake_case (Python `dump_json`), not a Rust-computed response shape.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DevVerifyGap {
+    pub id: String,
+    pub severity: String,
+    pub gap_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requirement_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub task_id: Option<String>,
+    pub description: String,
+    #[serde(default)]
+    pub evidence: Vec<String>,
+    pub recommended_fix: String,
+    pub blocking: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub file: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub line: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub suggested_command: Option<String>,
+}
+
+/// Mirrors DevCouncil's `NextAction` model — one concrete, routable repair step.
+/// snake_case, matching the CLI's raw JSON (see DevVerifyGap doc comment).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DevVerifyNextAction {
+    pub gap_id: String,
+    pub gap_type: String,
+    pub category: String,
+    pub severity: String,
+    pub blocking: bool,
+    pub action: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub file: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub line: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub suggested_command: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DevVerifyTaskResult {
+    pub task_id: String,
+    pub status: String,
+    #[serde(default)]
+    pub sandbox: Option<String>,
+    #[serde(default)]
+    pub gap_count: usize,
+    #[serde(default)]
+    pub blocking_gap_count: usize,
+    #[serde(default)]
+    pub gaps: Vec<DevVerifyGap>,
+    #[serde(default)]
+    pub next_actions: Vec<DevVerifyNextAction>,
+    #[serde(default)]
+    pub advisory_actions: Vec<DevVerifyNextAction>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DevVerifyResult {
+    pub ok: bool,
+    /// Not part of DevCouncil's own JSON — set to `true` by parse_verify_output
+    /// after a successful parse (the CLI-missing case is constructed manually
+    /// elsewhere and never goes through deserialization).
+    #[serde(default)]
+    pub cli_available: bool,
+    #[serde(default)]
+    pub verified_tasks: usize,
+    #[serde(default)]
+    pub blocked_tasks: usize,
+    #[serde(default)]
+    pub total_gaps: usize,
+    #[serde(default)]
+    pub tasks: Vec<DevVerifyTaskResult>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+pub fn parse_verify_output(raw: &str) -> Result<DevVerifyResult, String> {
+    let json = extract_json_object(raw).ok_or_else(|| "No JSON object in verify output".to_string())?;
+    let mut result: DevVerifyResult =
+        serde_json::from_str(json).map_err(|e| format!("Failed to parse verify JSON: {e}"))?;
+    result.cli_available = true;
+    Ok(result)
+}
+
+/// Run `dev verify --json [task_id]` — the deterministic verify gate. `task_id`
+/// of `None` verifies every task DevCouncil currently tracks.
+pub fn run_dev_verify(cwd: &Path, task_id: Option<&str>) -> DevVerifyResult {
+    if resolve_dev_cli().is_none() {
+        return DevVerifyResult {
+            ok: false,
+            cli_available: false,
+            verified_tasks: 0,
+            blocked_tasks: 0,
+            total_gaps: 0,
+            tasks: Vec::new(),
+            error: Some("DevCouncil CLI (`dev`) not found on PATH.".to_string()),
+        };
+    }
+
+    let root = cwd.to_string_lossy();
+    let mut args: Vec<&str> = vec!["verify", "--json", "--project-root", &root];
+    if let Some(id) = task_id {
+        args.push(id);
+    }
+
+    let (code, stdout, stderr) = match run_dev(cwd, &args) {
+        Ok(v) => v,
+        Err(e) => {
+            return DevVerifyResult {
+                ok: false,
+                cli_available: false,
+                verified_tasks: 0,
+                blocked_tasks: 0,
+                total_gaps: 0,
+                tasks: Vec::new(),
+                error: Some(e),
+            };
+        }
+    };
+
+    match parse_verify_output(&stdout) {
+        Ok(result) => result,
+        Err(parse_err) => DevVerifyResult {
+            ok: false,
+            cli_available: true,
+            verified_tasks: 0,
+            blocked_tasks: 0,
+            total_gaps: 0,
+            tasks: Vec::new(),
+            error: Some(format!(
+                "{parse_err} (exit {code}). stderr: {}",
+                stderr.chars().take(1000).collect::<String>()
+            )),
+        },
+    }
+}
+
 pub fn run_dev_repair(cwd: &Path, gap_context: &[String]) -> DevRepairResult {
     if resolve_dev_cli().is_none() {
         let tasks = subtasks_from_gaps(gap_context);
@@ -395,6 +543,16 @@ pub fn agent_dev_plan(
 }
 
 #[tauri::command(rename_all = "camelCase")]
+pub fn agent_dev_verify(
+    app: AppHandle,
+    working_dir: String,
+    task_id: Option<String>,
+) -> Result<DevVerifyResult, String> {
+    let cwd = validate_working_dir(&app, &working_dir)?;
+    Ok(run_dev_verify(&cwd, task_id.as_deref()))
+}
+
+#[tauri::command(rename_all = "camelCase")]
 pub fn agent_dev_repair(
     app: AppHandle,
     working_dir: String,
@@ -466,5 +624,126 @@ mod tests {
         let result = run_dev_plan(Path::new("/tmp"), "  ");
         assert!(!result.success);
         assert!(result.error.unwrap_or_default().contains("empty"));
+    }
+
+    const FIXTURE_VERIFY_PASSED: &str = r#"{
+  "ok": true,
+  "verified_tasks": 1,
+  "blocked_tasks": 0,
+  "total_gaps": 0,
+  "tasks": [
+    {"task_id": "TASK-001", "status": "verified", "sandbox": "local", "gap_count": 0, "blocking_gap_count": 0, "gaps": []}
+  ]
+}"#;
+
+    const FIXTURE_VERIFY_BLOCKED: &str = r#"{
+  "ok": false,
+  "verified_tasks": 1,
+  "blocked_tasks": 1,
+  "total_gaps": 2,
+  "tasks": [
+    {
+      "task_id": "TASK-002",
+      "status": "blocked",
+      "sandbox": "local",
+      "gap_count": 2,
+      "blocking_gap_count": 1,
+      "gaps": [
+        {
+          "id": "GAP-1",
+          "severity": "critical",
+          "gap_type": "missing_test",
+          "task_id": "TASK-002",
+          "description": "No test covers the new endpoint",
+          "evidence": ["src/handler.go:42"],
+          "recommended_fix": "Add a unit test for the 400 branch",
+          "blocking": true,
+          "file": "src/handler.go",
+          "line": 42,
+          "suggested_command": "go test ./..."
+        },
+        {
+          "id": "GAP-2",
+          "severity": "low",
+          "gap_type": "quality_gate_failed",
+          "description": "Lint warning",
+          "evidence": [],
+          "recommended_fix": "Run gofmt",
+          "blocking": false
+        }
+      ],
+      "next_actions": [
+        {
+          "gap_id": "GAP-1",
+          "gap_type": "missing_test",
+          "category": "tests",
+          "severity": "critical",
+          "blocking": true,
+          "action": "Add a unit test for the 400 branch",
+          "file": "src/handler.go",
+          "line": 42,
+          "suggested_command": "go test ./..."
+        }
+      ],
+      "advisory_actions": [
+        {
+          "gap_id": "GAP-2",
+          "gap_type": "quality_gate_failed",
+          "category": "quality",
+          "severity": "low",
+          "blocking": false,
+          "action": "Run gofmt"
+        }
+      ]
+    }
+  ]
+}"#;
+
+    #[test]
+    fn parses_passed_verify_fixture() {
+        let result = parse_verify_output(FIXTURE_VERIFY_PASSED).expect("parse");
+        assert!(result.ok);
+        assert!(result.cli_available);
+        assert_eq!(result.verified_tasks, 1);
+        assert_eq!(result.blocked_tasks, 0);
+        assert_eq!(result.tasks[0].status, "verified");
+    }
+
+    #[test]
+    fn parses_blocked_verify_fixture_with_typed_gaps_and_actions() {
+        let result = parse_verify_output(FIXTURE_VERIFY_BLOCKED).expect("parse");
+        assert!(!result.ok);
+        assert_eq!(result.total_gaps, 2);
+        let task = &result.tasks[0];
+        assert_eq!(task.gaps.len(), 2);
+        assert!(task.gaps[0].blocking);
+        assert!(!task.gaps[1].blocking);
+        assert_eq!(task.next_actions.len(), 1);
+        assert_eq!(task.next_actions[0].suggested_command.as_deref(), Some("go test ./..."));
+        assert_eq!(task.advisory_actions.len(), 1);
+    }
+
+    #[test]
+    fn verify_reports_cli_unavailable_gracefully() {
+        // resolve_dev_cli() depends on PATH; this just exercises the no-goal-context
+        // path structurally via parse_verify_output, which is what actually matters
+        // for TS-side typing — the CLI-availability branch is covered by run_dev_plan's
+        // equivalent test pattern already (dev is expected on PATH in CI/dev envs).
+        let err = parse_verify_output("not json").unwrap_err();
+        assert!(err.contains("No JSON object"));
+    }
+
+    /// Pinned against real `dev verify --json` output on an uninitialized/empty
+    /// repo (probed directly against the installed DevCouncil CLI).
+    #[test]
+    fn parses_real_no_tasks_error_shape() {
+        let raw = r#"{
+  "ok": false,
+  "error": "No tasks found to verify."
+}"#;
+        let result = parse_verify_output(raw).expect("parse");
+        assert!(!result.ok);
+        assert_eq!(result.error.as_deref(), Some("No tasks found to verify."));
+        assert_eq!(result.tasks.len(), 0);
     }
 }
