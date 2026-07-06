@@ -42,6 +42,10 @@ export const STORAGE_KEYS = {
 
 export const FEATURE_FLAGS = {
   AI_ASSISTANT_SIDEBAR_ENABLED: false,
+  /** Route agent runs through liquitask-agentd sidecar (Phase 1+). */
+  AGENTD_SIDECAR_ENABLED: false,
+  /** Use v3 four-surface shell (Inbox/Board/Agents/Run). */
+  V3_SHELL_ENABLED: false,
 } as const;
 
 // Default column configuration

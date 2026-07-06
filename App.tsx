@@ -1,18 +1,19 @@
 import { Loader2, Sparkles } from "lucide-react";
 import type React from "react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { TitleBar } from "./components/TitleBar";
-import { Toast } from "./components/Toast";
-import { CelestialBackdrop } from "./src/components/CelestialBackdrop";
+import { TitleBar } from "./src/components/TitleBar";
+import { Toast } from "./src/components/Toast";
 import logo from "./src/assets/logo.png";
 // Power User Features
 import type { CommandAction } from "./src/components/CommandPalette";
 import { ViewTransition } from "./src/components/ViewTransition";
-import { FEATURE_FLAGS, STORAGE_KEYS } from "./src/constants";
+import { COLUMN_STATUS, FEATURE_FLAGS, STORAGE_KEYS } from "./src/constants";
 import { useConfirmation } from "./src/contexts/ConfirmationContext";
 import { AgentRunsDock } from "./src/components/agents/AgentRunsDock";
 import { AgentStandupCard } from "./src/components/agents/AgentStandupCard";
 import { WarRoom } from "./src/components/agents/WarRoom";
+import agentMcpService, { type AgentPermissionRequest } from "./src/services/agents/agentMcpService";
+import { localApi } from "./src/core/api/localApi";
 import { useAgentStandupDigest } from "./src/hooks/useAgentStandupDigest";
 import { useAgentTeammates } from "./src/hooks/useAgentTeammates";
 import { useGitHubSync } from "./src/hooks/useGitHubSync";
@@ -29,6 +30,7 @@ import { useTaskController } from "./src/hooks/useTaskController";
 import { getRuntimeState, isTauri } from "./src/runtime/runtimeEnvironment";
 import { aiService } from "./src/services/aiService";
 import agentRunService from "./src/services/agents/agentRunService";
+import agentService from "./src/services/agents/agentService";
 import { archiveService } from "./src/services/archiveService";
 import {
   activateEncryptionAtRest,
@@ -37,8 +39,8 @@ import {
   needsDesktopEncryptionUnlock,
   needsWebEncryptionUnlock,
 } from "./src/services/encryptionSetup";
-import { DesktopEncryptionGate } from "./components/DesktopEncryptionGate";
-import { WebEncryptionGate } from "./components/WebEncryptionGate";
+import { DesktopEncryptionGate } from "./src/components/DesktopEncryptionGate";
+import { WebEncryptionGate } from "./src/components/WebEncryptionGate";
 import { indexedDBService } from "./src/services/indexedDBService";
 import storageService from "./src/services/storageService";
 import type { FilterGroup } from "./src/types/queryTypes";
@@ -97,34 +99,34 @@ const defaultPriorities: PriorityDefinition[] = [
 
 // Lazy Components
 const TaskFormModal = lazy(() =>
-  import("./components/TaskFormModal").then((module) => ({
+  import("./src/components/TaskFormModal").then((module) => ({
     default: module.TaskFormModal,
   })),
 );
 const ProjectModal = lazy(() =>
-  import("./components/ProjectModal").then((module) => ({
+  import("./src/components/ProjectModal").then((module) => ({
     default: module.ProjectModal,
   })),
 );
 const SettingsModal = lazy(() =>
-  import("./components/SettingsModal").then((module) => ({
+  import("./src/components/SettingsModal").then((module) => ({
     default: module.SettingsModal,
   })),
 );
 const Sidebar = lazy(() =>
-  import("./components/Sidebar").then((module) => ({
+  import("./src/components/Sidebar").then((module) => ({
     default: module.Sidebar,
   })),
 );
 const Dashboard = lazy(() =>
-  import("./components/Dashboard").then((module) => ({
+  import("./src/components/Dashboard").then((module) => ({
     default: module.Dashboard,
   })),
 );
-const GanttView = lazy(() => import("./src/components/GanttView"));
-const ProjectBoard = lazy(() => import("./src/components/ProjectBoard"));
+const GanttView = lazy(() => import("./src/views/board/GanttView"));
+const ProjectBoard = lazy(() => import("./src/views/board/ProjectBoard"));
 const ArchiveView = lazy(() =>
-  import("./src/components/ArchiveView").then((module) => ({
+  import("./src/views/board/ArchiveView").then((module) => ({
     default: module.ArchiveView,
   })),
 );
@@ -209,6 +211,18 @@ const AIRightRail = lazy(() =>
   import("./src/components/AIRightRail").then((module) => ({
     default: module.AIRightRail,
   })),
+);
+
+// v3 four-surface shell (Inbox/Board/Agents/Run) — lazy, only rendered when
+// FEATURE_FLAGS.V3_SHELL_ENABLED is on. The legacy tree above stays untouched.
+const InboxView = lazy(() =>
+  import("./src/views/inbox/InboxView").then((module) => ({ default: module.InboxView })),
+);
+const AgentsView = lazy(() =>
+  import("./src/views/agents/AgentsView").then((module) => ({ default: module.AgentsView })),
+);
+const RunView = lazy(() =>
+  import("./src/views/run/RunView").then((module) => ({ default: module.RunView })),
 );
 
 const SIDEBAR_EXPANDED_WIDTH = 320;
@@ -344,6 +358,8 @@ type TemplateServiceHandle = {
 
 type AdvancedFilterExecutor = (tasks: Task[], group: FilterGroup) => Task[];
 type AppView = "project" | "dashboard" | "gantt" | "archive";
+/** v3 shell surfaces (FEATURE_FLAGS.V3_SHELL_ENABLED). Run is an overlay, not a tab. */
+type AppSurface = "inbox" | "board" | "agents";
 
 const App: React.FC = () => {
   const [webEncryptionBlocked, setWebEncryptionBlocked] = useState<boolean | null>(null);
@@ -404,6 +420,14 @@ const App: React.FC = () => {
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [creatingSubProjectFor, setCreatingSubProjectFor] = useState<string | undefined>(undefined);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isWarRoomOpen, setIsWarRoomOpen] = useState(false);
+  // v3 shell (FEATURE_FLAGS.V3_SHELL_ENABLED) — inert while the flag is off.
+  const [activeSurface, setActiveSurface] = useState<AppSurface>("inbox");
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [runtimeHealth, setRuntimeHealth] = useState<
+    Array<{ id: string; name: string; binary: string; path?: string; version?: string; ready: boolean }> | undefined
+  >(undefined);
+  const [shellPendingPermissions, setShellPendingPermissions] = useState<AgentPermissionRequest[]>([]);
   const handleEncryptionChange = useCallback((change: EncryptionChangeReason) => {
     setIsSettingsModalOpen(false);
 
@@ -631,6 +655,29 @@ const App: React.FC = () => {
     addToast,
   });
 
+  /**
+   * Board move + agent kickoff: dropping an agent-assigned task into
+   * In Progress starts a coding run (unless one is already active).
+   */
+  const handleMoveTask = useCallback(
+    async (taskId: string, newStatus: string, newPriority?: string, newOrder?: number) => {
+      const prevStatus = tasks.find((t) => t.id === taskId)?.status;
+      const moved = await moveTask(taskId, newStatus, newPriority, newOrder);
+      if (!moved || !isTauri()) return;
+      if (newStatus !== COLUMN_STATUS.IN_PROGRESS || prevStatus === newStatus) return;
+
+      const task = tasks.find((t) => t.id === taskId);
+      if (!task) return;
+      const agent = agentService.getAgentByAssignee(task.assignee);
+      if (!agent) return;
+      if (agentRunService.getActiveRunForTask(taskId)) return;
+
+      addToast(`${agent.name} is starting work on "${task.title}"…`, "info");
+      void startAgentRun({ ...task, status: newStatus });
+    },
+    [tasks, moveTask, startAgentRun, addToast],
+  );
+
   useGitHubSync(tasks, columns, isLoaded);
 
   const [standupDismissed, setStandupDismissed] = useState(false);
@@ -661,6 +708,32 @@ const App: React.FC = () => {
       unsubs.forEach((u) => u());
     };
   }, [cancelAgentRun, addToast]);
+
+  // v3 shell: feed RunView's inline permission prompts (same source AgentRunsDock uses).
+  useEffect(() => {
+    if (!FEATURE_FLAGS.V3_SHELL_ENABLED) return;
+    return agentMcpService.subscribePermissions(setShellPendingPermissions);
+  }, []);
+
+  // v3 shell: populate the Agents surface's runtime-health strip when the sidecar is on,
+  // refreshing each time the user switches to that surface.
+  useEffect(() => {
+    if (!FEATURE_FLAGS.V3_SHELL_ENABLED || !FEATURE_FLAGS.AGENTD_SIDECAR_ENABLED) return;
+    if (activeSurface !== "agents") return;
+    let cancelled = false;
+    void localApi.detectRuntimes().then((runtimes) => {
+      // detectRuntimes() returns the agentd shape only when the sidecar flag (checked
+      // above) is on; narrow defensively rather than trusting the union return type.
+      const agentdShaped = runtimes?.filter(
+        (r): r is { id: string; name: string; binary: string; path?: string; version?: string; ready: boolean } =>
+          "id" in r && "binary" in r && "ready" in r,
+      );
+      if (!cancelled && agentdShaped) setRuntimeHealth(agentdShaped);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSurface]);
 
   const tasksRef = useRef(tasks);
   tasksRef.current = tasks;
@@ -1078,6 +1151,19 @@ const App: React.FC = () => {
         aliases: ["search filter", "advanced filter"],
         action: () => setIsFilterOpen((prev) => !prev),
       },
+      ...(isTauri()
+        ? ([
+            {
+              id: "action:open-war-room",
+              label: isWarRoomOpen ? "Close War Room" : "Open War Room",
+              category: "action",
+              description: "Launch a multi-agent campaign on an epic (DevCouncil planning + worker dispatch)",
+              keywords: ["agent", "campaign", "war", "room", "epic", "devcouncil", "orchestrate"],
+              aliases: ["war room", "campaign", "muster", "agents"],
+              action: () => setIsWarRoomOpen((prev) => !prev),
+            } as CommandAction,
+          ] as CommandAction[])
+        : []),
       {
         id: "action:open-settings",
         label: "Open Settings",
@@ -1393,6 +1479,7 @@ const App: React.FC = () => {
     isCompactView,
     isFilterOpen,
     isSidebarCollapsed,
+    isWarRoomOpen,
     projects,
     setAiAssistantOpen,
     tasks,
@@ -1578,6 +1665,125 @@ const App: React.FC = () => {
   const runtimeState = getRuntimeState();
   const sidebarOffset = isSidebarCollapsed ? 0 : SIDEBAR_OFFSET_DELTA;
 
+  // v3 shell: the run currently open in the RunView drawer, if any.
+  const selectedRun = selectedRunId ? (agentRuns.find((r) => r.id === selectedRunId) ?? null) : null;
+  const selectedRunAgent = selectedRun
+    ? agents.find((a) => a.id === selectedRun.agentId)
+    : undefined;
+  const selectedRunTask = selectedRun ? tasks.find((t) => t.id === selectedRun.taskId) : undefined;
+
+  // The existing view/viewMode lens content (Archive/Dashboard/Gantt/Kanban board), shared
+  // verbatim between the legacy shell and the v3 shell's "Board" surface — nothing about
+  // this logic changes with the shell rework, only where it's mounted.
+  const boardLensContent =
+    currentView === "archive" ? (
+      <ArchiveView
+        onUnarchive={(restoredTasks) => {
+          setTasks((prev) => [...prev, ...restoredTasks]);
+          restoredTasks.forEach((task) => {
+            searchIndexServiceRef.current?.updateTask?.(task);
+            if (indexedDBService.isAvailable()) {
+              indexedDBService.saveTask(task).catch(console.error);
+            }
+          });
+          addToast(`Restored ${restoredTasks.length} task(s)`, "success");
+        }}
+        onDelete={(taskIds) => {
+          addToast(`Deleted ${taskIds.length} archived task(s)`, "info");
+        }}
+      />
+    ) : currentView === "dashboard" ? (
+      <Dashboard
+        tasks={filteredTasks}
+        projects={projects}
+        priorities={priorities}
+        columns={columns}
+        boardGrouping={boardGrouping}
+        activeProjectId={activeProjectId}
+        onEditTask={(t) => {
+          setEditingTask(t);
+          setIsTaskModalOpen(true);
+        }}
+        onDeleteTask={handleDeleteTaskInternal}
+        onArchiveTask={handleArchiveTaskInternal}
+        onMoveTask={handleMoveTask}
+        onUpdateTask={handleUpdateTask}
+        onUpdateColumns={handleUpdateColumns}
+        getTasksByContext={getTasksByContext}
+        isCompact={isCompactView}
+        onCopyTask={(msg) => addToast(msg, "success")}
+        onMoveToWorkspace={handleMoveTaskToWorkspace}
+        onUpdateDueDate={handleUpdateTaskDueDate}
+        onCreateTask={(d) => {
+          setEditingTask({
+            id: `temp-${Date.now()}`,
+            jobId: "",
+            projectId: activeProjectId,
+            title: "",
+            subtitle: "",
+            summary: "",
+            assignee: "",
+            priority: priorities[0]?.id || "medium",
+            status: getBacklogColumnId(columns),
+            createdAt: new Date(),
+            dueDate: d,
+            subtasks: [],
+            attachments: [],
+            tags: [],
+            timeEstimate: 0,
+            timeSpent: 0,
+          });
+          setIsTaskModalOpen(true);
+        }}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        onSuggestNextTask={handleSuggestNextTask}
+        nextTaskSuggestion={nextTaskSuggestion}
+        addToast={addToast}
+      />
+    ) : viewMode === "gantt" ? (
+      <GanttView
+        tasks={currentProjectTasks}
+        columns={columns}
+        priorities={priorities}
+        onEditTask={(t) => {
+          setEditingTask(t);
+          setIsTaskModalOpen(true);
+        }}
+        onUpdateTask={handleUpdateTask}
+      />
+    ) : (
+      <ProjectBoard
+        columns={columns}
+        priorities={priorities}
+        tasks={currentProjectTasks}
+        allTasks={tasks}
+        boardGrouping={boardGrouping}
+        onUpdateColumns={handleUpdateColumns}
+        onMoveTask={handleMoveTask}
+        onEditTask={(t) => {
+          setEditingTask(t);
+          setIsTaskModalOpen(true);
+        }}
+        onUpdateTask={handleUpdateTask}
+        onDeleteTask={handleDeleteTaskInternal}
+        onArchiveTask={handleArchiveTaskInternal}
+        addToast={addToast}
+        getTasksByContext={getTasksByContext}
+        isCompact={isCompactView}
+        onCopyTask={(msg) => addToast(msg, "success")}
+        projectName={activeProject.name}
+        projects={projects}
+        onMoveBlocked={(msg) => addToast(msg, "error")}
+        onMoveToWorkspace={handleMoveTaskToWorkspace}
+        canMoveTask={canMoveTask}
+        agents={agents}
+        onAssignTaskToAgent={(task, agentId) => void assignTaskToAgent(task, agentId)}
+        onApproveAgentWork={(task, run) => void approveAgentWork(task, run)}
+        onRejectAgentWork={(task, run, feedback) => void rejectAgentWork(task, run, feedback)}
+      />
+    );
+
   if (desktopEncryptionBlocked === true) {
     return (
       <DesktopEncryptionGate
@@ -1622,7 +1828,10 @@ const App: React.FC = () => {
         Skip to main content
       </a>
       <TitleBar />
-      <CelestialBackdrop />
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 -z-10 bg-gradient-to-br from-red-950/30 via-slate-950 to-slate-950"
+      />
 
       <Suspense fallback={<SidebarLoadingFallback isCollapsed={isSidebarCollapsed} />}>
         <Sidebar
@@ -1746,127 +1955,65 @@ const App: React.FC = () => {
           </div>
 
           <div className="px-6 md:px-8 pb-6">
-          {isTauri() && !standupDismissed && currentView === "dashboard" && (
+          {FEATURE_FLAGS.V3_SHELL_ENABLED && (
+            <div className="flex items-center gap-1 mb-4 rounded-xl border border-white/10 bg-black/20 p-1 w-fit">
+              {(["inbox", "board", "agents"] as const).map((surface) => (
+                <button
+                  key={surface}
+                  type="button"
+                  onClick={() => setActiveSurface(surface)}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-medium capitalize transition-colors ${
+                    activeSurface === surface
+                      ? "bg-red-500/20 text-red-200"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  {surface}
+                </button>
+              ))}
+            </div>
+          )}
+          {isTauri() && !standupDismissed && !FEATURE_FLAGS.V3_SHELL_ENABLED && currentView === "dashboard" && (
             <AgentStandupCard
               digest={agentStandup}
               onDismiss={() => setStandupDismissed(true)}
             />
           )}
           <ViewTransition
-            transitionKey={`${currentView}-${activeProjectId}-${viewMode}`}
+            transitionKey={
+              FEATURE_FLAGS.V3_SHELL_ENABLED
+                ? `${activeSurface}-${activeProjectId}-${viewMode}`
+                : `${currentView}-${activeProjectId}-${viewMode}`
+            }
             type="fade"
             duration={400}
             className="h-full"
           >
             <Suspense fallback={<ViewLoadingFallback />}>
-              {currentView === "archive" ? (
-                <ArchiveView
-                  onUnarchive={(restoredTasks) => {
-                    setTasks((prev) => [...prev, ...restoredTasks]);
-                    restoredTasks.forEach((task) => {
-                      searchIndexServiceRef.current?.updateTask?.(task);
-                      if (indexedDBService.isAvailable()) {
-                        indexedDBService.saveTask(task).catch(console.error);
-                      }
-                    });
-                    addToast(`Restored ${restoredTasks.length} task(s)`, "success");
-                  }}
-                  onDelete={(taskIds) => {
-                    addToast(`Deleted ${taskIds.length} archived task(s)`, "info");
-                  }}
-                />
-              ) : currentView === "dashboard" ? (
-                <Dashboard
-                  tasks={filteredTasks}
-                  projects={projects}
-                  priorities={priorities}
-                  columns={columns}
-                  boardGrouping={boardGrouping}
-                  activeProjectId={activeProjectId}
-                  onEditTask={(t) => {
-                    setEditingTask(t);
-                    setIsTaskModalOpen(true);
-                  }}
-                  onDeleteTask={handleDeleteTaskInternal}
-                  onArchiveTask={handleArchiveTaskInternal}
-                  onMoveTask={moveTask}
-                  onUpdateTask={handleUpdateTask}
-                  onUpdateColumns={handleUpdateColumns}
-                  getTasksByContext={getTasksByContext}
-                  isCompact={isCompactView}
-                  onCopyTask={(msg) => addToast(msg, "success")}
-                  onMoveToWorkspace={handleMoveTaskToWorkspace}
-                  onUpdateDueDate={handleUpdateTaskDueDate}
-                  onCreateTask={(d) => {
-                    setEditingTask({
-                      id: `temp-${Date.now()}`,
-                      jobId: "",
-                      projectId: activeProjectId,
-                      title: "",
-                      subtitle: "",
-                      summary: "",
-                      assignee: "",
-                      priority: priorities[0]?.id || "medium",
-                      status: getBacklogColumnId(columns),
-                      createdAt: new Date(),
-                      dueDate: d,
-                      subtasks: [],
-                      attachments: [],
-                      tags: [],
-                      timeEstimate: 0,
-                      timeSpent: 0,
-                    });
-                    setIsTaskModalOpen(true);
-                  }}
-                  viewMode={viewMode}
-                  onViewModeChange={setViewMode}
-                  onSuggestNextTask={handleSuggestNextTask}
-                  nextTaskSuggestion={nextTaskSuggestion}
-                  addToast={addToast}
-                />
-              ) : viewMode === "gantt" ? (
-                <GanttView
-                  tasks={currentProjectTasks}
-                  columns={columns}
-                  priorities={priorities}
-                  onEditTask={(t) => {
-                    setEditingTask(t);
-                    setIsTaskModalOpen(true);
-                  }}
-                  onUpdateTask={handleUpdateTask}
-                />
+              {FEATURE_FLAGS.V3_SHELL_ENABLED ? (
+                activeSurface === "inbox" ? (
+                  <InboxView
+                    agentRuns={agentRuns}
+                    agents={agents}
+                    tasks={tasks}
+                    standupDigest={agentStandup}
+                    onOpenRun={setSelectedRunId}
+                    onApprove={(task, run) => void approveAgentWork(task, run)}
+                    onReject={(task, run, feedback) => void rejectAgentWork(task, run, feedback)}
+                    onDismissStandup={() => setStandupDismissed(true)}
+                  />
+                ) : activeSurface === "agents" ? (
+                  <AgentsView
+                    agents={agents}
+                    agentRuns={agentRuns}
+                    runtimeHealth={runtimeHealth}
+                    onOpenRun={setSelectedRunId}
+                  />
+                ) : (
+                  boardLensContent
+                )
               ) : (
-                <ProjectBoard
-                  columns={columns}
-                  priorities={priorities}
-                  tasks={currentProjectTasks}
-                  allTasks={tasks}
-                  boardGrouping={boardGrouping}
-                  onUpdateColumns={handleUpdateColumns}
-                  onMoveTask={moveTask}
-                  onEditTask={(t) => {
-                    setEditingTask(t);
-                    setIsTaskModalOpen(true);
-                  }}
-                  onUpdateTask={handleUpdateTask}
-                  onDeleteTask={handleDeleteTaskInternal}
-                  onArchiveTask={handleArchiveTaskInternal}
-                  addToast={addToast}
-                  getTasksByContext={getTasksByContext}
-                  isCompact={isCompactView}
-                  onCopyTask={(msg) => addToast(msg, "success")}
-                  projectName={activeProject.name}
-                  projects={projects}
-                  onMoveBlocked={(msg) => addToast(msg, "error")}
-                  onMoveToWorkspace={handleMoveTaskToWorkspace}
-                  canMoveTask={canMoveTask}
-                  agents={agents}
-                  onAssignTaskToAgent={(task, agentId) => void assignTaskToAgent(task, agentId)}
-                  onApproveAgentWork={(task, run) => void approveAgentWork(task, run)}
-                  onRejectAgentWork={(task, run, feedback) =>
-                    void rejectAgentWork(task, run, feedback)
-                  }
-                />
+                boardLensContent
               )}
             </Suspense>
           </ViewTransition>
@@ -1886,6 +2033,7 @@ const App: React.FC = () => {
             isVisible={isQuickAddOpen}
             onClose={() => setIsQuickAddOpen(false)}
             projects={projects}
+            addToast={addToast}
             onAddTask={(title, options) => {
               const targetProject = options?.projectId
                 ? projects.find((project) => project.id === options.projectId)
@@ -1899,9 +2047,13 @@ const App: React.FC = () => {
                   timeEstimate: options?.timeEstimate,
                   tags: options?.tags,
                   summary: options?.summary,
+                  assignee: options?.assignee,
                 },
                 null,
               );
+              if (options?.assignee && agentService.getAgentByAssignee(options.assignee)) {
+                addToast(`Assigned to agent ${options.assignee} — will pick up per agent settings.`, "info");
+              }
             }}
           />
         </Suspense>
@@ -2044,6 +2196,8 @@ const App: React.FC = () => {
 
       {isTauri() && (
         <WarRoom
+          open={isWarRoomOpen}
+          onOpenChange={setIsWarRoomOpen}
           tasks={tasks}
           columns={columns}
           agents={agents}
@@ -2058,7 +2212,7 @@ const App: React.FC = () => {
         />
       )}
 
-      {isTauri() && (
+      {isTauri() && !FEATURE_FLAGS.V3_SHELL_ENABLED && (
         <AgentRunsDock
           tasks={tasks}
           columns={columns}
@@ -2076,6 +2230,29 @@ const App: React.FC = () => {
           onMergeWorktree={(run) => void mergeWorktree(run)}
           onDiscardWorktree={(run) => void discardWorktree(run)}
         />
+      )}
+
+      {isTauri() && FEATURE_FLAGS.V3_SHELL_ENABLED && (
+        <Suspense fallback={null}>
+          <RunView
+            run={selectedRun}
+            agent={selectedRunAgent}
+            task={selectedRunTask}
+            isOpen={selectedRunId !== null}
+            onClose={() => setSelectedRunId(null)}
+            onCancel={(runId) => void cancelAgentRun(runId)}
+            onPause={(runId) => void pauseAgentRun(runId)}
+            onResume={(runId) => void resumeAgentRun(runId)}
+            onInjectGuidance={(runId, msg) => void injectGuidance(runId, msg)}
+            onFollowUp={(runId, msg) => void followUpRun(runId, msg)}
+            onApprove={(task, run) => void approveAgentWork(task, run)}
+            onReject={(task, run, feedback) => void rejectAgentWork(task, run, feedback)}
+            onOpenTerminal={(run) => void openRunInTerminal(run)}
+            onMergeWorktree={(run) => void mergeWorktree(run)}
+            onDiscardWorktree={(run) => void discardWorktree(run)}
+            permissionRequests={shellPendingPermissions}
+          />
+        </Suspense>
       )}
 
       {isCommandPaletteOpen && (
