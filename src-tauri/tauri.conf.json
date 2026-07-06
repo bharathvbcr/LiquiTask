@@ -37,7 +37,8 @@
       "nsis"
     ],
     "externalBin": [
-      "binaries/semantic-layer"
+      "binaries/semantic-layer",
+      "binaries/liquitask-agentd"
     ],
     "resources": {
       "../scripts/liquitask-mcp-bridge.mjs": "scripts/liquitask-mcp-bridge.mjs"

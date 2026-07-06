@@ -32,6 +32,7 @@ use serde_json::{Map, Value};
 use tauri::{AppHandle, Manager, State};
 
 mod agent_runner;
+mod agentd;
 mod agent_mcp;
 mod agent_git;
 mod github_sync;
@@ -55,6 +56,11 @@ use agent_runner::{
     agent_detect_clis, agent_open_in_terminal, agent_run_active, agent_run_cancel,
     agent_runner_inject_guidance, agent_runner_pause, agent_runner_resume, agent_run_start,
     agent_runs_reattach, AgentProcessRegistry,
+};
+use agentd::{
+    agentd_detect, agentd_ensure, agentd_permission_respond, agentd_run_cancel,
+    agentd_run_inject, agentd_run_pause, agentd_run_reattach, agentd_run_resume,
+    agentd_run_start, AgentdState,
 };
 use agent_mcp::{
     agent_mcp_cleanup, agent_mcp_init, agent_mcp_list_requests, agent_mcp_resolve_bridge,
@@ -756,6 +762,7 @@ fn main() {
         .manage(StorageGuard(Mutex::new(())))
         .manage(SemanticLayerState(tokio::sync::Mutex::new(None)))
         .manage(AgentProcessRegistry(Mutex::new(std::collections::HashMap::new())))
+        .manage(AgentdState::default())
         .setup(|app| {
             setup_tray(app.handle())?;
             Ok(())
@@ -790,6 +797,15 @@ fn main() {
             semantic_layer_feedback,
             semantic_layer_stats,
             agent_detect_clis,
+            agentd_ensure,
+            agentd_detect,
+            agentd_run_start,
+            agentd_run_cancel,
+            agentd_run_pause,
+            agentd_run_resume,
+            agentd_run_inject,
+            agentd_run_reattach,
+            agentd_permission_respond,
             agent_run_start,
             agent_run_cancel,
             agent_runner_pause,
