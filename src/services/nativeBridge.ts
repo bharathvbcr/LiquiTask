@@ -14,9 +14,34 @@ import type {
 } from "../../types";
 import type { AutomationRule, AutomationTrigger } from "./automationService";
 import { isTauri } from "../runtime/runtimeEnvironment";
+import { asString, asStringArray } from "../utils/coerce";
 
 export function isNativeBackend(): boolean {
   return isTauri();
+}
+
+/**
+ * Serialize a Task into the exact shape the native `TaskPromptInput` expects,
+ * coercing every field to its wire type. Upstream data (especially
+ * AI-generated subtasks/tags) can contain objects where strings are required;
+ * without this, serde rejects the payload with `invalid type: map, expected a
+ * string` and the whole run dies. Coercing here makes the boundary crash-proof.
+ */
+function toTaskPromptInput(task: Task, includeSubtasks: boolean) {
+  return {
+    id: asString(task.id),
+    jobId: asString(task.jobId),
+    title: asString(task.title),
+    subtitle: task.subtitle == null ? undefined : asString(task.subtitle),
+    summary: task.summary == null ? undefined : asString(task.summary),
+    tags: asStringArray(task.tags),
+    subtasks: includeSubtasks
+      ? (task.subtasks ?? []).map((s) => ({
+          title: asString(s?.title),
+          completed: Boolean(s?.completed),
+        }))
+      : [],
+  };
 }
 
 export async function nativeBuildTaskPrompt(
@@ -24,33 +49,14 @@ export async function nativeBuildTaskPrompt(
   skills: AgentSkill[] = [],
 ): Promise<string> {
   return invoke<string>("agent_build_task_prompt", {
-    task: {
-      id: task.id,
-      jobId: task.jobId,
-      title: task.title,
-      subtitle: task.subtitle,
-      summary: task.summary,
-      tags: task.tags ?? [],
-      subtasks: (task.subtasks ?? []).map((s) => ({
-        title: s.title,
-        completed: s.completed,
-      })),
-    },
-    skills: skills.map((s) => ({ title: s.title, summary: s.summary })),
+    task: toTaskPromptInput(task, true),
+    skills: skills.map((s) => ({ title: asString(s.title), summary: asString(s.summary) })),
   });
 }
 
 export async function nativeBuildCouncilGoal(task: Task): Promise<string> {
   return invoke<string>("agent_build_council_goal", {
-    task: {
-      id: task.id,
-      jobId: task.jobId,
-      title: task.title,
-      subtitle: task.subtitle,
-      summary: task.summary,
-      tags: task.tags ?? [],
-      subtasks: [],
-    },
+    task: toTaskPromptInput(task, false),
   });
 }
 

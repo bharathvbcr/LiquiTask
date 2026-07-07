@@ -487,6 +487,62 @@ class AgentRunService {
     if (run.engine === 'agentd') this.releaseAgent(run);
   }
 
+  /** True once a run has reached a terminal state and can be safely removed. */
+  private isTerminal(run: AgentRun): boolean {
+    return (
+      run.status === 'completed' || run.status === 'failed' || run.status === 'cancelled'
+    );
+  }
+
+  /**
+   * Drop every internal reference to a run. Keeps the run store's side tables
+   * (context, agentd id map, agent-busy map) from leaking or mis-routing a late
+   * event to a run that no longer exists.
+   */
+  private forgetRun(run: AgentRun): void {
+    this.runContext.delete(run.id);
+    if (run.agentdRunId) this.agentdIdMap.delete(run.agentdRunId);
+    if (this.activeByAgent.get(run.agentId) === run.id) {
+      this.activeByAgent.delete(run.agentId);
+    }
+  }
+
+  /**
+   * Remove a single run from the store. Refuses while the run is still active or
+   * has an un-reconciled git worktree (Merge/Discard first) so we never orphan a
+   * branch. Returns true when the run was removed.
+   */
+  removeRun(runId: string): boolean {
+    const run = this.runs.get(runId);
+    if (!run || !this.isTerminal(run) || run.worktreePath) return false;
+    this.runs.delete(runId);
+    this.forgetRun(run);
+    // NB: do NOT call upsert() here — it re-inserts the run we just removed.
+    this.notify();
+    this.schedulePersist();
+    return true;
+  }
+
+  /**
+   * Bulk-clear terminal runs (completed / failed / cancelled) from the store.
+   * Runs with a pending worktree are kept so their Merge/Discard actions remain
+   * available. Returns the number of runs cleared.
+   */
+  clearFinishedRuns(): number {
+    let cleared = 0;
+    for (const [id, run] of this.runs) {
+      if (!this.isTerminal(run) || run.worktreePath) continue;
+      this.runs.delete(id);
+      this.forgetRun(run);
+      cleared += 1;
+    }
+    if (cleared > 0) {
+      this.notify();
+      this.schedulePersist();
+    }
+    return cleared;
+  }
+
   /** Pause a running agent process (SIGSTOP on Unix, thread suspend on Windows). */
   async pause(runId: string): Promise<void> {
     const run = this.runs.get(runId);

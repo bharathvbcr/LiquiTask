@@ -442,6 +442,85 @@ export const useAgentTeammates = ({
     await agentRunService.cancel(runId);
   }, []);
 
+  /**
+   * Stop a run and return its task to the board. Works whether the run is still
+   * active (cancel first) or already terminal — e.g. a failed run that left the
+   * card stuck "In Progress". This is the per-run Stop / "clear running task".
+   */
+  const stopAgentRun = useCallback(
+    async (runId: string) => {
+      const run = agentRunService.getRuns().find((r) => r.id === runId);
+      if (!run) {
+        addToast("That run no longer exists.", "warning");
+        return;
+      }
+      const wasActive =
+        run.status === "running" || run.status === "queued" || run.status === "verifying";
+      if (wasActive) {
+        try {
+          await agentRunService.cancel(runId);
+        } catch (err) {
+          // Leave the card where it is: the run may still be executing, so
+          // returning the task to the board here would be a lie.
+          addToast(err instanceof Error ? err.message : "Failed to stop the run.", "error");
+          return;
+        }
+      }
+      const task = tasksRef.current.find((t) => t.id === run.taskId);
+      const backlogId = getBacklogColumnId(columnsRef.current);
+      const moved =
+        !!task && task.status !== backlogId && task.status !== COLUMN_STATUS.COMMIT;
+      if (task && moved) {
+        handleUpdateTask(
+          task.id,
+          {
+            status: backlogId,
+            activity: [
+              ...(task.activity ?? []),
+              activityEntry(
+                "user",
+                wasActive
+                  ? "stopped the agent run and returned the task to the board."
+                  : "cleared the task back to the board.",
+              ),
+            ],
+          },
+          { actor: "user" },
+        );
+      }
+      if (wasActive) {
+        addToast(moved ? "Run stopped — task returned to the board." : "Run stopped.", "info");
+      } else if (moved) {
+        addToast("Task returned to the board.", "info");
+      } else {
+        addToast("Nothing to clear — the task is already on the board.", "warning");
+      }
+    },
+    [addToast, handleUpdateTask],
+  );
+
+  /** Bulk-clear terminal runs from the dock + inbox (worktree-pending runs stay). */
+  const clearFinishedRuns = useCallback(() => {
+    const cleared = agentRunService.clearFinishedRuns();
+    addToast(
+      cleared > 0
+        ? `Cleared ${cleared} finished run${cleared === 1 ? "" : "s"}.`
+        : "No finished runs to clear.",
+      cleared > 0 ? "info" : "warning",
+    );
+  }, [addToast]);
+
+  /** Bulk-dismiss every open dead-letter / failed-action item in the Inbox. */
+  const clearDeadLetters = useCallback(() => {
+    const cleared = deadLetterService.discardAll();
+    addToast(
+      cleared > 0
+        ? `Cleared ${cleared} inbox item${cleared === 1 ? "" : "s"}.`
+        : "Inbox already clear.",
+      cleared > 0 ? "info" : "warning",
+    );
+  }, [addToast]);
+
   const assignTaskToAgent = useCallback(
     async (task: Task, agentId: string, options?: { silent?: boolean; via?: string }) => {
       const silent = options?.silent ?? false;
@@ -863,6 +942,9 @@ export const useAgentTeammates = ({
     sendRepairRun,
     startAgentRun,
     cancelAgentRun,
+    stopAgentRun,
+    clearFinishedRuns,
+    clearDeadLetters,
     openRunInTerminal,
     assignTaskToAgent,
     followUpRun,

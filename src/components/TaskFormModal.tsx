@@ -40,6 +40,7 @@ import { Input } from "./common/Input";
 import { LiquidDatePicker } from "./common/LiquidDatePicker";
 import { useEstimateSuggestion } from "../hooks/useEstimateSuggestion";
 import { aiService } from "../services/aiService";
+import { asString, asStringArray, normalizeSubtaskTitles } from "../utils/coerce";
 import { getSafeExternalUrl } from "../utils/safeUrl";
 import { getBacklogColumnId } from "../utils/taskUtils";
 import type {
@@ -360,19 +361,24 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
         context,
       );
 
+      // AI output is coerced: models sometimes return title/summary/tags/
+      // subtasks as objects, which otherwise render as "[object Object]" and
+      // crash native agent runs (see src/utils/coerce.ts).
+      const refinedTags = asStringArray(refined.tags);
       setFormData((prev) => ({
         ...prev,
-        title: refined.title || prev.title,
-        summary: refined.summary || prev.summary,
-        priority: refined.priority || prev.priority,
-        subtitle: refined.tags && refined.tags.length > 0 ? refined.tags[0] : prev.subtitle,
+        title: asString(refined.title) || prev.title,
+        summary: asString(refined.summary) || prev.summary,
+        priority: asString(refined.priority) || prev.priority,
+        subtitle: refinedTags.length > 0 ? refinedTags[0] : prev.subtitle,
         dueDate: refined.dueDate ? refined.dueDate.split("T")[0] : prev.dueDate,
       }));
 
-      if (refined.subtasks && refined.subtasks.length > 0) {
-        const newSubtasks = refined.subtasks.map((st, i) => ({
+      const refinedSubtaskTitles = normalizeSubtaskTitles(refined.subtasks);
+      if (refinedSubtaskTitles.length > 0) {
+        const newSubtasks = refinedSubtaskTitles.map((title, i) => ({
           id: `ai-st-${Date.now()}-${i}`,
-          title: st,
+          title,
           completed: false,
         }));
         setSubtasks((prev) => [...prev, ...newSubtasks]);
@@ -419,21 +425,21 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
           : new Date(et.dueDate);
       }
 
+      const etTags = asStringArray(et.tags);
       return {
-        title: et.title,
-        summary: et.summary,
-        priority: et.priority,
-        subtitle: et.tags && et.tags.length > 0 ? et.tags[0] : "General",
+        title: asString(et.title),
+        summary: asString(et.summary),
+        priority: asString(et.priority),
+        subtitle: etTags.length > 0 ? etTags[0] : "General",
         dueDate: parsedDate,
         projectId: localProjectId,
         status: getBacklogColumnId(columns),
-        subtasks:
-          et.subtasks?.map((st, i) => ({
-            id: `st-${Date.now()}-${i}`,
-            title: st,
-            completed: false,
-          })) || [],
-        tags: et.tags || [],
+        subtasks: normalizeSubtaskTitles(et.subtasks).map((title, i) => ({
+          id: `st-${Date.now()}-${i}`,
+          title,
+          completed: false,
+        })),
+        tags: etTags,
         timeEstimate: et.timeEstimate || 0,
       };
     });

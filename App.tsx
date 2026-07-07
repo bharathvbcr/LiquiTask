@@ -423,6 +423,7 @@ const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const toastSeqRef = useRef(0);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
@@ -569,7 +570,12 @@ const App: React.FC = () => {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const addToast = useCallback((message: string, type: ToastType = 'info') => {
-    const id = Date.now().toString();
+    // Date.now() alone collides when several toasts fire in the same millisecond
+    // (common in the agent flow), which makes React drop duplicate-keyed toasts
+    // and removeToast() clear the wrong one. A monotonic counter guarantees a
+    // unique id per toast.
+    toastSeqRef.current += 1;
+    const id = `${Date.now()}-${toastSeqRef.current}`;
     setToasts(prev => [...prev, { id, message, type }]);
   }, []);
 
@@ -678,6 +684,9 @@ const App: React.FC = () => {
     sendRepairRun,
     startAgentRun,
     cancelAgentRun,
+    stopAgentRun,
+    clearFinishedRuns,
+    clearDeadLetters,
     openRunInTerminal,
     assignTaskToAgent,
     followUpRun,
@@ -2192,6 +2201,9 @@ const App: React.FC = () => {
                         deadLetters={deadLetters}
                         onRetryDeadLetter={handleRetryDeadLetter}
                         onDiscardDeadLetter={handleDiscardDeadLetter}
+                        onClearDeadLetters={() => clearDeadLetters()}
+                        onClearFinished={() => clearFinishedRuns()}
+                        onReturnToBoard={runId => void stopAgentRun(runId)}
                       />
                     </PanelBoundary>
                   ) : activeSurface === 'agents' ? (
@@ -2405,7 +2417,9 @@ const App: React.FC = () => {
           agents={agents}
           runs={agentRuns}
           onStart={task => void startAgentRun(task)}
-          onCancel={runId => void cancelAgentRun(runId)}
+          onCancel={runId => void stopAgentRun(runId)}
+          onReturnToBoard={runId => void stopAgentRun(runId)}
+          onClearFinished={() => clearFinishedRuns()}
           onPause={runId => void pauseAgentRun(runId)}
           onResume={runId => void resumeAgentRun(runId)}
           onInjectGuidance={(runId, msg) => void injectGuidance(runId, msg)}

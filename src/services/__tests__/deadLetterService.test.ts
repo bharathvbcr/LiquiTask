@@ -100,6 +100,19 @@ describe("deadLetterService", () => {
     expect(deadLetterService.getOpen().map((l) => l.id)).not.toContain(letter.id);
   });
 
+  it("discardAll clears every open letter and returns the count", () => {
+    deadLetterService.record({ kind: "merge", title: "a", detail: "1", payload: {} });
+    deadLetterService.record({ kind: "run", title: "b", detail: "2", payload: {} });
+    deadLetterService.record({ kind: "automation", title: "c", detail: "3", payload: {} });
+    expect(deadLetterService.getOpen()).toHaveLength(3);
+
+    const cleared = deadLetterService.discardAll();
+    expect(cleared).toBe(3);
+    expect(deadLetterService.getOpen()).toHaveLength(0);
+    // A second call is a no-op.
+    expect(deadLetterService.discardAll()).toBe(0);
+  });
+
   it("notifies subscribers with the open set", () => {
     const seen: number[] = [];
     const unsubscribe = deadLetterService.subscribe((open) => seen.push(open.length));

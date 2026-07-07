@@ -9,6 +9,7 @@ import {
   MessageSquare,
   Pause,
   Play,
+  RotateCcw,
   Send,
   ShieldAlert,
   ShieldCheck,
@@ -30,6 +31,7 @@ import agentMcpService, {
 } from '../../services/agents/agentMcpService';
 import { AgentQuickCreate } from './AgentQuickCreate';
 import { AgentTeamSection, PHASE_LABEL } from './AgentTeamPanel';
+import { deriveRunProgress, formatRunError } from '../../utils/runProgress';
 import type { AgentProfile, AgentRun, BoardColumn, Task, ToastType } from '../../../types';
 
 type DockTab = 'runs' | 'team';
@@ -50,6 +52,10 @@ interface AgentRunsDockProps {
   onReject?: (task: Task, run: AgentRun, feedback: string) => void;
   onMergeWorktree?: (run: AgentRun) => void;
   onDiscardWorktree?: (run: AgentRun) => void;
+  /** Return a stopped/failed run's task to the board (clears a stuck card). */
+  onReturnToBoard?: (runId: string) => void;
+  /** Bulk-clear terminal runs from the dock. */
+  onClearFinished?: () => void;
   /** Team runs (merged from the old AgentTeamPanel). */
   onCreateTasks?: (tasks: Task[]) => void;
   addToast?: (message: string, type: ToastType) => void;
@@ -296,6 +302,8 @@ export const AgentRunsDock: React.FC<AgentRunsDockProps> = ({
   onReject,
   onMergeWorktree,
   onDiscardWorktree,
+  onReturnToBoard,
+  onClearFinished,
   onCreateTasks,
   addToast,
   ntfyTopic,
@@ -368,6 +376,13 @@ export const AgentRunsDock: React.FC<AgentRunsDockProps> = ({
   const recentRuns = runs
     .filter(r => r.status !== 'running' && r.status !== 'verifying' && r.status !== 'queued')
     .slice(0, 5);
+
+  // Terminal runs with no pending worktree can be bulk-cleared from the dock.
+  const clearableFinished = runs.filter(
+    r =>
+      (r.status === 'completed' || r.status === 'failed' || r.status === 'cancelled') &&
+      !r.worktreePath
+  ).length;
 
   const idleAssigned = useMemo(() => {
     const activeTaskIds = new Set(activeRuns.map(r => r.taskId));
@@ -509,6 +524,18 @@ export const AgentRunsDock: React.FC<AgentRunsDockProps> = ({
                     : 'No runs yet — assign a task to an agent by name, or drop a card on one.'}
                 </p>
               )}
+              {onClearFinished && clearableFinished > 0 && (
+                <div className="flex justify-end px-1">
+                  <button
+                    type="button"
+                    onClick={() => onClearFinished()}
+                    className="inline-flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-300 transition-colors"
+                    title="Remove finished runs from this list"
+                  >
+                    <Trash2 size={10} /> Clear finished ({clearableFinished})
+                  </button>
+                </div>
+              )}
               {[...activeRuns, ...recentRuns].map(run => {
                 const task = taskById.get(run.taskId);
                 const agent = agentById.get(run.agentId);
@@ -530,6 +557,12 @@ export const AgentRunsDock: React.FC<AgentRunsDockProps> = ({
                   run.gitBranch &&
                   (onMergeWorktree || onDiscardWorktree);
                 const hasPendingPermissions = pendingPermissions.some(p => p.runId === run.id);
+                const subtasks = task?.subtasks ?? [];
+                const progress = deriveRunProgress(run, {
+                  subtasksTotal: subtasks.length,
+                  subtasksDone: subtasks.filter(s => s.completed).length,
+                });
+                const errorLine = formatRunError(run);
 
                 return (
                   <div
@@ -617,17 +650,58 @@ export const AgentRunsDock: React.FC<AgentRunsDockProps> = ({
                             type="button"
                             onClick={() => onCancel(run.id)}
                             className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all"
-                            aria-label="Cancel run"
+                            aria-label="Stop run"
+                            title="Stop run and return the task to the board"
                           >
                             <Square size={12} />
                           </button>
                         ) : run.status === 'completed' ? (
                           <CheckCircle2 size={14} className="text-emerald-400" />
+                        ) : onReturnToBoard ? (
+                          <button
+                            type="button"
+                            onClick={() => onReturnToBoard(run.id)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-sky-400 hover:bg-sky-500/10 transition-all"
+                            aria-label="Return task to board"
+                            title="Return this task to the board"
+                          >
+                            <RotateCcw size={12} />
+                          </button>
                         ) : (
                           <XCircle size={14} className="text-slate-500" />
                         )}
                       </div>
                     </div>
+
+                    {progress.active && (
+                      <div className="space-y-0.5">
+                        <div
+                          className="h-1 w-full rounded-full bg-white/5 overflow-hidden"
+                          role="progressbar"
+                          aria-label={`Progress: ${progress.label}`}
+                          aria-valuenow={progress.percent}
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                        >
+                          <div
+                            className="h-full rounded-full bg-red-500/70 transition-[width] duration-500"
+                            style={{ width: `${progress.percent}%` }}
+                          />
+                        </div>
+                        <p className="text-[10px] text-slate-500">
+                          {progress.label}
+                          {subtasks.length > 0
+                            ? ` · ${subtasks.filter(s => s.completed).length}/${subtasks.length} subtasks`
+                            : ''}
+                        </p>
+                      </div>
+                    )}
+
+                    {errorLine && (
+                      <p className="text-[11px] text-red-300/90 bg-red-500/5 border border-red-500/15 rounded-lg px-2 py-1 break-words">
+                        {errorLine}
+                      </p>
+                    )}
 
                     {isActive && (
                       <PermissionPromptPanel runId={run.id} requests={pendingPermissions} />

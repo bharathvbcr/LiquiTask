@@ -25,6 +25,7 @@ import type { AgentStandupDigest } from "../../services/agents/agentStandupDiges
 import type { DeadLetter } from "../../services/deadLetterService";
 import { ApprovalCard, FlatCard, PresenceRing, StatusPill } from "../../ui";
 import type { PresenceStatus } from "../../ui";
+import { formatRunError } from "../../utils/runProgress";
 import type { AgentProfile, AgentRun, Task } from "../../../types";
 
 export interface InboxViewProps {
@@ -58,6 +59,12 @@ export interface InboxViewProps {
   onRetryDeadLetter?: (id: string) => void;
   /** Discard a dead-lettered action permanently. */
   onDiscardDeadLetter?: (id: string) => void;
+  /** Discard every open dead-letter in one shot ("Clear all"). */
+  onClearDeadLetters?: () => void;
+  /** Bulk-clear finished/failed run cards from the inbox. */
+  onClearFinished?: () => void;
+  /** Return a finished/failed run's task to the board (clears a stuck card). */
+  onReturnToBoard?: (runId: string) => void;
 }
 
 type InboxCard =
@@ -161,6 +168,9 @@ export const InboxView: React.FC<InboxViewProps> = ({
   deadLetters = [],
   onRetryDeadLetter,
   onDiscardDeadLetter,
+  onClearDeadLetters,
+  onClearFinished,
+  onReturnToBoard,
 }) => {
   const agentById = useMemo(() => {
     const map = new Map<string, AgentProfile>();
@@ -214,8 +224,36 @@ export const InboxView: React.FC<InboxViewProps> = ({
   const isEmpty =
     cards.length === 0 && pendingPlans.length === 0 && deadLetters.length === 0 && !hasStandupContent;
 
+  const canClearDeadLetters = !!onClearDeadLetters && deadLetters.length > 0;
+  const canClearFinished = !!onClearFinished && otherCards.length > 0;
+
   return (
     <div className="flex flex-col h-full overflow-y-auto custom-scrollbar px-4 py-4 space-y-3 max-w-2xl mx-auto w-full">
+      {(canClearDeadLetters || canClearFinished) && (
+        <div className="flex items-center justify-end gap-3">
+          {canClearDeadLetters && (
+            <button
+              type="button"
+              onClick={() => onClearDeadLetters?.()}
+              className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-red-300 transition-colors"
+              title="Discard all failed-action items"
+            >
+              <Trash2 size={11} /> Clear all failed ({deadLetters.length})
+            </button>
+          )}
+          {canClearFinished && (
+            <button
+              type="button"
+              onClick={() => onClearFinished?.()}
+              className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-300 transition-colors"
+              title="Clear finished run cards from the inbox"
+            >
+              <Trash2 size={11} /> Clear finished ({otherCards.length})
+            </button>
+          )}
+        </div>
+      )}
+
       {hasStandupContent && standupDigest && (
         <StandupDigestCard digest={standupDigest} onDismiss={onDismissStandup} />
       )}
@@ -300,6 +338,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
           agent={agentById.get(card.run.agentId)}
           onOpenRun={onOpenRun}
           onSendRepair={onSendRepair}
+          onReturnToBoard={onReturnToBoard}
         />
       ))}
     </div>
@@ -445,7 +484,8 @@ const InboxRunCard: React.FC<{
   agent: AgentProfile | undefined;
   onOpenRun?: (runId: string) => void;
   onSendRepair?: (run: AgentRun, feedback: string) => void;
-}> = ({ card, agent, onOpenRun, onSendRepair }) => {
+  onReturnToBoard?: (runId: string) => void;
+}> = ({ card, agent, onOpenRun, onSendRepair, onReturnToBoard }) => {
   const { run, task } = card;
   const title = task?.title ?? run.taskId;
   const ts = card.sortTs ? new Date(card.sortTs) : undefined;
@@ -455,6 +495,9 @@ const InboxRunCard: React.FC<{
     card.kind === "blocked" && run.verification && !run.verification.passed
       ? run.verification.blockingGaps
       : undefined;
+  // The blocked branch renders its own error/gaps; only surface a plain error
+  // line for non-blocked failed runs so we never double up.
+  const runError = card.kind !== "blocked" ? formatRunError(run) : undefined;
 
   return (
     <FlatCard>
@@ -483,8 +526,14 @@ const InboxRunCard: React.FC<{
         )}
       </div>
 
-      {run.summary && card.kind === "finished" && (
+      {run.summary && card.kind === "finished" && run.status !== "failed" && (
         <p className="text-[11px] text-slate-400 truncate">{run.summary}</p>
+      )}
+
+      {runError && (
+        <p className="text-[11px] text-red-300/90 bg-red-500/5 border border-red-500/15 rounded-lg px-2 py-1 break-words">
+          {runError}
+        </p>
       )}
 
       {card.kind === "blocked" &&
@@ -517,15 +566,28 @@ const InboxRunCard: React.FC<{
           </p>
         ))}
 
-      {onOpenRun && (
-        <button
-          type="button"
-          onClick={() => onOpenRun(run.id)}
-          className="text-[11px] text-slate-400 hover:text-white underline underline-offset-2"
-        >
-          Open run
-        </button>
-      )}
+      <div className="flex items-center gap-3">
+        {onOpenRun && (
+          <button
+            type="button"
+            onClick={() => onOpenRun(run.id)}
+            className="text-[11px] text-slate-400 hover:text-white underline underline-offset-2"
+          >
+            Open run
+          </button>
+        )}
+        {onReturnToBoard &&
+          (run.status === "failed" || run.status === "cancelled" || card.kind === "blocked") && (
+            <button
+              type="button"
+              onClick={() => onReturnToBoard(run.id)}
+              className="inline-flex items-center gap-1 text-[11px] text-sky-300/90 hover:text-sky-200"
+              title="Return this task to the board"
+            >
+              <RotateCcw size={10} /> Return to board
+            </button>
+          )}
+      </div>
     </FlatCard>
   );
 };

@@ -203,6 +203,31 @@ class DeadLetterService {
     ]);
   }
 
+  /**
+   * Discard every currently-open letter in one shot (the Inbox "Clear all"
+   * action). Returns the number discarded so the caller can toast a count.
+   */
+  discardAll(): number {
+    this.ensureLoaded();
+    const open = this.letters.filter((l) => l.status === "open");
+    if (open.length === 0) return 0;
+    for (const letter of open) {
+      letter.status = "discarded";
+    }
+    this.persist();
+    this.notify();
+    void taskEventStore.appendSafe(
+      open.map((letter) => ({
+        streamId: letter.taskId ?? "board",
+        type: "action.discarded" as const,
+        payload: { deadLetterId: letter.id, kind: letter.kind, bulk: true },
+        actor: "user" as const,
+        runId: letter.runId,
+      })),
+    );
+    return open.length;
+  }
+
   /** Resolve without retrying (e.g. the user fixed it manually). */
   resolve(id: string): void {
     this.ensureLoaded();

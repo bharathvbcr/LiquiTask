@@ -6,6 +6,69 @@ use serde_json::Value;
 const MAX_SKILLS_IN_PROMPT: usize = 5;
 const MAX_SKILL_SUMMARY_CHARS: usize = 600;
 
+/// Keys we unwrap, in preference order, when handed an object where a string
+/// was expected. Mirrors `src/utils/coerce.ts` on the renderer side.
+const STRING_LIKE_KEYS: [&str; 9] = [
+    "title",
+    "name",
+    "text",
+    "label",
+    "task",
+    "step",
+    "value",
+    "summary",
+    "description",
+];
+
+/// Best-effort coercion of any JSON value into a string. Prevents a malformed
+/// field (e.g. an AI-generated subtask returned as `{ "title": "..." }`) from
+/// failing deserialization of the whole command payload with
+/// `invalid type: map, expected a string`.
+fn lenient_string(value: &Value) -> String {
+    match value {
+        Value::String(s) => s.clone(),
+        Value::Number(n) => n.to_string(),
+        Value::Bool(b) => b.to_string(),
+        Value::Array(items) => items
+            .iter()
+            .map(lenient_string)
+            .filter(|s| !s.is_empty())
+            .collect::<Vec<_>>()
+            .join(", "),
+        Value::Object(map) => {
+            for key in STRING_LIKE_KEYS {
+                if let Some(Value::String(s)) = map.get(key) {
+                    if !s.trim().is_empty() {
+                        return s.clone();
+                    }
+                }
+            }
+            String::new()
+        }
+        Value::Null => String::new(),
+    }
+}
+
+/// serde `deserialize_with` adaptor: accept a string or coerce from any value.
+fn de_lenient_string<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Value::deserialize(deserializer)?;
+    Ok(lenient_string(&value))
+}
+
+/// serde `deserialize_with` adaptor for optional string fields.
+fn de_lenient_opt_string<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Option::<Value>::deserialize(deserializer)?;
+    Ok(value
+        .map(|v| lenient_string(&v))
+        .filter(|s| !s.is_empty()))
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentSkillInput {
@@ -16,6 +79,7 @@ pub struct AgentSkillInput {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SubtaskInput {
+    #[serde(deserialize_with = "de_lenient_string")]
     pub title: String,
     #[serde(default)]
     pub completed: bool,
@@ -27,10 +91,11 @@ pub struct TaskPromptInput {
     pub id: String,
     #[serde(default)]
     pub job_id: String,
+    #[serde(deserialize_with = "de_lenient_string")]
     pub title: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "de_lenient_opt_string")]
     pub subtitle: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "de_lenient_opt_string")]
     pub summary: Option<String>,
     #[serde(default)]
     pub tags: Vec<String>,
@@ -398,6 +463,29 @@ mod tests {
         );
         assert!(prompt.contains("Fix bug"));
         assert!(prompt.contains("Write test"));
+    }
+
+    #[test]
+    fn deserializes_task_with_object_shaped_subtasks() {
+        // Regression: models return subtasks as objects, which previously failed
+        // the whole command with `invalid type: map, expected a string`.
+        let payload = serde_json::json!({
+            "id": "t1",
+            "title": "Redesign the pill",
+            "summary": { "text": "make it modern" },
+            "subtasks": [
+                { "title": "Locate component", "completed": false },
+                "Rework styles",
+                { "step": "Verify no regressions" }
+            ]
+        });
+        let parsed: TaskPromptInput = serde_json::from_value(payload).expect("should not error");
+        assert_eq!(parsed.title, "Redesign the pill");
+        assert_eq!(parsed.summary.as_deref(), Some("make it modern"));
+        assert_eq!(parsed.subtasks.len(), 3);
+        assert_eq!(parsed.subtasks[0].title, "Locate component");
+        assert_eq!(parsed.subtasks[1].title, "Rework styles");
+        assert_eq!(parsed.subtasks[2].title, "Verify no regressions");
     }
 
     #[test]

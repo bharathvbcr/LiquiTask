@@ -21,6 +21,7 @@ import type {
 import { STORAGE_KEYS } from "../constants";
 import { getHttpFetch } from "../runtime/runtimeEnvironment";
 import type { FilterGroup } from "../types/queryTypes";
+import { normalizeSubtaskTitles } from "../utils/coerce";
 import { sanitizeUrl } from "../utils/validation";
 import { isNativeBackend, nativeOllamaChat, nativeOllamaHealth } from "./nativeBridge";
 import storageService from "./storageService";
@@ -1200,7 +1201,11 @@ class AiService {
       draft,
       context,
     );
-    return refined.subtasks || [];
+    // Models frequently return subtasks as objects ({ title, description })
+    // rather than bare strings. Left uncoerced, those objects flow into
+    // Task.subtasks[].title and later crash the native agent runner with
+    // `invalid type: map, expected a string`. Normalise to plain titles.
+    return normalizeSubtaskTitles(refined.subtasks);
   }
 
   async suggestMetadata(
