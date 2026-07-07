@@ -848,6 +848,24 @@ fn launch_run(
 /// Waits for the run's process to exit, records the exit code, flips `finished`
 /// and reaps the registry entry. Owned children are polled with `try_wait`;
 /// re-adopted runs (no `Child`) are polled with a pid liveness check.
+/// Normalise a process exit into an integer code. On Unix a signal death has no
+/// `code()`, so encode it as `128 + signal` (shell convention: 137 = SIGKILL,
+/// 143 = SIGTERM) rather than a bare `-1`, so the UI can name what killed it
+/// instead of showing the misleading "exited with code -1".
+#[cfg(unix)]
+fn status_exit_code(status: &std::process::ExitStatus) -> i32 {
+    use std::os::unix::process::ExitStatusExt;
+    status
+        .code()
+        .or_else(|| status.signal().map(|s| 128 + s))
+        .unwrap_or(-1)
+}
+
+#[cfg(not(unix))]
+fn status_exit_code(status: &std::process::ExitStatus) -> i32 {
+    status.code().unwrap_or(-1)
+}
+
 #[cfg(any(unix, windows))]
 fn spawn_reaper(app: AppHandle, run_id: String, signals: Arc<RunSignals>) {
     std::thread::spawn(move || {
@@ -864,7 +882,7 @@ fn spawn_reaper(app: AppHandle, run_id: String, signals: Arc<RunSignals>) {
                     None => return, // cancelled + reaped elsewhere
                     Some(tracked) => match tracked.child.as_mut() {
                         Some(child) => match child.try_wait() {
-                            Ok(Some(status)) => Some(status.code().unwrap_or(-1)),
+                            Ok(Some(status)) => Some(status_exit_code(&status)),
                             Ok(None) => None,
                             Err(_) => Some(-1),
                         },

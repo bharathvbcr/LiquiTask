@@ -101,6 +101,82 @@ function firstLine(text: string, max = 200): string {
   return line.length > max ? `${line.slice(0, max - 1)}…` : line;
 }
 
+/**
+ * Short badge label for *why* a run stopped, when it wasn't a plain error —
+ * so the reason (crashed / timed out / stalled) shows at a glance on a run card
+ * without opening the log. Returns `undefined` for normal runs.
+ */
+export function failureKindLabel(kind: AgentRun["failureKind"]): string | undefined {
+  switch (kind) {
+    case "crashed":
+      return "Crashed";
+    case "timeout":
+      return "Timed out";
+    case "stall":
+      return "Stalled";
+    default:
+      return undefined;
+  }
+}
+
+/** Last meaningful streamed output line (stderr/result), for diagnosis. */
+function lastOutputLine(events: AgentRunEvent[]): string | undefined {
+  for (let i = events.length - 1; i >= 0; i -= 1) {
+    const event = events[i];
+    if (ERROR_EVENT_KINDS.includes(event.kind) && event.text.trim()) {
+      return firstLine(event.text.trim());
+    }
+  }
+  return undefined;
+}
+
+/** Common POSIX signal numbers → names, for decoding a `128 + signal` code. */
+const SIGNAL_NAMES: Record<number, string> = {
+  2: "SIGINT",
+  6: "SIGABRT",
+  9: "SIGKILL",
+  11: "SIGSEGV",
+  15: "SIGTERM",
+};
+
+/**
+ * Turn a process exit code into a diagnosable, human message — and append the
+ * last streamed output so a failure explains itself.
+ *
+ * The runner reports `-1` (or a missing code) when a process is *terminated*
+ * rather than exiting normally: killed by a signal, an out-of-memory reap, a
+ * timeout, a cancel, or a re-adopted process that vanished. Surfacing that as
+ * "exited with code -1" is misleading; this says what actually happened. When
+ * the native side encodes a Unix signal as `128 + signal`, it's decoded here.
+ */
+export function describeProcessExit(
+  code: number | null | undefined,
+  run?: Pick<AgentRun, "events">,
+): string {
+  const detail = lastOutputLine(run?.events ?? []);
+  let base: string;
+  if (code == null || code < 0) {
+    base =
+      "The agent process was terminated before it finished — no exit code. This usually means it was killed (out of memory, a timeout, or cancelled).";
+  } else if (code === 0) {
+    base = "The agent process exited cleanly.";
+  } else if (code > 128 && code < 193) {
+    const signal = code - 128;
+    const name = SIGNAL_NAMES[signal];
+    const label = name ? `${name} (${signal})` : `signal ${signal}`;
+    const hint =
+      signal === 9
+        ? " — often the out-of-memory killer"
+        : signal === 15 || signal === 2
+          ? " — terminated (timeout or cancel)"
+          : "";
+    base = `The agent process was killed by ${label}${hint}.`;
+  } else {
+    base = `The agent process exited with code ${code}.`;
+  }
+  return detail ? `${base} Last output: ${detail}` : base;
+}
+
 /** Status-pill / accent tone for a run, shared across the dock, inbox and run detail. */
 export type RunStatusTone = "amber" | "red" | "emerald" | "slate" | "blue" | "purple";
 

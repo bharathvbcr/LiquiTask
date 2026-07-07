@@ -29,7 +29,14 @@ import type { AgentStandupDigest } from "../../services/agents/agentStandupDiges
 import type { DeadLetter } from "../../services/deadLetterService";
 import { ApprovalCard, FlatCard, PresenceRing, StatusPill } from "../../ui";
 import type { PresenceStatus } from "../../ui";
-import { formatRelativeTime, formatRunError, runStatusTone } from "../../utils/runProgress";
+import {
+  failureKindLabel,
+  formatRelativeTime,
+  formatRunError,
+  runStatusTone,
+} from "../../utils/runProgress";
+import { formatRunLog } from "../../utils/formatRunLog";
+import { CopyButton } from "../../components/common/CopyButton";
 import type { AgentProfile, AgentRun, Task } from "../../../types";
 
 export interface InboxViewProps {
@@ -451,6 +458,12 @@ const DeadLetterCard: React.FC<{
               <Trash2 size={10} /> Discard
             </button>
           )}
+          <CopyButton
+            text={`${letter.title}\n\n${letter.detail}`}
+            label="Copy"
+            title="Copy error detail"
+            className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-slate-300 text-[11px] font-medium inline-flex items-center gap-1 hover:text-white transition-colors"
+          />
         </div>
       </div>
     </div>
@@ -564,6 +577,14 @@ const InboxRunCard: React.FC<{
           <div className="flex items-center gap-2">
             <p className="text-xs text-white truncate">{title}</p>
             <StatusPill status={run.isPaused ? "paused" : run.status} tone={runStatusTone(run)} />
+            {failureKindLabel(run.failureKind) && (
+              <span
+                className="text-[9px] uppercase tracking-wide px-1 py-0.5 rounded border bg-amber-500/15 text-amber-300 border-amber-500/25 shrink-0"
+                title="Why this run stopped"
+              >
+                {failureKindLabel(run.failureKind)}
+              </span>
+            )}
           </div>
           <p className="text-[11px] text-slate-500 truncate">
             {agent?.name ?? "Agent"}
@@ -665,6 +686,12 @@ const InboxRunCard: React.FC<{
               <CornerUpLeft size={10} /> Return to board
             </button>
           )}
+        <CopyButton
+          text={() => formatRunLog(run, { title: task?.title, jobId: task?.jobId })}
+          label="Copy log"
+          title="Copy the full run log"
+          className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-200 transition-colors"
+        />
       </div>
     </FlatCard>
   );

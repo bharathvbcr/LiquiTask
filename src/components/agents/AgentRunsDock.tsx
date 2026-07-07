@@ -33,10 +33,13 @@ import agentMcpService, {
   type AgentPermissionRequest,
 } from '../../services/agents/agentMcpService';
 import { StatusPill } from '../../ui';
+import { CopyButton } from '../common/CopyButton';
+import { formatRunLog } from '../../utils/formatRunLog';
 import { AgentQuickCreate } from './AgentQuickCreate';
 import { AgentTeamSection, PHASE_LABEL } from './AgentTeamPanel';
 import {
   deriveRunProgress,
+  failureKindLabel,
   formatRelativeTime,
   formatRunError,
   runStatusTone,
@@ -138,11 +141,16 @@ const RunLog: React.FC<{ run: AgentRun }> = ({ run }) => {
   }, [eventCount]);
 
   return (
-    <div
-      ref={scrollRef}
-      className="max-h-56 overflow-y-auto custom-scrollbar rounded-lg bg-black/50 border border-white/5 p-2 font-mono text-[11px] leading-relaxed space-y-1"
-    >
-      {run.gitBranch && (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between px-0.5">
+        <span className="text-[10px] uppercase tracking-widest text-slate-500">Log</span>
+        <CopyButton text={() => formatRunLog(run)} label="Copy" title="Copy full run log" />
+      </div>
+      <div
+        ref={scrollRef}
+        className="max-h-56 overflow-y-auto custom-scrollbar rounded-lg bg-black/50 border border-white/5 p-2 font-mono text-[11px] leading-relaxed space-y-1"
+      >
+        {run.gitBranch && (
         <div className="text-amber-300/80 flex items-center gap-1 pb-1 border-b border-white/5">
           <GitBranch size={10} /> {run.gitBranch}
           {run.prUrl && (
@@ -172,11 +180,12 @@ const RunLog: React.FC<{ run: AgentRun }> = ({ run }) => {
         </div>
       ))}
       {run.events.length === 0 && <div className="text-slate-600">Waiting for output…</div>}
-      {run.verification && !run.verification.passed && (
-        <div className="text-amber-300 border-t border-white/5 pt-1 mt-1">
-          Blocking gaps: {run.verification.blockingGaps.join(' · ')}
-        </div>
-      )}
+        {run.verification && !run.verification.passed && (
+          <div className="text-amber-300 border-t border-white/5 pt-1 mt-1">
+            Blocking gaps: {run.verification.blockingGaps.join(' · ')}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -564,6 +573,14 @@ export const AgentRunsDock: React.FC<AgentRunsDockProps> = ({
           >
             <div className="flex items-center gap-1.5">
               <StatusPill status={run.isPaused ? 'paused' : queueLabel ?? run.status} tone={tone} />
+              {failureKindLabel(run.failureKind) && (
+                <span
+                  className="text-[9px] uppercase tracking-wide px-1 py-0.5 rounded border bg-amber-500/15 text-amber-300 border-amber-500/25 shrink-0"
+                  title="Why this run stopped"
+                >
+                  {failureKindLabel(run.failureKind)}
+                </span>
+              )}
               {run.verification?.passed && (
                 <ShieldCheck size={12} className="text-emerald-400 shrink-0" />
               )}

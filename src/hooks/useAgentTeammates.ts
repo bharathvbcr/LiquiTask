@@ -94,6 +94,8 @@ export const useAgentTeammates = ({
   const pickedUpRef = useRef(new Map<string, string>());
   /** runId -> repair tasks already created from gate gaps. */
   const repairedRunsRef = useRef(new Set<string>());
+  /** taskId -> auto-retry attempts, to cap crash/stall retries at one. */
+  const autoRetryCountRef = useRef(new Map<string, number>());
 
   const refreshAgents = useCallback(() => {
     setAgents(agentService.getAgents());
@@ -274,16 +276,20 @@ export const useAgentTeammates = ({
             ...(task.errorLogs ?? []),
             { timestamp: new Date(), message: run.error ?? "Agent run failed" },
           ];
-          // Failed runs are never a silent dead end: dead-letter them with a
-          // retry payload so the Inbox offers a one-click re-dispatch.
-          deadLetterService.record({
-            kind: "run",
-            taskId,
-            runId: run.id,
-            title: `Agent run failed: ${task.title.slice(0, 80)}`,
-            detail: run.error ?? "Agent run failed with no error detail.",
-            payload: { taskId, agentId: agent.id, agentName: agent.name },
-          });
+          // A crashed/timed-out/stalled run is owned by onRunAborted (it returns
+          // the card to the board or retries), so skip the dead-letter for those
+          // — otherwise the Inbox shows a contradictory "retry" card for a task
+          // we're already recovering. Normal failures still dead-letter.
+          if (!run.failureKind) {
+            deadLetterService.record({
+              kind: "run",
+              taskId,
+              runId: run.id,
+              title: `Agent run failed: ${task.title.slice(0, 80)}`,
+              detail: run.error ?? "Agent run failed with no error detail.",
+              payload: { taskId, agentId: agent.id, agentName: agent.name },
+            });
+          }
         }
         handleUpdateTask(taskId, updates, { actor: "system", actorLabel: `agent:${agent.name}` });
 
@@ -353,24 +359,77 @@ export const useAgentTeammates = ({
           })();
         }
 
-        addToast(
-          succeeded
-            ? `${agent.name} finished "${task.title}" — review & commit from the board${gateNote}`
-            : `${agent.name}: run ${run.status} on "${task.title}"`,
-          succeeded ? "success" : run.status === "cancelled" ? "info" : "error",
-        );
+        // Aborted/crashed runs get their own message + recovery from
+        // onRunAborted; don't double-toast/notify here.
+        if (succeeded || !run.failureKind) {
+          addToast(
+            succeeded
+              ? `${agent.name} finished "${task.title}" — review & commit from the board${gateNote}`
+              : `${agent.name}: run ${run.status} on "${task.title}"`,
+            succeeded ? "success" : run.status === "cancelled" ? "info" : "error",
+          );
 
-        if (succeeded) {
-          notificationService.show({
-            title: "Agent run complete",
-            body: `${agent.name} finished work on a task — review the diff and commit it.`,
-          });
-        } else if (run.status === "failed") {
-          notificationService.show({
-            title: "Agent run failed",
-            body: `${agent.name} run failed.${gateNote}`,
-          });
+          if (succeeded) {
+            notificationService.show({
+              title: "Agent run complete",
+              body: `${agent.name} finished work on a task — review the diff and commit it.`,
+            });
+          } else if (run.status === "failed") {
+            notificationService.show({
+              title: "Agent run failed",
+              body: `${agent.name} run failed.${gateNote}`,
+            });
+          }
         }
+      },
+      onRunAborted: (taskId, run, reason) => {
+        const task = tasksRef.current.find((t) => t.id === taskId);
+        const agent = agentService.getAgentById(run.agentId);
+        if (!task || !agent) return;
+
+        const reasonLabel =
+          reason === "crashed" ? "crashed" : reason === "timeout" ? "timed out" : "stalled";
+
+        // Opt-in single auto-retry (with a short backoff) before giving up.
+        const attempts = autoRetryCountRef.current.get(taskId) ?? 0;
+        if (agent.autoRetryOnCrash && attempts < 1) {
+          autoRetryCountRef.current.set(taskId, attempts + 1);
+          handleUpdateTask(
+            taskId,
+            {
+              activity: [
+                ...(task.activity ?? []),
+                activityEntry(agent.name, `run ${reasonLabel}; auto-retrying once.`),
+              ],
+            },
+            { actor: "system", actorLabel: `agent:${agent.name}` },
+          );
+          addToast(`${agent.name} ${reasonLabel} — retrying "${task.title}"…`, "warning");
+          setTimeout(() => {
+            const latest = tasksRef.current.find((t) => t.id === taskId) ?? task;
+            void agentRunService.assign(latest, agent).catch(() => {});
+          }, 4000);
+          return;
+        }
+
+        // Auto-recover (default on): return the dead run's task to the board so
+        // the card isn't stuck "in progress" with no live run behind it.
+        if (agent.autoRecover === false) return;
+        const backlogId = getBacklogColumnId(columnsRef.current);
+        if (task.status !== backlogId && task.status !== COLUMN_STATUS.COMMIT) {
+          handleUpdateTask(
+            taskId,
+            {
+              status: backlogId,
+              activity: [
+                ...(task.activity ?? []),
+                activityEntry(agent.name, `run ${reasonLabel}; returned the task to the board.`),
+              ],
+            },
+            { actor: "system", actorLabel: `agent:${agent.name}` },
+          );
+        }
+        addToast(`${agent.name} ${reasonLabel} — "${task.title}" returned to the board.`, "warning");
       },
     });
   }, [handleUpdateTask, addToast, handleCreateTask]);

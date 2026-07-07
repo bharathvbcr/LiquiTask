@@ -216,6 +216,19 @@ export interface AgentProfile {
   dailyCostCapUsd?: number;
   /** Max agent runs started per calendar day; 0 or unset = unlimited. */
   maxRunsPerDay?: number;
+  /** Wall-clock cap per run in minutes; the run is stopped past it. 0/unset = unlimited. */
+  runTimeoutMinutes?: number;
+  /** Minutes with no output before a run is treated as stalled and stopped. 0/unset = off. */
+  stallTimeoutMinutes?: number;
+  /** Per-run USD ceiling; overspend is flagged after the run. 0/unset = off. */
+  perRunCostCapUsd?: number;
+  /**
+   * Auto-recovery: when a run dies (killed/terminated) or is stopped by a
+   * guardrail, return its task to the board automatically. Defaults to true.
+   */
+  autoRecover?: boolean;
+  /** Auto-retry a crashed/stalled run once before giving up. Defaults to false. */
+  autoRetryOnCrash?: boolean;
   /** `fixed` uses `model`; `auto` routes by task priority / time estimate. */
   modelRouting?: "fixed" | "auto";
   createdAt: Date;
@@ -284,6 +297,12 @@ export interface AgentRun {
   prUrl?: string;
   verification?: AgentRunVerification;
   error?: string;
+  /**
+   * Why a failed run died, when it wasn't a normal error result: `crashed`
+   * (process killed/terminated), `timeout` or `stall` (stopped by a guardrail).
+   * Drives auto-recovery and lets the UI explain the failure.
+   */
+  failureKind?: "crashed" | "timeout" | "stall";
   /** True while the agent process is paused mid-run (SIGSTOP / suspend). */
   isPaused?: boolean;
   /** Human review outcome — feeds estimate learning. */

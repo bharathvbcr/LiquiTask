@@ -739,6 +739,67 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
             </label>
           </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <label className="space-y-1.5">
+              <span className="text-xs font-medium text-slate-300">Run timeout (min)</span>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={draft.runTimeoutMinutes ?? ''}
+                onChange={e => {
+                  const raw = e.target.value.trim();
+                  setDraft({
+                    ...draft,
+                    runTimeoutMinutes: raw === '' ? undefined : Math.max(0, Math.floor(Number(raw))),
+                  });
+                }}
+                placeholder="No limit"
+                className="w-full liquid-input rounded-lg px-3 py-2 text-sm"
+              />
+              <span className="text-[11px] text-slate-500">Stops a run that overruns. 0 = off.</span>
+            </label>
+            <label className="space-y-1.5">
+              <span className="text-xs font-medium text-slate-300">No-output timeout (min)</span>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={draft.stallTimeoutMinutes ?? ''}
+                onChange={e => {
+                  const raw = e.target.value.trim();
+                  setDraft({
+                    ...draft,
+                    stallTimeoutMinutes:
+                      raw === '' ? undefined : Math.max(0, Math.floor(Number(raw))),
+                  });
+                }}
+                placeholder="25 (default)"
+                className="w-full liquid-input rounded-lg px-3 py-2 text-sm"
+              />
+              <span className="text-[11px] text-slate-500">Silent = stalled. Empty = 25; 0 = off.</span>
+            </label>
+            <label className="space-y-1.5">
+              <span className="text-xs font-medium text-slate-300">Per-run cost cap (USD)</span>
+              <input
+                type="number"
+                min={0}
+                step={0.01}
+                value={draft.perRunCostCapUsd ?? ''}
+                onChange={e => {
+                  const raw = e.target.value.trim();
+                  setDraft({
+                    ...draft,
+                    perRunCostCapUsd: raw === '' ? undefined : Math.max(0, Number(raw)),
+                  });
+                }}
+                placeholder="No cap"
+                className="w-full liquid-input rounded-lg px-3 py-2 text-sm"
+              />
+              <span className="text-[11px] text-slate-500">Flags overspend (known at run end).</span>
+            </label>
+          </div>
+
           <div className="space-y-1.5">
             <span className="text-xs font-medium text-slate-300">Working directory</span>
             <div className="flex gap-2">
@@ -898,6 +959,36 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
               onChange={runsOnRecurrence => setDraft({ ...draft, runsOnRecurrence })}
               color="violet"
               aria-label="Toggle runs on recurrence"
+            />
+          </div>
+
+          <div className="flex items-center justify-between p-3 rounded-lg bg-black/20 border border-white/5">
+            <div>
+              <span className="text-sm text-white">Auto-recover</span>
+              <p className="text-xs text-slate-500">
+                Return the task to the board if a run crashes or a guardrail stops it
+              </p>
+            </div>
+            <SettingsToggle
+              checked={draft.autoRecover !== false}
+              onChange={autoRecover => setDraft({ ...draft, autoRecover })}
+              color="violet"
+              aria-label="Toggle auto-recover"
+            />
+          </div>
+
+          <div className="flex items-center justify-between p-3 rounded-lg bg-black/20 border border-white/5">
+            <div>
+              <span className="text-sm text-white">Auto-retry once</span>
+              <p className="text-xs text-slate-500">
+                Retry a crashed or stalled run one time before returning it to the board
+              </p>
+            </div>
+            <SettingsToggle
+              checked={draft.autoRetryOnCrash ?? false}
+              onChange={autoRetryOnCrash => setDraft({ ...draft, autoRetryOnCrash })}
+              color="violet"
+              aria-label="Toggle auto-retry once"
             />
           </div>
 

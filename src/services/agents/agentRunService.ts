@@ -21,6 +21,14 @@ import { checkAgentBudget, getAgentDailyStats, resolveAgentModel } from './agent
 import { parseClaudeStreamLine, parseCouncilReport } from './agentStreamParser';
 import deadLetterService from '../deadLetterService';
 import { resolveAgentWorkspace, type WorkspaceResolution } from './resolveAgentWorkspace';
+import {
+  evaluateRunLimits,
+  exceededCostCap,
+  resolveRunLimits,
+  type RunAbortReason,
+  type RunLimitDefaults,
+} from './runLimits';
+import { describeProcessExit } from '../../utils/runProgress';
 import type {
   AgentProfile,
   AgentRun,
@@ -120,7 +128,27 @@ export interface AgentRunTaskHooks {
   onRunFinished?: (taskId: string, run: AgentRun) => void;
   /** Called when a run needs git diff refresh (after exit). */
   onGitDiffReady?: (taskId: string, run: AgentRun) => void;
+  /**
+   * A run died without a reviewable result — killed/terminated (`crashed`) or
+   * stopped by a guardrail (`timeout` / `stall`). The app layer uses this to
+   * auto-recover (return the card to the board, optionally retry).
+   */
+  onRunAborted?: (taskId: string, run: AgentRun, reason: RunAbortReason | 'crashed') => void;
 }
+
+/**
+ * Guardrail defaults when an agent doesn't override them. Timeout is opt-in
+ * (long runs can be legitimate); stall defaults on with a generous window
+ * because a coding agent silent for this long is almost always wedged, and an
+ * active run keeps resetting it by streaming events.
+ */
+const DEFAULT_RUN_LIMITS: RunLimitDefaults = {
+  timeoutMinutes: 0,
+  stallMinutes: 25,
+  perRunCostCapUsd: 0,
+};
+
+const RUN_LIMIT_POLL_MS = 30_000;
 
 type Listener = (runs: AgentRun[]) => void;
 
@@ -165,6 +193,8 @@ class AgentRunService {
   /** sidecar runId -> local run id, for routing inbound agentd-run-events. */
   private agentdIdMap = new Map<string, string>();
   private persistTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Guardrail watchdog: polls active runs for timeout/stall breaches. */
+  private runLimitTimer: ReturnType<typeof setInterval> | null = null;
   private initialized = false;
   /**
    * workingDir -> DevCouncil-enabled probe. Cached for the app session for the
@@ -216,6 +246,11 @@ class AgentRunService {
     // keep streaming; runs that finished while the app was closed are finalized
     // from their durable log.
     await this.reconcileWithJournal(revived);
+
+    // Start the guardrail watchdog (timeout / stall enforcement).
+    if (!this.runLimitTimer) {
+      this.runLimitTimer = setInterval(() => this.enforceRunLimits(), RUN_LIMIT_POLL_MS);
+    }
   }
 
   /**
@@ -344,7 +379,56 @@ class AgentRunService {
     this.unlisten = null;
     this.unlistenAgentd?.();
     this.unlistenAgentd = null;
+    if (this.runLimitTimer) {
+      clearInterval(this.runLimitTimer);
+      this.runLimitTimer = null;
+    }
     this.initialized = false;
+  }
+
+  /**
+   * Watchdog tick: stop any active run that has breached its wall-clock timeout
+   * or gone silent (stalled). Runs with no live context (agent unknown) are
+   * skipped. Returns the ids it aborted — surfaced for tests. Safe to call
+   * directly (the interval does).
+   */
+  enforceRunLimits(nowMs: number = Date.now()): string[] {
+    const aborted: string[] = [];
+    for (const run of this.runs.values()) {
+      if (run.status !== 'running' && run.status !== 'verifying') continue;
+      const agent = this.runContext.get(run.id)?.agent;
+      if (!agent) continue;
+      const verdict = evaluateRunLimits(run, resolveRunLimits(agent, DEFAULT_RUN_LIMITS), nowMs);
+      if (verdict) {
+        aborted.push(run.id);
+        void this.abortRun(run, verdict.reason, verdict.message);
+      }
+    }
+    return aborted;
+  }
+
+  /**
+   * Force-stop a run that breached a guardrail: kill the process, finalize it as
+   * failed with the reason, and signal auto-recovery. Best-effort — the process
+   * may already be gone.
+   */
+  private async abortRun(run: AgentRun, reason: RunAbortReason, message: string): Promise<void> {
+    if (run.status !== 'running' && run.status !== 'verifying') return;
+    run.failureKind = reason;
+    this.pushEvent(run, 'stderr', message);
+    try {
+      if (run.engine === 'agentd' && run.agentdRunId) {
+        await localApi.runCancel(run.agentdRunId);
+      } else {
+        const { invoke } = await import('@tauri-apps/api/core');
+        await invoke<boolean>('agent_run_cancel', { runId: run.id });
+      }
+    } catch {
+      // The process may already have exited or been reaped — proceed to finalize.
+    }
+    const taskId = this.runContext.get(run.id)?.task.id ?? run.taskId;
+    this.finishRun(run, 'failed', message);
+    this.hooks.onRunAborted?.(taskId, run, reason);
   }
 
   setTaskHooks(hooks: AgentRunTaskHooks): void {
@@ -1278,6 +1362,11 @@ class AgentRunService {
     const localId = this.agentdIdMap.get(payload.runId);
     const run = localId ? this.runs.get(localId) : undefined;
     if (!run) return;
+    // Ignore late sidecar events for an already-finalized run (e.g. one aborted
+    // by a guardrail) — otherwise a trailing `result` would re-finish it.
+    if (run.status === 'completed' || run.status === 'failed' || run.status === 'cancelled') {
+      return;
+    }
 
     switch (payload.kind) {
       case 'message':
@@ -1386,7 +1475,10 @@ class AgentRunService {
   }
 
   private async handleExit(run: AgentRun, code: number): Promise<void> {
-    if (run.status === 'cancelled') {
+    // Idempotent: a run already finalized (cancelled by the user, or failed via
+    // a guardrail abort) will still emit a process-exit event when its process
+    // is reaped. Re-processing it would double-fire onRunFinished / auto-repair.
+    if (run.status === 'cancelled' || run.status === 'failed' || run.status === 'completed') {
       this.councilBuffers.delete(run.id);
       this.verifyBuffers.delete(run.id);
       this.releaseAgent(run);
@@ -1449,11 +1541,37 @@ class AgentRunService {
       return;
     }
 
+    this.flagOverspend(run, context?.agent);
+
+    // A "termination" (killed by signal / no exit code, encoded as -1 or
+    // 128+signal) with no reviewable error means the process *died* rather than
+    // reporting a failure — a crash we can auto-recover from.
+    const terminated = code < 0 || (code > 128 && code < 193);
+    const crashed = failed && terminated && !run.error;
+    if (crashed) run.failureKind = 'crashed';
+
     this.finishRun(
       run,
       failed ? 'failed' : 'completed',
-      failed ? (run.error ?? `Process exited with code ${code}`) : undefined
+      failed ? (run.error ?? describeProcessExit(code, run)) : undefined
     );
+
+    if (crashed) {
+      this.hooks.onRunAborted?.(context?.task.id ?? run.taskId, run, 'crashed');
+    }
+  }
+
+  /** Post-run per-run cost cap: flag (not block — cost is only known at the end). */
+  private flagOverspend(run: AgentRun, agent?: AgentProfile): void {
+    if (!agent) return;
+    const limits = resolveRunLimits(agent, DEFAULT_RUN_LIMITS);
+    if (exceededCostCap(run, limits)) {
+      this.pushEvent(
+        run,
+        'info',
+        `⚠ This run cost $${run.costUsd?.toFixed(2)}, above the per-run cap of $${limits.perRunCostCapUsd.toFixed(2)}.`
+      );
+    }
   }
 
   private async startVerification(run: AgentRun, agent: AgentProfile): Promise<void> {
