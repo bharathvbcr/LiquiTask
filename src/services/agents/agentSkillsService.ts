@@ -1,6 +1,7 @@
 import { STORAGE_KEYS } from "../../constants";
 import { callNative } from "../../runtime/runtimeEnvironment";
 import storageService from "../storageService";
+import { distillSkillSummary } from "./skillDistill";
 import type { AgentRun, AgentSkill, Task } from "../../../types";
 
 const MAX_SKILLS = 200;
@@ -95,19 +96,25 @@ class AgentSkillsService {
   /** Capture a completed run as a skill. No-ops on thin or failed results. */
   async captureFromRun(run: AgentRun, task: Task, workingDir: string): Promise<void> {
     const skills = this.getSkills();
+    const rawSummary = run.summary ?? "";
+    const distilled = distillSkillSummary(rawSummary);
+    // Keep the raw text if distillation collapses below the capture threshold,
+    // so a genuinely useful run still clears the bar and gets captured.
+    const summary = distilled.length >= MIN_SUMMARY_LENGTH ? distilled : rawSummary;
+    const runForCapture: AgentRun = { ...run, summary };
     const response = await callNative<{ captured: boolean; skills: NativeSkill[] }>(
       "agent_skills_capture",
       {
         request: {
           skills: skills.map(toNativeSkill),
-          run: { status: run.status, summary: run.summary, agentId: run.agentId },
+          run: { status: run.status, summary, agentId: run.agentId },
           task: { id: task.id, title: task.title },
           workingDir,
           nowMs: Date.now(),
         },
       },
       () => {
-        const captured = captureSkillJs(skills, run, task, workingDir);
+        const captured = captureSkillJs(skills, runForCapture, task, workingDir);
         return captured
           ? { captured: true, skills: captured.map(toNativeSkill) }
           : { captured: false, skills: skills.map(toNativeSkill) };

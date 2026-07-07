@@ -7,6 +7,7 @@ export interface ParsedTask {
   projectName?: string;
   timeEstimate?: number; // in minutes
   tags: string[];
+  assignee?: string;
 }
 
 // Weekday names (and common short forms) mapped to their day index (0 = Sunday).
@@ -33,7 +34,15 @@ export function parseQuickTask(input: string): ParsedTask {
   let dueDate: Date | undefined;
   let projectName: string | undefined;
   let timeEstimate: number | undefined;
+  let assignee: string | undefined;
   const tags: string[] = [];
+
+  // Parse assignee (>name) — e.g. ">devin" hands the task to an agent teammate.
+  const assigneeMatch = input.match(/(?:^|\s)>([a-zA-Z0-9_.-]+)\b/);
+  if (assigneeMatch) {
+    assignee = assigneeMatch[1];
+    title = title.replace(assigneeMatch[0], " ");
+  }
 
   // Parse priority markers (!h, !m, !l, !high, !medium, !low)
   if (input.match(/!(high|h)\b/i)) {
@@ -138,5 +147,5 @@ export function parseQuickTask(input: string): ParsedTask {
   // Clean up any extra whitespace
   title = title.replace(/\s+/g, " ").trim();
 
-  return { title, priority, dueDate, projectName, timeEstimate, tags };
+  return { title, priority, dueDate, projectName, timeEstimate, tags, assignee };
 }

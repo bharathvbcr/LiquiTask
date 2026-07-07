@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { COLUMN_STATUS } from "../../../constants";
-import { deriveInboxCounts, isAwaitingReview, isBlockedRun } from "../deriveInboxItems";
+import {
+  deriveInboxCounts,
+  formatRepairFeedback,
+  isAwaitingReview,
+  isBlockedRun,
+} from "../deriveInboxItems";
 import type { AgentRun, Task } from "../../../../types";
 
 function makeRun(overrides: Partial<AgentRun> = {}): AgentRun {
@@ -37,19 +42,19 @@ function makeTask(overrides: Partial<Task> = {}): Task {
 }
 
 describe("isAwaitingReview", () => {
-  it("is true for a completed run with no verdict whose task sits in Review", () => {
+  it("is true for a completed run with no verdict whose task sits in Completed", () => {
     const run = makeRun({ status: "completed" });
-    const task = makeTask({ status: COLUMN_STATUS.REVIEW });
+    const task = makeTask({ status: COLUMN_STATUS.COMPLETED });
     expect(isAwaitingReview(run, task)).toBe(true);
   });
 
   it("is false once a review outcome has been recorded", () => {
     const run = makeRun({ status: "completed", reviewOutcome: "approved" });
-    const task = makeTask({ status: COLUMN_STATUS.REVIEW });
+    const task = makeTask({ status: COLUMN_STATUS.COMPLETED });
     expect(isAwaitingReview(run, task)).toBe(false);
   });
 
-  it("is false when the task isn't sitting in Review", () => {
+  it("is false when the task isn't sitting in Completed", () => {
     const run = makeRun({ status: "completed" });
     const task = makeTask({ status: COLUMN_STATUS.IN_PROGRESS });
     expect(isAwaitingReview(run, task)).toBe(false);
@@ -57,7 +62,7 @@ describe("isAwaitingReview", () => {
 
   it("is false for a non-completed run", () => {
     const run = makeRun({ status: "running" });
-    const task = makeTask({ status: COLUMN_STATUS.REVIEW });
+    const task = makeTask({ status: COLUMN_STATUS.COMPLETED });
     expect(isAwaitingReview(run, task)).toBe(false);
   });
 });
@@ -89,7 +94,7 @@ describe("isBlockedRun", () => {
 describe("deriveInboxCounts", () => {
   it("counts approvals and blocked runs separately, summing into actionable", () => {
     const tasks = [
-      makeTask({ id: "t1", status: COLUMN_STATUS.REVIEW }),
+      makeTask({ id: "t1", status: COLUMN_STATUS.COMPLETED }),
       makeTask({ id: "t2", status: COLUMN_STATUS.IN_PROGRESS }),
     ];
     const runs = [
@@ -102,10 +107,53 @@ describe("deriveInboxCounts", () => {
       }), // blocked
       makeRun({ id: "r3", taskId: "t2", status: "completed" }), // plain finished, not actionable
     ];
-    expect(deriveInboxCounts(runs, tasks)).toEqual({ approvals: 1, blocked: 1, actionable: 2 });
+    expect(deriveInboxCounts(runs, tasks)).toEqual({
+      approvals: 1,
+      blocked: 1,
+      plans: 0,
+      deadLetters: 0,
+      actionable: 2,
+    });
   });
 
   it("returns all zeros for an empty run list", () => {
-    expect(deriveInboxCounts([], [])).toEqual({ approvals: 0, blocked: 0, actionable: 0 });
+    expect(deriveInboxCounts([], [])).toEqual({
+      approvals: 0,
+      blocked: 0,
+      plans: 0,
+      deadLetters: 0,
+      actionable: 0,
+    });
+  });
+
+  it("counts pending plans as actionable alongside approvals and blocked runs", () => {
+    const tasks = [makeTask({ id: "t1", status: COLUMN_STATUS.COMPLETED })];
+    const runs = [makeRun({ id: "r1", taskId: "t1", status: "completed" })];
+    expect(deriveInboxCounts(runs, tasks, 2)).toEqual({
+      approvals: 1,
+      blocked: 0,
+      plans: 2,
+      deadLetters: 0,
+      actionable: 3,
+    });
+  });
+
+  it("counts dead letters as actionable", () => {
+    expect(deriveInboxCounts([], [], 0, 2)).toEqual({
+      approvals: 0,
+      blocked: 0,
+      plans: 0,
+      deadLetters: 2,
+      actionable: 2,
+    });
+  });
+});
+
+describe("formatRepairFeedback", () => {
+  it("numbers each blocking gap for the repair prompt", () => {
+    const feedback = formatRepairFeedback(["Missing tests for auth", "Scope violation in api.ts"]);
+    expect(feedback).toContain("2 blocking gap(s)");
+    expect(feedback).toContain("1. Missing tests for auth");
+    expect(feedback).toContain("2. Scope violation in api.ts");
   });
 });

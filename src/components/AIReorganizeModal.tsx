@@ -1,7 +1,7 @@
 import { Brain, CheckCircle2, FolderOpen, Loader2, Sparkles } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ModalWrapper } from "../../components/ModalWrapper";
+import { ModalWrapper } from "./ModalWrapper";
 import type { PriorityDefinition, Project, Task, TaskCluster } from "../../types";
 import { STORAGE_KEYS } from "../constants";
 import { aiService } from "../services/aiService";

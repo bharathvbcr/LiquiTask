@@ -132,8 +132,28 @@ export interface Task {
 // Agents-as-teammates (Multica-inspired)
 // ---------------------------------------------------------------------------
 
-/** Which engine executes the agent's work. */
-export type AgentProvider = "claude-code";
+/**
+ * Which engine executes the agent's work. `claude-code` runs through the
+ * legacy in-process Rust runner (feature-rich: containers, council mode, MCP
+ * board bridge); every other value is a liquitask-agentd runtime id (kept in
+ * lockstep with liquitask-agentd/internal/detect/detect.go) executed via the
+ * Go sidecar when `FEATURE_FLAGS.AGENTD_SIDECAR_ENABLED` is on.
+ */
+export type AgentProvider =
+  | "claude-code"
+  | "codex"
+  | "cursor"
+  | "copilot"
+  | "opencode"
+  | "openclaw"
+  | "hermes"
+  | "pi"
+  | "kimi"
+  | "kiro"
+  | "antigravity"
+  | "qoder"
+  | "codebuddy"
+  | "traecli";
 
 /** Where the agent process runs. `container` uses apple/container (macOS 26+). */
 export type AgentSandbox = "host" | "container";
@@ -258,6 +278,24 @@ export interface AgentRun {
   error?: string;
   /** True while the agent process is paused mid-run (SIGSTOP / suspend). */
   isPaused?: boolean;
+  /** Human review outcome — feeds estimate learning. */
+  reviewOutcome?: "approved" | "rejected";
+  /** Reviewer feedback persisted when work is rejected. */
+  reviewFeedback?: string;
+  /** Actual run duration in minutes (set on approval). */
+  actualMinutes?: number;
+  /**
+   * Which execution engine owns this run: the legacy Rust runner (claude-*)
+   * or the liquitask-agentd sidecar. Unset on runs persisted before v3 —
+   * treated as "legacy".
+   */
+  engine?: "legacy" | "agentd";
+  /**
+   * Sidecar-assigned run id. agentd generates its own ids on run.start, so
+   * lifecycle calls (cancel/pause/resume/inject) and inbound run.events are
+   * keyed by this id while the UI keeps using the local `id`.
+   */
+  agentdRunId?: string;
 }
 
 export interface BoardColumn {

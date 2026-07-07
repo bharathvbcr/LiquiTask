@@ -98,6 +98,7 @@ export const Popover: React.FC<PopoverProps> = ({
     setCoords(computePosition(triggerRect, contentRect, placement, offset));
   }, [placement, offset]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `children` is intentionally listed so the popover repositions when its content changes size
   useLayoutEffect(() => {
     if (!open) {
       setPositioned(false);

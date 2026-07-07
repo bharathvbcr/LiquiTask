@@ -31,7 +31,6 @@ struct CacheEntry {
 pub struct CacheLookupResult {
     pub hit: bool,
     pub response: Option<String>,
-    pub similarity: f32,
     pub entry_id: Option<String>,
     pub bypassed: bool,
 }
@@ -106,14 +105,6 @@ impl SemanticCache {
         self.config = config;
     }
 
-    pub fn dynamic_threshold(&self) -> f32 {
-        self.inner.lock().unwrap().calibrator.threshold
-    }
-
-    pub fn size(&self) -> usize {
-        self.inner.lock().unwrap().entries.len()
-    }
-
     pub fn params_hash(
         temperature: f32,
         system_prompt: &str,
@@ -143,7 +134,6 @@ impl SemanticCache {
             return CacheLookupResult {
                 hit: false,
                 response: None,
-                similarity: 0.0,
                 entry_id: None,
                 bypassed: false,
             };
@@ -153,7 +143,6 @@ impl SemanticCache {
             return CacheLookupResult {
                 hit: false,
                 response: None,
-                similarity: 0.0,
                 entry_id: None,
                 bypassed: true,
             };
@@ -167,7 +156,6 @@ impl SemanticCache {
         );
 
         let candidates = cosine_top_k(&inner.entries, query_emb, self.config.cache_ann_top_k);
-        let best_sim = candidates.first().map(|(_, sim)| *sim).unwrap_or(0.0);
         let now = now_secs();
 
         for (entry_id, sim) in candidates {
@@ -200,17 +188,14 @@ impl SemanticCache {
             return CacheLookupResult {
                 hit: true,
                 response: Some(entry.response.clone()),
-                similarity: sim,
                 entry_id: Some(entry_id.to_string()),
                 bypassed: false,
             };
         }
 
-        let best_sim = best_sim;
         CacheLookupResult {
             hit: false,
             response: None,
-            similarity: best_sim,
             entry_id: None,
             bypassed: false,
         }
@@ -264,20 +249,6 @@ impl SemanticCache {
     pub fn set_threshold(&self, threshold: f32) {
         let mut inner = self.inner.lock().unwrap();
         inner.calibrator.threshold = threshold.clamp(0.75, 0.99);
-    }
-
-    pub fn invalidate_by_doc_version(&self, current_version: &str) -> usize {
-        let mut inner = self.inner.lock().unwrap();
-        let stale: Vec<u64> = inner
-            .entries
-            .iter()
-            .filter(|(_, entry)| entry.doc_version != current_version)
-            .map(|(id, _)| *id)
-            .collect();
-        for id in &stale {
-            inner.entries.remove(id);
-        }
-        stale.len()
     }
 
     pub fn stats(&self) -> HashMap<String, serde_json::Value> {

@@ -129,6 +129,26 @@ func (m *Manager) HandleSkillsList(raw json.RawMessage) (any, *rpc.Error) {
 	return skills, nil
 }
 
+// HandleSkillsRead implements skills.read — return a locally-installed skill's
+// SKILL.md body by its source directory (from skills.list), for inlining the
+// real guidance into a run prompt instead of just the one-line description.
+func (m *Manager) HandleSkillsRead(raw json.RawMessage) (any, *rpc.Error) {
+	var p struct {
+		SourcePath string `json:"sourcePath"`
+	}
+	if err := json.Unmarshal(raw, &p); err != nil {
+		return nil, rpc.ErrInvalidParams("invalid skills.read params")
+	}
+	if p.SourcePath == "" {
+		return nil, rpc.ErrInvalidParams("sourcePath required")
+	}
+	body, err := daemon.ReadLocalSkillBody(p.SourcePath)
+	if err != nil {
+		return nil, rpc.ErrInternal(err.Error())
+	}
+	return map[string]string{"body": body}, nil
+}
+
 // HandleStart implements run.start. It resolves the runtime's executable via
 // internal/detect (PATH scan), then hands execution off to the ported
 // internal/agent Backend abstraction — agent.New()+Backend.Execute() — instead

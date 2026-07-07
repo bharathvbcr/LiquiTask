@@ -37,18 +37,18 @@ export function useCampaign({
   const startCampaign = useCallback(
     async (epic: Task): Promise<CampaignResult | undefined> => {
       if (campaignOrchestratorService.isRunning()) {
-        addToast?.("A campaign is already under way.", "warning");
+        addToast?.("A team run is already in progress.", "warning");
         return undefined;
       }
       const workers = agents.filter((a) => (a.role ?? "default") !== "planner");
       if (workers.length === 0) {
-        addToast?.("No Workers available — add a worker agent first.", "warning");
+        addToast?.("No workers available — add a worker agent first.", "warning");
         return undefined;
       }
       const plannerAgent = agents.find((a) => a.role === "planner") ?? workers[0];
 
       setIsRunning(true);
-      addToast?.(`Commander musters the team for “${epic.title}”…`, "info");
+      addToast?.(`Starting a team run for “${epic.title}”…`, "info");
       try {
         const result = await campaignOrchestratorService.startCampaign({
           epic,
@@ -57,14 +57,17 @@ export function useCampaign({
           plannerAgent,
           ntfyTopic,
           onCreateTasks,
+          onPlanFallback: (info) => {
+            addToast?.(`${info.message} ${info.hint}`, "warning");
+          },
         });
         addToast?.(
-          `⚔️ Campaign complete — ${result.verified.length} verified, ${result.blocked.length} blocked, ${result.skipped.length} skipped.`,
+          `Team run complete — ${result.verified.length} verified, ${result.blocked.length} blocked, ${result.skipped.length} skipped.`,
           result.success ? "success" : "warning",
         );
         return result;
       } catch (err) {
-        addToast?.(`Campaign failed: ${err instanceof Error ? err.message : String(err)}`, "error");
+        addToast?.(`Team run failed: ${err instanceof Error ? err.message : String(err)}`, "error");
         return undefined;
       } finally {
         setIsRunning(false);
@@ -75,7 +78,7 @@ export function useCampaign({
 
   const cancelCampaign = useCallback(() => {
     campaignOrchestratorService.cancelCampaign();
-    addToast?.("Standing down — in-flight tasks will finish.", "info");
+    addToast?.("Stopping — in-flight tasks will finish.", "info");
   }, [addToast]);
 
   // Epics = tasks that already have campaign/epic-linked children, or any task the

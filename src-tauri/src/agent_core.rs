@@ -132,12 +132,25 @@ pub fn build_task_prompt(task: &TaskPromptInput, skills: &[AgentSkillInput]) -> 
             "## Team knowledge (from previous runs in this repo)\n{skills_section}"
         ));
     }
+    sections.push("## Board workflow (liquitask MCP tools)".to_string());
+    sections.push(
+        [
+            "Your task card lives on a kanban board with columns: Task → In Progress → Completed → Commit.",
+            "- Your card is already in **In Progress**; you are likely working in an isolated git worktree on your own branch.",
+            "- Use `post_comment` to report progress at each major step — the user follows your work live on the board.",
+            "- Use `toggle_subtask` to check off subtasks as you finish them, and `create_subtask`/`report_blocker` when you discover new work or blockers.",
+            "- When your work is done and verified, call `complete_task` with a summary — this moves the card to **Completed**.",
+            "- Do NOT try to move the card to **Commit**: that stage is human-gated (a person reviews your diff and commits/merges the worktree).",
+        ]
+        .join("\n"),
+    );
     sections.push("## Instructions".to_string());
     sections.push(
         [
             "- Work only inside the current repository.",
             "- Follow the repository's CLAUDE.md conventions if present.",
             "- Prefer minimal, well-tested changes; run the project's tests when available.",
+            "- Do not run `git commit`, switch branches, or push unless the task explicitly asks — committing/merging happens from the board's Commit stage.",
             "- Before large refactors or when stuck, call the `get_user_guidance` MCP tool — the user may inject mid-run course corrections from the board.",
             "- Finish with a concise summary of what changed, files touched, and anything left open.",
         ]

@@ -1,13 +1,13 @@
 /**
  * Multi-agent campaign orchestration — shared types.
  *
- * A generic command hierarchy layered over LiquiTask's existing agent engine:
+ * A generic team structure layered over LiquiTask's existing agent engine:
  *
- *     Lord (you) → Commander → Lead → Workers ×N + Reviewer
+ *     You → Coordinator → Lead → Workers ×N + Reviewer
  *
- * - **Commander** relays your order (an epic) to the Lead, then steps back.
- * - **Lead**       decomposes the epic (DevCouncil `dev plan`), dispatches
- *                  subtasks to Workers in parallel, and owns the dashboard.
+ * - **Coordinator** passes your request (an epic) to the Lead, then steps back.
+ * - **Lead**       splits the epic into subtasks (DevCouncil `dev plan`), assigns
+ *                  them to Workers in parallel, and owns the dashboard.
  * - **Worker**     worker agents — each runs one subtask via `agentRunService`.
  * - **Reviewer**   quality control — the DevCouncil verify gate on each run.
  *
@@ -18,7 +18,7 @@
 import type { AgentProfile, Task } from "../../../types";
 import type { DevCouncilSubtask } from "../nativeBridge";
 
-/** A position in the command hierarchy. */
+/** A position in the team structure ("commander" renders as Coordinator). */
 export type CampaignRank = "commander" | "lead" | "worker" | "reviewer";
 
 /** Message kinds carried by the mailbox. `clear_command` is a control signal. */
@@ -83,6 +83,15 @@ export enum BloomLevel {
 
 export type CampaignPhase = "mustering" | "dispatching" | "complete";
 
+/** Why a campaign fell back to a single subtask instead of a DevCouncil plan. */
+export type PlanFallbackReason = "no_planner" | "cli_missing" | "plan_failure" | "plan_empty";
+
+export interface PlanFallbackInfo {
+  reason: PlanFallbackReason;
+  message: string;
+  hint: string;
+}
+
 export type CampaignOutcomeStatus = "verified" | "blocked" | "failed" | "skipped";
 
 /** One subtask's assignment as decided by the Lead. */
@@ -140,4 +149,6 @@ export interface CampaignState {
   dashboardMarkdown: string;
   startedAt: number;
   finishedAt?: number;
+  /** Set when DevCouncil planning failed and the campaign runs as a single task. */
+  planFallback?: PlanFallbackInfo;
 }

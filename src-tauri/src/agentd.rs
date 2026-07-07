@@ -284,7 +284,7 @@ fn rpc_call(state: &AgentdState, method: &str, params: Value) -> Result<Value, S
         stdin.flush().map_err(|e| e.to_string())?;
     }
 
-    let mut guard = slot.result.lock().map_err(|_| "lock")?;
+    let guard = slot.result.lock().map_err(|_| "lock")?;
     let (guard, timeout) = slot
         .cv
         .wait_timeout_while(guard, Duration::from_secs(30), |r| r.is_none())
@@ -341,6 +341,24 @@ pub fn agentd_skills_list(
     agentd_start(&app, &state)?;
     let result = rpc_call(&state, "skills.list", json!({ "provider": provider.unwrap_or_default() }))?;
     serde_json::from_value(result).map_err(|e| e.to_string())
+}
+
+/// Read a locally-installed skill's SKILL.md body by its source directory (from
+/// `skills.list`), so the run prompt can inline the real guidance instead of
+/// only the one-line description. Empty string when the file can't be read.
+#[tauri::command(rename_all = "camelCase")]
+pub fn agentd_skill_read(
+    app: AppHandle,
+    state: tauri::State<'_, AgentdState>,
+    source_path: String,
+) -> Result<String, String> {
+    agentd_start(&app, &state)?;
+    let result = rpc_call(&state, "skills.read", json!({ "sourcePath": source_path }))?;
+    Ok(result
+        .get("body")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string())
 }
 
 #[tauri::command(rename_all = "camelCase")]

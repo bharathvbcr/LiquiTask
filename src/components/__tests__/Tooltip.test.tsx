@@ -90,4 +90,70 @@ describe("Tooltip", () => {
     });
     expect(screen.getByText("Tooltip Content")).toBeInTheDocument();
   });
+
+  it("links the trigger to the tooltip via aria-describedby once visible", () => {
+    render(
+      <Tooltip content="Tooltip Content">
+        <button>Trigger</button>
+      </Tooltip>,
+    );
+
+    const trigger = screen.getByText("Trigger");
+    expect(trigger).not.toHaveAttribute("aria-describedby");
+
+    fireEvent.focus(trigger);
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+
+    const tooltip = screen.getByRole("tooltip");
+    expect(trigger).toHaveAttribute("aria-describedby", tooltip.id);
+  });
+
+  it("dismisses on Escape while the trigger is focused", () => {
+    render(
+      <Tooltip content="Tooltip Content">
+        <button>Trigger</button>
+      </Tooltip>,
+    );
+
+    const trigger = screen.getByText("Trigger");
+    fireEvent.focus(trigger);
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(screen.getByText("Tooltip Content")).toBeInTheDocument();
+
+    fireEvent.keyDown(trigger, { key: "Escape" });
+    expect(screen.queryByText("Tooltip Content")).not.toBeInTheDocument();
+  });
+
+  it("wraps a disabled trigger in a focusable proxy so the tooltip stays reachable", () => {
+    render(
+      <Tooltip content="Tooltip Content">
+        <button disabled>Trigger</button>
+      </Tooltip>,
+    );
+
+    const button = screen.getByText("Trigger");
+    expect(button).toBeDisabled();
+
+    // Disabled elements can't receive focus, so the tooltip's listeners must
+    // live on a wrapping element instead of the button itself.
+    const wrapper = button.parentElement as HTMLElement;
+    expect(wrapper.tagName).toBe("SPAN");
+    expect(wrapper).toHaveAttribute("tabIndex", "0");
+
+    fireEvent.focus(wrapper);
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+
+    const tooltip = screen.getByRole("tooltip");
+    expect(screen.getByText("Tooltip Content")).toBeInTheDocument();
+    expect(wrapper).toHaveAttribute("aria-describedby", tooltip.id);
+
+    fireEvent.blur(wrapper);
+    expect(screen.queryByText("Tooltip Content")).not.toBeInTheDocument();
+  });
 });

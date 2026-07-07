@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import type { Task } from "../../types";
 import { useConfirmation } from "../contexts/ConfirmationContext";
 import { formatMinutes, secondsToMinutes, useTimer } from "../hooks/useTimer";
+import { IconButton } from "./common/IconButton";
 
 interface TimeTrackerProps {
   task: Task;
@@ -115,12 +116,12 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({
         <div className="mb-4">
           <div className="h-2 bg-black/40 rounded-full overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all duration-300 ${
+              className={`h-full w-full origin-left rounded-full transition-transform duration-300 ${
                 isOverEstimate
                   ? "bg-gradient-to-r from-red-500 to-red-400"
                   : "bg-gradient-to-r from-emerald-500 to-emerald-400"
               }`}
-              style={{ width: `${progressPercent}%` }}
+              style={{ transform: `scaleX(${progressPercent / 100})` }}
             />
           </div>
           <div className="flex justify-between text-[10px] text-slate-500 mt-1">
@@ -144,22 +145,13 @@ export const TimeTracker: React.FC<TimeTrackerProps> = ({
           {isRunning ? "Pause" : "Start"}
         </button>
 
-        <button
-          onClick={handleSave}
-          disabled={isRunning}
-          className="icon-btn text-slate-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-          title="Save time"
-        >
+        <IconButton onClick={handleSave} disabled={isRunning} title="Save time">
           <Save size={16} />
-        </button>
+        </IconButton>
 
-        <button
-          onClick={handleReset}
-          className="icon-btn text-slate-400 hover:text-red-400"
-          title="Reset timer"
-        >
+        <IconButton onClick={handleReset} title="Reset timer">
           <RotateCcw size={16} />
-        </button>
+        </IconButton>
       </div>
 
       {/* Summary */}

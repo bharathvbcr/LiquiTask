@@ -191,6 +191,63 @@ export async function nativeDevVerify(
   return invoke<DevVerifyResult>("agent_dev_verify", { workingDir, taskId });
 }
 
+// DevCouncil evidence-graph mirror (Requirement -> Task -> Evidence provenance).
+// `agent_dev_mirror_evidence` polls DevCouncil's read-only `.devcouncil/state.db`
+// and mirrors it into LiquiTask's agentd store; the list commands read those
+// mirrored tables back. All degrade to empty/zero when DevCouncil is absent.
+export interface DevMirrorSummary {
+  requirements: number;
+  tasks: number;
+  evidence: number;
+  gaps: number;
+}
+
+export interface DevStoredRequirement {
+  id: string;
+  title: string;
+  description: string;
+  priority?: string | null;
+  source?: string | null;
+}
+
+export interface DevStoredTask {
+  id: string;
+  title: string;
+  description: string;
+  status?: string | null;
+  requirementIdsJson?: string | null;
+  plannedFilesJson?: string | null;
+}
+
+export interface DevStoredEvidence {
+  id: number;
+  kind: string;
+  taskId?: string | null;
+  requirementId?: string | null;
+  dataJson?: string | null;
+}
+
+export async function nativeDevMirrorEvidence(workingDir: string): Promise<DevMirrorSummary> {
+  return invoke<DevMirrorSummary>("agent_dev_mirror_evidence", { workingDir });
+}
+
+export async function nativeListDevcouncilRequirements(): Promise<DevStoredRequirement[]> {
+  return invoke<DevStoredRequirement[]>("agentd_store_list_devcouncil_requirements");
+}
+
+export async function nativeListDevcouncilTasks(): Promise<DevStoredTask[]> {
+  return invoke<DevStoredTask[]>("agentd_store_list_devcouncil_tasks");
+}
+
+export async function nativeListDevcouncilEvidence(): Promise<DevStoredEvidence[]> {
+  return invoke<DevStoredEvidence[]>("agentd_store_list_devcouncil_evidence");
+}
+
+/** Real tracked-file paths from `.devcouncil/repo_map.json` (empty when unmapped). */
+export async function nativeDevRepoFiles(workingDir: string): Promise<string[]> {
+  return invoke<string[]>("agent_dev_repo_files", { workingDir });
+}
+
 export async function nativeCalculateNextOccurrence(
   config: RecurringConfig,
   fromDate?: Date,

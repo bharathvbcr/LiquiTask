@@ -1,9 +1,9 @@
 /**
- * Notifications to the Lord — a port of the original's ntfy push.
+ * Push notifications to the user — a port of the original's ntfy push.
  *
- * When a campaign finishes (or a task is blocked) a one-line push can go to an
- * [ntfy](https://ntfy.sh) topic so the Lord can watch progress from a phone. A
- * missing topic is a silent no-op; a failed push never breaks a campaign.
+ * When a team run finishes (or a task is blocked) a one-line push can go to an
+ * [ntfy](https://ntfy.sh) topic so the user can watch progress from a phone. A
+ * missing topic is a silent no-op; a failed push never breaks a run.
  */
 
 export interface CampaignNotifierOptions {

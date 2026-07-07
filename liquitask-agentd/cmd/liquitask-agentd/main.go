@@ -32,6 +32,7 @@ func main() {
 
 	srv.Register("detect", mgr.HandleDetect)
 	srv.Register("skills.list", mgr.HandleSkillsList)
+	srv.Register("skills.read", mgr.HandleSkillsRead)
 	srv.Register("run.start", mgr.HandleStart)
 	srv.Register("run.cancel", mgr.HandleCancel)
 	srv.Register("run.pause", mgr.HandlePause)

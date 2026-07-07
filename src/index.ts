@@ -1,7 +1,7 @@
 // Hooks
 
 export { BulkActionsBar } from "./components/BulkActionsBar";
-export { CalendarView } from "./components/CalendarView";
+export { CalendarView } from "./views/board/CalendarView";
 export { EmptyState } from "./components/EmptyState";
 export { KeyboardShortcutsModal } from "./components/KeyboardShortcutsModal";
 export { QuickAddBar } from "./components/QuickAddBar";

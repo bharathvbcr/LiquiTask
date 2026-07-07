@@ -9,8 +9,16 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import agentDispatchService from "../services/agents/agentDispatchService";
 import type { BoardColumn, Task } from "../../types";
+
+/** Where the just-dropped card landed — drives the liquid splash effect. */
+export interface DropSplash {
+  x: number;
+  y: number;
+  id: number;
+}
 
 type ActiveDrag =
   | {
@@ -49,6 +57,8 @@ interface UseBoardDnDControllerProps {
 
 /** Droppable id prefix used by the agent handoff tray. */
 export const AGENT_DROP_ID_PREFIX = "agent-drop:";
+/** Sentinel suffix for the tray's Best Match chip (smart-matched dispatch). */
+export const AGENT_DROP_SMART_ID = "smart";
 
 export const useBoardDnDController = ({
   columns,
@@ -63,6 +73,8 @@ export const useBoardDnDController = ({
 }: UseBoardDnDControllerProps) => {
   const [activeDrag, setActiveDrag] = useState<ActiveDrag | null>(null);
   const [highlightedZone, setHighlightedZone] = useState<string | null>(null);
+  const [splash, setSplash] = useState<DropSplash | null>(null);
+  const splashIdRef = useRef(0);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -201,11 +213,28 @@ export const useBoardDnDController = ({
 
       const overId = String(over.id);
       if (activeDrag.type === "task" && overId.startsWith(AGENT_DROP_ID_PREFIX)) {
-        onAssignToAgent?.(activeDrag.data, overId.slice(AGENT_DROP_ID_PREFIX.length));
+        const agentId = overId.slice(AGENT_DROP_ID_PREFIX.length);
+        if (agentId === AGENT_DROP_SMART_ID) {
+          // Best Match chip: smart-match picks the agent, no aiming required.
+          void agentDispatchService.dispatch(activeDrag.data);
+        } else if (agentId === "setup") {
+          // First-run chip: no agents yet — open Settings → Agents.
+          agentDispatchService.requestSetup();
+        } else {
+          onAssignToAgent?.(activeDrag.data, agentId);
+        }
       } else if (activeDrag.type === "column") {
         handleColumnReorder(activeDrag.id, overId);
       } else if (activeDrag.type === "task") {
         handleTaskDrop(activeDrag.data, overId);
+        // Splash where the card landed (center of its translated rect).
+        const rect = event.active?.rect?.current?.translated;
+        if (rect) {
+          const id = splashIdRef.current + 1;
+          splashIdRef.current = id;
+          setSplash({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, id });
+          setTimeout(() => setSplash((s) => (s?.id === id ? null : s)), 650);
+        }
       }
 
       setActiveDrag(null);
@@ -222,6 +251,7 @@ export const useBoardDnDController = ({
   return {
     activeDrag,
     highlightedZone,
+    splash,
     sensors,
     handleDragStart,
     handleDragOver,

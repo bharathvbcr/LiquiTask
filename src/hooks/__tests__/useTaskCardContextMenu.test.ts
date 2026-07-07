@@ -61,6 +61,21 @@ describe("useTaskCardContextMenu", () => {
     expect(result.current.contextMenuVisible).toBe(false);
   });
 
+  it("should handle handleDeleteTask", () => {
+    const mockOnDeleteTask = vi.fn();
+    const { result } = renderHook(() =>
+      useTaskCardContextMenu({ ...defaultProps, onDeleteTask: mockOnDeleteTask }),
+    );
+
+    act(() => {
+      result.current.setContextMenuVisible(true);
+      result.current.handleDeleteTask();
+    });
+
+    expect(mockOnDeleteTask).toHaveBeenCalledWith("task-1");
+    expect(result.current.contextMenuVisible).toBe(false);
+  });
+
   it("should handle handleWorkspaceSubmenuEnter/Leave", () => {
     vi.useFakeTimers();
     const { result } = renderHook(() => useTaskCardContextMenu(defaultProps));

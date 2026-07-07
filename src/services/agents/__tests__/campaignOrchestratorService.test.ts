@@ -54,7 +54,7 @@ const subtask = (id: string, title: string, dependsOn: string[] = []): DevCounci
 
 const fakePlanner = (subtasks: DevCouncilSubtask[]): CampaignPlanner => ({
   async decompose() {
-    return subtasks;
+    return { subtasks };
   },
 });
 
@@ -93,7 +93,7 @@ describe("CampaignOrchestratorService", () => {
     expect(result.success).toBe(true);
     expect(onCreateTasks).toHaveBeenCalledTimes(1);
     expect(onCreateTasks.mock.calls[0][0]).toHaveLength(3);
-    expect(result.dashboardMarkdown).toContain("Achievements");
+    expect(result.dashboardMarkdown).toContain("Completed");
   });
 
   it("respects dependencies across waves", async () => {
@@ -198,11 +198,12 @@ describe("CampaignOrchestratorService", () => {
     });
     expect(result.verified).toEqual(["S1"]);
     expect(result.skipped.sort()).toEqual(["S2", "S3"]);
-    const stoodDown = result.outcomes.filter((o) => o.status === "skipped");
-    expect(stoodDown.every((o) => o.blockingGaps.some((g) => /stood down/i.test(g)))).toBe(true);
+    const cancelled = result.outcomes.filter((o) => o.status === "skipped");
+    expect(cancelled.every((o) => o.blockingGaps.some((g) => /cancelled/i.test(g)))).toBe(true);
   });
 
   it("falls back to a single subtask when no plan is produced", async () => {
+    const onPlanFallback = vi.fn();
     const result = await campaignOrchestratorService.startCampaign({
       epic,
       agents,
@@ -210,8 +211,11 @@ describe("CampaignOrchestratorService", () => {
       planner: fakePlanner([]),
       runner: fakeRunner(),
       mailbox: new CampaignMailbox(),
+      onPlanFallback,
     });
     expect(result.outcomes).toHaveLength(1);
     expect(result.outcomes[0].title).toBe(epic.title);
+    expect(onPlanFallback).toHaveBeenCalledTimes(1);
+    expect(onPlanFallback.mock.calls[0][0].reason).toBe("plan_empty");
   });
 });

@@ -148,10 +148,6 @@ pub fn enable_encryption(app_data_dir: &Path, plaintext_storage: &[u8]) -> Resul
     encrypt_bytes(plaintext_storage)
 }
 
-pub fn disable_encryption(encrypted_storage: &[u8]) -> Result<Vec<u8>, String> {
-    decrypt_bytes(encrypted_storage)
-}
-
 pub fn disable_encryption_key() -> Result<(), String> {
     lock_encryption();
     delete_data_key()

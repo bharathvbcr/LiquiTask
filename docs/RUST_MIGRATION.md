@@ -8,11 +8,13 @@ fuzz-validated against the original TypeScript.
 
 ## Why
 
-LiquiTask already runs a Rust (Tauri) backend and a Python sidecar. The pure
-computation in `src/services/*` — date math, scoring, aggregation, string
-heuristics — is a natural fit for Rust: faster, type-safe, and unit-testable
-without a browser. Moving it also makes the logic reusable by the desktop
-backend directly instead of only inside the webview.
+LiquiTask already runs a Rust (Tauri) backend alongside two sidecars — the
+Python semantic-search sidecar (`semantic_layer/`) and the Go agent sidecar
+(`liquitask-agentd`). The pure computation in `src/services/*` — date math,
+scoring, aggregation, string heuristics — is a natural fit for Rust: faster,
+type-safe, and unit-testable without a browser. Moving it also makes the logic
+reusable by the desktop backend directly (including the agent-run and DevCouncil
+paths) instead of only inside the webview.
 
 ## Architecture
 

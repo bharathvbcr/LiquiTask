@@ -23,6 +23,7 @@ const STATUS_TONE: Record<string, StatusTone> = {
   cancelled: "slate",
   blocked: "red",
   "awaiting-approval": "purple",
+  review: "amber",
 };
 
 const TONE_CLASSES: Record<StatusTone, string> = {

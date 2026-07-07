@@ -1,8 +1,8 @@
 /**
- * The campaign dashboard — the Lead's single source of truth for the Lord.
+ * The team dashboard — the Lead's single source of truth for the user.
  *
- * Renders the roster, the order in play, work in progress, achievements
- * (verified subtasks) and anything blocked/skipped as markdown. Only the Lead
+ * Renders the roster, the current goal, work in progress, completed
+ * (verified) subtasks and anything blocked/skipped as markdown. Only the Lead
  * writes it (enforced in the orchestrator via `assertAllowed`).
  */
 
@@ -21,9 +21,9 @@ export interface CampaignDashboardInput {
 export function renderCampaignDashboard(state: CampaignDashboardInput): string {
   const now = new Date().toISOString();
   const lines: string[] = [];
-  lines.push("# Campaign Dashboard", "");
+  lines.push("# Team Dashboard", "");
   lines.push(`_Updated ${now} — written by the Lead._`, "");
-  lines.push("## Order", "", `> ${state.goal || "(none)"}`, "");
+  lines.push("## Goal", "", `> ${state.goal || "(none)"}`, "");
   if (state.routing) {
     lines.push(`Routing — worker: ${state.routing.worker}, reviewer: ${state.routing.reviewer}`, "");
   }
@@ -37,13 +37,13 @@ export function renderCampaignDashboard(state: CampaignDashboardInput): string {
 
   lines.push(`## In Progress (${state.inProgress.length})`, "");
   if (state.inProgress.length) {
-    for (const row of state.inProgress) lines.push(`- ⚔️ ${row}`);
+    for (const row of state.inProgress) lines.push(`- 🔄 ${row}`);
   } else {
     lines.push("- (quiet)");
   }
   lines.push("");
 
-  lines.push(`## Achievements (${state.achievements.length})`, "");
+  lines.push(`## Completed (${state.achievements.length})`, "");
   if (state.achievements.length) {
     for (const row of state.achievements) lines.push(`- ✅ ${row}`);
   } else {

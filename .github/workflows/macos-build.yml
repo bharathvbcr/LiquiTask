@@ -12,7 +12,7 @@ env:
 
 jobs:
   build-macos:
-    name: Build ad-hoc signed macOS DMG (Universal)
+    name: Build ad-hoc signed macOS DMG (Apple Silicon)
     runs-on: macos-14
 
     steps:
@@ -31,7 +31,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-darwin,x86_64-apple-darwin
+          targets: aarch64-apple-darwin
 
       - name: Cache Rust build
         uses: Swatinem/rust-cache@v2
@@ -46,8 +46,8 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Build semantic layer sidecar (macOS universal)
-        run: npm run build:semantic-sidecar:macos
+      - name: Build semantic layer sidecar (macOS Apple Silicon)
+        run: npm run build:semantic-sidecar
 
       - name: Run type check
         run: npm run typecheck
@@ -62,5 +62,5 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: liquitask-macos-dmg
-          path: src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+          path: src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
           if-no-files-found: error

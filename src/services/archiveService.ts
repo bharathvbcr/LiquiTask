@@ -142,7 +142,7 @@ export class ArchiveService {
       if (!config.archiveCompleted) return false;
       const completed = config.completedColumnIds
         ? isTaskComplete(task, config.completedColumnIds)
-        : task.status === "Completed";
+        : task.status === "Commit" || Boolean(task.completedAt);
       if (!completed) return false;
 
       const completionDate = getCompletionDate(task);

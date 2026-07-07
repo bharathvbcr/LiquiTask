@@ -34,7 +34,10 @@ def detect_target_triple(explicit: str | None) -> str:
     if system == "darwin":
         if machine in {"arm64", "aarch64"}:
             return "aarch64-apple-darwin"
-        return "x86_64-apple-darwin"
+        raise RuntimeError(
+            "Intel Macs (x86_64-apple-darwin) are no longer supported; "
+            "build on Apple Silicon."
+        )
     if system == "win32":
         return "x86_64-pc-windows-msvc"
     if system.startswith("linux"):
@@ -56,7 +59,7 @@ def run(cmd: list[str], *, cwd: Path | None = None, env: dict[str, str] | None =
     subprocess.run(cmd, cwd=cwd, env=env, check=True)
 
 
-def ensure_model(model_cache: Path, python: Path) -> Path:
+def ensure_model(model_cache: Path, python_cmd: list[str]) -> Path:
     model_dir = model_cache / DEFAULT_MODEL_DIR_NAME
     if model_dir.is_dir() and any(model_dir.iterdir()):
         print(f"Using cached embed model at {model_dir}")
@@ -66,7 +69,7 @@ def ensure_model(model_cache: Path, python: Path) -> Path:
     print(f"Downloading embed model {DEFAULT_MODEL} ...")
     run(
         [
-            str(python),
+            *python_cmd,
             "-c",
             (
                 "from sentence_transformers import SentenceTransformer; "
@@ -77,16 +80,17 @@ def ensure_model(model_cache: Path, python: Path) -> Path:
     return model_dir
 
 
-def ensure_build_venv(venv_dir: Path) -> Path:
+def ensure_build_venv(venv_dir: Path) -> list[str]:
     python = venv_dir / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
     if not python.is_file():
         print(f"Creating build venv at {venv_dir}")
         run([sys.executable, "-m", "venv", str(venv_dir)])
 
-    run([str(python), "-m", "pip", "install", "--upgrade", "pip"])
+    python_cmd = [str(python)]
+    run([*python_cmd, "-m", "pip", "install", "--upgrade", "pip"])
     run(
         [
-            str(python),
+            *python_cmd,
             "-m",
             "pip",
             "install",
@@ -94,7 +98,7 @@ def ensure_build_venv(venv_dir: Path) -> Path:
             str(semantic_layer_dir() / "build-requirements.txt"),
         ]
     )
-    return python
+    return python_cmd
 
 
 def build_sidecar(
@@ -110,26 +114,26 @@ def build_sidecar(
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / sidecar_filename(resolved_triple)
 
-    venv_dir = layer_dir / ".build-venv"
+    venv_dir = layer_dir / f".build-venv-{resolved_triple}"
     build_cache = layer_dir / ".build-cache"
-    dist_dir = layer_dir / "dist"
-    work_dir = layer_dir / "build"
+    dist_dir = layer_dir / "dist" / resolved_triple
+    work_dir = layer_dir / "build" / resolved_triple
 
     if clean:
         for path in (dist_dir, work_dir):
             if path.exists():
                 shutil.rmtree(path)
 
-    build_python = ensure_build_venv(venv_dir)
+    build_python_cmd = ensure_build_venv(venv_dir)
     if not skip_model:
-        ensure_model(build_cache / "models", build_python)
+        ensure_model(build_cache / "models", build_python_cmd)
 
     env = os.environ.copy()
     env["PYTHONPATH"] = str(root)
 
     run(
         [
-            str(build_python),
+            *build_python_cmd,
             "-m",
             "PyInstaller",
             str(layer_dir / "semantic_layer.spec"),
@@ -150,6 +154,16 @@ def build_sidecar(
 
     if not built_binary.is_file():
         raise FileNotFoundError(f"PyInstaller output not found: {built_binary}")
+
+    if sys.platform == "darwin":
+        actual_arches = subprocess.run(
+            ["lipo", "-archs", str(built_binary)], check=True, capture_output=True, text=True
+        ).stdout.split()
+        if actual_arches != ["arm64"]:
+            raise RuntimeError(
+                f"Built {built_binary} for {resolved_triple} but lipo reports arches "
+                f"{actual_arches}, expected [arm64]."
+            )
 
     shutil.copy2(built_binary, output_path)
     if sys.platform != "win32":
@@ -172,11 +186,6 @@ def parse_args() -> argparse.Namespace:
         help="Rust target triple (e.g. aarch64-apple-darwin, x86_64-pc-windows-msvc)",
     )
     parser.add_argument(
-        "--all-macos",
-        action="store_true",
-        help="Build both macOS sidecars (aarch64 + x86_64) on Apple Silicon/Intel hosts",
-    )
-    parser.add_argument(
         "--skip-model",
         action="store_true",
         help="Skip model download (requires existing .build-cache/models/all-MiniLM-L6-v2)",
@@ -194,21 +203,6 @@ def main() -> None:
 
     if args.print_target:
         print(detect_target_triple(args.target))
-        return
-
-    if args.all_macos and sys.platform != "darwin":
-        raise SystemExit("--all-macos is only supported on macOS hosts")
-
-    if args.all_macos:
-        arch_paths = [
-            build_sidecar(target_triple=triple, skip_model=args.skip_model, clean=args.clean)
-            for triple in ("aarch64-apple-darwin", "x86_64-apple-darwin")
-        ]
-        universal_path = (
-            repo_root() / "src-tauri" / "binaries" / sidecar_filename("universal-apple-darwin")
-        )
-        print(f"Creating universal binary at {universal_path}")
-        run(["lipo", "-create", "-output", str(universal_path), *map(str, arch_paths)])
         return
 
     build_sidecar(

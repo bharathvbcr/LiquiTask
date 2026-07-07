@@ -95,7 +95,7 @@ output. See <https://learn.microsoft.com/azure/trusted-signing/>.
 ## How the CI wiring works
 
 - **`.github/workflows/build.yml`** — every push to `main`; builds the macOS
-  Universal `.dmg` and Windows `.exe` artifacts.
+  Apple Silicon `.dmg` and Windows `.exe` artifacts.
 - **`.github/workflows/release.yml`** — on a `vX.Y.Z` tag; same build, then
   publishes a GitHub Release with both installers attached.
 - Both gate signing on secret presence, so absent secrets never break the build —

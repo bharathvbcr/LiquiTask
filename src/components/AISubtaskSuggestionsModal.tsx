@@ -1,7 +1,7 @@
 import { ArrowRight, Brain, CheckCircle2, GitBranch, Loader2 } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ModalWrapper } from "../../components/ModalWrapper";
+import { ModalWrapper } from "./ModalWrapper";
 import type { RedundancyAnalysis, Task } from "../../types";
 import { taskCleanupService } from "../services/taskCleanupService";
 

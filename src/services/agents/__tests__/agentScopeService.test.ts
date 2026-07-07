@@ -90,6 +90,55 @@ describe("agentScopeService", () => {
     expect(agentScopeService.checkPath("run-1", "foo/bar.ts/").inScope).toBe(true);
   });
 
+  it("allows any file under a directory-scoped entry (trailing slash)", () => {
+    agentScopeService.setScopeForTask("task-1", [
+      { path: "src/services/agents/", reason: "subsystem work", allowedChange: "modify" },
+    ]);
+    agentScopeService.bindTaskScopeToRun("run-1", "task-1");
+
+    expect(agentScopeService.checkPath("run-1", "src/services/agents/foo.ts").inScope).toBe(true);
+    expect(
+      agentScopeService.checkPath("run-1", "src/services/agents/nested/bar.ts").inScope,
+    ).toBe(true);
+    expect(agentScopeService.checkPath("run-1", "src/services/other.ts").inScope).toBe(false);
+  });
+
+  it("supports single-star globs that do not cross directory boundaries", () => {
+    agentScopeService.setScopeForTask("task-1", [
+      { path: "src/services/*.ts", reason: "service files", allowedChange: "modify" },
+    ]);
+    agentScopeService.bindTaskScopeToRun("run-1", "task-1");
+
+    expect(agentScopeService.checkPath("run-1", "src/services/foo.ts").inScope).toBe(true);
+    expect(agentScopeService.checkPath("run-1", "src/services/nested/bar.ts").inScope).toBe(false);
+  });
+
+  it("supports globstar patterns that cross directory boundaries", () => {
+    agentScopeService.setScopeForTask("task-1", [
+      { path: "src/services/**", reason: "whole subsystem", allowedChange: "modify" },
+    ]);
+    agentScopeService.bindTaskScopeToRun("run-1", "task-1");
+
+    expect(agentScopeService.checkPath("run-1", "src/services/foo.ts").inScope).toBe(true);
+    expect(agentScopeService.checkPath("run-1", "src/services/nested/bar.ts").inScope).toBe(true);
+    expect(agentScopeService.checkPath("run-1", "src/other.ts").inScope).toBe(false);
+  });
+
+  it("prefers an exact read_only entry over a broader writable directory entry", () => {
+    agentScopeService.setScopeForTask("task-1", [
+      { path: "src/services/", reason: "subsystem work", allowedChange: "modify" },
+      { path: "src/services/config.ts", reason: "reference only", allowedChange: "read_only" },
+    ]);
+    agentScopeService.bindTaskScopeToRun("run-1", "task-1");
+
+    // A sibling under the directory entry is writable...
+    expect(agentScopeService.checkPath("run-1", "src/services/foo.ts").inScope).toBe(true);
+    // ...but the specifically read-only file stays blocked (exact match wins).
+    const ro = agentScopeService.checkPath("run-1", "src/services/config.ts", "write");
+    expect(ro.inScope).toBe(false);
+    expect(ro.reason).toContain("read-only");
+  });
+
   it("clears scope for a run on clearScopeForRun, reverting to unrestricted", () => {
     agentScopeService.setScopeForTask("task-1", [
       { path: "src/only.ts", reason: "impl", allowedChange: "modify" },

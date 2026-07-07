@@ -1,37 +1,75 @@
-import { STORAGE_KEYS } from "../../constants";
-import { isTauri } from "../../runtime/runtimeEnvironment";
-import storageService from "../storageService";
-import { buildCouncilGoal, buildTaskPrompt } from "./agentPrompt";
+import { FEATURE_FLAGS, STORAGE_KEYS } from '../../constants';
+import { localApi, subscribeLocalEvent } from '../../core/api/localApi';
+import taskEventStore from '../../core/events/taskEventStore';
+import { isTauri } from '../../runtime/runtimeEnvironment';
+import storageService from '../storageService';
+import { buildCouncilGoal, buildTaskPrompt, withRepoContext, withRepoFileIndex } from './agentPrompt';
+import devcouncilService from './devcouncilService';
 import {
   isNativeBackend,
   nativeBuildCouncilGoal,
   nativeBuildTaskPrompt,
   nativeParseCouncilReport,
   nativeParseStreamLine,
-} from "../nativeBridge";
-import agentMcpService from "./agentMcpService";
-import agentScopeService from "./agentScopeService";
-import agentSkillsService from "./agentSkillsService";
-import {
-  checkAgentBudget,
-  getAgentDailyStats,
-  resolveAgentModel,
-} from "./agentPolicyService";
-import { parseClaudeStreamLine, parseCouncilReport } from "./agentStreamParser";
+} from '../nativeBridge';
+import agentMcpService from './agentMcpService';
+import agentScopeService from './agentScopeService';
+import agentSkillsService from './agentSkillsService';
+import { mergeSkillCatalog, type InstalledSkill } from '../../core/skills/mergeSkillCatalog';
+import { catalogEntryToSkill, selectSkillsForTask } from './skillSelection';
+import { checkAgentBudget, getAgentDailyStats, resolveAgentModel } from './agentPolicyService';
+import { parseClaudeStreamLine, parseCouncilReport } from './agentStreamParser';
 import type {
   AgentProfile,
   AgentRun,
   AgentRunEvent,
   AgentRunEventKind,
+  AgentSkill,
   Task,
-} from "../../../types";
+} from '../../../types';
 
 /** Payload emitted by the Rust agent runner on `agent-run-event`. */
 interface AgentRunNativeEvent {
   runId: string;
-  stream: "stdout" | "stderr" | "exit" | "error";
+  stream: 'stdout' | 'stderr' | 'exit' | 'error';
   line?: string;
   code?: number;
+}
+
+/**
+ * Payload emitted by the agentd bridge on `agentd-run-event` — the sidecar's
+ * `run.events` notification flattened by agentd.rs (runId here is the
+ * SIDECAR id; resolve through `agentdIdMap`). Field set mirrors
+ * liquitask-agentd/internal/runner/runner.go's RunEvent.
+ */
+interface AgentdRunEvent {
+  runId: string;
+  kind:
+    | 'message'
+    | 'tool_use'
+    | 'tool_result'
+    | 'thinking'
+    | 'status'
+    | 'log'
+    | 'permission_request'
+    | 'result'
+    | 'error';
+  text?: string;
+  tool?: string;
+  callId?: string;
+  input?: Record<string, unknown>;
+  output?: string;
+  status?: string;
+  level?: string;
+  sessionId?: string;
+  error?: string;
+  code?: number;
+  durationMs?: number;
+}
+
+/** agentd runtime id for a profile provider (only "claude-code" differs). */
+function providerToRuntime(provider: AgentProfile['provider']): string {
+  return provider === 'claude-code' ? 'claude' : provider;
 }
 
 /**
@@ -42,7 +80,7 @@ interface AgentRunNativeEvent {
 interface RunReattachInfo {
   runId: string;
   alive: boolean;
-  status: "running" | "completed" | "failed" | "cancelled";
+  status: 'running' | 'completed' | 'failed' | 'cancelled';
   sessionId?: string;
   summary?: string;
   exitCode?: number;
@@ -53,6 +91,25 @@ export interface AgentCliStatus {
   name: string;
   available: boolean;
   path?: string;
+}
+
+/** An installed IDE / editor launcher discovered on PATH or as a macOS app. */
+export interface IdeToolStatus {
+  /** Stable id (e.g. "vscode"). */
+  id: string;
+  /** Human label (e.g. "Visual Studio Code"). */
+  name: string;
+  /** Preferred PATH binary (e.g. "code"); may be unusable when launch="bundle". */
+  binary: string;
+  available: boolean;
+  /** Resolved location — PATH binary or `.app` bundle path. */
+  path?: string;
+  /** Grouping hint; currently always "ide". */
+  kind: string;
+  /** Launch strategy: "path" (PATH launcher), "bundle" (macOS .app), or "none". */
+  launch?: 'path' | 'bundle' | 'none';
+  /** macOS app display name for bundle launches (when launch="bundle"). */
+  appName?: string;
 }
 
 /** Hooks the app layer registers so runs can move cards / write activity. */
@@ -67,10 +124,10 @@ type Listener = (runs: AgentRun[]) => void;
 
 const MAX_EVENTS_PER_RUN = 300;
 const MAX_PERSISTED_RUNS = 100;
-const PERMISSION_PROMPT_TOOL = "mcp__liquitask__permission_prompt";
+const PERMISSION_PROMPT_TOOL = 'mcp__liquitask__permission_prompt';
 
 function permissionPromptToolFor(agent: AgentProfile, mcpConfig: string | null): string | null {
-  if (!mcpConfig || agent.sandbox === "container" || agent.permissionMode === "bypassPermissions") {
+  if (!mcpConfig || agent.sandbox === 'container' || agent.permissionMode === 'bypassPermissions') {
     return null;
   }
   return PERMISSION_PROMPT_TOOL;
@@ -96,8 +153,18 @@ class AgentRunService {
   private listeners = new Set<Listener>();
   private hooks: AgentRunTaskHooks = {};
   private unlisten: (() => void) | null = null;
+  private unlistenAgentd: (() => void) | null = null;
+  /** sidecar runId -> local run id, for routing inbound agentd-run-events. */
+  private agentdIdMap = new Map<string, string>();
   private persistTimer: ReturnType<typeof setTimeout> | null = null;
   private initialized = false;
+  /**
+   * workingDir -> DevCouncil-enabled probe. Cached for the app session for the
+   * same reason as agentMcpService's devCliAvailableCache: whether a repo has
+   * been `dev init`-ed doesn't change mid-session, so run starts shouldn't
+   * re-hit the disk for it.
+   */
+  private devcouncilDirCache = new Map<string, Promise<boolean>>();
   /** Run ids finalized from the journal on relaunch, awaiting board retro-drive. */
   private pendingBoardSync: string[] = [];
 
@@ -110,23 +177,30 @@ class AgentRunService {
     this.initialized = true;
 
     const persisted = storageService.get<AgentRun[]>(STORAGE_KEYS.AGENT_RUNS, []);
-    const revived = (persisted ?? []).map((raw) => this.reviveRun(raw));
+    const revived = (persisted ?? []).map(raw => this.reviveRun(raw));
     for (const run of revived) {
       this.runs.set(run.id, run);
+      if (run.agentdRunId) this.agentdIdMap.set(run.agentdRunId, run.id);
     }
 
     try {
       // Attach the event bridge *before* reattaching so that events for runs
       // that are still alive headless aren't dropped in the gap.
-      const { listen } = await import("@tauri-apps/api/event");
-      this.unlisten = await listen<AgentRunNativeEvent>("agent-run-event", (event) => {
+      const { listen } = await import('@tauri-apps/api/event');
+      this.unlisten = await listen<AgentRunNativeEvent>('agent-run-event', event => {
         this.handleNativeEvent(event.payload);
       });
+      if (FEATURE_FLAGS.AGENTD_SIDECAR_ENABLED) {
+        this.unlistenAgentd = await subscribeLocalEvent<AgentdRunEvent>(
+          'agentd-run-event',
+          payload => this.handleAgentdEvent(payload)
+        );
+      }
     } catch (err) {
       // Partial Tauri environments (tests, degraded webviews) can expose the
       // runtime marker without the event bridge — stay inert instead of throwing.
       this.initialized = false;
-      console.warn("Agent run event listener unavailable:", err);
+      console.warn('Agent run event listener unavailable:', err);
     }
 
     // Runtime v2: reconcile previously-active runs against the durable Rust
@@ -144,52 +218,76 @@ class AgentRunService {
    */
   private async reconcileWithJournal(revived: AgentRun[]): Promise<void> {
     const active = revived.filter(
-      (r) => r.status === "running" || r.status === "queued" || r.status === "verifying",
+      r => r.status === 'running' || r.status === 'queued' || r.status === 'verifying'
     );
     if (active.length === 0) return;
 
     let infos: RunReattachInfo[] = [];
     try {
-      const { invoke } = await import("@tauri-apps/api/core");
-      infos = await invoke<RunReattachInfo[]>("agent_runs_reattach");
+      const { invoke } = await import('@tauri-apps/api/core');
+      infos = await invoke<RunReattachInfo[]>('agent_runs_reattach');
     } catch (err) {
-      console.warn("Run reattach unavailable:", err);
+      console.warn('Run reattach unavailable:', err);
     }
-    const byId = new Map(infos.map((i) => [i.runId, i]));
+    // agentd runs reattach through the sidecar's own journal; translate its
+    // entries (keyed by sidecar id) into the same RunReattachInfo shape so the
+    // reconcile loop below stays engine-agnostic.
+    if (FEATURE_FLAGS.AGENTD_SIDECAR_ENABLED && active.some(r => r.engine === 'agentd')) {
+      try {
+        const agentdInfos = (await localApi.runReattach()) ?? [];
+        for (const info of agentdInfos) {
+          const localId = this.agentdIdMap.get(info.runId);
+          if (!localId) continue;
+          infos.push({
+            runId: localId,
+            alive: info.alive,
+            status:
+              info.status === 'completed' || info.status === 'cancelled'
+                ? info.status
+                : info.alive
+                  ? 'running'
+                  : 'failed',
+          });
+        }
+      } catch (err) {
+        console.warn('agentd reattach unavailable:', err);
+      }
+    }
+    const byId = new Map(infos.map(i => [i.runId, i]));
 
     for (const run of active) {
       const info = byId.get(run.id);
       if (!info) {
-        run.status = "failed";
-        run.error = "Interrupted by app restart";
+        run.status = 'failed';
+        run.error = 'Interrupted by app restart';
         run.finishedAt = run.finishedAt ?? new Date();
       } else if (info.alive) {
         // Still working detached — native events will resume the live stream.
-        run.status = "running";
+        run.status = 'running';
         run.finishedAt = undefined;
         run.isPaused = info.paused ?? false;
         if (info.sessionId && !run.sessionId) run.sessionId = info.sessionId;
-        this.pushEvent(run, "info", "Reattached to headless run after relaunch — still working.");
+        this.pushEvent(run, 'info', 'Reattached to headless run after relaunch — still working.');
       } else {
         // Finished while the app was closed — finalize with the real outcome.
         if (info.sessionId && !run.sessionId) run.sessionId = info.sessionId;
         if (info.summary && !run.summary) run.summary = info.summary;
         run.status =
-          info.status === "completed"
-            ? "completed"
-            : info.status === "cancelled"
-              ? "cancelled"
-              : "failed";
+          info.status === 'completed'
+            ? 'completed'
+            : info.status === 'cancelled'
+              ? 'cancelled'
+              : 'failed';
         run.finishedAt = run.finishedAt ?? new Date();
-        if (run.status === "failed" && !run.error) {
-          run.error = "Agent run ended while the app was closed.";
+        if (run.status === 'failed' && !run.error) {
+          run.error = 'Agent run ended while the app was closed.';
         }
         this.pushEvent(
           run,
-          run.status === "completed" ? "result" : "info",
-          run.status === "completed"
-            ? `Completed while the app was closed.${run.summary ? ` ${run.summary.slice(0, 300)}` : ""}`
-            : "Run ended while the app was closed.",
+          run.status === 'completed' ? 'result' : 'info',
+          run.status === 'completed'
+            ? `Completed while the app was closed.${run.summary ? ` ${run.summary.slice(0, 300)}` : ''}`
+            : 'Run ended while the app was closed.'
         );
         // Retro-drive the board on relaunch (card move, activity, notify).
         this.pendingBoardSync.push(run.id);
@@ -205,10 +303,10 @@ class AgentRunService {
    * the app layer supplies the lookup.
    */
   rehydrateActiveRuns(
-    resolve: (run: AgentRun) => { task: Task; agent: AgentProfile } | null,
+    resolve: (run: AgentRun) => { task: Task; agent: AgentProfile } | null
   ): void {
     for (const run of this.runs.values()) {
-      if (run.status !== "running" && run.status !== "verifying") continue;
+      if (run.status !== 'running' && run.status !== 'verifying') continue;
       if (this.runContext.has(run.id)) continue;
       const context = resolve(run);
       if (!context) continue;
@@ -236,6 +334,8 @@ class AgentRunService {
   dispose(): void {
     this.unlisten?.();
     this.unlisten = null;
+    this.unlistenAgentd?.();
+    this.unlistenAgentd = null;
     this.initialized = false;
   }
 
@@ -253,20 +353,18 @@ class AgentRunService {
   // -------------------------------------------------------------------------
 
   getRuns(): AgentRun[] {
-    return [...this.runs.values()].sort(
-      (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
-    );
+    return [...this.runs.values()].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
   getRunsForTask(taskId: string): AgentRun[] {
-    return this.getRuns().filter((r) => r.taskId === taskId);
+    return this.getRuns().filter(r => r.taskId === taskId);
   }
 
   getActiveRunForTask(taskId: string): AgentRun | undefined {
     return this.getRuns().find(
-      (r) =>
+      r =>
         r.taskId === taskId &&
-        (r.status === "running" || r.status === "verifying" || r.status === "queued"),
+        (r.status === 'running' || r.status === 'verifying' || r.status === 'queued')
     );
   }
 
@@ -274,10 +372,73 @@ class AgentRunService {
     return this.activeByAgent.size > 0;
   }
 
-  async detectClis(): Promise<AgentCliStatus[]> {
+  /** Whether the agent currently has a running (non-queued) run. */
+  isAgentBusy(agentId: string): boolean {
+    return this.activeByAgent.has(agentId);
+  }
+
+  /** 1-based position of a task in its agent's wait line, or null when not queued. */
+  getQueuePosition(taskId: string): number | null {
+    const entry = this.queue.find(q => q.task.id === taskId);
+    if (!entry) return null;
+    const line = this.queue.filter(q => q.agent.id === entry.agent.id);
+    const index = line.findIndex(q => q.task.id === taskId);
+    return index >= 0 ? index + 1 : null;
+  }
+
+  /** Number of tasks waiting in an agent's queue (excludes the running task). */
+  getQueueLengthForAgent(agentId: string): number {
+    return this.queue.filter(q => q.agent.id === agentId).length;
+  }
+
+  /** Cached CLI detection — the scan shells out per binary, so reuse results for a while. */
+  private cliDetection: { at: number; value: AgentCliStatus[] } | null = null;
+  private cliDetectionInFlight: Promise<AgentCliStatus[]> | null = null;
+
+  async detectClis(options?: { force?: boolean; maxAgeMs?: number }): Promise<AgentCliStatus[]> {
     if (!isTauri()) return [];
-    const { invoke } = await import("@tauri-apps/api/core");
-    return invoke<AgentCliStatus[]>("agent_detect_clis");
+    const maxAgeMs = options?.maxAgeMs ?? 5 * 60_000;
+    if (!options?.force && this.cliDetection && Date.now() - this.cliDetection.at < maxAgeMs) {
+      return this.cliDetection.value;
+    }
+    if (!this.cliDetectionInFlight) {
+      this.cliDetectionInFlight = (async () => {
+        const { invoke } = await import('@tauri-apps/api/core');
+        const value = await invoke<AgentCliStatus[]>('agent_detect_clis');
+        this.cliDetection = { at: Date.now(), value };
+        return value;
+      })().finally(() => {
+        this.cliDetectionInFlight = null;
+      });
+    }
+    return this.cliDetectionInFlight;
+  }
+
+  /**
+   * Detect installed IDE / editor launchers (VS Code, Cursor, Windsurf, Zed, …)
+   * on the host PATH. Returns one entry per known editor with `available`
+   * reflecting whether its launcher was found.
+   */
+  async detectIdeTools(): Promise<IdeToolStatus[]> {
+    if (!isTauri()) return [];
+    const { invoke } = await import('@tauri-apps/api/core');
+    return invoke<IdeToolStatus[]>('agent_detect_ide_tools');
+  }
+
+  /**
+   * Launch a detected agent CLI or IDE in an authorised workspace directory.
+   * `mode: "app"` opens a GUI editor on the folder; `mode: "terminal"` opens a
+   * Terminal at the folder running the tool (macOS only). Throws the backend
+   * error message on failure so callers can surface it in a toast.
+   */
+  async openInTool(
+    tool: string,
+    workingDir: string,
+    mode: 'app' | 'terminal' | 'bundle'
+  ): Promise<void> {
+    if (!isTauri()) return;
+    const { invoke } = await import('@tauri-apps/api/core');
+    await invoke('agent_open_in_tool', { tool, workingDir, mode });
   }
 
   // -------------------------------------------------------------------------
@@ -291,7 +452,7 @@ class AgentRunService {
 
     if (this.activeByAgent.has(agent.id)) {
       this.queue.push({ task, agent });
-      const run = this.createRun(task, agent, "queued");
+      const run = this.createRun(task, agent, 'queued');
       this.upsert(run);
       return run;
     }
@@ -304,46 +465,59 @@ class AgentRunService {
 
     agentMcpService.denyAllForRun(runId);
 
-    if (run.status === "queued") {
-      this.queue = this.queue.filter((q) => q.task.id !== run.taskId);
-      run.status = "cancelled";
+    if (run.status === 'queued') {
+      this.queue = this.queue.filter(q => q.task.id !== run.taskId);
+      run.status = 'cancelled';
       run.finishedAt = new Date();
       run.isPaused = false;
       this.upsert(run);
       return;
     }
 
-    const { invoke } = await import("@tauri-apps/api/core");
-    await invoke<boolean>("agent_run_cancel", { runId });
-    run.status = "cancelled";
+    if (run.engine === 'agentd' && run.agentdRunId) {
+      await localApi.runCancel(run.agentdRunId);
+    } else {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke<boolean>('agent_run_cancel', { runId });
+    }
+    run.status = 'cancelled';
     run.finishedAt = new Date();
     run.isPaused = false;
     this.upsert(run);
+    if (run.engine === 'agentd') this.releaseAgent(run);
   }
 
   /** Pause a running agent process (SIGSTOP on Unix, thread suspend on Windows). */
   async pause(runId: string): Promise<void> {
     const run = this.runs.get(runId);
-    if (!run || run.status !== "running") {
-      throw new Error("Only running agents can be paused.");
+    if (!run || run.status !== 'running') {
+      throw new Error('Only running agents can be paused.');
     }
-    const { invoke } = await import("@tauri-apps/api/core");
-    await invoke<boolean>("agent_runner_pause", { runId });
+    if (run.engine === 'agentd' && run.agentdRunId) {
+      await localApi.runPause(run.agentdRunId);
+    } else {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke<boolean>('agent_runner_pause', { runId });
+    }
     run.isPaused = true;
-    this.pushEvent(run, "info", "Run paused by user.");
+    this.pushEvent(run, 'info', 'Run paused by user.');
     this.upsert(run);
   }
 
   /** Resume a paused agent process. */
   async resume(runId: string): Promise<void> {
     const run = this.runs.get(runId);
-    if (!run || run.status !== "running") {
-      throw new Error("Only running agents can be resumed.");
+    if (!run || run.status !== 'running') {
+      throw new Error('Only running agents can be resumed.');
     }
-    const { invoke } = await import("@tauri-apps/api/core");
-    await invoke<boolean>("agent_runner_resume", { runId });
+    if (run.engine === 'agentd' && run.agentdRunId) {
+      await localApi.runResume(run.agentdRunId);
+    } else {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke<boolean>('agent_runner_resume', { runId });
+    }
     run.isPaused = false;
-    this.pushEvent(run, "info", "Run resumed.");
+    this.pushEvent(run, 'info', 'Run resumed.');
     this.upsert(run);
   }
 
@@ -353,25 +527,30 @@ class AgentRunService {
    */
   async injectGuidance(runId: string, message: string, resumeIfPaused = true): Promise<void> {
     const run = this.runs.get(runId);
-    if (!run || (run.status !== "running" && run.status !== "verifying")) {
-      throw new Error("Guidance can only be injected into active runs.");
+    if (!run || (run.status !== 'running' && run.status !== 'verifying')) {
+      throw new Error('Guidance can only be injected into active runs.');
     }
-    const { invoke } = await import("@tauri-apps/api/core");
-    await invoke<boolean>("agent_runner_inject_guidance", {
-      runId,
-      message,
-      resumeIfPaused,
-    });
+    if (run.engine === 'agentd' && run.agentdRunId) {
+      await localApi.runInject(run.agentdRunId, message);
+      if (resumeIfPaused && run.isPaused) await localApi.runResume(run.agentdRunId);
+    } else {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke<boolean>('agent_runner_inject_guidance', {
+        runId,
+        message,
+        resumeIfPaused,
+      });
+    }
     if (resumeIfPaused) run.isPaused = false;
-    this.pushEvent(run, "info", `Guidance injected: ${message.slice(0, 200)}`);
+    this.pushEvent(run, 'info', `Guidance injected: ${message.slice(0, 200)}`);
     this.upsert(run);
   }
 
   /** Hand the session over to Terminal.app (`claude --resume <sessionId>`). */
   async openInTerminal(run: AgentRun, agent: AgentProfile): Promise<void> {
-    if (!run.sessionId) throw new Error("No resumable session for this run.");
-    const { invoke } = await import("@tauri-apps/api/core");
-    await invoke("agent_open_in_terminal", {
+    if (!run.sessionId) throw new Error('No resumable session for this run.');
+    const { invoke } = await import('@tauri-apps/api/core');
+    await invoke('agent_open_in_terminal', {
       workingDir: run.worktreePath ?? agent.workingDir,
       sessionId: run.sessionId,
     });
@@ -380,24 +559,50 @@ class AgentRunService {
   /** Headless follow-up on a finished run — streams into the same run log. */
   async followUp(runId: string, message: string): Promise<void> {
     const run = this.runs.get(runId);
-    if (!run?.sessionId) throw new Error("No resumable session for this run.");
+    if (!run?.sessionId) throw new Error('No resumable session for this run.');
     const context = this.runContext.get(runId);
-    if (!context) throw new Error("Run context missing.");
+    if (!context) throw new Error('Run context missing.');
 
     this.ensureBudgetAllows(context.agent);
 
-    run.status = "running";
+    run.status = 'running';
     run.finishedAt = undefined;
     this.activeByAgent.set(context.agent.id, run.id);
-    this.pushEvent(run, "info", `Follow-up: ${message.slice(0, 200)}`);
+    this.pushEvent(run, 'info', `Follow-up: ${message.slice(0, 200)}`);
     this.upsert(run);
 
-    const { invoke } = await import("@tauri-apps/api/core");
+    // agentd runs resume through the sidecar with the runtime's own session id.
+    if (run.engine === 'agentd') {
+      const followUpCwd = run.worktreePath ?? context.agent.workingDir;
+      const sidecarId = await localApi.runStart({
+        taskId: run.taskId,
+        runtime: providerToRuntime(context.agent.provider),
+        prompt: message,
+        cwd: followUpCwd,
+        model: context.agent.model || undefined,
+        resumeSessionId: run.sessionId,
+        // Resumes re-spawn the CLI, so both the board bridge and the
+        // DevCouncil server (when the dir is enabled) must be re-injected —
+        // repair follow-ups rely on them most.
+        mcpConfig: await this.buildAgentdMcpConfig(run.id, run.taskId, followUpCwd),
+      });
+      if (!sidecarId) throw new Error('agentd did not return a run id for follow-up');
+      run.agentdRunId = sidecarId;
+      this.agentdIdMap.set(sidecarId, run.id);
+      this.upsert(run);
+      return;
+    }
+
+    const { invoke } = await import('@tauri-apps/api/core');
     const followUpWorkingDir = run.worktreePath ?? context.agent.workingDir;
-    const mcpConfig = await agentMcpService.prepareMcpConfig(run.id, run.taskId, followUpWorkingDir);
-    await invoke("agent_run_start", {
+    const mcpConfig = await agentMcpService.prepareMcpConfig(
+      run.id,
+      run.taskId,
+      followUpWorkingDir
+    );
+    await invoke('agent_run_start', {
       runId: run.id,
-      mode: "claude-resume",
+      mode: 'claude-resume',
       prompt: message,
       workingDir: followUpWorkingDir,
       model: context.agent.model || null,
@@ -408,52 +613,152 @@ class AgentRunService {
       mcpConfigPath: mcpConfig,
       permissionPromptTool: permissionPromptToolFor(context.agent, mcpConfig),
       ...this.spawnPolicyParams(context.agent),
-      modelRouting: "fixed",
+      modelRouting: 'fixed',
       taskPriority: null,
       taskTimeEstimateMin: null,
     });
   }
 
-  /** Merge the run's worktree branch into the repo and remove the worktree. */
-  async mergeWorktree(run: AgentRun): Promise<void> {
+  /**
+   * Commit stage: runs the TRANSACTIONAL merge pipeline (verify gate →
+   * repo-locked --no-ff merge with pre-merge SHA capture and rollback →
+   * worktree prune). Failures are dead-lettered by the pipeline; the thrown
+   * error keeps the card in Completed.
+   */
+  async mergeWorktree(run: AgentRun, options?: { verify?: boolean }): Promise<string> {
     const context = this.runContext.get(run.id);
-    if (!run.worktreePath || !run.gitBranch || !context) {
-      throw new Error("No worktree to merge.");
+    const repoDir = context?.agent.workingDir ?? this.repoDirForRun(run);
+    if (!run.worktreePath || !run.gitBranch || !repoDir) {
+      throw new Error('No worktree to merge.');
     }
-    const { invoke } = await import("@tauri-apps/api/core");
-    const message = await invoke<string>("agent_git_merge_worktree", {
-      repoDir: context.agent.workingDir,
-      worktreePath: run.worktreePath,
-      branch: run.gitBranch,
+    const { mergePipelineService } = await import('./mergePipelineService');
+    const task = context?.task ?? ({ id: run.taskId, title: run.gitBranch } as unknown as Task);
+    const { result } = await mergePipelineService.run({
+      task,
+      run,
+      repoDir,
+      verify: options?.verify ?? context?.agent.devCouncilVerify ?? false,
+      commitMessage: this.worktreeCommitMessage(run),
     });
     run.worktreePath = undefined;
-    this.pushEvent(run, "info", message);
+    this.pushEvent(run, 'info', result.message);
     this.upsert(run);
+    return result.message;
+  }
+
+  /**
+   * Reap worktrees whose runs are gone. Keeps every worktree still referenced
+   * by a live or reviewable run; anything else under `.worktrees/` (crashed
+   * runs, force-quit sessions) is removed along with its branch.
+   */
+  async pruneStaleWorktrees(agents: AgentProfile[]): Promise<void> {
+    if (!isTauri()) return;
+    const keepByRepo = new Map<string, Set<string>>();
+    const repoFor = (run: AgentRun): string | undefined => {
+      const context = this.runContext.get(run.id);
+      return context?.agent.workingDir ?? this.repoDirForRun(run);
+    };
+    for (const run of this.getRuns()) {
+      if (!run.worktreePath) continue;
+      const repo = repoFor(run);
+      if (!repo) continue;
+      if (!keepByRepo.has(repo)) keepByRepo.set(repo, new Set());
+      keepByRepo.get(repo)?.add(run.id);
+    }
+    const repos = new Set<string>([
+      ...keepByRepo.keys(),
+      ...agents.map(a => a.workingDir).filter(Boolean),
+    ]);
+    const { invoke } = await import('@tauri-apps/api/core');
+    for (const repoDir of repos) {
+      try {
+        const reaped = await invoke<number>('agent_git_prune_worktrees', {
+          repoDir,
+          keepRunIds: [...(keepByRepo.get(repoDir) ?? [])],
+        });
+        if (reaped > 0) {
+          console.info(`[agentRunService] pruned ${reaped} stale worktree(s) in ${repoDir}`);
+        }
+      } catch (err) {
+        // Locked repo (merge in flight) or unauthorized dir — skip quietly.
+        console.warn(`[agentRunService] worktree prune skipped for ${repoDir}:`, err);
+      }
+    }
+  }
+
+  /** Commit worktree changes on the run branch without merging (PR flow). */
+  async commitWorktree(run: AgentRun, message?: string): Promise<string> {
+    const context = this.runContext.get(run.id);
+    const repoDir = context?.agent.workingDir ?? this.repoDirForRun(run);
+    if (!run.worktreePath || !repoDir) {
+      throw new Error('No worktree to commit.');
+    }
+    const { invoke } = await import('@tauri-apps/api/core');
+    const result = await invoke<string>('agent_git_commit_worktree', {
+      repoDir,
+      worktreePath: run.worktreePath,
+      message: message ?? this.worktreeCommitMessage(run),
+    });
+    this.pushEvent(run, 'info', result);
+    void this.refreshGitDiff(run);
+    this.upsert(run);
+    return result;
+  }
+
+  /**
+   * Recover the repo root for runs whose in-memory context was lost (e.g.
+   * approved after an app relaunch): worktrees always live under
+   * `<repo>/.worktrees/<runId>`.
+   */
+  private repoDirForRun(run: AgentRun): string | undefined {
+    const wt = run.worktreePath;
+    if (!wt) return undefined;
+    for (const marker of ['/.worktrees/', '\\.worktrees\\']) {
+      const idx = wt.indexOf(marker);
+      if (idx > 0) return wt.slice(0, idx);
+    }
+    return undefined;
+  }
+
+  private worktreeCommitMessage(run: AgentRun): string {
+    const context = this.runContext.get(run.id);
+    const title = context?.task.title ?? 'agent task';
+    const jobId = context?.task.jobId;
+    return `feat(agent): ${jobId ? `${jobId} — ` : ''}${title}`.slice(0, 200);
   }
 
   /** Remove the run's worktree and delete its branch without merging. */
   async discardWorktree(run: AgentRun): Promise<void> {
     const context = this.runContext.get(run.id);
     if (!run.worktreePath || !run.gitBranch || !context) {
-      throw new Error("No worktree to discard.");
+      throw new Error('No worktree to discard.');
     }
-    const { invoke } = await import("@tauri-apps/api/core");
-    await invoke("agent_git_discard_worktree", {
+    const { invoke } = await import('@tauri-apps/api/core');
+    await invoke('agent_git_discard_worktree', {
       repoDir: context.agent.workingDir,
       worktreePath: run.worktreePath,
       branch: run.gitBranch,
     });
+    void taskEventStore.appendSafe([
+      {
+        streamId: run.taskId,
+        type: 'worktree.discarded',
+        payload: { branch: run.gitBranch },
+        actor: 'user',
+        runId: run.id,
+      },
+    ]);
     run.worktreePath = undefined;
-    this.pushEvent(run, "info", `Discarded branch ${run.gitBranch}`);
+    this.pushEvent(run, 'info', `Discarded branch ${run.gitBranch}`);
     this.upsert(run);
   }
 
   /** Reject review — re-run agent with feedback via claude --resume. */
   async rejectWithFeedback(runId: string, feedback: string): Promise<void> {
     const prompt = [
-      "The reviewer rejected your previous work. Address this feedback and update the implementation:",
+      'The reviewer rejected your previous work. Address this feedback and update the implementation:',
       feedback,
-    ].join("\n\n");
+    ].join('\n\n');
     await this.followUp(runId, prompt);
   }
 
@@ -461,10 +766,10 @@ class AgentRunService {
   recordReviewOutcome(
     runId: string,
     data: {
-      outcome: "approved" | "rejected";
+      outcome: 'approved' | 'rejected';
       feedback?: string;
       actualMinutes?: number;
-    },
+    }
   ): void {
     const run = this.runs.get(runId);
     if (!run) return;
@@ -472,7 +777,7 @@ class AgentRunService {
     run.reviewOutcome = data.outcome;
     if (data.feedback?.trim()) {
       run.reviewFeedback = data.feedback.trim();
-      this.pushEvent(run, "info", `Reviewer feedback: ${data.feedback.trim().slice(0, 500)}`);
+      this.pushEvent(run, 'info', `Reviewer feedback: ${data.feedback.trim().slice(0, 500)}`);
     }
     if (data.actualMinutes != null) {
       run.actualMinutes = data.actualMinutes;
@@ -485,11 +790,11 @@ class AgentRunService {
     if (!run.gitBranch) return null;
     const context = this.runContext.get(run.id);
     if (!context) return null;
-    const { invoke } = await import("@tauri-apps/api/core");
-    const result = await invoke<{ url?: string }>("agent_git_create_pr", {
+    const { invoke } = await import('@tauri-apps/api/core');
+    const result = await invoke<{ url?: string }>('agent_git_create_pr', {
       workingDir: context.agent.workingDir,
       title: taskTitle,
-      body: run.summary ?? "Agent teammate run",
+      body: run.summary ?? 'Agent teammate run',
       headBranch: run.gitBranch,
     });
     if (result.url) {
@@ -499,10 +804,42 @@ class AgentRunService {
     return result.url ?? null;
   }
 
+  /**
+   * Choose the skills injected into a run's prompt: captured repo skills plus any
+   * installed skill packs that match the task, relevance-ranked. Degrades to
+   * captured skills alone when the installed-skills sidecar call is unavailable,
+   * so a run is never blocked on skill discovery.
+   */
+  private async selectRunSkills(task: Task, workingDir: string): Promise<AgentSkill[]> {
+    const captured = agentSkillsService.getSkillsForWorkingDir(workingDir);
+    let installed: InstalledSkill[] | undefined;
+    try {
+      installed = await localApi.listSkills();
+    } catch {
+      installed = undefined;
+    }
+    const catalog = mergeSkillCatalog(captured, installed);
+    const ranked = selectSkillsForTask(task, catalog);
+    // Enrich selected installed skills with their real SKILL.md body so the
+    // prompt carries actual guidance, not just the one-line description.
+    const enriched = await Promise.all(
+      ranked.map(async (entry) => {
+        if (entry.origin !== 'installed' || !entry.sourcePath) return entry;
+        try {
+          const body = await localApi.readSkillBody(entry.sourcePath);
+          return body?.trim() ? { ...entry, summary: body.trim() } : entry;
+        } catch {
+          return entry;
+        }
+      }),
+    );
+    return enriched.map(catalogEntryToSkill);
+  }
+
   private async startRun(
     task: Task,
     agent: AgentProfile,
-    options?: { promptOverride?: string; resumeSessionId?: string },
+    options?: { promptOverride?: string; resumeSessionId?: string }
   ): Promise<AgentRun> {
     this.ensureBudgetAllows(agent);
 
@@ -511,11 +848,11 @@ class AgentRunService {
       : resolveAgentModel(agent, task);
 
     // Reuse the queued placeholder if one exists for this task.
-    const existing = this.getRunsForTask(task.id).find((r) => r.status === "queued");
-    const run = existing ?? this.createRun(task, agent, "queued");
-    const council = (agent.runMode ?? "direct") === "council";
+    const existing = this.getRunsForTask(task.id).find(r => r.status === 'queued');
+    const run = existing ?? this.createRun(task, agent, 'queued');
+    const council = (agent.runMode ?? 'direct') === 'council';
 
-    run.status = "running";
+    run.status = 'running';
     run.startedAt = new Date();
     this.activeByAgent.set(agent.id, run.id);
     this.runContext.set(run.id, { task, agent });
@@ -523,59 +860,133 @@ class AgentRunService {
     const pickupNote = council
       ? `Agent "${agent.name}" picked up ${task.jobId || task.id} (DevCouncil pipeline)`
       : `Agent "${agent.name}" picked up ${task.jobId || task.id}`;
-    this.pushEvent(run, "info", pickupNote);
+    this.pushEvent(run, 'info', pickupNote);
     if (resolvedModel && !council) {
       this.pushEvent(
         run,
-        "info",
-        `Model: ${resolvedModel}${(agent.modelRouting ?? "fixed") === "auto" ? " (auto-routed)" : ""}`,
+        'info',
+        `Model: ${resolvedModel}${(agent.modelRouting ?? 'fixed') === 'auto' ? ' (auto-routed)' : ''}`
       );
     }
     this.upsert(run);
     this.hooks.onRunStarted?.(task.id, run);
+    void taskEventStore.appendSafe([
+      {
+        streamId: task.id,
+        type: 'run.started',
+        payload: { agentId: agent.id, agentName: agent.name, provider: agent.provider },
+        actor: 'system',
+        runId: run.id,
+      },
+    ]);
 
     let workingDir = agent.workingDir;
 
     try {
-      const { invoke } = await import("@tauri-apps/api/core");
+      const { invoke } = await import('@tauri-apps/api/core');
       const policy = this.spawnPolicyParams(agent, task);
 
-      if (agent.gitWorktree && !options?.resumeSessionId) {
+      // Concurrent task isolation: every run gets its own worktree/branch by
+      // default (profiles can still opt out with gitWorktree: false). Without
+      // this, parallel agents would contaminate each other on the main
+      // checkout — the exact race the four-stage board exists to prevent.
+      if (agent.gitWorktree !== false && !options?.resumeSessionId) {
         try {
           const wt = await invoke<{ branch: string; worktreePath: string }>(
-            "agent_git_create_worktree",
-            { workingDir: agent.workingDir, runId: run.id, taskTitle: task.title },
+            'agent_git_create_worktree',
+            {
+              workingDir: agent.workingDir,
+              runId: run.id,
+              taskTitle: task.title,
+              taskId: task.id,
+            }
           );
           run.gitBranch = wt.branch;
           run.worktreePath = wt.worktreePath;
           workingDir = wt.worktreePath;
-          this.pushEvent(run, "info", `Git worktree: ${wt.branch}`);
+          this.pushEvent(run, 'info', `Git worktree: ${wt.branch}`);
           this.upsert(run);
+          void taskEventStore.appendSafe([
+            {
+              streamId: task.id,
+              type: 'worktree.provisioned',
+              payload: { branch: wt.branch, worktreePath: wt.worktreePath },
+              actor: 'system',
+              runId: run.id,
+            },
+          ]);
         } catch (err) {
           this.pushEvent(
             run,
-            "info",
-            `Git worktree skipped: ${err instanceof Error ? err.message : String(err)}`,
+            'info',
+            `Git worktree skipped: ${err instanceof Error ? err.message : String(err)}`
           );
         }
       }
 
+      // Context-injection pipeline: keep the DevCouncil repo map fresh in the
+      // background so the next run's prompt orientation isn't stale.
+      devcouncilService.ensureFreshMap(agent.workingDir);
+
+      // Non-claude providers execute through the liquitask-agentd sidecar
+      // (Multica's ported Backend interface). Council mode is excluded — the
+      // DevCouncil pipeline drives its own executor and stays on the legacy
+      // runner regardless of provider.
+      if (this.usesAgentd(agent)) {
+        run.engine = 'agentd';
+        const agentdSkills = await this.selectRunSkills(task, agent.workingDir);
+        const agentdPrompt =
+          options?.promptOverride ??
+          withRepoFileIndex(
+            withRepoContext(
+              isNativeBackend()
+                ? await nativeBuildTaskPrompt(task, agentdSkills)
+                : buildTaskPrompt(task, agentdSkills),
+              await devcouncilService.getRepoMapContext(agent.workingDir)
+            ),
+            await devcouncilService.getRepoFiles(agent.workingDir)
+          );
+        const sidecarId = await localApi.runStart({
+          taskId: task.id,
+          runtime: providerToRuntime(agent.provider),
+          prompt: agentdPrompt,
+          cwd: workingDir,
+          model: resolvedModel,
+          resumeSessionId: options?.resumeSessionId,
+          mcpConfig: await this.buildAgentdMcpConfig(run.id, task.id, workingDir),
+        });
+        if (!sidecarId) {
+          throw new Error('agentd did not return a run id (is the sidecar running?)');
+        }
+        run.agentdRunId = sidecarId;
+        this.agentdIdMap.set(sidecarId, run.id);
+        this.pushEvent(run, 'info', `Dispatched to ${agent.provider} via agentd`);
+        this.upsert(run);
+        return run;
+      }
+
       const mcpConfig = await agentMcpService.prepareMcpConfig(run.id, task.id, workingDir);
       const permissionPromptTool = permissionPromptToolFor(agent, mcpConfig);
-      const skills = agentSkillsService.getSkillsForWorkingDir(agent.workingDir);
+      const skills = await this.selectRunSkills(task, agent.workingDir);
       const taskPrompt =
         options?.promptOverride ??
-        (isNativeBackend()
-          ? await nativeBuildTaskPrompt(task, skills)
-          : buildTaskPrompt(task, skills));
+        withRepoFileIndex(
+          withRepoContext(
+            isNativeBackend()
+              ? await nativeBuildTaskPrompt(task, skills)
+              : buildTaskPrompt(task, skills),
+            await devcouncilService.getRepoMapContext(agent.workingDir)
+          ),
+          await devcouncilService.getRepoFiles(agent.workingDir)
+        );
       const councilGoal = isNativeBackend()
         ? await nativeBuildCouncilGoal(task)
         : buildCouncilGoal(task);
 
       if (council) {
-        await invoke("agent_run_start", {
+        await invoke('agent_run_start', {
           runId: run.id,
-          mode: "devcouncil-e2e",
+          mode: 'devcouncil-e2e',
           prompt: councilGoal,
           workingDir,
           model: null,
@@ -588,9 +999,9 @@ class AgentRunService {
           ...policy,
         });
       } else if (options?.resumeSessionId) {
-        await invoke("agent_run_start", {
+        await invoke('agent_run_start', {
           runId: run.id,
-          mode: "claude-resume",
+          mode: 'claude-resume',
           prompt: options.promptOverride ?? taskPrompt,
           workingDir,
           model: resolvedModel ?? null,
@@ -601,18 +1012,18 @@ class AgentRunService {
           mcpConfigPath: mcpConfig,
           permissionPromptTool,
           ...policy,
-          modelRouting: "fixed",
+          modelRouting: 'fixed',
           taskPriority: null,
           taskTimeEstimateMin: null,
         });
       } else {
-        await invoke("agent_run_start", {
+        await invoke('agent_run_start', {
           runId: run.id,
-          mode: agent.sandbox === "container" ? "claude-container" : "claude",
+          mode: agent.sandbox === 'container' ? 'claude-container' : 'claude',
           prompt: taskPrompt,
           workingDir,
           model: resolvedModel ?? null,
-          permissionMode: agent.sandbox === "container" ? null : agent.permissionMode,
+          permissionMode: agent.sandbox === 'container' ? null : agent.permissionMode,
           maxTurns: agent.maxTurns ?? null,
           containerImage: agent.containerImage || null,
           sessionId: null,
@@ -622,7 +1033,7 @@ class AgentRunService {
         });
       }
     } catch (err) {
-      this.finishRun(run, "failed", err instanceof Error ? err.message : String(err));
+      this.finishRun(run, 'failed', err instanceof Error ? err.message : String(err));
     }
     return run;
   }
@@ -635,18 +1046,18 @@ class AgentRunService {
     const run = this.runs.get(payload.runId);
     if (!run) return;
 
-    if (payload.stream === "stderr" && payload.line) {
-      this.pushEvent(run, "stderr", payload.line);
+    if (payload.stream === 'stderr' && payload.line) {
+      this.pushEvent(run, 'stderr', payload.line);
       this.upsert(run);
       return;
     }
 
-    if (payload.stream === "stdout" && payload.line) {
-      if (run.status === "verifying") {
+    if (payload.stream === 'stdout' && payload.line) {
+      if (run.status === 'verifying') {
         this.appendBuffer(this.verifyBuffers, run.id, payload.line);
       } else if (this.councilBuffers.has(run.id)) {
         this.appendBuffer(this.councilBuffers, run.id, payload.line);
-        this.pushEvent(run, "info", payload.line.slice(0, 400));
+        this.pushEvent(run, 'info', payload.line.slice(0, 400));
       } else {
         void this.consumeClaudeStreamLine(run, payload.line).finally(() => this.upsert(run));
         return;
@@ -655,9 +1066,139 @@ class AgentRunService {
       return;
     }
 
-    if (payload.stream === "exit") {
+    if (payload.stream === 'exit') {
       void this.handleExit(run, payload.code ?? -1);
     }
+  }
+
+  /** True when this profile's runs execute via the liquitask-agentd sidecar. */
+  private usesAgentd(agent: AgentProfile): boolean {
+    return (
+      FEATURE_FLAGS.AGENTD_SIDECAR_ENABLED &&
+      agent.provider !== 'claude-code' &&
+      (agent.runMode ?? 'direct') !== 'council'
+    );
+  }
+
+  /**
+   * True when `workingDir` is a DevCouncil-initialised project. Probes for
+   * `.devcouncil/config.yaml` — the same file AgentSettings' preflight checks —
+   * through the existing `workspace_read_file` command, so no new Rust surface
+   * is needed. Any failure (missing file, unauthorised dir) means "not enabled".
+   */
+  private isDevCouncilDir(workingDir: string): Promise<boolean> {
+    let probe = this.devcouncilDirCache.get(workingDir);
+    if (!probe) {
+      probe = (async () => {
+        try {
+          const { invoke } = await import('@tauri-apps/api/core');
+          await invoke<string>('workspace_read_file', {
+            filePath: `${workingDir}/.devcouncil/config.yaml`,
+            scopePaths: [workingDir],
+          });
+          return true;
+        } catch {
+          return false;
+        }
+      })();
+      this.devcouncilDirCache.set(workingDir, probe);
+    }
+    return probe;
+  }
+
+  /**
+   * MCP config JSON injected into agentd runs: the LiquiTask board bridge
+   * (get_task / update_status / complete_task / post_comment / …) for every
+   * runtime — this is how agents report progress from in-progress to
+   * completed on the board — plus DevCouncil's MCP server (Rework Plan §3.4
+   * item 5) when the working dir is DevCouncil-initialised. The sidecar's
+   * execenv renders this into each runtime's native MCP config format.
+   */
+  private async buildAgentdMcpConfig(
+    runId: string,
+    taskId: string,
+    workingDir: string
+  ): Promise<string | undefined> {
+    const devcouncilDir =
+      workingDir && (await this.isDevCouncilDir(workingDir)) ? workingDir : undefined;
+    return agentMcpService.prepareAgentdMcpConfig(runId, taskId, devcouncilDir);
+  }
+
+  /**
+   * Consume one sidecar `run.events` notification. Kind mapping into the
+   * legacy AgentRunEventKind vocabulary keeps every downstream consumer
+   * (RunView transcript, inbox derivation, persistence) engine-agnostic.
+   */
+  private handleAgentdEvent(payload: AgentdRunEvent): void {
+    const localId = this.agentdIdMap.get(payload.runId);
+    const run = localId ? this.runs.get(localId) : undefined;
+    if (!run) return;
+
+    switch (payload.kind) {
+      case 'message':
+        if (payload.text) this.pushEvent(run, 'assistant', payload.text);
+        break;
+      case 'thinking':
+        if (payload.text) this.pushEvent(run, 'info', `Thinking: ${payload.text.slice(0, 300)}`);
+        break;
+      case 'tool_use': {
+        const input = payload.input ? JSON.stringify(payload.input) : '';
+        this.pushEvent(run, 'tool', `${payload.tool ?? 'tool'}(${input.slice(0, 300)})`);
+        break;
+      }
+      case 'tool_result':
+        if (payload.output) {
+          this.pushEvent(run, 'tool', `→ ${payload.output.slice(0, 300)}`);
+        }
+        break;
+      case 'status':
+      case 'log':
+        if (payload.text) this.pushEvent(run, 'info', payload.text);
+        break;
+      case 'permission_request':
+        // Surface through the same pending-permission store the MCP bridge
+        // uses, so RunView/Inbox render agentd prompts identically. The
+        // response is routed back over JSON-RPC instead of the file bridge.
+        agentMcpService.registerAgentdPermission({
+          runId: run.id,
+          taskId: run.taskId,
+          requestId: payload.callId ?? `${payload.runId}-${Date.now()}`,
+          agentdRunId: payload.runId,
+          toolName: payload.tool ?? 'unknown',
+          input: payload.input ?? {},
+        });
+        this.pushEvent(run, 'info', `Permission requested: ${payload.tool ?? 'unknown'}`);
+        break;
+      case 'error':
+        run.error = payload.error ?? payload.text ?? 'agentd reported an error';
+        this.pushEvent(run, 'stderr', run.error);
+        break;
+      case 'result': {
+        if (payload.sessionId) run.sessionId = payload.sessionId;
+        if (payload.text && !run.summary) run.summary = payload.text.slice(0, 2000);
+        const failed = payload.status !== 'completed' || Boolean(run.error ?? payload.error);
+        if (payload.error && !run.error) run.error = payload.error;
+        const context = this.runContext.get(run.id);
+        if (payload.status === 'cancelled') {
+          run.status = 'cancelled';
+          run.finishedAt = new Date();
+          run.isPaused = false;
+          this.upsert(run);
+          this.releaseAgent(run);
+        } else if (!failed && context?.agent.devCouncilVerify) {
+          // Same post-run DevCouncil gate the legacy exit path applies.
+          void this.startVerification(run, context.agent);
+        } else {
+          this.finishRun(
+            run,
+            failed ? 'failed' : 'completed',
+            failed ? (run.error ?? `agentd run ${payload.status ?? 'failed'}`) : undefined
+          );
+        }
+        break;
+      }
+    }
+    this.upsert(run);
   }
 
   // -------------------------------------------------------------------------
@@ -683,7 +1224,7 @@ class AgentRunService {
       run.numTurns = parsed.result.numTurns;
       run.costUsd = parsed.result.costUsd;
       if (parsed.result.isError) {
-        run.error = parsed.result.summary ?? "Claude Code reported an error result";
+        run.error = parsed.result.summary ?? 'Claude Code reported an error result';
       }
     }
   }
@@ -700,7 +1241,7 @@ class AgentRunService {
   }
 
   private async handleExit(run: AgentRun, code: number): Promise<void> {
-    if (run.status === "cancelled") {
+    if (run.status === 'cancelled') {
       this.councilBuffers.delete(run.id);
       this.verifyBuffers.delete(run.id);
       this.releaseAgent(run);
@@ -708,8 +1249,8 @@ class AgentRunService {
     }
 
     // DevCouncil verify gate finished.
-    if (run.status === "verifying") {
-      const raw = (this.verifyBuffers.get(run.id) ?? []).join("\n");
+    if (run.status === 'verifying') {
+      const raw = (this.verifyBuffers.get(run.id) ?? []).join('\n');
       this.verifyBuffers.delete(run.id);
       const verdict = await this.parseCouncilVerdict(raw);
       run.verification = {
@@ -719,18 +1260,18 @@ class AgentRunService {
       };
       this.pushEvent(
         run,
-        "verify",
+        'verify',
         verdict.passed
-          ? "DevCouncil gate passed — no blocking gaps."
-          : `DevCouncil gate found ${verdict.blockingGaps.length} blocking gap(s).`,
+          ? 'DevCouncil gate passed — no blocking gaps.'
+          : `DevCouncil gate found ${verdict.blockingGaps.length} blocking gap(s).`
       );
-      this.finishRun(run, verdict.passed && !run.error ? "completed" : "failed", run.error);
+      this.finishRun(run, verdict.passed && !run.error ? 'completed' : 'failed', run.error);
       return;
     }
 
     // Full council pipeline finished.
     if (this.councilBuffers.has(run.id)) {
-      const raw = (this.councilBuffers.get(run.id) ?? []).join("\n");
+      const raw = (this.councilBuffers.get(run.id) ?? []).join('\n');
       this.councilBuffers.delete(run.id);
       const verdict = await this.parseCouncilVerdict(raw);
       run.verification = {
@@ -742,15 +1283,15 @@ class AgentRunService {
       const passed = code === 0 && verdict.passed;
       this.pushEvent(
         run,
-        "verify",
+        'verify',
         passed
-          ? "DevCouncil pipeline completed with all gates passing."
-          : `DevCouncil pipeline ended with ${verdict.blockingGaps.length} blocking gap(s) (exit ${code}).`,
+          ? 'DevCouncil pipeline completed with all gates passing.'
+          : `DevCouncil pipeline ended with ${verdict.blockingGaps.length} blocking gap(s) (exit ${code}).`
       );
       this.finishRun(
         run,
-        passed ? "completed" : "failed",
-        passed ? undefined : (run.error ?? "DevCouncil pipeline did not pass"),
+        passed ? 'completed' : 'failed',
+        passed ? undefined : (run.error ?? 'DevCouncil pipeline did not pass')
       );
       return;
     }
@@ -765,25 +1306,25 @@ class AgentRunService {
 
     this.finishRun(
       run,
-      failed ? "failed" : "completed",
-      failed ? (run.error ?? `Process exited with code ${code}`) : undefined,
+      failed ? 'failed' : 'completed',
+      failed ? (run.error ?? `Process exited with code ${code}`) : undefined
     );
   }
 
   private async startVerification(run: AgentRun, agent: AgentProfile): Promise<void> {
-    run.status = "verifying";
+    run.status = 'verifying';
     this.verifyBuffers.set(run.id, []);
-    this.pushEvent(run, "verify", "Running DevCouncil verification gate (dev check --verify)…");
+    this.pushEvent(run, 'verify', 'Running DevCouncil verification gate (dev check --verify)…');
     this.upsert(run);
 
     try {
-      const { invoke } = await import("@tauri-apps/api/core");
+      const { invoke } = await import('@tauri-apps/api/core');
       const context = this.runContext.get(run.id);
       const verifyDir = run.worktreePath ?? context?.agent.workingDir ?? agent.workingDir;
-      await invoke("agent_run_start", {
+      await invoke('agent_run_start', {
         runId: run.id,
-        mode: "devcouncil-verify",
-        prompt: "verify",
+        mode: 'devcouncil-verify',
+        prompt: 'verify',
         workingDir: verifyDir,
         model: null,
         permissionMode: null,
@@ -797,10 +1338,10 @@ class AgentRunService {
       // DevCouncil unavailable — degrade gracefully, don't fail the run.
       this.pushEvent(
         run,
-        "verify",
-        `DevCouncil gate skipped: ${err instanceof Error ? err.message : String(err)}`,
+        'verify',
+        `DevCouncil gate skipped: ${err instanceof Error ? err.message : String(err)}`
       );
-      this.finishRun(run, run.error ? "failed" : "completed", run.error);
+      this.finishRun(run, run.error ? 'failed' : 'completed', run.error);
     }
   }
 
@@ -811,7 +1352,7 @@ class AgentRunService {
       maxRunsPerDay: agent.maxRunsPerDay ?? null,
       todaySpendUsd: stats.spendUsd,
       todayRunCount: stats.runCount,
-      modelRouting: agent.modelRouting ?? "fixed",
+      modelRouting: agent.modelRouting ?? 'fixed',
       taskPriority: task?.priority ?? null,
       taskTimeEstimateMin: task?.timeEstimate ?? null,
       profileModel: agent.model ?? null,
@@ -824,7 +1365,7 @@ class AgentRunService {
     if (blocked) throw new Error(blocked);
   }
 
-  private createRun(task: Task, agent: AgentProfile, status: AgentRun["status"]): AgentRun {
+  private createRun(task: Task, agent: AgentProfile, status: AgentRun['status']): AgentRun {
     const run: AgentRun = {
       id: `run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       taskId: task.id,
@@ -838,7 +1379,7 @@ class AgentRunService {
     return run;
   }
 
-  private finishRun(run: AgentRun, status: AgentRun["status"], error?: string): void {
+  private finishRun(run: AgentRun, status: AgentRun['status'], error?: string): void {
     run.status = status;
     run.error = error;
     run.isPaused = false;
@@ -847,11 +1388,26 @@ class AgentRunService {
     void this.refreshGitDiff(run);
     this.upsert(run);
     this.releaseAgent(run);
+    void taskEventStore.appendSafe([
+      {
+        streamId: run.taskId,
+        type: 'run.finished',
+        payload: {
+          status,
+          error: error?.slice(0, 500),
+          costUsd: run.costUsd,
+          numTurns: run.numTurns,
+          verificationPassed: run.verification?.passed,
+        },
+        actor: 'system',
+        runId: run.id,
+      },
+    ]);
 
     const context = this.runContext.get(run.id);
     if (context) {
       // Compound a skill from every successful run (fire-and-forget).
-      if (status === "completed") {
+      if (status === 'completed') {
         void agentSkillsService.captureFromRun(run, context.task, context.agent.workingDir);
       }
       this.hooks.onRunFinished?.(context.task.id, run);
@@ -861,8 +1417,8 @@ class AgentRunService {
   private async refreshGitDiff(run: AgentRun): Promise<void> {
     if (!run.worktreePath || !isTauri()) return;
     try {
-      const { invoke } = await import("@tauri-apps/api/core");
-      const diff = await invoke<{ diff: string }>("agent_git_diff", {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const diff = await invoke<{ diff: string }>('agent_git_diff', {
         workingDir: run.worktreePath,
         baseRef: null,
       });
@@ -881,7 +1437,7 @@ class AgentRunService {
     const [agentId] = context;
     this.activeByAgent.delete(agentId);
 
-    const nextIndex = this.queue.findIndex((q) => q.agent.id === agentId);
+    const nextIndex = this.queue.findIndex(q => q.agent.id === agentId);
     if (nextIndex >= 0) {
       const [next] = this.queue.splice(nextIndex, 1);
       void this.startRun(next.task, next.agent);
@@ -904,13 +1460,15 @@ class AgentRunService {
 
   private notify(): void {
     const snapshot = this.getRuns();
-    this.listeners.forEach((l) => l(snapshot));
+    this.listeners.forEach(l => {
+      l(snapshot);
+    });
     if (isTauri()) {
       const active = snapshot.filter(
-        (r) => r.status === "queued" || r.status === "running" || r.status === "verifying",
+        r => r.status === 'queued' || r.status === 'running' || r.status === 'verifying'
       ).length;
-      void import("@tauri-apps/api/core")
-        .then(({ invoke }) => invoke("tray_update_active_runs", { count: active }))
+      void import('@tauri-apps/api/core')
+        .then(({ invoke }) => invoke('tray_update_active_runs', { count: active }))
         .catch(() => {});
     }
   }
@@ -930,7 +1488,7 @@ class AgentRunService {
       createdAt: new Date(raw.createdAt),
       startedAt: raw.startedAt ? new Date(raw.startedAt) : undefined,
       finishedAt: raw.finishedAt ? new Date(raw.finishedAt) : undefined,
-      events: (raw.events ?? []).map((e) => ({ ...e, ts: new Date(e.ts) })),
+      events: (raw.events ?? []).map(e => ({ ...e, ts: new Date(e.ts) })),
     };
   }
 }

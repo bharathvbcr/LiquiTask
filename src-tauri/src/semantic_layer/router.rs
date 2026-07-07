@@ -8,9 +8,7 @@ use super::config::{ModelTier, SemanticLayerConfig};
 pub struct RouteDecision {
     pub tier: ModelTier,
     pub model_name: String,
-    pub complexity_score: f32,
     pub intent: String,
-    pub reasoning: String,
 }
 
 pub struct SemanticRouter {
@@ -116,28 +114,25 @@ impl SemanticRouter {
         let intent = self.classify_intent(prompt);
         let score = self.complexity_score(prompt);
 
-        let (mut tier, mut reason) = if force_large {
-            (ModelTier::Large, format!("OOD bump; base complexity ({score:.2})"))
+        let mut tier = if force_large {
+            ModelTier::Large
         } else if score < self.config.complexity_threshold * 0.5 {
-            (ModelTier::Small, format!("low complexity ({score:.2})"))
+            ModelTier::Small
         } else if score < self.config.complexity_threshold {
-            (ModelTier::Medium, format!("medium complexity ({score:.2})"))
+            ModelTier::Medium
         } else {
-            (ModelTier::Large, format!("high complexity ({score:.2})"))
+            ModelTier::Large
         };
 
         if intent == "reasoning" && tier == ModelTier::Small {
             tier = ModelTier::Medium;
-            reason.push_str("; reasoning intent bump");
         }
 
         let model_name = self.config.model_for_tier(tier);
         RouteDecision {
             tier,
             model_name,
-            complexity_score: score,
             intent,
-            reasoning: reason,
         }
     }
 }

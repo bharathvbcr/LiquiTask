@@ -1,6 +1,8 @@
 //! Recurring task date calculations (ported from recurringTaskService.ts).
 
-use chrono::{Datelike, Duration, NaiveDate, TimeZone, Timelike, Utc};
+#[cfg(test)]
+use chrono::TimeZone;
+use chrono::{Datelike, Duration, NaiveDate, Timelike, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize)]

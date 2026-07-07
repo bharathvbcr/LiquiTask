@@ -1,10 +1,10 @@
 import type { BoardColumn } from "../../types";
 import { COLUMN_STATUS } from "../constants";
 
-/** First non-completed column, or the first column, or the default pending status. */
+/** First non-completed column, or the first column, or the default Task status. */
 export function getBacklogColumnId(columns: BoardColumn[]): string {
   const backlog = columns.find((c) => !c.isCompleted);
-  return backlog?.id ?? columns[0]?.id ?? COLUMN_STATUS.PENDING;
+  return backlog?.id ?? columns[0]?.id ?? COLUMN_STATUS.TASK;
 }
 
 /** Column ids marked as completed (tasks here should not trigger due/overdue alerts). */

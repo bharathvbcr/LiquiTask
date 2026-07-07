@@ -24,8 +24,8 @@ describe("taskUtils", () => {
       expect(getBacklogColumnId(columns)).toBe("Done");
     });
 
-    it("falls back to Pending when columns are empty", () => {
-      expect(getBacklogColumnId([])).toBe("Pending");
+    it("falls back to Task when columns are empty", () => {
+      expect(getBacklogColumnId([])).toBe("Task");
     });
   });
 

@@ -1,4 +1,5 @@
 import type { AgentRun, Task } from "../../../types";
+import agentRunService from "./agentRunService";
 
 export interface EstimateCalibration {
   sampleCount: number;
@@ -15,7 +16,7 @@ export interface EstimateSuggestion {
   calibration?: EstimateCalibration;
 }
 
-function runDurationMinutes(run: AgentRun): number | null {
+export function runDurationMinutes(run: AgentRun): number | null {
   if (!run.startedAt || !run.finishedAt) return null;
   const ms = run.finishedAt.getTime() - run.startedAt.getTime();
   if (ms <= 0) return null;
@@ -26,7 +27,7 @@ function median(nums: number[]): number {
   if (!nums.length) return 0;
   const sorted = [...nums].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[mid]! : Math.round((sorted[mid - 1]! + sorted[mid]!) / 2);
+  return sorted.length % 2 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
 }
 
 /** Compare task estimates against finished agent run durations. */
@@ -159,4 +160,22 @@ export function formatEstimateHint(
     return `Estimate aligns with agent history (~${suggestion.minutes}m)`;
   }
   return `Agents typically take ~${suggestion.minutes}m — ${suggestion.reason.toLowerCase()}`;
+}
+
+export interface RunOutcomeRecord {
+  outcome: "approved" | "rejected";
+  feedback?: string;
+}
+
+/**
+ * Persist a human review outcome on the agent run so estimate learning can read it.
+ * Call on approve (records actual duration) and reject (records feedback).
+ */
+export function recordRunOutcome(run: AgentRun, record: RunOutcomeRecord): void {
+  const actualMinutes = runDurationMinutes(run) ?? undefined;
+  agentRunService.recordReviewOutcome(run.id, {
+    outcome: record.outcome,
+    feedback: record.feedback,
+    actualMinutes: record.outcome === "approved" ? actualMinutes : undefined,
+  });
 }

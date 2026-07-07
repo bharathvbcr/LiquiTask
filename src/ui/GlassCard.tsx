@@ -1,21 +1,51 @@
-import type React from "react";
+import React from "react";
+import { mergeDivRefs, useLiquidBlobPhysics } from "../hooks/useLiquidBlobPhysics";
+import { LiquidCardBlob } from "./LiquidCardBlob";
 
-import { GlassPanel } from "./GlassPanel";
-
-export interface GlassCardProps {
+export interface GlassCardProps extends React.HTMLAttributes<HTMLDivElement> {
   children?: React.ReactNode;
-  className?: string;
 }
 
-/** Padded, rounded glass card for list items — task cards, run cards, roster rows. */
-export const GlassCard: React.FC<GlassCardProps> = ({ children, className = "" }) => {
-  return (
-    <GlassPanel
-      className={`rounded-xl bg-white/5 border-white/5 shadow-none p-2.5 space-y-2 hover:bg-white/[0.07] transition-colors ${className}`}
-    >
-      {children}
-    </GlassPanel>
-  );
-};
+/**
+ * Interactive glass card — the app's `.liquid-card`. Lifts and gains a red
+ * edge glow on hover. Used for Kanban task cards and other primary list items.
+ */
+export const GlassCard = React.forwardRef<HTMLDivElement, GlassCardProps>(
+  ({ children, className = "", onPointerEnter, onPointerMove, onPointerLeave, onPointerDown, onPointerUp, ...props }, ref) => {
+    const blob = useLiquidBlobPhysics();
+
+    return (
+      <div
+        ref={mergeDivRefs(ref, blob.setRootRef)}
+        className={`liquid-card rounded-[2rem] border border-white/5 ${className}`}
+        onPointerEnter={(event) => {
+          blob.onPointerEnter(event);
+          onPointerEnter?.(event);
+        }}
+        onPointerMove={(event) => {
+          blob.onPointerMove(event);
+          onPointerMove?.(event);
+        }}
+        onPointerLeave={(event) => {
+          blob.onPointerLeave();
+          onPointerLeave?.(event);
+        }}
+        onPointerDown={(event) => {
+          blob.onPointerDown(event);
+          onPointerDown?.(event);
+        }}
+        onPointerUp={(event) => {
+          blob.onPointerUp(event);
+          onPointerUp?.(event);
+        }}
+        {...props}
+      >
+        <LiquidCardBlob />
+        <div className="relative z-[1]">{children}</div>
+      </div>
+    );
+  },
+);
+GlassCard.displayName = "GlassCard";
 
 export default GlassCard;

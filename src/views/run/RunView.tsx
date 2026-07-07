@@ -17,7 +17,7 @@ import { useEffect, useRef, useState } from "react";
 import { COLUMN_STATUS } from "../../constants";
 import { describePermissionInput } from "../../services/agents/agentMcpService";
 import type { AgentPermissionRequest } from "../../services/agents/agentMcpService";
-import { ApprovalCard, GlassPanel, StatusPill, StreamText } from "../../ui";
+import { ApprovalCard, DiffView, GlassPanel, StatusPill, StreamText, ToolTimeline } from "../../ui";
 import type { AgentProfile, AgentRun, Task } from "../../../types";
 
 export interface RunViewProps {
@@ -98,15 +98,11 @@ const Transcript: React.FC<{ run: AgentRun }> = ({ run }) => {
           )}
         </div>
       )}
-      {run.gitDiff && (
-        <pre className="text-slate-500 whitespace-pre-wrap mb-1.5 border-b border-white/5 pb-1.5">
-          {run.gitDiff.slice(0, 4000)}
-        </pre>
-      )}
       {run.events.map((event, index) => {
         const isLast = index === run.events.length - 1;
         return (
           <div
+            // biome-ignore lint/suspicious/noArrayIndexKey: events are append-only and never reordered, so index is a stable identity
             key={`${run.id}-${event.ts.getTime()}-${index}`}
             className={EVENT_COLORS[event.kind] ?? "text-slate-400"}
           >
@@ -226,12 +222,13 @@ export const RunView: React.FC<RunViewProps> = ({
   if (!run || !isOpen) return null;
 
   const active = isRunActive(run);
-  const inReview = task?.status === COLUMN_STATUS.REVIEW;
+  const inReview = task?.status === COLUMN_STATUS.COMPLETED;
   const showReview = !active && inReview && run.status === "completed" && task && onApprove && onReject;
   const showWorktreeActions =
     !active && run.worktreePath && run.gitBranch && (onMergeWorktree || onDiscardWorktree);
   const canFollowUp = !active && !!run.sessionId && !!onFollowUp;
   const canInjectGuidance = active && !!onInjectGuidance;
+  const hasToolEvents = run.events.some((event) => event.kind === "tool");
   const runPermissionRequests = permissionRequests.filter((p) => p.runId === run.id);
 
   const submitGuidance = () => {
@@ -287,6 +284,24 @@ export const RunView: React.FC<RunViewProps> = ({
         <div className="flex-1 min-h-0 flex flex-col gap-3 px-5 py-4 overflow-hidden">
           <Transcript run={run} />
 
+          {hasToolEvents && (
+            <div className="shrink-0 max-h-44 overflow-y-auto custom-scrollbar rounded-xl bg-black/30 border border-white/5 p-3">
+              <div className="text-[11px] uppercase tracking-wider text-slate-500 mb-2">
+                Timeline
+              </div>
+              <ToolTimeline events={run.events} />
+            </div>
+          )}
+
+          {run.gitDiff && (
+            <div className="shrink-0 max-h-56 overflow-y-auto custom-scrollbar">
+              <div className="text-[11px] uppercase tracking-wider text-slate-500 mb-1.5">
+                Diff
+              </div>
+              <DiffView diff={run.gitDiff} />
+            </div>
+          )}
+
           {runPermissionRequests.length > 0 && (
             <PermissionPrompts
               runId={run.id}
@@ -313,8 +328,13 @@ export const RunView: React.FC<RunViewProps> = ({
                   type="button"
                   onClick={() => onApprove?.(task, run)}
                   className="flex-1 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[12px] font-medium hover:bg-emerald-500/20 transition-colors"
+                  title={
+                    run.gitBranch
+                      ? `Commit & merge ${run.gitBranch}, then move the card to Commit`
+                      : "Approve and move the card to Commit"
+                  }
                 >
-                  Approve
+                  {run.gitBranch ? "Commit & merge" : "Approve"}
                 </button>
                 <button
                   type="button"
@@ -363,7 +383,7 @@ export const RunView: React.FC<RunViewProps> = ({
                   onClick={() => onMergeWorktree(run)}
                   className="flex-1 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[12px] font-medium flex items-center justify-center gap-1.5 hover:bg-emerald-500/20 transition-colors"
                 >
-                  <GitMerge size={12} /> Merge
+                  <GitMerge size={12} /> Commit &amp; merge
                 </button>
               )}
               {onDiscardWorktree && (

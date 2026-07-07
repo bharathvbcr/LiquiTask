@@ -25,6 +25,8 @@ pub struct AutomationRuleInput {
     pub id: String,
     #[serde(default = "default_true")]
     pub enabled: bool,
+    /// Unused until condition evaluation moves from TS into Rust.
+    #[allow(dead_code)]
     pub trigger: String,
     #[serde(default)]
     pub actions: Vec<AutomationActionInput>,
@@ -37,11 +39,17 @@ fn default_true() -> bool {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TaskSnapshot {
+    /// Unused until condition evaluation moves from TS into Rust.
+    #[allow(dead_code)]
     pub id: String,
     #[serde(default)]
     pub tags: Vec<String>,
+    /// Unused until condition evaluation moves from TS into Rust.
+    #[allow(dead_code)]
     #[serde(default)]
     pub status: String,
+    /// Unused until condition evaluation moves from TS into Rust.
+    #[allow(dead_code)]
     #[serde(default)]
     pub priority: String,
 }
@@ -49,6 +57,8 @@ pub struct TaskSnapshot {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProcessAutomationRequest {
+    /// Unused until condition evaluation moves from TS into Rust.
+    #[allow(dead_code)]
     pub event: String,
     pub task: TaskSnapshot,
     pub rules: Vec<AutomationRuleInput>,

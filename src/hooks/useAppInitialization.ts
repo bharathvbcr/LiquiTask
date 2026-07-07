@@ -12,7 +12,14 @@ import type {
   TaskTemplate,
   ToastType,
 } from "../../types";
-import { COLUMN_STATUS, STORAGE_KEYS } from "../constants";
+import {
+  COLUMN_STATUS,
+  DEFAULT_COLUMNS,
+  LEGACY_COLUMN_MIGRATION,
+  STORAGE_KEYS,
+} from "../constants";
+import taskEventStore from "../core/events/taskEventStore";
+import { migrateColumnsToAgenticBoard } from "../migrations/agenticBoard";
 import { archiveService, loadArchiveSettings } from "../services/archiveService";
 import { bootstrapEncryptionAtRest, isEncryptedStorageAccessible } from "../services/encryptionSetup";
 import type { AutomationRule, AutomationTrigger, TaskContext } from "../services/automationService";
@@ -168,6 +175,7 @@ export const useAppInitialization = ({
   columnsRef.current = columns;
   const prevReminderTaskIdsRef = useRef<Set<string>>(new Set());
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: encryptionEpoch is an intentional reload-on-unlock trigger, not read in the body
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -212,8 +220,13 @@ export const useAppInitialization = ({
 
       const data = storageService.getAllData();
 
-      if (data.columns) {
-        const cols = ensureReviewColumn(data.columns);
+      // Defense-in-depth: data imported from older exports can bypass the
+      // versioned migration — remap legacy statuses before rendering.
+      const normalized = normalizeAgenticBoardData(data.columns, data.tasks);
+      if (normalized.tasksChanged && normalized.tasks) data.tasks = normalized.tasks;
+
+      if (normalized.columns) {
+        const cols = ensureAgenticColumns(normalized.columns);
         setColumns(cols);
         if (indexedDBService.isAvailable())
           indexedDBService.saveColumns(cols).catch(console.error);
@@ -237,8 +250,19 @@ export const useAppInitialization = ({
           );
       }
       const serviceImports: Promise<void>[] = [];
-      if (data.tasks) {
-        const loadedTasks = data.tasks;
+      // Event-sourced boot: replay the task event log (source of truth).
+      // The legacy snapshot only seeds a one-time genesis import, or serves
+      // as a degraded fallback when the log is unavailable.
+      const legacySnapshot = data.tasks ?? [];
+      const boot = await taskEventStore.initialize(legacySnapshot);
+      const rebuilt = normalizeAgenticBoardData(undefined, boot.tasks);
+      const loadedTasks = rebuilt.tasksChanged && rebuilt.tasks ? rebuilt.tasks : boot.tasks;
+      if (boot.source !== "genesis") {
+        console.info(
+          `[Boot] task state rebuilt from ${boot.source} (${loadedTasks.length} task(s))`,
+        );
+      }
+      if (loadedTasks.length > 0 || legacySnapshot.length > 0) {
         setTasks(loadedTasks);
         serviceImports.push(
           import("../services/searchIndexService").then(({ searchIndexService }) => {
@@ -246,6 +270,7 @@ export const useAppInitialization = ({
             searchIndexService.buildIndex(loadedTasks);
           })
         );
+        // Keep the derived read models converged on the replayed state.
         if (indexedDBService.isAvailable())
           indexedDBService.saveTasks(loadedTasks).catch(console.error);
       }
@@ -441,18 +466,55 @@ export const useAppInitialization = ({
   }, []);
 };
 
-/** Ensure the Review column exists for agent approval workflow (idempotent). */
-function ensureReviewColumn(columns: BoardColumn[]): BoardColumn[] {
-  if (columns.some((c) => c.id === COLUMN_STATUS.REVIEW)) return columns;
-  const deliveredIdx = columns.findIndex((c) => c.id === COLUMN_STATUS.DELIVERED);
-  const reviewCol: BoardColumn = {
-    id: COLUMN_STATUS.REVIEW,
-    title: "Review",
-    color: "#f59e0b",
-    wipLimit: 5,
-  };
-  if (deliveredIdx >= 0) {
-    return [...columns.slice(0, deliveredIdx), reviewCol, ...columns.slice(deliveredIdx)];
+/**
+ * Remap legacy pre-agentic-board column ids (Pending/Review/Delivered/old
+ * Completed) on columns AND task statuses. No-op when nothing is legacy;
+ * the versioned migration normally does this, but imported exports can
+ * slip past it.
+ */
+function normalizeAgenticBoardData(
+  columns: BoardColumn[] | undefined,
+  tasks: Task[] | undefined,
+): { columns?: BoardColumn[]; tasks?: Task[]; tasksChanged: boolean } {
+  const hasLegacyColumn = columns?.some(
+    (c) => c.id in LEGACY_COLUMN_MIGRATION && c.id !== COLUMN_STATUS.IN_PROGRESS,
+  );
+  const hasLegacyTask = tasks?.some(
+    (t) =>
+      t.status in LEGACY_COLUMN_MIGRATION && t.status !== COLUMN_STATUS.IN_PROGRESS,
+  );
+  if (!hasLegacyColumn && !hasLegacyTask) {
+    return { columns, tasks, tasksChanged: false };
   }
-  return [...columns, reviewCol];
+  const nextColumns = hasLegacyColumn ? migrateColumnsToAgenticBoard(columns) : columns;
+  const nextTasks = hasLegacyTask
+    ? tasks?.map((t) =>
+        LEGACY_COLUMN_MIGRATION[t.status] && t.status !== COLUMN_STATUS.IN_PROGRESS
+          ? { ...t, status: LEGACY_COLUMN_MIGRATION[t.status] }
+          : t,
+      )
+    : tasks;
+  return { columns: nextColumns, tasks: nextTasks, tasksChanged: Boolean(hasLegacyTask) };
+}
+
+/**
+ * Ensure the four agentic lifecycle columns exist (idempotent). The agent
+ * run pipeline depends on In Progress / Completed / Commit being present:
+ * cards move across them as runs start, finish, and get committed.
+ */
+function ensureAgenticColumns(columns: BoardColumn[]): BoardColumn[] {
+  const present = new Set(columns.map((c) => c.id));
+  const missing = DEFAULT_COLUMNS.filter((c) => !present.has(c.id));
+  if (missing.length === 0) return columns;
+  const canonical: BoardColumn[] = [];
+  const rest: BoardColumn[] = [];
+  for (const col of columns) {
+    (DEFAULT_COLUMNS.some((d) => d.id === col.id) ? canonical : rest).push(col);
+  }
+  // Rebuild in canonical order, then custom columns in their original order.
+  const merged = DEFAULT_COLUMNS.map((d) => {
+    const existing = canonical.find((c) => c.id === d.id);
+    return existing ?? ({ ...d } as BoardColumn);
+  });
+  return [...merged, ...rest];
 }

@@ -104,8 +104,6 @@ struct ExportTask {
     #[serde(default)]
     depends_on: Vec<String>,
     #[serde(default)]
-    status: Option<String>,
-    #[serde(default)]
     planned_files: Vec<PlannedFile>,
 }
 
@@ -113,8 +111,64 @@ struct ExportTask {
 // Helpers
 // ---------------------------------------------------------------------------
 
+/// Well-known local checkout locations for DevCouncil, probed in order when
+/// the CLI is not on PATH (and offered as lazy-install sources).
+fn local_checkout_candidates() -> Vec<std::path::PathBuf> {
+    let Some(home) = dirs_home() else { return Vec::new() };
+    ["Code/DevCouncil", "code/DevCouncil", "DevCouncil", "Projects/DevCouncil", "dev/DevCouncil"]
+        .iter()
+        .map(|rel| home.join(rel))
+        .collect()
+}
+
+fn dirs_home() -> Option<std::path::PathBuf> {
+    std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(std::path::PathBuf::from)
+}
+
+/// A directory is a DevCouncil checkout when its pyproject declares the
+/// `devcouncil` package (cheap textual probe — no TOML parser needed).
+fn is_devcouncil_checkout(dir: &Path) -> bool {
+    let pyproject = dir.join("pyproject.toml");
+    match std::fs::read_to_string(pyproject) {
+        Ok(raw) => raw.contains("name = \"devcouncil\""),
+        Err(_) => false,
+    }
+}
+
+/// Resolve the DevCouncil CLI. Order:
+/// 1. explicit override (`LIQUITASK_DEV_CLI` env var — settable from the UI),
+/// 2. PATH (`dev`, then `devcouncil` console scripts),
+/// 3. `~/.local/bin` (uv tool / pipx shims on machines where GUI PATH misses it),
+/// 4. a local checkout's `.venv/bin/dev` (developer setups).
 fn resolve_dev_cli() -> Option<std::path::PathBuf> {
-    find_executable("dev").or_else(|| find_executable("devcouncil"))
+    if let Some(overridden) = std::env::var_os("LIQUITASK_DEV_CLI") {
+        let p = std::path::PathBuf::from(overridden);
+        if p.is_file() {
+            return Some(p);
+        }
+    }
+    if let Some(found) = find_executable("dev").or_else(|| find_executable("devcouncil")) {
+        return Some(found);
+    }
+    if let Some(home) = dirs_home() {
+        for name in ["dev", "devcouncil"] {
+            let shim = home.join(".local").join("bin").join(name);
+            if shim.is_file() {
+                return Some(shim);
+            }
+        }
+    }
+    for checkout in local_checkout_candidates() {
+        for bin in ["bin", "Scripts"] {
+            let venv_cli = checkout.join(".venv").join(bin).join("dev");
+            if venv_cli.is_file() {
+                return Some(venv_cli);
+            }
+        }
+    }
+    None
 }
 
 pub(crate) fn validate_working_dir(app: &AppHandle, working_dir: &str) -> Result<std::path::PathBuf, String> {
@@ -593,6 +647,362 @@ pub fn agent_dev_parse_export(raw: String) -> Result<Vec<DevCouncilSubtask>, Str
 #[tauri::command(rename_all = "camelCase")]
 pub fn agent_dev_cli_available() -> bool {
     resolve_dev_cli().is_some()
+}
+
+// ---------------------------------------------------------------------------
+// Workspace integration: status / init / map / install / repo-map context
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DevCouncilWorkspaceStatus {
+    pub cli_available: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cli_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+    /// `.devcouncil/config.yaml` exists in the working dir.
+    pub initialized: bool,
+    /// `.devcouncil/repo_map.json` exists.
+    pub repo_map_present: bool,
+    /// Age of the repo map in seconds (None when absent).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub repo_map_age_secs: Option<u64>,
+    /// Number of files indexed by the repo map (None when absent/unreadable).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub repo_map_file_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub repo_map_subsystem_count: Option<usize>,
+}
+
+fn read_repo_map(cwd: &Path) -> Option<Value> {
+    let path = cwd.join(".devcouncil").join("repo_map.json");
+    let raw = std::fs::read_to_string(path).ok()?;
+    serde_json::from_str::<Value>(&raw).ok()
+}
+
+/// One-stop status probe the settings UI and run pipeline share.
+#[tauri::command(rename_all = "camelCase")]
+pub fn agent_dev_status(
+    app: AppHandle,
+    working_dir: String,
+) -> Result<DevCouncilWorkspaceStatus, String> {
+    let cwd = validate_working_dir(&app, &working_dir)?;
+    let cli = resolve_dev_cli();
+
+    let version = cli.as_ref().and_then(|_| {
+        run_dev(&cwd, &["--version"])
+            .ok()
+            .filter(|(code, _, _)| *code == 0)
+            .map(|(_, out, _)| out.trim().chars().take(80).collect::<String>())
+            .filter(|v| !v.is_empty())
+    });
+
+    let initialized = cwd.join(".devcouncil").join("config.yaml").is_file();
+    let map_path = cwd.join(".devcouncil").join("repo_map.json");
+    let repo_map_present = map_path.is_file();
+    let repo_map_age_secs = map_path
+        .metadata()
+        .ok()
+        .and_then(|m| m.modified().ok())
+        .and_then(|t| t.elapsed().ok())
+        .map(|d| d.as_secs());
+
+    let (mut file_count, mut subsystem_count) = (None, None);
+    if repo_map_present {
+        if let Some(map) = read_repo_map(&cwd) {
+            file_count = map.get("files").and_then(Value::as_array).map(|a| a.len());
+            subsystem_count = map
+                .get("subsystems")
+                .and_then(|s| s.as_array().map(|a| a.len()).or_else(|| s.as_object().map(|o| o.len())));
+        }
+    }
+
+    Ok(DevCouncilWorkspaceStatus {
+        cli_available: cli.is_some(),
+        cli_path: cli.map(|p| p.to_string_lossy().to_string()),
+        version,
+        initialized,
+        repo_map_present,
+        repo_map_age_secs,
+        repo_map_file_count: file_count,
+        repo_map_subsystem_count: subsystem_count,
+    })
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DevCliRunResult {
+    pub success: bool,
+    pub output: String,
+}
+
+fn tail(s: &str, max: usize) -> String {
+    let trimmed = s.trim();
+    if trimmed.len() <= max {
+        trimmed.to_string()
+    } else {
+        let start = trimmed.len() - max;
+        // Snap to a char boundary to avoid slicing inside a UTF-8 sequence.
+        let mut idx = start;
+        while idx < trimmed.len() && !trimmed.is_char_boundary(idx) {
+            idx += 1;
+        }
+        format!("…{}", &trimmed[idx..])
+    }
+}
+
+/// `dev init` — initialise DevCouncil state in the working dir.
+#[tauri::command(rename_all = "camelCase")]
+pub fn agent_dev_init(app: AppHandle, working_dir: String) -> Result<DevCliRunResult, String> {
+    let cwd = validate_working_dir(&app, &working_dir)?;
+    let (code, out, err) = run_dev(&cwd, &["init"])?;
+    Ok(DevCliRunResult {
+        success: code == 0,
+        output: tail(&format!("{out}\n{err}"), 2000),
+    })
+}
+
+/// `dev map` — (re)generate `.devcouncil/repo_map.json` for the working dir.
+#[tauri::command(rename_all = "camelCase")]
+pub fn agent_dev_map(app: AppHandle, working_dir: String) -> Result<DevCliRunResult, String> {
+    let cwd = validate_working_dir(&app, &working_dir)?;
+    let (code, out, err) = run_dev(&cwd, &["map"])?;
+    Ok(DevCliRunResult {
+        success: code == 0,
+        output: tail(&format!("{out}\n{err}"), 2000),
+    })
+}
+
+/// Install DevCouncil via `npm install -g devcouncil` (its primary distribution
+/// channel). Blocking — the UI shows progress state while this runs.
+#[tauri::command(rename_all = "camelCase")]
+pub fn agent_dev_install() -> Result<DevCliRunResult, String> {
+    let npm = find_executable("npm")
+        .ok_or_else(|| "npm not found on PATH — install Node.js first, or run `npm install -g devcouncil` manually.".to_string())?;
+    let output = Command::new(npm)
+        .args(["install", "-g", "devcouncil"])
+        .env("PATH", augmented_path())
+        .output()
+        .map_err(|e| format!("Failed to run npm: {e}"))?;
+    let code = output.status.code().unwrap_or(-1);
+    let combined = format!(
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    Ok(DevCliRunResult {
+        success: code == 0 && resolve_dev_cli().is_some(),
+        output: tail(&combined, 2000),
+    })
+}
+
+/// Auto-discovery snapshot: is the CLI resolvable, where, which local
+/// checkouts exist, and which installer tools are available for lazy install.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DevCouncilDiscovery {
+    pub cli_available: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cli_path: Option<String>,
+    /// Verified DevCouncil checkouts on this machine (pyproject probed).
+    pub local_checkouts: Vec<String>,
+    /// Installer tools present on PATH, in preference order (uv, pipx, npm).
+    pub installers: Vec<String>,
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn agent_dev_discover() -> DevCouncilDiscovery {
+    let cli = resolve_dev_cli();
+    let local_checkouts = local_checkout_candidates()
+        .into_iter()
+        .filter(|dir| is_devcouncil_checkout(dir))
+        .map(|dir| dir.to_string_lossy().to_string())
+        .collect();
+    let installers = ["uv", "pipx", "npm"]
+        .iter()
+        .filter(|tool| find_executable(tool).is_some())
+        .map(|tool| (*tool).to_string())
+        .collect();
+    DevCouncilDiscovery {
+        cli_available: cli.is_some(),
+        cli_path: cli.map(|p| p.to_string_lossy().to_string()),
+        local_checkouts,
+        installers,
+    }
+}
+
+fn run_installer(program: &Path, args: &[&str]) -> Result<(i32, String), String> {
+    let output = Command::new(program)
+        .args(args)
+        .env("PATH", augmented_path())
+        .output()
+        .map_err(|e| format!("Failed to run {}: {e}", program.display()))?;
+    let combined = format!(
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    Ok((output.status.code().unwrap_or(-1), combined))
+}
+
+/// Lazy-install DevCouncil from a LOCAL CHECKOUT (preferred), falling back to
+/// the npm registry. Installer preference: `uv tool install --from <dir>` →
+/// `pipx install <dir>` → `npm install -g devcouncil`. The source directory is
+/// verified to be a genuine DevCouncil checkout (pyproject name probe) before
+/// anything is executed.
+#[tauri::command(rename_all = "camelCase")]
+pub fn agent_dev_install_local(source_dir: Option<String>) -> Result<DevCliRunResult, String> {
+    // Resolve + verify the source checkout.
+    let source: Option<std::path::PathBuf> = match source_dir {
+        Some(dir) => {
+            let p = dunce::canonicalize(&dir)
+                .map_err(|e| format!("Checkout not accessible: {e}"))?;
+            if !is_devcouncil_checkout(&p) {
+                return Err(format!(
+                    "{} is not a DevCouncil checkout (pyproject.toml with name \"devcouncil\" not found).",
+                    p.display()
+                ));
+            }
+            Some(p)
+        }
+        None => local_checkout_candidates()
+            .into_iter()
+            .find(|dir| is_devcouncil_checkout(dir)),
+    };
+
+    let mut transcript = String::new();
+
+    if let Some(src) = source.as_deref() {
+        let src_str = src.to_string_lossy();
+        if let Some(uv) = find_executable("uv") {
+            transcript.push_str(&format!("$ uv tool install --force --from {src_str} devcouncil\n"));
+            let (code, out) = run_installer(&uv, &["tool", "install", "--force", "--from", &src_str, "devcouncil"])?;
+            transcript.push_str(&out);
+            if code == 0 && resolve_dev_cli().is_some() {
+                return Ok(DevCliRunResult { success: true, output: tail(&transcript, 2000) });
+            }
+        }
+        if let Some(pipx) = find_executable("pipx") {
+            transcript.push_str(&format!("\n$ pipx install --force {src_str}\n"));
+            let (code, out) = run_installer(&pipx, &["install", "--force", &src_str])?;
+            transcript.push_str(&out);
+            if code == 0 && resolve_dev_cli().is_some() {
+                return Ok(DevCliRunResult { success: true, output: tail(&transcript, 2000) });
+            }
+        }
+    }
+
+    // Registry fallback (or no local checkout found).
+    if let Some(npm) = find_executable("npm") {
+        transcript.push_str("\n$ npm install -g devcouncil\n");
+        let (code, out) = run_installer(&npm, &["install", "-g", "devcouncil"])?;
+        transcript.push_str(&out);
+        return Ok(DevCliRunResult {
+            success: code == 0 && resolve_dev_cli().is_some(),
+            output: tail(&transcript, 2000),
+        });
+    }
+
+    if transcript.is_empty() {
+        return Err(
+            "No installer available: install uv, pipx, or npm — or add the `dev` CLI to PATH manually."
+                .to_string(),
+        );
+    }
+    Ok(DevCliRunResult { success: resolve_dev_cli().is_some(), output: tail(&transcript, 2000) })
+}
+
+/// Real tracked-file paths from `.devcouncil/repo_map.json`, capped to bound the
+/// payload. Injected into a default (non-council) run's prompt so the agent
+/// orients on actual files instead of blind searching. Empty when unmapped.
+#[tauri::command(rename_all = "camelCase")]
+pub fn agent_dev_repo_files(app: AppHandle, working_dir: String) -> Result<Vec<String>, String> {
+    const MAX_FILES: usize = 400;
+    let cwd = validate_working_dir(&app, &working_dir)?;
+    let Some(map) = read_repo_map(&cwd) else {
+        return Ok(Vec::new());
+    };
+    let files = map
+        .get("files")
+        .and_then(Value::as_array)
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|f| f.get("path").and_then(Value::as_str))
+                .take(MAX_FILES)
+                .map(str::to_string)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    Ok(files)
+}
+
+/// Compact repo-map context injected into agent prompts: subsystem names,
+/// entry points, and critical files — enough for an agent to orient itself
+/// without shipping the (potentially multi-MB) full map into the prompt.
+#[tauri::command(rename_all = "camelCase")]
+pub fn agent_dev_repo_map_summary(
+    app: AppHandle,
+    working_dir: String,
+) -> Result<Option<String>, String> {
+    const MAX_SUBSYSTEMS: usize = 10;
+    const MAX_LIST: usize = 5;
+    const MAX_CHARS: usize = 3500;
+
+    let cwd = validate_working_dir(&app, &working_dir)?;
+    let Some(map) = read_repo_map(&cwd) else {
+        return Ok(None);
+    };
+
+    fn string_list(v: Option<&Value>, max: usize) -> Vec<String> {
+        v.and_then(Value::as_array)
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(Value::as_str)
+                    .take(max)
+                    .map(str::to_string)
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    let mut lines: Vec<String> = Vec::new();
+    if let Some(files) = map.get("files").and_then(Value::as_array) {
+        lines.push(format!("Repo map: {} files indexed.", files.len()));
+    }
+
+    // `subsystems` ships as either an array of objects or a name→object map.
+    let subsystem_entries: Vec<(String, &Value)> = match map.get("subsystems") {
+        Some(Value::Array(arr)) => arr
+            .iter()
+            .filter_map(|s| {
+                s.get("name")
+                    .and_then(Value::as_str)
+                    .map(|n| (n.to_string(), s))
+            })
+            .collect(),
+        Some(Value::Object(obj)) => obj.iter().map(|(k, v)| (k.clone(), v)).collect(),
+        _ => Vec::new(),
+    };
+
+    for (name, sub) in subsystem_entries.iter().take(MAX_SUBSYSTEMS) {
+        let entries = string_list(sub.get("entry_points"), MAX_LIST);
+        let critical = string_list(sub.get("critical_files"), MAX_LIST);
+        let mut line = format!("- {name}");
+        if !entries.is_empty() {
+            line.push_str(&format!(" | entry: {}", entries.join(", ")));
+        }
+        if !critical.is_empty() {
+            line.push_str(&format!(" | critical: {}", critical.join(", ")));
+        }
+        lines.push(line);
+    }
+
+    if lines.is_empty() {
+        return Ok(None);
+    }
+    let joined = lines.join("\n");
+    Ok(Some(joined.chars().take(MAX_CHARS).collect()))
 }
 
 #[cfg(test)]

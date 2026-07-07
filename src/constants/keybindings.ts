@@ -26,6 +26,7 @@ export const DEFAULT_KEYBINDINGS: Record<string, string[]> = {
   "task:edit": ["e"],
   "task:move-next": ["Shift+m"],
   "task:move-prev": ["Shift+,"],
+  "task:send-agent": ["a"],
 };
 
 export interface KeybindingMap {

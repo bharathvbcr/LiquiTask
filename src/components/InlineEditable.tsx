@@ -1,5 +1,6 @@
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
+import { LiquidDateCalendar, parseDateOnlyString, toDateOnlyString } from "./common/LiquidDatePicker";
 import { Popover } from "./common/Popover";
 
 interface InlineEditableProps {
@@ -10,6 +11,8 @@ interface InlineEditableProps {
   className?: string;
   multiline?: boolean;
   autoFocus?: boolean;
+  /** Display mode: wrap up to 2 lines instead of single-line ellipsis. */
+  wrap?: boolean;
 }
 
 export const InlineEditable: React.FC<InlineEditableProps> = ({
@@ -20,6 +23,7 @@ export const InlineEditable: React.FC<InlineEditableProps> = ({
   className = "",
   multiline = false,
   autoFocus = true,
+  wrap = false,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
@@ -107,7 +111,7 @@ export const InlineEditable: React.FC<InlineEditableProps> = ({
       onClick={(e) => { e.stopPropagation(); handleStartEdit(); }}
       onDoubleClick={(e) => e.stopPropagation()}
       onPointerDown={(e) => e.stopPropagation()}
-      className={`block min-w-0 max-w-full truncate cursor-text hover:bg-white/5 rounded px-1 py-0.5 transition-colors ${className}`}
+      className={`block min-w-0 max-w-full ${wrap ? "line-clamp-2 break-words" : "truncate"} cursor-text hover:bg-white/5 rounded px-1 py-0.5 transition-colors ${className}`}
       title={value || placeholder}
     >
       {value || <span className="text-slate-500 italic">{placeholder}</span>}
@@ -155,11 +159,11 @@ export const InlineSelect: React.FC<InlineSelectProps> = ({
           onPointerDown={(e) => e.stopPropagation()}
           aria-haspopup="listbox"
           aria-expanded={isOpen}
-          className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-white/10 transition-colors cursor-pointer"
+          className="flex w-full min-w-0 max-w-full items-center gap-1.5 px-2 py-1 rounded hover:bg-white/10 transition-colors cursor-pointer"
           style={currentOption.color ? { color: currentOption.color } : {}}
         >
-          <span className="text-xs font-medium">{currentOption.label}</span>
-          <span className="text-[10px] opacity-50">▼</span>
+          <span className="min-w-0 truncate text-xs font-medium">{currentOption.label}</span>
+          <span className="shrink-0 text-[10px] opacity-50">▼</span>
         </button>
       }
     >
@@ -202,22 +206,15 @@ export const InlineDatePicker: React.FC<InlineDatePickerProps> = ({
   className = "",
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [tempDate, setTempDate] = useState(value ? value.toISOString().split("T")[0] : "");
+  const dateValue = value ? toDateOnlyString(value) : "";
 
-  useEffect(() => {
-    setTempDate(value ? value.toISOString().split("T")[0] : "");
-  }, [value]);
-
-  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const dateStr = e.target.value;
-    setTempDate(dateStr);
-    if (dateStr) {
-      const [y, m, d] = dateStr.split("-").map(Number);
-      onSave(new Date(y, m - 1, d));
-    } else {
+  const handleChange = (nextValue: string) => {
+    if (!nextValue) {
       onSave(null);
+      return;
     }
-    setIsOpen(false);
+    const parsed = parseDateOnlyString(nextValue);
+    if (parsed) onSave(parsed);
   };
 
   const formatDate = (date: Date | null): string => {
@@ -244,6 +241,7 @@ export const InlineDatePicker: React.FC<InlineDatePickerProps> = ({
           onPointerDown={(e) => e.stopPropagation()}
           aria-haspopup="dialog"
           aria-expanded={isOpen}
+          aria-label="Select due date"
           className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-white/10 transition-colors cursor-pointer text-xs"
         >
           <span>{formatDate(value)}</span>
@@ -251,30 +249,12 @@ export const InlineDatePicker: React.FC<InlineDatePickerProps> = ({
         </button>
       }
     >
-      <div
-        role="dialog"
-        aria-label="Due date picker"
-        className="liquid-glass rounded-xl shadow-2xl p-4 animate-in fade-in zoom-in-95 duration-200"
-      >
-        <input
-          type="date"
-          value={tempDate}
-          onChange={handleDateChange}
-          onPointerDown={(e) => e.stopPropagation()}
-          className="liquid-input rounded-lg px-3 py-2 text-sm text-slate-200 [color-scheme:dark] outline-none w-full"
-          aria-label="Select due date"
-          title="Select due date"
+      <div role="dialog" aria-label="Due date picker">
+        <LiquidDateCalendar
+          value={dateValue}
+          onChange={handleChange}
+          onClose={() => setIsOpen(false)}
         />
-        <button
-          type="button"
-          onClick={() => {
-            onSave(null);
-            setIsOpen(false);
-          }}
-          className="w-full mt-2 px-2 py-1 text-xs text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
-        >
-          Clear Date
-        </button>
       </div>
     </Popover>
   );

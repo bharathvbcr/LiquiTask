@@ -22,18 +22,14 @@ Release builds bundle a standalone PyInstaller binary via Tauri `externalBin`.
 From the repo root:
 
 ```bash
-# Current platform (macOS arm64/x64, Linux, Windows)
+# Current platform (macOS Apple Silicon, Linux, Windows)
 npm run build:semantic-sidecar
-
-# Universal macOS app (both arm64 + x86_64 sidecars)
-npm run build:semantic-sidecar:macos
 ```
 
 Or use the shell wrapper:
 
 ```bash
 ./scripts/build-semantic-sidecar.sh
-./scripts/build-semantic-sidecar.sh --all-macos
 ```
 
 Output lands in `src-tauri/binaries/` as `semantic-layer-{target-triple}` (`.exe` on Windows).
@@ -59,7 +55,7 @@ Sidecar build is hooked into release commands:
 
 ```bash
 npm run build          # current platform
-npm run build:mac      # universal macOS DMG
+npm run build:mac      # Apple Silicon macOS DMG
 ```
 
 ### Runtime behavior
@@ -77,13 +73,13 @@ The bundled binary includes MiniLM embedding weights offline (`TRANSFORMERS_OFFL
 | Platform | Target triple | Status |
 |----------|---------------|--------|
 | macOS Apple Silicon | `aarch64-apple-darwin` | Supported |
-| macOS Intel | `x86_64-apple-darwin` | Supported (`--all-macos`) |
+| macOS Intel | `x86_64-apple-darwin` | Dropped (deprecated) |
 | Linux x64 | `x86_64-unknown-linux-gnu` | Supported |
 | Windows x64 | `x86_64-pc-windows-msvc` | Supported (build on Windows host) |
 
 ### Size
 
-Expect roughly **250–400 MiB** per sidecar binary (PyTorch + sentence-transformers + MiniLM model). Universal macOS builds ship two sidecars.
+Expect roughly **250–400 MiB** per sidecar binary (PyTorch + sentence-transformers + MiniLM model).
 
 ### Limitations
 

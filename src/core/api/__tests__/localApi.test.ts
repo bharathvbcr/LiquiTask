@@ -18,13 +18,16 @@ function setAgentdEnabled(value: boolean) {
   (FEATURE_FLAGS as { AGENTD_SIDECAR_ENABLED: boolean }).AGENTD_SIDECAR_ENABLED = value;
 }
 
+const AGENTD_DEFAULT = FEATURE_FLAGS.AGENTD_SIDECAR_ENABLED;
+
 describe("localApi agentd routing", () => {
   afterEach(() => {
-    setAgentdEnabled(false);
+    setAgentdEnabled(AGENTD_DEFAULT);
     invokeMock.mockReset();
   });
 
   it("routes detectRuntimes to the legacy command when the sidecar flag is off", async () => {
+    setAgentdEnabled(false);
     invokeMock.mockResolvedValue([]);
     await localApi.detectRuntimes();
     expect(invokeMock).toHaveBeenCalledWith("agent_detect_clis", undefined);
@@ -61,6 +64,7 @@ describe("localApi agentd routing", () => {
   });
 
   it("routes runStart to the legacy command when disabled", async () => {
+    setAgentdEnabled(false);
     invokeMock.mockResolvedValue("run-legacy");
     await localApi.runStart({ taskId: "t1", runtime: "claude", prompt: "hi" });
     expect(invokeMock).toHaveBeenCalledWith("agent_run_start", {
@@ -99,6 +103,7 @@ describe("localApi agentd routing", () => {
   });
 
   it("routes cancel/pause/resume/inject/reattach to legacy commands when disabled", async () => {
+    setAgentdEnabled(false);
     invokeMock.mockResolvedValue(undefined);
 
     await localApi.runCancel("r1");

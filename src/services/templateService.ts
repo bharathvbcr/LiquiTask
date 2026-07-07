@@ -1,5 +1,5 @@
 import type { AIContext, PriorityDefinition, Project, Task, TaskTemplate } from "../../types";
-import { STORAGE_KEYS } from "../constants";
+import { COLUMN_STATUS, STORAGE_KEYS } from "../constants";
 import storageService from "./storageService";
 
 export class TemplateService {
@@ -162,7 +162,7 @@ export class TemplateService {
           title: (result.taskData.title as string) || "Untitled Template",
           summary: (result.taskData.summary as string) || "",
           priority: (result.taskData.priority as string) || "medium",
-          status: (result.taskData.status as string) || "Pending",
+          status: (result.taskData.status as string) || COLUMN_STATUS.TASK,
           timeEstimate: (result.taskData.timeEstimate as number) || 0,
         },
         subtasks: (result.subtasks as string[]).map((title, i) => ({
@@ -203,7 +203,7 @@ export class TemplateService {
             title: task.title,
             summary: task.summary,
             priority: task.priority,
-            status: "Pending",
+            status: COLUMN_STATUS.TASK,
             tags: task.tags,
             timeEstimate: task.timeEstimate,
           },

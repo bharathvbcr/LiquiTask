@@ -13,6 +13,9 @@ class AgentService {
     return {
       ...agent,
       runsOnRecurrence: agent.runsOnRecurrence ?? true,
+      // Worktree-per-assignment is the default: profiles saved before the
+      // agentic board (no explicit flag) get isolated worktrees from now on.
+      gitWorktree: agent.gitWorktree ?? true,
       createdAt: agent.createdAt instanceof Date ? agent.createdAt : new Date(agent.createdAt),
     };
   }
@@ -67,7 +70,8 @@ class AgentService {
       autoPickup: false,
       runsOnRecurrence: true,
       devCouncilVerify: false,
-      gitWorktree: false,
+      /** Every assignment gets its own git worktree by default. */
+      gitWorktree: true,
       role: "default",
       modelRouting: "fixed",
       createdAt: new Date(),

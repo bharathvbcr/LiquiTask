@@ -1,58 +1,205 @@
 # LiquiTask
 
-LiquiTask is a desktop-first task management app built with React 19, TypeScript,
-Vite, and Tauri 2. It combines a Liquid Glass interface with Kanban workflows,
-local-first persistence, automation rules, task search, recurring tasks, and
-optional AI assistance through Gemini or Ollama.
+LiquiTask is a **local-first agentic task workbench**: a desktop app where every
+task on the board can be handed to a coding agent the way you'd hand it to a
+teammate. Assign a card to Claude Code, Codex, Cursor, Antigravity, or any of
+**14 supported agent runtimes**; the run streams into the card's activity trail,
+the card moves across the board as the work progresses, and — when you want proof
+instead of a claim — the whole run is gated by **DevCouncil**: plan, scope
+enforcement, and a deterministic verification loop.
 
-## What It Includes
+Built with React 19, TypeScript, Tauri 2 (Rust), a Go agent sidecar
+(`liquitask-agentd`), and a local liquid-glass UI, LiquiTask keeps your work
+graph, agent runs, and evidence entirely on your machine.
 
-- **Kanban-first planning** with board, dashboard, Gantt, calendar, archive, and
-  saved-view workflows.
-- **Local-first data ownership** through Tauri native storage, IndexedDB, and
-  localStorage fallback paths.
-- **AI task orchestration** for task extraction, refinement, breakdowns,
-  metadata suggestions, duplicate detection, workspace-aware assistance, and
-  bulk operations.
-- **Automation rules** for task events and scheduled actions such as tagging,
-  priority changes, moves, field updates, and notifications.
-- **Desktop integration** with custom window controls, system notifications,
-  single-instance protection, and a Tauri Rust backend exposed through a narrow
-  `window.desktopAPI` bridge.
-- **Power-user surfaces** including command palette, keyboard shortcuts, quick
-  add, search history, custom fields, templates, import/export, and archive
-  recovery.
+> **Direction note.** LiquiTask began as a Kanban task manager with optional
+> AI assistance and is being reworked into the agent workbench described here
+> (see [`docs/REWORK_PLAN_MULTICA.md`](docs/REWORK_PLAN_MULTICA.md)). The task
+> board, local-first persistence, automation, search, and AI task features are
+> shipped and stable. The multi-agent execution layer (`liquitask-agentd`),
+> DevCouncil gates, and the four-surface v3 shell are built and enabled by
+> default, with pieces still maturing — those are flagged explicitly below so
+> you always know what's solid versus in progress.
 
-## Feature Map
+## What It Is
 
-| Feature area   | What the app supports                                                                                                                          |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Task capture   | Modal creation, command-palette creation, quick-add parsing, image-to-task capture, bulk JSON import, AI smart import                          |
-| Planning views | Standard Kanban board, priority board, dashboard, calendar, Gantt, archive, saved views, search history                                        |
-| Task details   | Markdown summaries, subtasks, attachments, task links, tags, priority, due dates, time estimates, time spent, custom fields                    |
-| Organization   | Projects, project types, board columns, WIP limits, priority definitions, grouping, compact mode, sub-workspace visibility                     |
-| Automation     | Event rules for create/update/move/complete plus scheduled rules with filters and actions                                                      |
-| AI workflows   | Task extraction, refinement, subtask generation, metadata suggestions, duplicate detection, reorganization, project assignment, image analysis |
-| Productivity   | Command palette, global shortcuts, sidebar collapse, undo stack, bulk selection, bulk actions, virtualized lists                               |
-| Reporting      | Dashboard stats, risk analysis, time reporting, activity log records, CSV export                                                               |
-| Local data     | Native Tauri JSON storage, IndexedDB mirroring, localStorage fallback, schema migrations, archive storage                                      |
-| Desktop        | Custom title bar, window controls, single-instance guard, system notifications, authorized workspace file access                              |
+- **An agent workbench.** Tasks are executable. Assign any card to a human, a
+  coding agent, or a DevCouncil-gated run. Assignment creates a tracked run with
+  scope, streaming output, and approval gates — not a fire-and-forget prompt.
+- **Multi-agent, local, BYO-CLI.** LiquiTask drives the coding CLIs you already
+  have installed through the `liquitask-agentd` sidecar. Nothing runs in the
+  cloud; your API keys and repos stay local.
+- **Gated by evidence, not confidence.** DevCouncil turns "the agent said it's
+  done" into "the change was scoped, tested, and proven," with an
+  auditable Requirement → Task → Diff → Evidence graph on the card.
+- **Still a great task manager.** Kanban board, calendar, Gantt, dashboard,
+  archive, automation rules, sub-5ms search, recurring tasks, custom fields, and
+  local AI task assistance all remain first-class.
 
-## App Surfaces
+## Maturity At A Glance
+
+| Area | State |
+| ---- | ----- |
+| Kanban board, views, search, automation, recurring tasks, custom fields | **Shipped / stable** |
+| Local-first persistence (IndexedDB + Tauri native storage, encryption at rest) | **Shipped / stable** |
+| AI task features (extraction, refinement, subtasks, dedupe, image-to-task) via Gemini / Ollama | **Shipped / stable** |
+| Agent teammates — assign a card to an agent, streamed run, board lifecycle | **Shipped** |
+| `liquitask-agentd` Go sidecar + all 14 runtime backends | **Built** (`AGENTD_SIDECAR_ENABLED: true`); Rust `agent_runner.rs` retained as the Claude fallback during migration |
+| DevCouncil bridge — plan, scope enforcement, verify gate, evidence-graph mirror, MCP registration | **Built**, deepening |
+| Four-surface shell (Inbox / Board / Agents / Run) + Command Deck | **Enabled** (`V3_SHELL_ENABLED: true`); surfaces still being ported/reskinned |
+| Task / project storage on SQLite | **In progress** — schema groundwork landed; tasks/projects still read/write IndexedDB today |
+
+Feature flags live in `src/constants/index.ts`:
+
+```ts
+export const FEATURE_FLAGS = {
+  AI_ASSISTANT_SIDEBAR_ENABLED: false, // legacy AI sidebar, superseded by the Run surface
+  AGENTD_SIDECAR_ENABLED: true,        // route non-Claude agent runs through liquitask-agentd
+  V3_SHELL_ENABLED: true,              // four-surface shell: Inbox / Board / Agents / Run
+} as const;
+```
+
+## Supported Agent Runtimes
+
+Agent execution is handled by `liquitask-agentd`, a Go sidecar ported from
+Multica's battle-tested `pkg/agent` (14 backends, each with its own test suite
+and per-OS invocation handling). Drive whichever CLIs you have installed and
+authenticated:
+
+| | | | |
+| --- | --- | --- | --- |
+| Claude Code | Codex | Cursor | Antigravity |
+| GitHub Copilot | OpenCode | Kimi | Kiro |
+| Qoder | CodeBuddy | Hermes (ACP) | Pi |
+| Trae | OpenClaw | | |
+
+`Settings → Agents` shows live detection (installed / version) for each runtime,
+plus DevCouncil (`dev`) and container-sandbox availability.
+
+## How An Agent Run Works
 
 ```mermaid
 flowchart TD
-  Shell["App.tsx"] --> Sidebar["Sidebar\nprojects, navigation, settings"]
-  Shell --> Header["AppHeader\nsearch, command actions, view controls"]
-  Shell --> Board["ProjectBoard\nstandard + priority boards"]
-  Shell --> Dashboard["Dashboard\nstats and work summary"]
-  Shell --> Calendar["CalendarView\ndue-date planning"]
-  Shell --> Gantt["GanttView\ntimeline planning"]
-  Shell --> Archive["ArchiveView\nrestore or delete archived tasks"]
-  Shell --> QuickAdd["QuickAddBar\nnatural language + image paste"]
-  Shell --> Modals["Task, project, settings,\nAI and bulk modals"]
-  Modals --> Settings["SettingsModal\ngeneral, workflow, priority,\nautomation, data, AI"]
+  Assign["Assign card to an agent\n(roster drop, auto-pickup, or Start)"] --> Run["agentRunService\nqueued -> running -> verifying -> done"]
+  Run --> Prompt["buildTaskPrompt(task, compounded skills)"]
+  Run --> Route{Runtime?}
+  Route -->|"claude (fallback)"| Rust["src-tauri agent_runner.rs\nspawns claude -p ... stream-json"]
+  Route -->|"any of 14 (default)"| Agentd["liquitask-agentd sidecar\nrun.start over JSON-RPC"]
+  Agentd --> CLI["Installed coding CLI\nClaude / Codex / Cursor / ..."]
+  Run --> Council{"Council mode?"}
+  Council -->|yes| DevCouncil["DevCouncil\ndev plan -> scope -> run -> dev verify"]
+  Rust --> Board["Board + card activity trail\n(streamed events)"]
+  Agentd --> Board
+  DevCouncil --> Inbox["Inbox\napproval + verdict cards"]
+  Board --> Skill["Successful run captured as a\nreusable repo-scoped skill"]
 ```
+
+- **Assignment** — an agent profile's *name* is its assignee label; assigning a
+  task to that name routes it to the agent. Assign by dropping a card on an
+  agent chip in the roster tray, via per-agent auto-pickup, or the Start button
+  in the Agent Runs dock.
+- **Working directory** — must be an authorised workspace folder (the same
+  security boundary as workspace file access).
+- **Lifecycle on the board** — start moves the card to In Progress and posts an
+  activity entry; completion posts the agent's summary; failures land in the
+  card's error logs. One run per agent at a time; further assignments queue.
+- **Skills compounding** — every successful run is captured as a reusable,
+  repo-scoped skill and injected into future prompts as "Team knowledge," so
+  agents get better at your codebase over time.
+- **Durable / headless runs** — runs are spawned detached (own process group on
+  unix, `DETACHED_PROCESS` on Windows) with output redirected to an on-disk
+  event log, so a run keeps working with the window closed and the UI reattaches
+  on relaunch. See [`docs/AGENT_TEAMMATES.md`](docs/AGENT_TEAMMATES.md) for the
+  full lifecycle, reattach/reconcile model, and terminal-handoff escape hatch.
+
+### The `liquitask-agentd` sidecar
+
+`liquitask-agentd` is a standalone Go binary shipped as a Tauri sidecar. It
+speaks newline-delimited JSON-RPC over stdio to the Rust core and owns CLI
+detection, the 14 `Backend` implementations, per-run execution-environment
+preparation (`execenv`), run lifecycle + reconcile, and local skill discovery —
+with the cloud coupling (auth, WebSockets, billing, workspace registration)
+stripped out of the ported Multica code.
+
+JSON-RPC surface (v1), consumed by `src-tauri/src/agentd.rs`:
+
+| Method | Purpose |
+| ------ | ------- |
+| `detect` | Installed runtimes + versions (drives `Settings → Agents` health) |
+| `run.start` | Start a run: `{ taskId, runtime, model, cwd, prompt, scope?, mcpConfig?, thinkingLevel?, resumeSessionId? }` |
+| `run.events` | Stream: `message \| tool_use \| thinking \| permission_request \| result \| error` |
+| `run.cancel` / `run.pause` / `run.resume` / `run.inject` | Run control + mid-run guidance injection |
+| `run.reattach` | Re-adopt orphaned runs after an app restart |
+| `permission.respond` | Answer a permission request (`allow` / `deny` / `always`) |
+| `skills.list` | Installed-skill discovery for prompt compounding |
+
+## DevCouncil Integration
+
+[DevCouncil](https://github.com/bharathvbcr/DevCouncil) is a gated AI
+orchestrator: it makes AI-generated work *prove* it satisfied the original
+intent. LiquiTask embeds DevCouncil as an opt-in gate around agent runs through
+the Rust bridge in `src-tauri/src/agent_devcouncil.rs` and
+`agent_devcouncil_evidence.rs`.
+
+```mermaid
+flowchart LR
+  Task["Task assigned to council"] --> Plan["dev plan\ntyped Tasks + Requirements\n+ PlannedFile scope"]
+  Plan --> Approve["Inbox approval card\n(scope whitelist)"]
+  Approve --> Exec["Scoped agent run\nvia agentd"]
+  Exec --> Verify["dev verify\n4-tier proof:\nscope / tests / coverage / rigor"]
+  Verify --> Verdict["Inbox verdict card\ntyped next_actions"]
+  Verdict -->|gaps| Repair["dev repair\nfollow-up run"]
+  Verify --> Evidence["Mirror .devcouncil/state.db\nRequirement -> Task -> Diff -> Evidence"]
+  Evidence --> Card["Provenance on the task card"]
+```
+
+What the bridge does:
+
+- **Plan gate** — "Assign to council" runs `dev plan` and renders the typed
+  Tasks/Requirements plus a `PlannedFile` scope whitelist as an Inbox approval
+  card. Approving spawns agent runs bound to that scope
+  (`run_dev_plan` / `agent_dev_plan`).
+- **Scope enforcement** — the whitelist is passed into `run.start`; agents get
+  it via their permission mechanism (MCP permission server for Claude Code,
+  config injection for others), and the Rust policy layer (`agent_policy.rs`)
+  blocks out-of-scope writes as a second gate.
+- **Verify gate** — run completion triggers `dev verify` (scope compliance,
+  tests, coverage, rigor). The verdict card carries typed `next_actions`;
+  "Repair" spawns a follow-up run seeded with the structured repair
+  instructions (`run_dev_verify`, `run_dev_repair`). Done means proven, not
+  agent-claims-done.
+- **Evidence graph** — `mirror_evidence_graph` polls `.devcouncil/state.db` and
+  mirrors the Requirement → Task → Diff → Evidence links into LiquiTask's
+  artifact tables so provenance renders on the card.
+- **MCP** — `dev mcp-server` is registered in the MCP config `agentd` passes to
+  runs, so agents can self-serve checkout → verify → repair loops.
+
+The DevCouncil path shells out to the `dev` CLI; `agent_dev_cli_available()`
+detects it. Enable the full council pipeline in a target repo with
+`dev integrate claude --apply` so Claude Code picks up DevCouncil's MCP tools
+and hook policies during runs.
+
+## The Four Surfaces (v3 shell)
+
+With `V3_SHELL_ENABLED` (on by default), the nine-view switcher is replaced by
+four surfaces; classic board views (Calendar, Gantt, Archive, List) become
+lenses inside **Board**.
+
+- **Inbox (default).** A triage feed: approvals awaiting you, runs finished,
+  council verdicts, blocked agents, standup digests. Each card has inline
+  actions (approve/deny, open run, re-run, snooze) and drives the tray badge.
+- **Board.** The existing Kanban board, decluttered: task cards gain agent chips
+  (assignee avatar, presence ring, live run status). Drag a card onto an agent
+  in the roster tray to assign + run.
+- **Agents.** Roster with presence, per-agent runtime profile (detected CLI +
+  model + thinking level), skills, allowlists, run history, and usage.
+- **Run (drawer / full-screen).** Streamed transcript, tool-call timeline, diff
+  viewer, inline permission prompts, a guidance-injection box, and an
+  open-in-terminal escape hatch.
+
+**Command Deck** — the command palette (`⌘/Ctrl + K`) is the universal
+keyboard entry point: create a task, assign to an agent or council, jump to a
+run, toggle surfaces, run an autopilot.
 
 ## Task Features
 
@@ -60,153 +207,122 @@ Tasks are richer than a title/status card. The active task shape includes:
 
 - Project and board status ownership.
 - Title, subtitle, summary, markdown-rendered descriptions, and activity
-  history.
-- Priority, tags, assignee, due date, completion timestamp, and ordering.
+  history (including streamed agent-run events).
+- Priority, tags, assignee (human **or** agent), due date, completion
+  timestamp, and ordering.
 - Subtasks with completion state.
 - Attachments, external links, and task-to-task links.
-- Time estimate and time spent tracking.
+- Time estimate and time spent tracking (fed by verified agent-run outcomes).
 - Custom field values driven by workspace definitions.
 - Recurring task configuration and next-occurrence handling.
-- Error logs for task-level diagnostics.
+- Agent assignment, run history, DevCouncil evidence/provenance, and error logs.
 
 ## Capture And Import
-
-LiquiTask supports several capture paths:
 
 - **Quick Add** parses inline markers such as `!high`, `!medium`, `!low`,
   `#project`, `+tag`, `~30m`, `~2h`, `@today`, `@tomorrow`, `@next week`, and
   `@MM/DD`.
-- **Image paste** in Quick Add can analyze a screenshot or visual note and turn
-  it into a task draft with title, summary, priority, estimate, and tags.
-- **Command Palette** can create tasks directly from a typed query and ranks
-  commands with fuzzy matching plus recent usage.
-- **Manual bulk import** accepts structured task JSON and includes a downloadable
+- **Image paste** in Quick Add analyzes a screenshot or visual note into a task
+  draft (title, summary, priority, estimate, tags).
+- **Command Deck** creates tasks directly from a typed query with fuzzy ranking.
+- **Manual bulk import** accepts structured task JSON with a downloadable
   template.
-- **AI Smart Import** can map pasted CSV or JSON from tools such as Jira,
-  Trello, Linear, or Asana into LiquiTask tasks.
+- **AI Smart Import** maps pasted CSV/JSON from Jira, Trello, Linear, or Asana
+  into LiquiTask tasks.
 - **Full backup restore** imports a LiquiTask JSON backup.
-
-## Planning And Navigation
-
-- **Kanban board** uses drag and drop through `@dnd-kit` with sortable columns
-  and task cards.
-- **Priority board** provides a priority-grouped planning mode.
-- **Calendar view** groups tasks by due date and includes AI scheduling hooks.
-- **Gantt view** renders timeline planning for dated work.
-- **Dashboard** summarizes workload and progress.
-- **Archive view** keeps completed or removed work recoverable.
-- **Saved views** preserve useful filters and date windows.
-- **Search history** keeps repeated searches fast to re-run.
-- **Virtualized task lists** keep long task collections usable.
 
 ## Stack
 
-| Area          | Technology                                                                 |
-| ------------- | -------------------------------------------------------------------------- |
-| Renderer      | React 19, Vite 7, TypeScript, Tailwind CSS                                 |
-| Desktop shell | Tauri 2 (Rust backend, system WebView)                                     |
-| Type checking | TypeScript native preview (`tsgo`) plus TypeScript 6 tooling compatibility |
-| Persistence   | Tauri Rust JSON storage, IndexedDB, localStorage                          |
-| AI providers  | Google Gemini, Ollama                                                      |
-| Testing       | Vitest, Testing Library, jsdom, fake-indexeddb; `cargo test` (Rust)        |
-| Linting       | Biome                                                                      |
-| Packaging     | Tauri bundler NSIS Windows installer                                       |
+| Area | Technology |
+| ---- | ---------- |
+| Renderer | React 19, Vite 7, TypeScript, Tailwind CSS (liquid-glass design system) |
+| Desktop shell | Tauri 2 (Rust backend, system WebView) |
+| Agent execution | `liquitask-agentd` Go sidecar (14 runtime backends, JSON-RPC over stdio) |
+| Gating / verification | DevCouncil (`dev` CLI) via the Rust bridge |
+| Deterministic core | `crates/liquitask-core` Rust library (date math, scoring, aggregation) — see [`docs/RUST_MIGRATION.md`](docs/RUST_MIGRATION.md) |
+| Semantic search | Python semantic sidecar (`semantic_layer/`) |
+| Type checking | TypeScript native preview (`tsgo`) + TypeScript 6 tooling |
+| Persistence | SQLite (runs, events, agents, artifacts), IndexedDB (tasks/projects — migrating to SQLite), Tauri native JSON storage, localStorage fallback |
+| In-app AI | Google Gemini, Ollama |
+| Testing | Vitest, Testing Library, jsdom, fake-indexeddb; `cargo test` (Rust); `go test` (agentd) |
+| Linting | Biome |
+| Packaging | Tauri bundler (macOS `.dmg`, Windows NSIS installer), sidecars bundled |
 
-## Project Diagram
-
-```mermaid
-flowchart LR
-  User["User"] --> UI["React renderer\nApp.tsx + lazy views"]
-  UI --> Hooks["Controller hooks\nuseAppInitialization\nuseTaskController\nuseTaskAssistant"]
-  Hooks --> Services["Domain services\nstorage, AI, automation,\nsearch, recurring, archive"]
-  Services --> BrowserStore["Browser storage\nIndexedDB + localStorage"]
-  Services --> Runtime["Runtime adapter\nsrc/runtime/runtimeEnvironment.ts"]
-  Runtime --> Bridge["Tauri JS bridge\nwindow.desktopAPI via invoke()"]
-  Bridge --> Backend["Tauri Rust backend\nwindow, storage, workspace commands"]
-  Backend --> NativeStore["User data JSON\napp_data_dir/storage.json"]
-  Backend --> Workspace["Authorized text/source workspaces"]
-  Services --> Providers["External or local AI\nGemini / Ollama"]
-```
-
-## Runtime Flow
-
-```mermaid
-sequenceDiagram
-  participant Dev as npm run dev
-  participant Tauri as Tauri CLI
-  participant Vite as Vite dev server :4000
-  participant Backend as Tauri Rust backend
-  participant React as React app
-  participant Storage as Storage services
-
-  Dev->>Tauri: tauri dev
-  Tauri->>Vite: beforeDevCommand runs npm run dev:web
-  Tauri->>Vite: load devUrl http://localhost:4000
-  Tauri->>Backend: register storage/workspace commands + plugins
-  Backend->>React: window.desktopAPI built from @tauri-apps/api
-  React->>Storage: useAppInitialization loads app data
-  Storage->>Backend: native storage via invoke() when on Tauri
-  Storage->>Storage: fallback/cache in IndexedDB and localStorage
-```
-
-## Data And Task Flow
+## Architecture
 
 ```mermaid
 flowchart TD
-  Init["useAppInitialization"] --> LoadIDB["indexedDBService.initialize"]
-  Init --> LoadNative["storageService.initialize"]
-  LoadNative --> Migrate["migrationService.runMigrations when needed"]
-  Migrate --> State["React task/project/setting state"]
-  State --> Controller["useTaskController"]
-  Controller --> Writes["Task create/update/move/delete"]
-  Writes --> Search["searchIndexService.updateTask/removeTask"]
-  Writes --> Automation["automationService.processTaskEvent"]
-  Writes --> Recurring["recurringTaskService"]
-  Writes --> IDB["IndexedDB task/project writes"]
-  Writes --> Local["storageService cache + localStorage"]
-  Local --> Native["Tauri Rust storage backup"]
+  subgraph LiquiTask["LiquiTask (Tauri 2)"]
+    UI["React 19 shell\nInbox / Board / Agents / Run + Command Deck"]
+    UI --> Query["TanStack Query -> localApi adapter\n(Tauri invoke + events)"]
+    Query --> Core["Rust core (src-tauri)\nstorage, search, policy, run store,\nnotifications, sidecar supervision,\nDevCouncil bridge"]
+  end
+  Core --> Agentd["liquitask-agentd (Go sidecar)\ndetect / run lifecycle / execenv / skills"]
+  Core --> DevCouncil["DevCouncil (Python CLI)\ndev plan/run/verify, dev mcp-server\n.devcouncil/state.db"]
+  Core --> SQLite["SQLite\nruns, agents, events, artifacts"]
+  Core --> IDB["IndexedDB\ntasks / projects / UI (migrating -> SQLite)"]
+  Core --> Semantic["Python semantic sidecar\nsemantic_layer/"]
+  Agentd --> CLIs["User-installed coding CLIs\nClaude Code / Codex / Cursor / Antigravity /\nCopilot / OpenCode / Kimi / Kiro / Qoder /\nCodeBuddy / Hermes / Pi / Trae / OpenClaw"]
+  Core --> AI["In-app AI\nGemini / Ollama"]
 ```
 
 ## Repository Layout
 
 ```text
 LiquiTask/
-├── App.tsx                  Main renderer app shell and lazy-loaded surfaces
+├── App.tsx                  Main renderer shell (legacy tree + v3 four-surface shell)
 ├── index.tsx                React entrypoint
-├── components/              Shared top-level UI components and modals
+├── components/              Legacy top-level UI wrappers (being folded into src/)
 ├── src/
-│   ├── components/          Main feature UI: board, dashboard, AI, settings
-│   ├── constants/           Storage keys, defaults, and keybindings
-│   ├── context/             Keybinding provider
-│   ├── contexts/            App-level React contexts
-│   ├── hooks/               App initialization, task, project, AI, and UI controllers
+│   ├── components/          Feature UI: board, dashboard, agents/, AI, settings
+│   │   └── agents/          Agent roster, runs dock, drop tray, standup card
+│   ├── constants/           Storage keys, defaults, keybindings, FEATURE_FLAGS
+│   ├── hooks/               App init, task/project controllers, useAgentTeammates
 │   ├── migrations/          Versioned local data migrations
-│   ├── runtime/             Web/Tauri runtime detection and bridge helpers
+│   ├── runtime/             Web/Tauri runtime detection + callNative bridge
 │   ├── services/            Persistence, AI, automation, search, archive, export
-│   ├── test/                Test setup
-│   ├── types/               Shared feature types
-│   └── utils/               Query, validation, search, debounce, storage helpers
-├── src-tauri/               Tauri Rust backend (commands, config, capabilities)
-│   ├── src/main.rs          Storage + workspace commands, plugin wiring
-│   ├── tauri.conf.json      Window, bundle, and security (CSP) config
-│   ├── capabilities/        ACL permissions granted to the main window
-│   └── icons/               Generated app icon set
-├── build/                   Source icon asset
-├── dist/                    Generated Vite renderer output
-├── release/                 Generated packaged installer artifacts
-└── .github/                 CI, release, and release-drafter workflows
+│   │   └── agents/          agentRunService, agentd wiring, DevCouncil planner,
+│   │                        policy, scope, skills, campaign orchestration
+│   ├── ui/ · core/ · views/ v3 shell layers (primitives · domain · screens)
+│   └── utils/               Query, validation, search, storage helpers
+├── src-tauri/               Tauri Rust backend
+│   ├── src/agentd.rs        JSON-RPC bridge to liquitask-agentd
+│   ├── src/agent_*.rs       Runner (Claude fallback), policy, skills, git, MCP
+│   ├── src/agent_devcouncil*.rs  DevCouncil plan/verify/repair + evidence mirror
+│   ├── src/logic/           Thin Tauri wrappers over liquitask-core
+│   ├── tauri.conf.json      Window, bundle, CSP, sidecar config
+│   └── capabilities/        ACL permission allowlist
+├── liquitask-agentd/        Go agent sidecar (14 backends, execenv, daemon, rpc)
+├── crates/liquitask-core/   Pure Rust deterministic core library
+├── semantic_layer/          Python semantic-search sidecar
+├── scripts/                 Sidecar build + verification scripts
+├── vendor/multica-ref/      Read-only Multica reference snapshot (excluded from build)
+└── docs/                    Rework plan, agent teammates, migration, signing
 ```
 
-Generated output directories (`dist/`, `release/`, `src-tauri/target/`, and
-`src-tauri/gen/`) should not be committed.
+Generated output directories (`dist/`, `release/`, `src-tauri/target/`,
+`src-tauri/gen/`) and local state (`.gitnexus/`, `.devcouncil/`,
+`.claude/skills/generated/`) should not be committed.
 
 ## Requirements
 
-- Node.js 20 or newer
-- npm
-- Rust toolchain (stable) for the Tauri desktop backend — see <https://v2.tauri.app/start/prerequisites/>
-- On Windows: the WebView2 runtime (preinstalled on Windows 11) and MSVC build tools
-- Windows for the current packaged release target
+- Node.js 20 or newer, and npm.
+- Rust toolchain (stable) for the Tauri desktop backend and `liquitask-core` —
+  see <https://v2.tauri.app/start/prerequisites/>.
+- Go (1.22+) to build the `liquitask-agentd` sidecar (`npm run build:agentd`).
+- Python 3 to build the semantic-search sidecar.
+- On Windows: the WebView2 runtime (preinstalled on Windows 11) and MSVC build
+  tools.
+
+To *use* agents at runtime you additionally need the relevant CLIs on `PATH`:
+
+- One or more coding-agent CLIs (`claude`, `codex`, `cursor-agent`, etc.),
+  installed and authenticated.
+- The DevCouncil `dev` CLI (from the DevCouncil repo, via `uv`) for council
+  planning and verify gates.
+- Optional: `container` (macOS 26+, Apple silicon) for the sandbox run mode.
+
+`Settings → Agents` shows live detection for all three.
 
 ## Install
 
@@ -216,7 +332,8 @@ npm install
 
 ## Run The App
 
-Run the full desktop app:
+Run the full desktop app (builds the agentd sidecar + a semantic-sidecar stub,
+then launches Tauri):
 
 ```bash
 npm run dev
@@ -224,205 +341,87 @@ npm run dev
 
 What this does:
 
-1. Tauri runs `beforeDevCommand` (`npm run dev:web`) to start the Vite renderer.
-2. Serves the renderer on `http://localhost:4000` (`devUrl`).
-3. Compiles and launches the Tauri Rust backend, loading the dev URL.
-4. Exposes `window.desktopAPI` (window, storage, workspace, notifications).
+1. Prepares the semantic-sidecar stub and builds `liquitask-agentd`.
+2. Tauri runs `beforeDevCommand` (`npm run dev:web`) to start the Vite renderer
+   on `http://localhost:4000` (`devUrl`).
+3. Compiles and launches the Tauri Rust backend, loading the dev URL and
+   supervising the sidecars.
+4. Exposes `window.desktopAPI` (window, storage, workspace, notifications) and
+   the agentd / DevCouncil bridges.
 
-Run only the web renderer:
+Run only the web renderer (no desktop backend, no agents):
 
 ```bash
 npm run dev:web
 ```
 
-Run the Vite preview server after a web build:
-
-```bash
-npm run preview
-```
-
 ## Build
 
-Build the renderer and packaged desktop app (Tauri runs `build:web` first):
+Build the renderer, sidecars, and packaged desktop app:
 
 ```bash
-npm run build
+npm run build          # build:semantic-sidecar + build:agentd + tauri build
+npm run build:mac      # same, targeting aarch64-apple-darwin
 ```
 
-Build only the renderer:
+Build only a piece:
 
 ```bash
-npm run build:web
-```
-
-Test the Rust backend (security boundary + validation unit tests):
-
-```bash
-cd src-tauri && cargo test
+npm run build:web              # renderer only
+npm run build:agentd           # liquitask-agentd Go sidecar
+npm run build:semantic-sidecar # Python semantic sidecar
 ```
 
 Build outputs:
 
-- `dist/` contains the Vite renderer bundle.
-- `src-tauri/target/` contains compiled Rust artifacts.
-- `src-tauri/target/release/bundle/` contains the Tauri NSIS installer.
-
-## Code Signing And Install Warnings
-
-When the macOS `.dmg` or Windows `.exe` is downloaded, the OS and Chrome may warn
-that the app is from an unidentified developer ("LiquiTask can't be opened
-because Apple cannot check it for malicious software", or Chrome's "this file
-isn't commonly downloaded"). These warnings are about **code signing**, not the
-app's behavior.
-
-What the build does today (no paid certificates required):
-
-- The macOS `.app` is **ad-hoc signed** (`signingIdentity: "-"`) with a hardened
-  set of `entitlements.plist`, so it has a valid, inspectable signature and runs
-  on Apple Silicon without the "damaged" error. Verify with
-  `codesign -dv --verbose=4 /Applications/LiquiTask.app`.
-- CI is **notarization-ready**: the signing/notarization steps activate
-  automatically as soon as the secrets below are present, and fall back to
-  ad-hoc otherwise.
-
-End-user workaround until the app is notarized:
-
-- macOS: right-click the app → **Open** (once), or run
-  `xattr -dr com.apple.quarantine /Applications/LiquiTask.app`.
-- Windows/Chrome: keep the download, then **Run anyway** on the SmartScreen
-  prompt.
-
-Fully removing the warnings (requires paid certificates) — see
-[`docs/SIGNING.md`](docs/SIGNING.md) for the complete step-by-step:
-
-- **macOS / Safari** — enroll in the Apple Developer Program ($99/yr), then set
-  repository secrets `APPLE_CERTIFICATE` (base64 Developer ID Application .p12),
-  `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`
-  (e.g. `Developer ID Application: Name (TEAMID)`), `APPLE_ID`, `APPLE_PASSWORD`
-  (app-specific password), and `APPLE_TEAM_ID`. The workflow then signs with the
-  Developer ID and notarizes the `.dmg`.
-- **Windows / Chrome** — an Authenticode code-signing certificate (OV/EV, or
-  Azure Trusted Signing) removes the SmartScreen warning; EV certificates and
-  accumulated download reputation clear it fastest.
+- `dist/` — Vite renderer bundle.
+- `src-tauri/target/` — compiled Rust artifacts.
+- `src-tauri/target/release/bundle/` — Tauri installers (`.dmg` / NSIS `.exe`).
 
 ## Test And Quality
 
-Run the full Vitest suite once:
-
 ```bash
-npm run test:run
-```
+npm run test:run       # full Vitest suite once
+npm test               # Vitest watch mode
+npm run test:coverage  # coverage
+npm run typecheck      # tsgo renderer type check
+npm run lint           # Biome
+npm run lint:fix       # Biome autofix
+npm run format         # Prettier
 
-Run Vitest in watch mode:
-
-```bash
-npm test
-```
-
-Run coverage:
-
-```bash
-npm run test:coverage
-```
-
-Run TypeScript checks for the renderer:
-
-```bash
-npm run typecheck
-```
-
-Run Biome checks:
-
-```bash
-npm run lint
-```
-
-Apply Biome fixes:
-
-```bash
-npm run lint:fix
-```
-
-Format supported source and documentation files:
-
-```bash
-npm run format
+cd src-tauri && cargo test                 # Rust backend (security + validation)
+cargo test --manifest-path crates/liquitask-core/Cargo.toml   # pure core crate
+cd liquitask-agentd && go test ./...       # Go agent sidecar (per-backend suites)
 ```
 
 ## AI Configuration
 
-AI settings are configured in **Settings > AI Settings**. Credentials and model
-choices stay local.
+In-app AI (the task-authoring features — extraction, refinement, subtasks,
+dedupe, image-to-task, smart import) is configured in **Settings → AI Settings**;
+credentials and model choices stay local.
 
-Supported providers:
+- **Gemini** uses `@google/generative-ai` with `gemini-3.1-flash-lite` as the
+  service fallback.
+- **Ollama** runs local models via the app's Ollama provider path.
 
-- **Gemini** uses `@google/generative-ai` and defaults to the configured Gemini
-  model, with `gemini-3.1-flash-lite` as the service fallback.
-- **Ollama** supports local models through the app's Ollama provider path.
+This is distinct from **agent runtimes** (Claude Code, Codex, …), which are
+external CLIs driven through `liquitask-agentd` and configured in
+**Settings → Agents**.
 
-AI capabilities include batch task extraction, task refinement, description
-polishing, subtask generation, duplicate analysis, metadata suggestions, image
-to task extraction, and conversational task assistant tool calls.
-
-AI-specific surfaces:
-
-- **AI Task Assistant** opens with `Cmd/Ctrl + J` and can use task-aware tool
-  calls.
-- **AI Insights Panel** summarizes workspace-level guidance.
-- **AI Health Dashboard** checks provider configuration and operational status.
-- **Bulk AI Operations** runs AI-backed changes across selected tasks.
-- **AI Merge Duplicates** reviews duplicate groups and merge suggestions before
-  applying them.
-- **AI Reorganize** proposes task clusters and project changes with approval.
-- **AI Project Assignment** suggests which project should own imported or loose
-  tasks.
-- **AI Subtask Suggestions** converts task summaries into actionable checklists.
-- **AI Smart Import** maps external task exports into LiquiTask.
-
-Provider behavior:
-
-- Gemini requires a local API key and model name in settings.
-- Ollama uses a local base URL and model name, with settings support for model
-  pull/list/test operations where the provider exposes them.
-- Workspace file access is opt-in and scoped to authorized local directories.
+AI-specific surfaces include the AI Task Assistant (`Cmd/Ctrl + J`), AI Insights
+Panel, AI Health Dashboard, Bulk AI Operations, AI Merge Duplicates, AI
+Reorganize, AI Project Assignment, AI Subtask Suggestions, and AI Smart Import.
 
 ## Automation Rules
 
-Automation rules are configured in **Settings > Automation** and persisted with
-the rest of the local app data.
+Configured in **Settings → Automation** and persisted with the rest of the local
+app data.
 
-Supported triggers:
-
-- `onCreate`
-- `onUpdate`
-- `onMove`
-- `onComplete`
-- `onSchedule`
-
-Supported actions:
-
-- Set a task field.
-- Add or remove a tag.
-- Move a task to a board column.
-- Set priority.
-- Send a notification.
-
-Rules can include advanced filter conditions through the query engine. Scheduled
-rules support daily, weekly, and monthly timing.
-
-## Settings
-
-Settings are organized by operational area:
-
-- **General** handles app-level preferences.
-- **Workflow** controls board columns, grouping, compact mode, and related task
-  workflow behavior.
-- **Priority** manages priority definitions, labels, colors, order, and reset.
-- **Data** handles JSON export, CSV export, backup restore, manual bulk import,
-  template download, AI smart import, and reset.
-- **Automation** manages event and scheduled rules.
-- **AI Settings** configures providers, model names, bulk operation behavior,
-  workspace access, and connection testing.
+Triggers: `onCreate`, `onUpdate`, `onMove`, `onComplete`, `onSchedule`.
+Actions: set a field, add/remove a tag, move to a column, set priority, send a
+notification (and, increasingly, assign to an agent). Rules support advanced
+filter conditions via the query engine; scheduled rules support daily, weekly,
+and monthly timing.
 
 ## Local Persistence
 
@@ -430,59 +429,44 @@ LiquiTask keeps data local by design.
 
 ```mermaid
 flowchart LR
-  StorageService["storageService"] --> Cache["In-memory cache"]
-  StorageService --> LocalStorage["localStorage fallback"]
-  StorageService --> IndexedDB["IndexedDB\nlarge task/project data"]
-  StorageService --> NativeAPI["window.desktopAPI.storage"]
-  NativeAPI --> TauriInvoke["Tauri invoke() -> storage_* commands"]
-  TauriInvoke --> UserData["app_data_dir/storage.json"]
+  Tasks["Tasks / projects / views"] --> IDB["IndexedDB\n(encrypted, migrating -> SQLite)"]
+  Tasks --> Native["window.desktopAPI.storage\n-> Tauri storage_* -> app_data_dir/storage.json"]
+  Runs["Agent runs / events / agents / artifacts"] --> SQLite["SQLite\n(run_store.rs + agentd_store.rs)"]
+  Evidence["DevCouncil evidence"] --> DCDB[".devcouncil/state.db\n(mirrored into artifact tables)"]
 ```
 
 Important behavior:
 
-- Tauri runtime data is backed up through `window.desktopAPI.storage`.
-- Browser-compatible fallback data is stored in localStorage.
-- Larger task and project collections are mirrored to IndexedDB when available.
+- Task/project data is encrypted at rest, cached in memory, mirrored to
+  IndexedDB, and backed up through Tauri native storage. A migration to SQLite
+  (so the whole work graph is queryable by agents through one store) is in
+  progress — schema groundwork has landed.
+- Agent runs, events, agent records, and artifacts live in SQLite so the sidecar
+  and the reattach/reconcile paths share durable server-side state.
 - Data migrations run during `storageService.initialize()`.
-- Workspace AI file access is limited to user-authorized directories and
-  supported text/source files through Rust command guards.
+- Workspace file access (for both AI and agents) is limited to user-authorized
+  directories and supported text/source files, enforced by Rust command guards.
 
-## Tauri And Workspace Security
+## Tauri, Agent, And Workspace Security
 
-The Tauri backend enforces:
-
-- A strict Content-Security-Policy (set in `tauri.conf.json`).
-- An ACL capability allowlist (`src-tauri/capabilities/default.json`) — only the
-  window, event, dialog, and notification commands the app needs are granted.
-- No Node.js / direct filesystem access in the WebView; the renderer reaches
-  native functionality only through registered Rust commands.
-
-The renderer talks to the backend through `window.desktopAPI`, which wraps:
-
-- Window controls (`@tauri-apps/api/window`).
-- Window-state listeners (derived from resize events).
-- Native notifications (`@tauri-apps/plugin-notification`).
-- Native storage operations (`storage_*` Rust commands).
-- Workspace directory selection (`@tauri-apps/plugin-dialog`).
-- Authorized file reads/writes/searches (`workspace_*` Rust commands).
-
-The `workspace_*` commands validate that file operations remain inside
-user-authorized directories (with symlink-canonicalized path checks) and are
-limited to an allowlist of text/source file types. These boundaries are covered
-by `cargo test` unit tests in `src-tauri/src/main.rs`.
-
-## Generated And Local State
-
-- `dist/`, `release/`, `src-tauri/target/`, and `src-tauri/gen/` are build outputs.
-- `.gitnexus/` is local generated GitNexus state.
-- `.claude/skills/generated/` contains generated navigation maps for services,
-  hooks, components, settings, and runtime areas.
-- `node_modules/` is local dependency output.
-- User app data is written under the OS app-data dir (`storage.json`).
+- A strict Content-Security-Policy (`tauri.conf.json`) and an ACL capability
+  allowlist (`src-tauri/capabilities/default.json`) — only the commands the app
+  needs are granted. No Node.js / direct filesystem access in the WebView.
+- **Agent runs never pass a raw command line.** The Rust runner assembles argv
+  from structured, validated parameters (modes: `claude`, `claude-container`,
+  `devcouncil-verify`, `devcouncil-e2e`, and agentd-routed runtimes). Working
+  directories are validated against the workspace allowlist; flag-shaped values
+  are rejected; every process is tracked and cancellable.
+- **DevCouncil scope acts as a second gate**: out-of-scope writes are blocked by
+  `agent_policy.rs` even if an agent attempts them.
+- The `workspace_*` commands validate that file operations remain inside
+  user-authorized directories (symlink-canonicalized) and are limited to an
+  allowlist of text/source file types. These boundaries are covered by
+  `cargo test` in `src-tauri/src/main.rs`.
 
 ## Keyboard Shortcuts
 
-- `Cmd/Ctrl + K` opens the command palette.
+- `Cmd/Ctrl + K` opens the Command Deck (command palette).
 - `Cmd/Ctrl + J` toggles the AI Task Assistant.
 - `Cmd/Ctrl + E` exports data.
 - `Cmd/Ctrl + B` toggles the sidebar.
@@ -490,60 +474,59 @@ by `cargo test` unit tests in `src-tauri/src/main.rs`.
 - `C` creates a task.
 - `Escape` closes active overlays.
 
+## Code Signing And Install Warnings
+
+When the macOS `.dmg` or Windows `.exe` is downloaded, the OS may warn that the
+app is from an unidentified developer. These warnings are about **code signing**,
+not the app's behavior.
+
+- The macOS `.app` is **ad-hoc signed** (`signingIdentity: "-"`) with a hardened
+  `entitlements.plist`, so it runs on Apple Silicon without the "damaged" error.
+  Verify with `codesign -dv --verbose=4 /Applications/LiquiTask.app`.
+- CI is **notarization-ready**: signing/notarization activate automatically once
+  the Apple/Windows secrets are present, and fall back to ad-hoc otherwise.
+
+End-user workaround until notarized: on macOS, right-click → **Open** once, or
+`xattr -dr com.apple.quarantine /Applications/LiquiTask.app`; on Windows/Chrome,
+keep the download and **Run anyway**. See [`docs/SIGNING.md`](docs/SIGNING.md)
+for the full certificate-based playbook.
+
 ## Release Flow
 
-LiquiTask uses two GitHub Actions release paths:
+LiquiTask uses two GitHub Actions paths: `Release Drafter` keeps a draft release
+updated on pushes to `main`, and `Release` runs when a semantic version tag
+(e.g. `v2.6.1`) is pushed. The tagged workflow installs deps, runs the test
+suite, verifies the tag matches `package.json`, builds the Tauri package
+(including sidecars), and uploads the installers.
 
-1. `Release Drafter` keeps a draft release updated on pushes to `main`.
-2. `Release` runs when a semantic version tag such as `v2.5.0` is pushed.
+Current package version: `2.6.1`.
 
-The tagged release workflow:
-
-1. Installs dependencies with `npm ci`.
-2. Runs the full test suite.
-3. Verifies that the git tag matches `package.json`.
-4. Installs the Rust toolchain (Universal targets on macOS) and builds the
-   Tauri package.
-5. Uploads the packaged installer artifacts to the GitHub Release.
-
-Current package version: `2.5.0`.
-
-Expected release assets (Tauri bundle output):
+Expected release assets:
 
 - `LiquiTask_<version>_x64-setup.exe` (Windows NSIS installer)
-- `LiquiTask_<version>_universal.dmg` (macOS Universal: Apple Silicon + Intel)
-
-Create a release:
+- `LiquiTask_<version>_aarch64.dmg` (macOS Apple Silicon)
 
 ```bash
-git tag v2.5.0
-git push origin v2.5.0
+git tag v2.6.1
+git push origin v2.6.1
 ```
 
-Before tagging a new version, update:
+Before tagging, update `package.json` and `package-lock.json`.
 
-- `package.json`
-- `package-lock.json`
+## Documentation
 
-Patch notes are generated by Release Drafter using:
-
-- `.github/workflows/release-drafter.yml`
-- `.github/release-drafter.yml`
-- `.github/workflows/release.yml`
-
-## Development Notes
-
-- Vite is configured in `vite.config.ts` with `server.port = 4000`,
-  `strictPort = true` (Tauri loads a fixed `devUrl`), and `host = "0.0.0.0"`.
-- The renderer uses `base: "./"` so the packaged app loads local assets
-  correctly.
-- The window is created `decorations: false` + `visible: false`; the custom
-  title bar uses `data-tauri-drag-region`, and the renderer reveals the window
-  after mount via `showRuntimeWindow()`.
-- The Tauri bridge (`src/runtime/runtimeEnvironment.ts`) exposes only window
-  controls, notifications, storage, and authorized workspace file operations.
-- GitNexus maps live in `.claude/skills/generated/` and are useful before
-  making high-risk changes to services, hooks, settings, or runtime code.
+- [`docs/REWORK_PLAN_MULTICA.md`](docs/REWORK_PLAN_MULTICA.md) — the v3 product
+  thesis, target architecture, and phased roadmap.
+- [`docs/AGENT_TEAMMATES.md`](docs/AGENT_TEAMMATES.md) — agent-run lifecycle,
+  durable/headless runs, DevCouncil verification gate, and the sandbox mode.
+- [`docs/RUST_MIGRATION.md`](docs/RUST_MIGRATION.md) — moving deterministic
+  business logic into `crates/liquitask-core`.
+- [`docs/SIGNING.md`](docs/SIGNING.md) — full code-signing / notarization
+  playbook.
+- [`docs/THIRD_PARTY.md`](docs/THIRD_PARTY.md) — Multica attribution and license
+  terms.
+- GitNexus navigation maps live in `.claude/skills/generated/` — start there
+  before high-risk changes to services, hooks, settings, agents, or runtime.
 
 ## License
 

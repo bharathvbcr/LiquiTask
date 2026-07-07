@@ -47,6 +47,25 @@ Object.defineProperty(HTMLAnchorElement.prototype, "click", {
 // Mock scrollIntoView
 HTMLElement.prototype.scrollIntoView = vi.fn();
 
+// jsdom has no WebGL support; return null (no context) instead of letting it
+// throw "not implemented" noise for code that probes for a GPU (gpuDetection.ts).
+HTMLCanvasElement.prototype.getContext = vi.fn(() => null) as typeof HTMLCanvasElement.prototype.getContext;
+
+// jsdom doesn't provide matchMedia; liquid blob physics and responsive hooks rely on it.
+if (typeof window.matchMedia !== "function") {
+  window.matchMedia = (query: string) =>
+    ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    }) as MediaQueryList;
+}
+
 // Reset mocks between tests
 beforeEach(() => {
   vi.clearAllMocks();

@@ -127,7 +127,7 @@ export const MobileNavDrawer: React.FC<MobileNavDrawerProps> = ({
         role="dialog"
         aria-modal="true"
         aria-label="Navigation menu"
-        className={`absolute inset-y-0 left-0 w-80 max-w-[85vw] liquid-glass rounded-none border-r border-white/10 shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform ${
+        className={`absolute inset-y-0 left-0 w-80 max-w-[85vw] liquid-glass liquid-glass--soft rounded-none border-r border-white/10 shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >

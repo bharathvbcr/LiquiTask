@@ -14,7 +14,7 @@ vi.mock("./SavedViewControls", () => ({
   default: () => <div>Saved Views</div>,
 }));
 vi.mock("./FilterBuilder", () => ({
-  default: () => <div>Filter Builder</div>,
+  FilterBuilder: () => <div>Filter Builder</div>,
 }));
 
 describe("AppHeader", () => {
@@ -22,9 +22,9 @@ describe("AppHeader", () => {
   const mockOnViewModeChange = vi.fn();
   const mockOnUndo = vi.fn();
   const mockOnToggleCompactView = vi.fn();
-  const mockOnToggleFilter = vi.fn();
+  const mockOnFilterOpenChange = vi.fn();
   const mockOnOpenTaskModal = vi.fn();
-  const mockOnOpenCommandPalette = vi.fn();
+  const mockOnNaturalLanguageSearch = vi.fn();
   const mockOnSearchQueryChange = vi.fn();
   const mockOnSearchFocusChange = vi.fn();
   const mockOnFiltersChange = vi.fn();
@@ -71,10 +71,9 @@ describe("AppHeader", () => {
     onViewModeChange: mockOnViewModeChange,
     onUndo: mockOnUndo,
     onToggleCompactView: mockOnToggleCompactView,
-    onToggleFilter: mockOnToggleFilter,
+    onFilterOpenChange: mockOnFilterOpenChange,
     onRequestNotificationPermission: vi.fn(),
     onOpenTaskModal: mockOnOpenTaskModal,
-    onOpenCommandPalette: mockOnOpenCommandPalette,
     onSearchQueryChange: mockOnSearchQueryChange,
     onSearchFocusChange: mockOnSearchFocusChange,
     onApplyView: vi.fn(),
@@ -94,38 +93,34 @@ describe("AppHeader", () => {
     expect(screen.getAllByText(/5 Active Tasks/i).length).toBeGreaterThan(0);
   });
 
-  it("calls onHeaderExpand on mouse enter/leave", () => {
+  it("calls onHeaderExpand when the search input gains/loses focus", () => {
     render(<AppHeader {...baseProps} />);
 
-    const header = screen.getByRole("banner");
-    fireEvent.mouseEnter(header);
+    const searchInput = screen.getByPlaceholderText(/Search tasks/i);
+    fireEvent.focus(searchInput);
     expect(mockOnHeaderExpand).toHaveBeenCalledWith(true);
-
-    fireEvent.mouseLeave(header);
-    expect(mockOnHeaderExpand).toHaveBeenCalledWith(false);
   });
 
-  it("renders expanded content when isHeaderExpanded is true", () => {
-    render(<AppHeader {...baseProps} isHeaderExpanded={true} />);
+  it("renders the full toolbar in a single row (no expand morph needed)", () => {
+    render(<AppHeader {...baseProps} />);
 
     expect(screen.getByText("New Task")).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/Search tasks/i)).toBeInTheDocument();
   });
 
-  it("calls onUndo when undo button is clicked", () => {
+  it("calls onUndo when undo is chosen from the tools menu", () => {
     render(<AppHeader {...baseProps} isHeaderExpanded={true} canUndo={true} />);
 
-    const undoBtn = screen.getByLabelText(/Undo last action/i);
-    fireEvent.click(undoBtn);
+    fireEvent.click(screen.getByLabelText("Board tools menu"));
+    fireEvent.click(screen.getByRole("button", { name: /Undo/i }));
     expect(mockOnUndo).toHaveBeenCalled();
   });
 
-  it("calls onToggleFilter when filter button is clicked", () => {
+  it("calls onFilterOpenChange when filter button is clicked", () => {
     render(<AppHeader {...baseProps} isHeaderExpanded={true} />);
 
-    const filterBtn = screen.getByLabelText(/filters panel/i);
-    fireEvent.click(filterBtn);
-    expect(mockOnToggleFilter).toHaveBeenCalled();
+    fireEvent.click(screen.getByLabelText(/^Filters$/i));
+    expect(mockOnFilterOpenChange).toHaveBeenCalledWith(true);
   });
 
   it("calls onSearchQueryChange when typing in search input", () => {
@@ -155,38 +150,64 @@ describe("AppHeader", () => {
     expect(baseProps.searchHistory.addToHistory).toHaveBeenCalledWith("test");
   });
 
-  it("calls onOpenCommandPalette when command palette button is clicked", () => {
-    render(<AppHeader {...baseProps} isHeaderExpanded={true} />);
+  it("calls onNaturalLanguageSearch on Enter when AI search is enabled", () => {
+    render(
+      <AppHeader
+        {...baseProps}
+        isHeaderExpanded={true}
+        searchQuery="high priority due this week"
+        aiSearchEnabled={true}
+        onNaturalLanguageSearch={mockOnNaturalLanguageSearch}
+      />,
+    );
 
-    const cmdBtn = screen.getByTitle(/Command Palette/i);
-    fireEvent.click(cmdBtn);
-    expect(mockOnOpenCommandPalette).toHaveBeenCalled();
+    fireEvent.keyDown(screen.getByLabelText("Search tasks"), {
+      key: "Enter",
+      code: "Enter",
+    });
+
+    expect(mockOnNaturalLanguageSearch).toHaveBeenCalledWith("high priority due this week");
+  });
+
+  it("uses plain search placeholder when AI search is disabled", () => {
+    render(<AppHeader {...baseProps} aiSearchEnabled={false} />);
+
+    expect(screen.getByPlaceholderText("Search tasks…")).toBeInTheDocument();
   });
 
   it("calls onFiltersChange when filter inputs are changed", () => {
     render(<AppHeader {...baseProps} isHeaderExpanded={true} isFilterOpen={true} />);
 
-    const assigneeInput = screen.getByPlaceholderText("Name...");
+    const assigneeInput = screen.getByPlaceholderText("Name…");
     fireEvent.change(assigneeInput, { target: { value: "Bob" } });
     expect(mockOnFiltersChange).toHaveBeenCalledWith(expect.objectContaining({ assignee: "Bob" }));
 
-    const tagInput = screen.getByPlaceholderText("Category...");
+    const tagInput = screen.getByPlaceholderText("Category…");
     fireEvent.change(tagInput, { target: { value: "tag1" } });
     expect(mockOnFiltersChange).toHaveBeenCalledWith(expect.objectContaining({ tags: "tag1" }));
   });
 
   it("calls onClearFilters when clear all button is clicked", () => {
-    render(<AppHeader {...baseProps} isHeaderExpanded={true} isFilterOpen={true} />);
+    render(
+      <AppHeader
+        {...baseProps}
+        isHeaderExpanded={true}
+        isFilterOpen={true}
+        hasActiveFilters={true}
+        activeFilterCount={2}
+      />,
+    );
 
     fireEvent.click(screen.getByText("Clear All"));
     expect(mockOnClearFilters).toHaveBeenCalled();
   });
 
-  it("hides AI assistant button when handler is not provided", () => {
+  it("hides AI assistant action when handler is not provided", () => {
     const { onToggleAssistant: _onToggleAssistant, ...propsWithoutAssistant } = baseProps;
 
     render(<AppHeader {...propsWithoutAssistant} isHeaderExpanded={true} />);
 
-    expect(screen.queryByLabelText("AI Assistant")).toBeNull();
+    fireEvent.click(screen.getByLabelText("Board tools menu"));
+    expect(screen.queryByRole("button", { name: "AI Assistant" })).toBeNull();
   });
 });

@@ -38,11 +38,11 @@ jobs:
             release-files: src-tauri/target/release/bundle/nsis/*.exe
           - name: macOS
             os: macos-14
-            rust-targets: aarch64-apple-darwin,x86_64-apple-darwin
+            rust-targets: aarch64-apple-darwin
             package-command: npm run build:mac
             artifact-name: liquitask-release-macos
-            artifact-path: src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
-            release-files: src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+            artifact-path: src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+            release-files: src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
 
     steps:
       - name: Configure git default branch

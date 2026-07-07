@@ -89,20 +89,19 @@ export const SavedViewControls: React.FC<SavedViewControlsProps> = ({
       <Button
         onClick={() => setIsOpen(!isOpen)}
         variant="secondary"
+        size="sm"
         aria-expanded={isOpen}
         aria-haspopup="menu"
         aria-controls="saved-views-menu"
-        className={`flex items-center gap-2 min-w-[180px] justify-between px-4 py-2 text-sm font-medium transition-colors ${
+        className={
           activeView
-            ? "bg-red-500/10 border-red-500/30 text-red-400 ring-1 ring-red-500/30"
-            : ""
-        }`}
+            ? "max-w-[112px] bg-red-500/10 border-red-500/30 text-red-400 ring-1 ring-red-500/30"
+            : "max-w-[112px]"
+        }
       >
-        <div className="flex items-center gap-2 min-w-0">
-          <Layout size={16} />
-          <span className="max-w-[130px] truncate">{activeView ? activeView.name : "Views"}</span>
-        </div>
-        <ChevronDown size={14} className={`transition-transform ${isOpen ? "rotate-180" : ""}`} />
+        <Layout size={14} aria-hidden="true" />
+        <span className="max-w-[56px] truncate">{activeView ? activeView.name : "Views"}</span>
+        <ChevronDown size={12} className={`shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`} />
       </Button>
 
       {/* Dropdown Menu */}

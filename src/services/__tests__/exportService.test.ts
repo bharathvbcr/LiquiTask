@@ -305,8 +305,8 @@ describe("exportService", () => {
       expect(captured).toContain("CATEGORIES:a\\,b");
     });
 
-    it("should mark completed tasks with STATUS:COMPLETED", () => {
-      exportService.exportToICS([makeTask({ status: "Completed" })]);
+    it("should mark committed tasks with STATUS:COMPLETED", () => {
+      exportService.exportToICS([makeTask({ status: "Commit" })]);
       expect(captured).toContain("STATUS:COMPLETED");
     });
 

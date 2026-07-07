@@ -1,9 +1,9 @@
 /**
  * Campaign orchestration for LiquiTask.
  *
- * Layers a command hierarchy on top of the existing agent engine:
+ * Layers a team structure on top of the existing agent engine:
  *
- * - the **Commander** relays the Lord's order (an epic board task) to the Lead;
+ * - the **Coordinator** passes the user's request (an epic board task) to the Lead;
  * - the **Lead** decomposes the epic via DevCouncil (`agentPlannerService.planEpic`),
  *   classifies each subtask by Bloom level, materialises board tasks, and
  *   dispatches them to the worker pool **in parallel** — never releasing a task
@@ -13,7 +13,7 @@
  *   and reports the verdict back up to the Lead, who updates the dashboard.
  *
  * The planner and the runner are injected, so the whole control flow — routing,
- * dependency waves, QC gating, chain-of-command enforcement, mailbox + dashboard
+ * dependency waves, QC gating, role-boundary enforcement, mailbox + dashboard
  * side effects — is unit-testable without the Tauri backend or a coding CLI.
  */
 
@@ -23,7 +23,7 @@ import agentRunService from "./agentRunService";
 import { buildLinkedTask, planEpic } from "./agentPlannerService";
 import { bloomLabel, classifyBloom, routeRank, summarizeRouting } from "./campaignBloom";
 import { renderCampaignDashboard } from "./campaignDashboard";
-import { CampaignMailbox, campaignMailbox } from "./campaignMailbox";
+import { campaignMailbox, type CampaignMailbox } from "./campaignMailbox";
 import { nullNotifier, CampaignNotifier } from "./campaignNotify";
 import { assertAllowed } from "./campaignRoles";
 import type {
@@ -34,6 +34,8 @@ import type {
   CampaignRank,
   CampaignRosterEntry,
   CampaignTaskOutcome,
+  PlanFallbackInfo,
+  PlanFallbackReason,
 } from "./campaignTypes";
 
 const TERMINAL_RUN_STATUSES = new Set(["completed", "failed", "cancelled"]);
@@ -52,8 +54,46 @@ export interface CampaignRunner {
 }
 
 /** Decomposes an epic into subtasks. Default wraps `agentPlannerService`. */
+export interface CampaignDecomposeResult {
+  subtasks: DevCouncilSubtask[];
+  fallbackReason?: PlanFallbackReason;
+  detail?: string;
+}
+
 export interface CampaignPlanner {
-  decompose(epic: Task, plannerAgent: AgentProfile | undefined): Promise<DevCouncilSubtask[]>;
+  decompose(epic: Task, plannerAgent: AgentProfile | undefined): Promise<CampaignDecomposeResult>;
+}
+
+export function describePlanFallback(
+  reason: PlanFallbackReason,
+  detail?: string,
+): PlanFallbackInfo {
+  switch (reason) {
+    case "no_planner":
+      return {
+        reason,
+        message: "Planned without DevCouncil — running as a single task (no planner agent).",
+        hint: "Add an agent with role “planner” in Agent settings.",
+      };
+    case "cli_missing":
+      return {
+        reason,
+        message: "Planned without DevCouncil — running as a single task (CLI unavailable).",
+        hint: detail ?? "Use the Tauri desktop app and install the DevCouncil CLI.",
+      };
+    case "plan_failure":
+      return {
+        reason,
+        message: "Planned without DevCouncil — running as a single task (plan failed).",
+        hint: detail ?? "Check the planner agent working directory and DevCouncil setup.",
+      };
+    case "plan_empty":
+      return {
+        reason,
+        message: "Planned without DevCouncil — running as a single task (empty plan).",
+        hint: "Try a clearer epic title and summary, then start again.",
+      };
+  }
 }
 
 export interface CampaignConfig {
@@ -68,6 +108,8 @@ export interface CampaignConfig {
   notifier?: CampaignNotifier;
   ntfyTopic?: string;
   onEvent?: (message: string) => void;
+  /** Fired when DevCouncil planning fails and the campaign falls back to one subtask. */
+  onPlanFallback?: (info: PlanFallbackInfo) => void;
   /** Called with materialised subtask board tasks so the UI can render them. */
   onCreateTasks?: (tasks: Task[]) => void;
   onState?: (state: CampaignState) => void;
@@ -107,9 +149,29 @@ export const defaultCampaignRunner: CampaignRunner = {
 /** Default planner: DevCouncil `dev plan` via `agentPlannerService.planEpic`. */
 export const defaultCampaignPlanner: CampaignPlanner = {
   async decompose(epic, plannerAgent) {
-    if (!plannerAgent) return [];
+    if (!plannerAgent) {
+      return { subtasks: [], fallbackReason: "no_planner" };
+    }
     const { result } = await planEpic(epic, plannerAgent);
-    return result.tasks ?? [];
+    if (!result.cliAvailable) {
+      return {
+        subtasks: [],
+        fallbackReason: "cli_missing",
+        detail: result.error,
+      };
+    }
+    if (!result.success) {
+      return {
+        subtasks: [],
+        fallbackReason: "plan_failure",
+        detail: result.error,
+      };
+    }
+    const subtasks = result.tasks ?? [];
+    if (!subtasks.length) {
+      return { subtasks: [], fallbackReason: "plan_empty", detail: result.error };
+    }
+    return { subtasks };
   },
 };
 
@@ -144,7 +206,7 @@ class Campaign {
     const roster: CampaignRosterEntry[] = [
       { agent: "commander", rank: "commander", status: "idle", current: "-" },
       { agent: "lead", rank: "lead", status: "idle", current: "-" },
-      ...this.workers.map((w, i) => ({
+      ...this.workers.map((_w, i) => ({
         agent: `worker${i + 1}`,
         rank: "worker" as CampaignRank,
         status: "idle" as const,
@@ -214,11 +276,11 @@ class Campaign {
 
   // -- main flow --------------------------------------------------------------
 
-  /** Cooperative cancel — the Lord calls the campaign to stand down. */
+  /** Cooperative cancel — the user stops the run. */
   cancel(): void {
     if (this.cancelled) return;
     this.cancelled = true;
-    this.emit("The Lord calls the campaign to stand down.");
+    this.emit("Run cancelled by the user.");
   }
 
   async run(): Promise<CampaignResult> {
@@ -232,14 +294,22 @@ class Campaign {
   private relayOrder(): void {
     assertAllowed("commander", "relay_order");
     this.mailbox.send("lead", this.state.goal, "cmd_new", "commander");
-    this.emit(`Commander relays the order to the Lead: “${this.state.goal}”`);
+    this.emit(`Coordinator hands the epic to the Lead: “${this.state.goal}”`);
   }
 
   private async leadPlan(): Promise<CampaignAssignment[]> {
     assertAllowed("lead", "decompose");
     this.setPhase("mustering");
-    let subtasks = await this.planner.decompose(this.config.epic, this.config.plannerAgent);
+    const decomposed = await this.planner.decompose(this.config.epic, this.config.plannerAgent);
+    let subtasks = decomposed.subtasks;
     if (!subtasks.length) {
+      const reason = decomposed.fallbackReason ?? "plan_empty";
+      const fallback = describePlanFallback(reason, decomposed.detail);
+      this.state.planFallback = fallback;
+      this.config.onPlanFallback?.(fallback);
+      this.emit(
+        `${fallback.message} ${decomposed.detail ? `(${decomposed.detail})` : ""} — ${fallback.hint}`,
+      );
       // No DevCouncil plan available — fall back to a single subtask from the epic.
       subtasks = [
         {
@@ -254,7 +324,7 @@ class Campaign {
 
     const routing = summarizeRouting(subtasks.map((s) => `${s.title}. ${s.description}`));
     this.emit(
-      `Lead musters ${subtasks.length} task(s) → ${routing.worker} to Workers, ${routing.reviewer} to Reviewer`,
+      `Lead created ${subtasks.length} task(s) → ${routing.worker} to Workers, ${routing.reviewer} to Reviewer`,
     );
 
     const assignments = subtasks.map((subtask) => this.assign(subtask));
@@ -320,9 +390,9 @@ class Campaign {
             bloom: bloomLabel(a.bloom),
             status: "skipped",
             verified: false,
-            blockingGaps: ["campaign stood down by the Lord"],
+            blockingGaps: ["run cancelled by the user"],
           });
-          this.skipped.push(`${a.subtask.title} — stood down`);
+          this.skipped.push(`${a.subtask.title} — cancelled`);
         }
         break;
       }
@@ -445,13 +515,13 @@ class Campaign {
     const verified = this.outcomes.filter((o) => o.status === "verified").length;
     const blocked = this.outcomes.filter((o) => o.status === "blocked" || o.status === "failed").length;
     const skipped = this.outcomes.filter((o) => o.status === "skipped").length;
-    const summary = `⚔️ Campaign complete — ${verified} verified, ${blocked} blocked, ${skipped} skipped. Goal: ${this.state.goal}`;
+    const summary = `Team run complete — ${verified} verified, ${blocked} blocked, ${skipped} skipped. Goal: ${this.state.goal}`;
 
     assertAllowed("lead", "notify");
-    void this.notifier.notify(summary, { title: "Campaign", tags: ["crossed_swords"] });
-    this.emit(`Lead reports to the Lord: ${verified} verified / ${blocked} blocked / ${skipped} skipped`);
+    void this.notifier.notify(summary, { title: "Agent team", tags: ["white_check_mark"] });
+    this.emit(`Lead summary: ${verified} verified / ${blocked} blocked / ${skipped} skipped`);
 
-    // The Commander reads the dashboard to answer for the Lord (never writes it).
+    // The Coordinator reads the dashboard to answer for the user (never writes it).
     assertAllowed("commander", "read_dashboard");
     this.state.finishedAt = Date.now();
     this.setPhase("complete");
@@ -507,12 +577,12 @@ class CampaignOrchestratorService {
     return this.running;
   }
 
-  /** Signal the active campaign to stand down (in-flight tasks finish first). */
+  /** Signal the active run to stop (in-flight tasks finish first). */
   cancelCampaign(): void {
     this.activeCampaign?.cancel();
   }
 
-  /** Muster the campaign and execute an epic. */
+  /** Start the team run and execute an epic. */
   async startCampaign(config: CampaignConfig): Promise<CampaignResult> {
     this.running = true;
     const publish = (state: CampaignState) => {

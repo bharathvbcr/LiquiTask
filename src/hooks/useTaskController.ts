@@ -12,7 +12,15 @@ import type {
   ToastType,
 } from "../../types";
 import { COLUMN_STATUS } from "../constants";
+import {
+  validateTransition,
+  type TransitionActor,
+  type TransitionContext,
+} from "../core/board/boardStateMachine";
+import { serializeTask, type TaskEventDraft } from "../core/events/taskEvents";
+import taskEventStore from "../core/events/taskEventStore";
 import type { AutomationTrigger, TaskContext } from "../services/automationService";
+import deadLetterService from "../services/deadLetterService";
 import { indexedDBService } from "../services/indexedDBService";
 import {
   isNativeBackend,
@@ -20,6 +28,19 @@ import {
   type TaskMutateOp,
 } from "../services/nativeBridge";
 import { generateTaskId, getBacklogColumnId } from "../utils/taskUtils";
+
+/** Probe injected by the app shell so move validation can see agent-run state. */
+export interface AgentRunProbe {
+  hasActiveRun: (taskId: string) => boolean;
+  hasUnmergedWork: (taskId: string) => boolean;
+}
+
+/** Options accepted by `moveTask` — the merge pipeline moves cards with `viaMergePipeline`. */
+export interface MoveTaskOptions {
+  actor?: TransitionActor;
+  viaMergePipeline?: boolean;
+  reopen?: boolean;
+}
 
 interface UndoAction {
   type: "task-create" | "task-update" | "task-delete" | "task-move";
@@ -129,6 +150,8 @@ interface TaskControllerProps {
   searchIndexServiceRef: MutableRefObject<SearchIndexServiceLike | null>;
   aiServiceRef?: MutableRefObject<AiServiceLike | null>;
   assignToAgentRef?: MutableRefObject<((taskId: string, agentId: string) => void) | null>;
+  /** Optional agent-run probe (desktop) for state-machine transition guards. */
+  agentRunProbeRef?: MutableRefObject<AgentRunProbe | null>;
 }
 
 export const useTaskController = ({
@@ -144,6 +167,7 @@ export const useTaskController = ({
   searchIndexServiceRef,
   aiServiceRef,
   assignToAgentRef,
+  agentRunProbeRef,
 }: TaskControllerProps) => {
   const automationOpts = useCallback(
     () => ({
@@ -184,6 +208,14 @@ export const useTaskController = ({
     [],
   );
 
+  /**
+   * Event-sourced mutation funnel. The UI updates optimistically, but the
+   * durable order is strict: the event batch is appended to the write-ahead
+   * log FIRST; only after the log accepts it are the derived stores (SQLite
+   * snapshot via nativeMutateTasks, IndexedDB mirror) updated. If the append
+   * fails the optimistic update is rolled back and the mutation is
+   * dead-lettered instead of silently diverging from the log.
+   */
   const commitTaskMutation = useCallback(
     (
       optimisticTasks: Task[],
@@ -196,22 +228,93 @@ export const useTaskController = ({
         newTasks?: Task[];
       },
       indexedDBAction?: { kind: "task"; task: Task } | { kind: "tasks"; tasks: Task[] } | { kind: "delete"; taskId: string },
+      events?: TaskEventDraft[],
     ) => {
       const prevTasks = tasksRef.current;
       setTasks(optimisticTasks);
 
-      if (isNativeBackend()) {
-        void nativeMutateTasks({ tasks: prevTasks, ...nativeRequest })
-          .then((result) => {
-            if (isMountedRef.current) setTasks(result);
-          })
-          .catch((err) => console.error("[useTaskController] nativeMutateTasks failed:", err));
+      const persistProjections = () => {
+        if (isNativeBackend()) {
+          void nativeMutateTasks({ tasks: prevTasks, ...nativeRequest })
+            .then((result) => {
+              if (isMountedRef.current) setTasks(result);
+            })
+            .catch((err) => console.error("[useTaskController] nativeMutateTasks failed:", err));
+          return;
+        }
+        if (indexedDBAction) persistIndexedDB(indexedDBAction);
+      };
+
+      if (!events || events.length === 0) {
+        persistProjections();
         return;
       }
 
-      if (indexedDBAction) persistIndexedDB(indexedDBAction);
+      void taskEventStore
+        .append(events)
+        .then(persistProjections)
+        .catch((err) => {
+          if (taskEventStore.isDegraded()) {
+            // Log unavailable this session — keep the app usable on the
+            // legacy stores; the degradation was already reported at boot.
+            persistProjections();
+            return;
+          }
+          if (isMountedRef.current) setTasks(prevTasks);
+          const message = err instanceof Error ? err.message : String(err);
+          deadLetterService.record({
+            kind: "event-log",
+            title: "Board change could not be recorded",
+            detail: message,
+            taskId: events[0]?.streamId,
+            payload: { events },
+          });
+          addToast("Change rolled back — the task event log rejected the write.", "error");
+        });
     },
-    [persistIndexedDB],
+    [persistIndexedDB, addToast],
+  );
+
+  /** Build the state-machine context for a proposed column transition. */
+  const buildTransitionContext = useCallback(
+    (task: Task, newStatus: string, actor: TransitionActor): TransitionContext => {
+      const allTasks = tasksRef.current;
+      const blockedLinks = task.links?.filter((l) => l.type === "blocked-by") ?? [];
+      let blockedByLabel: string | undefined;
+      let blockedByOpen = false;
+      for (const link of blockedLinks) {
+        const blocker = allTasks.find((t) => t.id === link.targetTaskId);
+        if (!blocker) continue;
+        const blockerCol = columns.find((c) => c.id === blocker.status);
+        if (!blockerCol?.isCompleted && blocker.status !== COLUMN_STATUS.COMMIT) {
+          blockedByOpen = true;
+          blockedByLabel = `task ${blocker.jobId}`;
+          break;
+        }
+      }
+
+      const targetColumn = columns.find((c) => c.id === newStatus);
+      let wipExceeded = false;
+      if (
+        newStatus !== task.status &&
+        targetColumn?.wipLimit &&
+        targetColumn.wipLimit > 0
+      ) {
+        const tasksInColumn = allTasks.filter((t) => t.status === newStatus && t.id !== task.id);
+        wipExceeded = tasksInColumn.length >= targetColumn.wipLimit;
+      }
+
+      const probe = agentRunProbeRef?.current;
+      return {
+        actor,
+        blockedByOpen,
+        blockedByLabel,
+        wipExceeded,
+        hasActiveRun: probe?.hasActiveRun(task.id) ?? false,
+        hasUnmergedWork: probe?.hasUnmergedWork(task.id) ?? false,
+      };
+    },
+    [columns, agentRunProbeRef],
   );
 
   const resolveAutomationUpdates = useCallback(
@@ -273,6 +376,14 @@ export const useTaskController = ({
             [...tasksRef.current, deletedTask],
             { op: "create", task: deletedTask },
             { kind: "task", task: deletedTask },
+            [
+              {
+                streamId: deletedTask.id,
+                type: "task.created",
+                payload: { task: serializeTask(deletedTask), changed: ["undo"] },
+                actor: "user",
+              },
+            ],
           );
           searchIndexServiceRef.current?.updateTask?.(deletedTask);
           addToast(`Restored "${deletedTask.title}"`, "success");
@@ -285,6 +396,14 @@ export const useTaskController = ({
             tasksRef.current.map((t) => (t.id === previousState.id ? previousState : t)),
             { op: "update", taskId: previousState.id, patch: previousState },
             { kind: "task", task: previousState },
+            [
+              {
+                streamId: previousState.id,
+                type: "task.updated",
+                payload: { task: serializeTask(previousState), changed: ["undo"] },
+                actor: "user",
+              },
+            ],
           );
           searchIndexServiceRef.current?.updateTask?.(previousState, action.task);
           addToast("Change undone", "info");
@@ -301,6 +420,14 @@ export const useTaskController = ({
             tasksRef.current.filter((t) => t.id !== undoTaskId),
             { op: "delete", taskId: undoTaskId },
             { kind: "delete", taskId: undoTaskId },
+            [
+              {
+                streamId: undoTaskId,
+                type: "task.deleted",
+                payload: { changed: ["undo"] },
+                actor: "user",
+              },
+            ],
           );
           addToast("Task creation undone", "info");
         }
@@ -312,6 +439,19 @@ export const useTaskController = ({
             tasksRef.current.map((t) => (t.id === previousState.id ? previousState : t)),
             { op: "update", taskId: previousState.id, patch: previousState },
             { kind: "task", task: previousState },
+            [
+              {
+                streamId: previousState.id,
+                type: "task.moved",
+                payload: {
+                  task: serializeTask(previousState),
+                  changed: ["undo"],
+                  from: action.task?.status,
+                  to: previousState.status,
+                },
+                actor: "user",
+              },
+            ],
           );
           searchIndexServiceRef.current?.updateTask?.(previousState, action.task);
           addToast("Move undone", "info");
@@ -321,7 +461,17 @@ export const useTaskController = ({
   }, [addToast, searchIndexServiceRef, commitTaskMutation]);
 
   const handleUpdateTask = useCallback(
-    (taskOrId: Task | string, updates?: Partial<Task>) => {
+    (
+      taskOrId: Task | string,
+      updates?: Partial<Task>,
+      options?: {
+        actor?: TransitionActor;
+        /** Event-log attribution, e.g. "agent:Codey". Defaults to `actor`. */
+        actorLabel?: string;
+        viaMergePipeline?: boolean;
+        reopen?: boolean;
+      },
+    ) => {
       let taskId: string;
       let taskUpdates: Partial<Task>;
 
@@ -336,8 +486,31 @@ export const useTaskController = ({
       const task = tasks.find((t) => t.id === taskId);
       if (!task) return;
 
+      // Status changes smuggled through field updates (MCP tools, lifecycle
+      // hooks) face the same state machine as drag & drop.
+      const actor = options?.actor ?? "user";
+      if (taskUpdates.status && taskUpdates.status !== task.status) {
+        const verdict = validateTransition(task.status, taskUpdates.status, {
+          ...buildTransitionContext(task, taskUpdates.status, actor),
+          viaMergePipeline: options?.viaMergePipeline,
+          reopen: options?.reopen,
+        });
+        if (
+          !verdict.allowed ||
+          (verdict.requires === "merge-pipeline" && !options?.viaMergePipeline)
+        ) {
+          addToast(
+            verdict.reason ??
+              "This card has unmerged agent work — it can only reach Commit through the merge pipeline.",
+            "error",
+          );
+          return;
+        }
+      }
+
       const previousTask = { ...task };
       const updatedTask = mergeTaskWithUpdates(task, taskUpdates, new Date());
+      const statusChanged = updatedTask.status !== previousTask.status;
 
       pushUndo({
         type: "task-update",
@@ -348,11 +521,33 @@ export const useTaskController = ({
         tasks.map((t) => (t.id === taskId ? updatedTask : t)),
         { op: "update", taskId, patch: updatedTask },
         { kind: "task", task: updatedTask },
+        [
+          {
+            streamId: taskId,
+            type: statusChanged ? "task.moved" : "task.updated",
+            payload: {
+              task: serializeTask(updatedTask),
+              changed: Object.keys(taskUpdates),
+              ...(statusChanged
+                ? { from: previousTask.status, to: updatedTask.status }
+                : {}),
+            },
+            actor: options?.actorLabel ?? actor,
+          },
+        ],
       );
       searchIndexServiceRef.current?.updateTask?.(updatedTask, previousTask);
       augmentTaskSemantically(updatedTask);
     },
-    [tasks, pushUndo, searchIndexServiceRef, augmentTaskSemantically, commitTaskMutation],
+    [
+      tasks,
+      pushUndo,
+      searchIndexServiceRef,
+      augmentTaskSemantically,
+      commitTaskMutation,
+      buildTransitionContext,
+      addToast,
+    ],
   );
 
   const handleUpdateTaskDueDate = useCallback(
@@ -394,6 +589,14 @@ export const useTaskController = ({
         tasks.map((t) => (t.id === taskId ? updatedTask : t)),
         { op: "update", taskId, patch: updatedTask },
         { kind: "task", task: updatedTask },
+        [
+          {
+            streamId: taskId,
+            type: "task.updated",
+            payload: { task: serializeTask(updatedTask), changed: ["dueDate"] },
+            actor: "user",
+          },
+        ],
       );
       searchIndexServiceRef.current?.updateTask?.(updatedTask, previousTask);
       augmentTaskSemantically(updatedTask);
@@ -433,6 +636,14 @@ export const useTaskController = ({
         tasks.map((t) => (t.id === taskId ? updatedTask : t)),
         { op: "update", taskId, patch: updatedTask },
         { kind: "task", task: updatedTask },
+        [
+          {
+            streamId: taskId,
+            type: "task.updated",
+            payload: { task: serializeTask(updatedTask), changed: ["projectId"] },
+            actor: "user",
+          },
+        ],
       );
       searchIndexServiceRef.current?.updateTask?.(updatedTask, previousTask);
       addToast(`Task moved to "${targetProject.name}"`, "success");
@@ -476,6 +687,14 @@ export const useTaskController = ({
           tasks.map((t) => (t.id === editingTask.id ? updatedTask : t)),
           { op: "update", taskId: editingTask.id, patch: updatedTask },
           { kind: "task", task: updatedTask },
+          [
+            {
+              streamId: editingTask.id,
+              type: "task.updated",
+              payload: { task: serializeTask(updatedTask), changed: Object.keys(updates) },
+              actor: "user",
+            },
+          ],
         );
         searchIndexServiceRef.current?.updateTask?.(updatedTask, previousTask);
         augmentTaskSemantically(updatedTask);
@@ -550,6 +769,14 @@ export const useTaskController = ({
         [...tasks, newTask],
         { op: "create", task: newTask },
         { kind: "task", task: newTask },
+        [
+          {
+            streamId: newTask.id,
+            type: "task.created",
+            payload: { task: serializeTask(newTask), changed: ["*"] },
+            actor: "user",
+          },
+        ],
       );
       searchIndexServiceRef.current?.updateTask?.(newTask);
       augmentTaskSemantically(newTask);
@@ -578,7 +805,7 @@ export const useTaskController = ({
         ...taskData,
         id: generateTaskId(idx),
         jobId: `IMP-${Math.floor(Math.random() * 9000) + 1000}`,
-        projectId: activeProjectId,
+        projectId: taskData.projectId || activeProjectId,
         title: taskData.title || "Untitled",
         subtitle: taskData.subtitle || "",
         summary: taskData.summary || "",
@@ -588,19 +815,31 @@ export const useTaskController = ({
         createdAt: now,
         updatedAt: now,
         subtasks: taskData.subtasks || [],
-        attachments: [],
-        customFieldValues: {},
-        links: [],
+        attachments: taskData.attachments || [],
+        customFieldValues: taskData.customFieldValues || {},
+        links: taskData.links || [],
         tags: taskData.tags || [],
         timeEstimate: taskData.timeEstimate || 0,
-        timeSpent: 0,
+        timeSpent: taskData.timeSpent || 0,
         errorLogs: taskData.errorLogs || [],
+        activity: [
+          ...(taskData.activity || []),
+          ...(activityServiceRef.current
+            ? [activityServiceRef.current.createActivity("create", "Bulk created")]
+            : []),
+        ],
       }));
 
       commitTaskMutation(
         [...tasks, ...createdTasks],
         { op: "bulkUpsert", newTasks: createdTasks },
         { kind: "tasks", tasks: createdTasks },
+        createdTasks.map((task) => ({
+          streamId: task.id,
+          type: "task.created" as const,
+          payload: { task: serializeTask(task), changed: ["*"] },
+          actor: "user",
+        })),
       );
       createdTasks.forEach((task) => {
         searchIndexServiceRef.current?.updateTask?.(task);
@@ -611,7 +850,7 @@ export const useTaskController = ({
         void augmentTaskSemantically(task);
       });
     },
-    [tasks, activeProjectId, columns, searchIndexServiceRef, augmentTaskSemantically, commitTaskMutation],
+    [tasks, activeProjectId, columns, searchIndexServiceRef, activityServiceRef, augmentTaskSemantically, commitTaskMutation],
   );
 
   const handleDeleteTaskInternal = useCallback(
@@ -624,6 +863,14 @@ export const useTaskController = ({
         tasks.filter((t) => t.id !== taskId),
         { op: "delete", taskId },
         { kind: "delete", taskId },
+        [
+          {
+            streamId: taskId,
+            type: "task.deleted",
+            payload: { changed: ["*"] },
+            actor: "user",
+          },
+        ],
       );
       searchIndexServiceRef.current?.removeTask?.(task);
       addToast("Task deleted (Ctrl+Z to undo)", "info");
@@ -632,41 +879,45 @@ export const useTaskController = ({
   );
 
   const moveTask = useCallback(
-    async (taskId: string, newStatus: string, newPriority?: string, newOrder?: number) => {
+    async (
+      taskId: string,
+      newStatus: string,
+      newPriority?: string,
+      newOrder?: number,
+      options?: MoveTaskOptions,
+    ) => {
       const task = tasks.find((t) => t.id === taskId);
       if (!task) {
         addToast("Task not found", "error");
-        return;
+        return false;
       }
 
       const targetColumn = columns.find((c) => c.id === newStatus);
       if (!targetColumn) {
         addToast("Invalid column", "error");
-        return;
+        return false;
       }
 
-      const backlogColumnId = getBacklogColumnId(columns);
-
-      if (newStatus !== backlogColumnId) {
-        const blockedLinks = task.links?.filter((l) => l.type === "blocked-by") || [];
-        for (const link of blockedLinks) {
-          const blocker = tasks.find((t) => t.id === link.targetTaskId);
-          if (blocker) {
-            const blockerCol = columns.find((c) => c.id === blocker.status);
-            if (!blockerCol?.isCompleted && blocker.status !== COLUMN_STATUS.DELIVERED) {
-              addToast(`Cannot start: Blocked by task ${blocker.jobId}`, "error");
-              return;
-            }
-          }
-        }
+      // Git-aligned state machine: every column transition is validated here,
+      // regardless of origin (drag & drop, keyboard, MCP, automation).
+      const actor = options?.actor ?? "user";
+      const verdict = validateTransition(task.status, newStatus, {
+        ...buildTransitionContext(task, newStatus, actor),
+        viaMergePipeline: options?.viaMergePipeline,
+        reopen: options?.reopen,
+      });
+      if (!verdict.allowed) {
+        addToast(verdict.reason ?? "That move is not allowed.", "error");
+        return false;
       }
-
-      if (newStatus !== task.status && targetColumn.wipLimit && targetColumn.wipLimit > 0) {
-        const tasksInColumn = tasks.filter((t) => t.status === newStatus && t.id !== taskId);
-        if (tasksInColumn.length >= targetColumn.wipLimit) {
-          addToast(`Column "${targetColumn.title}" has reached its WIP limit`, "error");
-          return;
-        }
+      if (verdict.requires === "merge-pipeline" && !options?.viaMergePipeline) {
+        // Unmerged agent work may only land in Commit through the
+        // transactional merge pipeline (the board shell intercepts this).
+        addToast(
+          "This card has unmerged agent work — approve it so the merge pipeline can commit it.",
+          "warning",
+        );
+        return false;
       }
 
       const previousTask = { ...task };
@@ -761,6 +1012,20 @@ export const useTaskController = ({
         tasks.map((t) => (t.id === taskId ? updatedTask : t)),
         { op: "update", taskId, patch: updatedTask },
         { kind: "task", task: updatedTask },
+        [
+          {
+            streamId: taskId,
+            type: newStatus !== previousTask.status ? "task.moved" : "task.updated",
+            payload: {
+              task: serializeTask(updatedTask),
+              changed: ["status", "order", "priority"],
+              from: previousTask.status,
+              to: newStatus,
+              viaMergePipeline: options?.viaMergePipeline ?? false,
+            },
+            actor,
+          },
+        ],
       );
       searchIndexServiceRef.current?.updateTask?.(updatedTask, previousTask);
 
@@ -798,6 +1063,14 @@ export const useTaskController = ({
                 prev.map((t) => (t.id === taskId ? finalTask : t)),
                 { op: "update", taskId, patch: finalTask },
                 { kind: "task", task: finalTask },
+                [
+                  {
+                    streamId: taskId,
+                    type: "task.updated",
+                    payload: { task: serializeTask(finalTask), changed: ["subtasks"] },
+                    actor: "automation",
+                  },
+                ],
               );
               addToast(`Auto-pilot added ${subtaskTitles.length} subtasks`, "success");
             }
@@ -807,6 +1080,7 @@ export const useTaskController = ({
             console.error("Auto-pilot failed:", e);
           });
       }
+      return true;
     },
     [
       tasks,
@@ -819,9 +1093,16 @@ export const useTaskController = ({
       aiServiceRef,
       commitTaskMutation,
       resolveAutomationUpdates,
+      buildTransitionContext,
     ],
   );
 
+  /**
+   * Drag-preview validation — same state machine as `moveTask`, minus the
+   * merge-pipeline requirement (the board shell intercepts Completed→Commit
+   * drops with unmerged work and routes them through the pipeline, so the
+   * drop itself is legal).
+   */
   const canMoveTask = useCallback(
     (taskId: string, newStatus: string, _newPriority?: string) => {
       const task = tasks.find((t) => t.id === taskId);
@@ -830,37 +1111,15 @@ export const useTaskController = ({
       const targetColumn = columns.find((c) => c.id === newStatus);
       if (!targetColumn) return { allowed: false, reason: "Invalid column" };
 
-      const backlogColumnId = getBacklogColumnId(columns);
-
-      if (newStatus !== backlogColumnId) {
-        const blockedLinks = task.links?.filter((l) => l.type === "blocked-by") || [];
-        for (const link of blockedLinks) {
-          const blocker = tasks.find((t) => t.id === link.targetTaskId);
-          if (blocker) {
-            const blockerCol = columns.find((c) => c.id === blocker.status);
-            if (!blockerCol?.isCompleted && blocker.status !== COLUMN_STATUS.DELIVERED) {
-              return {
-                allowed: false,
-                reason: `Cannot start: Blocked by task ${blocker.jobId}`,
-              };
-            }
-          }
-        }
-      }
-
-      if (newStatus !== task.status && targetColumn.wipLimit && targetColumn.wipLimit > 0) {
-        const tasksInColumn = tasks.filter((t) => t.status === newStatus && t.id !== taskId);
-        if (tasksInColumn.length >= targetColumn.wipLimit) {
-          return {
-            allowed: false,
-            reason: `Column "${targetColumn.title}" has reached its WIP limit`,
-          };
-        }
-      }
-
+      const verdict = validateTransition(
+        task.status,
+        newStatus,
+        buildTransitionContext(task, newStatus, "user"),
+      );
+      if (!verdict.allowed) return { allowed: false, reason: verdict.reason };
       return { allowed: true };
     },
-    [tasks, columns],
+    [tasks, columns, buildTransitionContext],
   );
 
   return {

@@ -125,4 +125,25 @@ describe("taskParser", () => {
   it("should parse the !med medium shorthand", () => {
     expect(parseQuickTask("Task !med").priority).toBe("medium");
   });
+
+  it("should parse >name as assignee and strip it from the title", () => {
+    const parsed = parseQuickTask("Fix login bug >devin !h");
+    expect(parsed.assignee).toBe("devin");
+    expect(parsed.title).toBe("Fix login bug");
+    expect(parsed.priority).toBe("high");
+  });
+
+  it("should not treat mid-word > as an assignee", () => {
+    const parsed = parseQuickTask("Compare a>b results");
+    expect(parsed.assignee).toBeUndefined();
+    expect(parsed.title).toBe("Compare a>b results");
+  });
+
+  it("should combine assignee with dates and tags", () => {
+    const parsed = parseQuickTask("Ship release >alex @tomorrow +urgent");
+    expect(parsed.assignee).toBe("alex");
+    expect(parsed.dueDate).toBeDefined();
+    expect(parsed.tags).toEqual(["urgent"]);
+    expect(parsed.title).toBe("Ship release");
+  });
 });

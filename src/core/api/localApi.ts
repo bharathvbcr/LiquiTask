@@ -3,18 +3,18 @@
  * Backed by Tauri `invoke` + event listeners instead of REST/WS.
  * Phase 0 stub; expanded in Phase 1+ as agentd JSON-RPC bridge lands.
  */
-import { invoke } from "@tauri-apps/api/core";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { FEATURE_FLAGS } from "../../constants";
-import { isTauri } from "../../runtime/runtimeEnvironment";
+import { invoke } from '@tauri-apps/api/core';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { FEATURE_FLAGS } from '../../constants';
+import { isTauri } from '../../runtime/runtimeEnvironment';
 
 export type LocalApiEventChannel =
-  | "agent-run-event"
-  | "agentd-run-event"
-  | "agent-run-finished"
-  | "inbox-event"
-  | "runtime-health"
-  | "agentd-health";
+  | 'agent-run-event'
+  | 'agentd-run-event'
+  | 'agent-run-finished'
+  | 'inbox-event'
+  | 'runtime-health'
+  | 'agentd-health';
 
 export interface LocalApiInvokeOptions {
   /** Skip Tauri guard and return undefined (web/dev fallback). */
@@ -24,10 +24,12 @@ export interface LocalApiInvokeOptions {
 async function guardedInvoke<T>(
   command: string,
   args?: Record<string, unknown>,
-  options?: LocalApiInvokeOptions,
+  options?: LocalApiInvokeOptions
 ): Promise<T | undefined> {
   if (!isTauri()) {
-    return options?.allowWebFallback ? undefined : Promise.reject(new Error("localApi requires Tauri"));
+    return options?.allowWebFallback
+      ? undefined
+      : Promise.reject(new Error('localApi requires Tauri'));
   }
   return invoke<T>(command, args);
 }
@@ -35,31 +37,77 @@ async function guardedInvoke<T>(
 /** Subscribe to a Tauri event channel. No-op on web builds. */
 export async function subscribeLocalEvent<T>(
   channel: LocalApiEventChannel | string,
-  handler: (payload: T) => void,
+  handler: (payload: T) => void
 ): Promise<UnlistenFn> {
   if (!isTauri()) {
     return () => undefined;
   }
-  return listen<T>(channel, (event) => handler(event.payload));
+  return listen<T>(channel, event => handler(event.payload));
 }
+
+type RuntimeDetection =
+  | Array<{
+      id: string;
+      name: string;
+      binary: string;
+      path?: string;
+      version?: string;
+      ready: boolean;
+    }>
+  | Array<{ name: string; available: boolean; path?: string }>
+  | undefined;
+
+// Runtime detection shells out to every known agent binary (`--version` × 14),
+// which takes seconds — cache it so surfaces open instantly on revisit.
+let runtimeDetectionCache: { at: number; value: RuntimeDetection } | null = null;
+let runtimeDetectionInFlight: Promise<RuntimeDetection> | null = null;
 
 export const localApi = {
   /** Detect installed agent CLIs — routes to agentd when sidecar flag is on. */
   async detectRuntimes() {
     if (FEATURE_FLAGS.AGENTD_SIDECAR_ENABLED) {
       return guardedInvoke<
-        Array<{ id: string; name: string; binary: string; path?: string; version?: string; ready: boolean }>
-      >("agentd_detect", undefined, { allowWebFallback: true });
+        Array<{
+          id: string;
+          name: string;
+          binary: string;
+          path?: string;
+          version?: string;
+          ready: boolean;
+        }>
+      >('agentd_detect', undefined, { allowWebFallback: true });
     }
     return guardedInvoke<Array<{ name: string; available: boolean; path?: string }>>(
-      "agent_detect_clis",
+      'agent_detect_clis',
       undefined,
-      { allowWebFallback: true },
+      { allowWebFallback: true }
     );
   },
 
+  /**
+   * Cached `detectRuntimes` — returns the last result when it's fresh enough
+   * and dedupes concurrent calls, so the Agents surface and settings open
+   * without re-running the (slow) binary scan every time.
+   */
+  async detectRuntimesCached(maxAgeMs = 5 * 60_000): Promise<RuntimeDetection> {
+    if (runtimeDetectionCache && Date.now() - runtimeDetectionCache.at < maxAgeMs) {
+      return runtimeDetectionCache.value;
+    }
+    if (!runtimeDetectionInFlight) {
+      runtimeDetectionInFlight = this.detectRuntimes()
+        .then(value => {
+          runtimeDetectionCache = { at: Date.now(), value };
+          return value;
+        })
+        .finally(() => {
+          runtimeDetectionInFlight = null;
+        });
+    }
+    return runtimeDetectionInFlight;
+  },
+
   async ensureAgentd() {
-    return guardedInvoke<boolean>("agentd_ensure", undefined, { allowWebFallback: true });
+    return guardedInvoke<boolean>('agentd_ensure', undefined, { allowWebFallback: true });
   },
 
   /** Start an agent run. Routes to agentd when `FEATURE_FLAGS.AGENTD_SIDECAR_ENABLED`. */
@@ -75,7 +123,7 @@ export const localApi = {
     resumeSessionId?: string;
   }) {
     if (FEATURE_FLAGS.AGENTD_SIDECAR_ENABLED) {
-      return guardedInvoke<string>("agentd_run_start", {
+      return guardedInvoke<string>('agentd_run_start', {
         taskId: params.taskId,
         runtime: params.runtime,
         prompt: params.prompt,
@@ -86,35 +134,35 @@ export const localApi = {
         mcpConfig: params.mcpConfig,
       });
     }
-    return guardedInvoke<string>("agent_run_start", params as Record<string, unknown>);
+    return guardedInvoke<string>('agent_run_start', params as Record<string, unknown>);
   },
 
   async runCancel(runId: string) {
     if (FEATURE_FLAGS.AGENTD_SIDECAR_ENABLED) {
-      return guardedInvoke<void>("agentd_run_cancel", { runId });
+      return guardedInvoke<void>('agentd_run_cancel', { runId });
     }
-    return guardedInvoke<void>("agent_run_cancel", { runId });
+    return guardedInvoke<void>('agent_run_cancel', { runId });
   },
 
   async runPause(runId: string) {
     if (FEATURE_FLAGS.AGENTD_SIDECAR_ENABLED) {
-      return guardedInvoke<void>("agentd_run_pause", { runId });
+      return guardedInvoke<void>('agentd_run_pause', { runId });
     }
-    return guardedInvoke<void>("agent_runner_pause", { runId });
+    return guardedInvoke<void>('agent_runner_pause', { runId });
   },
 
   async runResume(runId: string) {
     if (FEATURE_FLAGS.AGENTD_SIDECAR_ENABLED) {
-      return guardedInvoke<void>("agentd_run_resume", { runId });
+      return guardedInvoke<void>('agentd_run_resume', { runId });
     }
-    return guardedInvoke<void>("agent_runner_resume", { runId });
+    return guardedInvoke<void>('agent_runner_resume', { runId });
   },
 
   async runInject(runId: string, guidance: string) {
     if (FEATURE_FLAGS.AGENTD_SIDECAR_ENABLED) {
-      return guardedInvoke<void>("agentd_run_inject", { runId, guidance });
+      return guardedInvoke<void>('agentd_run_inject', { runId, guidance });
     }
-    return guardedInvoke<void>("agent_runner_inject_guidance", { runId, guidance });
+    return guardedInvoke<void>('agent_runner_inject_guidance', { runId, guidance });
   },
 
   async runReattach() {
@@ -127,7 +175,7 @@ export const localApi = {
           alive: boolean;
           status: string;
         }>
-      >("agentd_run_reattach", undefined, { allowWebFallback: true });
+      >('agentd_run_reattach', undefined, { allowWebFallback: true });
     }
     return guardedInvoke<
       Array<{
@@ -136,13 +184,13 @@ export const localApi = {
         status: string;
         sessionId?: string;
       }>
-    >("agent_runs_reattach", undefined, { allowWebFallback: true });
+    >('agent_runs_reattach', undefined, { allowWebFallback: true });
   },
 
   /** Respond to an inline permission prompt — agentd-only (no legacy equivalent). */
-  async permissionRespond(runId: string, requestId: string, decision: "allow" | "deny" | "always") {
+  async permissionRespond(runId: string, requestId: string, decision: 'allow' | 'deny' | 'always') {
     if (FEATURE_FLAGS.AGENTD_SIDECAR_ENABLED) {
-      return guardedInvoke<void>("agentd_permission_respond", { runId, requestId, decision });
+      return guardedInvoke<void>('agentd_permission_respond', { runId, requestId, decision });
     }
     return undefined;
   },
@@ -165,7 +213,13 @@ export const localApi = {
         root?: string;
         file_count: number;
       }>
-    >("agentd_skills_list", { provider }, { allowWebFallback: true });
+    >('agentd_skills_list', { provider }, { allowWebFallback: true });
+  },
+
+  /** Read a locally-installed skill's SKILL.md body for prompt inlining. */
+  async readSkillBody(sourcePath: string) {
+    if (!FEATURE_FLAGS.AGENTD_SIDECAR_ENABLED) return undefined;
+    return guardedInvoke<string>('agentd_skill_read', { sourcePath }, { allowWebFallback: true });
   },
 
   subscribe: subscribeLocalEvent,

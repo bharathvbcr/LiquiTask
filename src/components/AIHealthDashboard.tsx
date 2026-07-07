@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
-import { ModalWrapper } from "../../components/ModalWrapper";
+import { ModalWrapper } from "./ModalWrapper";
 import type { AIContext, AIInsight, PriorityDefinition, Project, Task } from "../../types";
 import { STORAGE_KEYS } from "../constants";
 import { aiService } from "../services/aiService";

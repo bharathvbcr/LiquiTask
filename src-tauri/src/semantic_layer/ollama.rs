@@ -6,7 +6,6 @@ use std::time::Instant;
 #[derive(Debug, Clone)]
 pub struct LlmResponse {
     pub text: String,
-    pub model: String,
     pub latency_ms: f32,
 }
 
@@ -88,7 +87,6 @@ impl OllamaBackend {
 
         Ok(LlmResponse {
             text,
-            model: model.to_string(),
             latency_ms: start.elapsed().as_secs_f32() * 1000.0,
         })
     }

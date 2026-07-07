@@ -38,5 +38,5 @@ export function useGitHubSync(
 }
 
 export function getGitHubBacklogStatus(columns: BoardColumn[]): string {
-  return columns.find((c) => c.id === COLUMN_STATUS.PENDING)?.id ?? columns[0]?.id ?? "Pending";
+  return columns.find((c) => c.id === COLUMN_STATUS.TASK)?.id ?? columns[0]?.id ?? "Task";
 }

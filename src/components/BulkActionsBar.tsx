@@ -1,5 +1,6 @@
 import {
   Archive,
+  Bot,
   Calendar,
   CheckSquare,
   Copy,
@@ -44,6 +45,8 @@ interface BulkActionsBarProps {
   onArchive?: () => void;
   onRemoveTag?: (tag: string) => void;
   onMoveToWorkspace?: (workspaceId: string) => void;
+  /** Fan the selection out to agents (smart-matched per task). */
+  onSendToAgents?: () => void;
 }
 
 export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
@@ -66,6 +69,7 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
   onArchive,
   onRemoveTag,
   onMoveToWorkspace,
+  onSendToAgents,
 }) => {
   const [openMenu, setOpenMenu] = useState<BulkMenuId>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -83,6 +87,7 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional reset-on-change trigger
   useEffect(() => {
     setOpenMenu(null);
     setShowDatePicker(false);
@@ -176,6 +181,18 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
             </div>
           )}
         </div>
+
+        {onSendToAgents && (
+          <button
+            type="button"
+            onClick={onSendToAgents}
+            className={`${menuButtonClass} shrink-0`}
+            title="Send selected tasks to agents (smart-matched)"
+          >
+            <Bot size={16} />
+            <span className="hidden sm:inline">Send to Agents</span>
+          </button>
+        )}
 
         <div className="relative shrink-0">
           <button

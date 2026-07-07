@@ -19,6 +19,14 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
   isCompact = false,
   hideBoardAndGantt = false,
 }) => {
+  const shellClass = "flex items-center gap-0.5 liquid-glass rounded-full p-1 shadow-lg";
+  const segmentClass = (active: boolean) =>
+    `flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 ${
+      active
+        ? "bg-red-500/20 text-red-400"
+        : "text-slate-400 hover:bg-white/5 hover:text-white"
+    }`;
+
   // When in project view, show Board/Gantt options
   if (currentView === "project") {
     // If hiding Board and Gantt, return null since those are the only options
@@ -26,7 +34,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
       return null;
     }
     return (
-      <div className="flex items-center gap-1 liquid-glass rounded-xl p-1.5 shadow-lg">
+      <div className={shellClass}>
         <Tooltip
           content={
             <div className="text-sm">
@@ -43,11 +51,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
             onClick={() => onViewModeChange("board")}
             aria-label="Board view"
             aria-pressed={viewMode === "board"}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 ${
-              viewMode === "board"
-                ? "bg-red-500/20 text-red-400 scale-105"
-                : "text-slate-400 hover:text-white hover:scale-105 hover:bg-white/5"
-            }`}
+            className={segmentClass(viewMode === "board")}
           >
             <Layout size={14} />
             {!isCompact && <span>Board</span>}
@@ -69,11 +73,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
             onClick={() => onViewModeChange("gantt")}
             aria-label="Gantt view"
             aria-pressed={viewMode === "gantt"}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 ${
-              viewMode === "gantt"
-                ? "bg-red-500/20 text-red-400 scale-105"
-                : "text-slate-400 hover:text-white hover:scale-105 hover:bg-white/5"
-            }`}
+            className={segmentClass(viewMode === "gantt")}
           >
             <GanttChart size={14} />
             {!isCompact && <span>Gantt</span>}
@@ -86,7 +86,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
   // When in dashboard view, show Stats/Calendar/Board/Gantt options
   if (currentView === "dashboard") {
     return (
-      <div className="flex items-center gap-1 liquid-glass rounded-xl p-1.5 shadow-lg">
+      <div className={shellClass}>
         <Tooltip
           content={
             <div className="text-sm">
@@ -103,11 +103,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
             onClick={() => onViewModeChange("stats")}
             aria-label="Stats view"
             aria-pressed={viewMode === "stats"}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 ${
-              viewMode === "stats"
-                ? "bg-red-500/20 text-red-400 scale-105"
-                : "text-slate-400 hover:text-white hover:scale-105 hover:bg-white/5"
-            }`}
+            className={segmentClass(viewMode === "stats")}
           >
             <BarChart3 size={14} />
             {!isCompact && <span>Stats</span>}
@@ -129,11 +125,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
             onClick={() => onViewModeChange("calendar")}
             aria-label="Calendar view"
             aria-pressed={viewMode === "calendar"}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 ${
-              viewMode === "calendar"
-                ? "bg-red-500/20 text-red-400 scale-105"
-                : "text-slate-400 hover:text-white hover:scale-105 hover:bg-white/5"
-            }`}
+            className={segmentClass(viewMode === "calendar")}
           >
             <Calendar size={14} />
             {!isCompact && <span>Calendar</span>}
@@ -157,11 +149,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
                 onClick={() => onViewModeChange("board")}
                 aria-label="Board view"
                 aria-pressed={viewMode === "board"}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 ${
-                  viewMode === "board"
-                    ? "bg-red-500/20 text-red-400 scale-105"
-                    : "text-slate-400 hover:text-white hover:scale-105 hover:bg-white/5"
-                }`}
+                className={segmentClass(viewMode === "board")}
               >
                 <Layout size={14} />
                 {!isCompact && <span>Board</span>}
@@ -183,11 +171,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
                 onClick={() => onViewModeChange("gantt")}
                 aria-label="Gantt view"
                 aria-pressed={viewMode === "gantt"}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 ${
-                  viewMode === "gantt"
-                    ? "bg-red-500/20 text-red-400 scale-105"
-                    : "text-slate-400 hover:text-white hover:scale-105 hover:bg-white/5"
-                }`}
+                className={segmentClass(viewMode === "gantt")}
               >
                 <GanttChart size={14} />
                 {!isCompact && <span>Gantt</span>}

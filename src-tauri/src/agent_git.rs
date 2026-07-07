@@ -4,10 +4,12 @@
 //! authorised workspace allowlist (same boundary as `agent_run_start`), and
 //! branch/ref strings are rejected if they could be parsed as flags.
 
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::{Mutex, OnceLock};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
 
 use crate::agent_runner::{
@@ -93,6 +95,156 @@ fn git_cmd(repo: &Path, args: &[&str]) -> Result<String, String> {
     }
 }
 
+/// Sanitize a commit message: strip control chars, bound length, provide a default.
+fn safe_commit_message(message: Option<String>) -> String {
+    let raw = message.unwrap_or_default();
+    let cleaned: String = raw
+        .chars()
+        .filter(|c| !c.is_control() || *c == '\n')
+        .take(500)
+        .collect();
+    let trimmed = cleaned.trim();
+    if trimmed.is_empty() {
+        "chore(agent): task work from LiquiTask run".to_string()
+    } else {
+        trimmed.to_string()
+    }
+}
+
+/// Stage and commit everything pending inside a worktree (agents frequently
+/// leave work uncommitted). Returns the short commit hash, or `None` when the
+/// worktree was already clean. Uses a fallback identity so commits succeed on
+/// machines without a global git user configured.
+fn commit_all_in(worktree: &Path, message: &str) -> Result<Option<String>, String> {
+    let status = git_cmd(worktree, &["status", "--porcelain"])?;
+    if status.trim().is_empty() {
+        return Ok(None);
+    }
+    git_cmd(worktree, &["add", "-A"])?;
+    git_cmd(
+        worktree,
+        &[
+            "-c",
+            "user.name=LiquiTask Agent",
+            "-c",
+            "user.email=agent@liquitask.local",
+            "commit",
+            "-m",
+            message,
+            "--no-verify",
+        ],
+    )?;
+    let hash = git_cmd(worktree, &["rev-parse", "--short", "HEAD"])?;
+    Ok(Some(hash))
+}
+
+/// Number of commits `branch` is ahead of the repo's current HEAD.
+fn commits_ahead(repo: &Path, branch: &str) -> Result<u32, String> {
+    let range = format!("HEAD..{branch}");
+    let out = git_cmd(repo, &["rev-list", "--count", &range])?;
+    out.trim()
+        .parse::<u32>()
+        .map_err(|e| format!("Failed to parse rev-list count: {e}"))
+}
+
+// ---------------------------------------------------------------------------
+// Concurrency: per-repo operation lock
+// ---------------------------------------------------------------------------
+
+/// Repos with a mutating git pipeline (merge/prune) in flight. Merging two
+/// agent branches into the same checkout concurrently corrupts both — the
+/// second caller fails fast instead of queueing behind an unbounded git op.
+fn busy_repos() -> &'static Mutex<HashSet<PathBuf>> {
+    static BUSY: OnceLock<Mutex<HashSet<PathBuf>>> = OnceLock::new();
+    BUSY.get_or_init(|| Mutex::new(HashSet::new()))
+}
+
+struct RepoLockGuard {
+    repo: PathBuf,
+}
+
+impl Drop for RepoLockGuard {
+    fn drop(&mut self) {
+        if let Ok(mut busy) = busy_repos().lock() {
+            busy.remove(&self.repo);
+        }
+    }
+}
+
+fn acquire_repo_lock(repo: &Path) -> Result<RepoLockGuard, String> {
+    let mut busy = busy_repos()
+        .lock()
+        .map_err(|_| "Repo lock poisoned".to_string())?;
+    if !busy.insert(repo.to_path_buf()) {
+        return Err(
+            "Another git operation (merge/prune) is already running on this repository — retry when it finishes."
+                .to_string(),
+        );
+    }
+    Ok(RepoLockGuard { repo: repo.to_path_buf() })
+}
+
+// ---------------------------------------------------------------------------
+// Worktree metadata (lifecycle bookkeeping)
+// ---------------------------------------------------------------------------
+
+/// Sidecar metadata written next to each worktree
+/// (`<repo>/.worktrees/<runId>.liquitask.json`). Lives OUTSIDE the worktree so
+/// it never shows up in the agent's diff, and survives even if the worktree
+/// directory itself is clobbered — prune uses it to reap orphaned branches.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct WorktreeMeta {
+    pub run_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub task_id: Option<String>,
+    pub branch: String,
+    pub created_at: String,
+}
+
+fn meta_path(repo: &Path, run_id: &str) -> PathBuf {
+    repo.join(".worktrees").join(format!("{run_id}.liquitask.json"))
+}
+
+fn write_worktree_meta(repo: &Path, meta: &WorktreeMeta) {
+    if let Ok(raw) = serde_json::to_string_pretty(meta) {
+        let _ = std::fs::write(meta_path(repo, &meta.run_id), raw);
+    }
+}
+
+fn read_worktree_meta(repo: &Path, run_id: &str) -> Option<WorktreeMeta> {
+    let raw = std::fs::read_to_string(meta_path(repo, run_id)).ok()?;
+    serde_json::from_str(&raw).ok()
+}
+
+fn remove_worktree_meta(repo: &Path, run_id: &str) {
+    let _ = std::fs::remove_file(meta_path(repo, run_id));
+}
+
+/// Keep `.worktrees/` out of the repo's status/diffs without touching the
+/// user's .gitignore (idempotent append to .git/info/exclude).
+fn exclude_worktrees_dir(repo: &Path) {
+    let git_dir = match git_cmd(repo, &["rev-parse", "--git-common-dir"]) {
+        Ok(d) => {
+            let p = PathBuf::from(&d);
+            if p.is_absolute() { p } else { repo.join(p) }
+        }
+        Err(_) => return,
+    };
+    let exclude = git_dir.join("info").join("exclude");
+    let existing = std::fs::read_to_string(&exclude).unwrap_or_default();
+    if existing.lines().any(|l| l.trim() == ".worktrees/") {
+        return;
+    }
+    let _ = std::fs::create_dir_all(exclude.parent().unwrap_or(&git_dir));
+    let mut content = existing;
+    if !content.is_empty() && !content.ends_with('\n') {
+        content.push('\n');
+    }
+    content.push_str(".worktrees/\n");
+    let _ = std::fs::write(&exclude, content);
+}
+
 fn slugify(input: &str) -> String {
     input
         .chars()
@@ -119,6 +271,7 @@ pub fn agent_git_create_worktree(
     working_dir: String,
     run_id: String,
     task_title: String,
+    task_id: Option<String>,
 ) -> Result<GitWorktreeResult, String> {
     validate_ref("run id", &run_id)?;
     if !run_id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
@@ -132,6 +285,7 @@ pub fn agent_git_create_worktree(
     let worktrees_root = repo.join(".worktrees");
     std::fs::create_dir_all(&worktrees_root)
         .map_err(|e| format!("Failed to create .worktrees: {e}"))?;
+    exclude_worktrees_dir(repo);
     let worktree_path = worktrees_root.join(&run_id);
 
     // Remove stale worktree if present.
@@ -148,37 +302,336 @@ pub fn agent_git_create_worktree(
         ],
     )?;
 
+    // Lifecycle metadata: binds the worktree to its run/task so state queries,
+    // MCP tools, and prune can resolve ownership without in-memory context.
+    write_worktree_meta(
+        repo,
+        &WorktreeMeta {
+            run_id: run_id.clone(),
+            task_id,
+            branch: branch.clone(),
+            created_at: chrono::Utc::now().to_rfc3339(),
+        },
+    );
+
     Ok(GitWorktreeResult {
         branch,
         worktree_path: worktree_path.to_string_lossy().to_string(),
     })
 }
 
-/// Merge an agent branch into the repo's current branch and remove the worktree.
+/// Structured outcome of the transactional merge pipeline.
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct MergeTxResult {
+    /// "merged" | "noop" (branch had no commits and no pending changes).
+    pub status: String,
+    pub message: String,
+    /// Repo HEAD before the merge — the rollback anchor.
+    pub pre_merge_sha: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub merged_sha: Option<String>,
+    /// Short hash of the auto-commit of pending worktree changes, if any.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub committed_hash: Option<String>,
+}
+
+/// Transactional Commit-stage pipeline:
+///
+/// 1. acquire the per-repo lock (parallel merges fail fast, not interleave)
+/// 2. capture the pre-merge HEAD SHA (rollback anchor)
+/// 3. refuse to merge over a dirty main checkout
+/// 4. auto-commit pending worktree changes (agents often leave work unstaged)
+/// 5. `merge --no-ff`; on conflict → `merge --abort`, branch/worktree kept
+/// 6. cleanup (worktree remove + branch delete + metadata); if cleanup fails
+///    AFTER a successful merge, the merge is rolled back with
+///    `git reset --hard <pre-merge-sha>` so the repo never lands in a
+///    half-committed state — the branch stays intact for a retry.
+#[tauri::command(rename_all = "camelCase")]
+pub fn agent_git_merge_worktree_tx(
+    app: AppHandle,
+    repo_dir: String,
+    worktree_path: String,
+    branch: String,
+    commit_message: Option<String>,
+    run_id: Option<String>,
+) -> Result<MergeTxResult, String> {
+    validate_ref("branch", &branch)?;
+    let repo_buf = authorize_dir(&app, &repo_dir)?;
+    let repo = repo_buf.as_path();
+    let wt = require_worktree_inside(repo, &worktree_path)?;
+    let _lock = acquire_repo_lock(repo)?;
+
+    let pre_merge_sha = git_cmd(repo, &["rev-parse", "HEAD"])?;
+
+    // Guard: refuse to merge over a dirty main checkout — a conflicted merge
+    // would tangle the user's own uncommitted work with the agent's.
+    let repo_status = git_cmd(repo, &["status", "--porcelain"])?;
+    if !repo_status.trim().is_empty() {
+        return Err(
+            "The main checkout has uncommitted changes. Commit or stash them first, then retry the merge."
+                .to_string(),
+        );
+    }
+
+    let committed = commit_all_in(&wt, &safe_commit_message(commit_message))?;
+    let ahead = commits_ahead(repo, &branch).unwrap_or(0);
+
+    let mut merged_sha = None;
+    if ahead > 0 {
+        git_cmd(repo, &["merge", "--no-ff", "--no-edit", &branch]).map_err(|e| {
+            // Leave the repo clean on conflict so the user isn't stranded mid-merge.
+            let _ = git_cmd(repo, &["merge", "--abort"]);
+            format!("{e} (merge aborted — the worktree and branch were kept for manual resolution)")
+        })?;
+        merged_sha = git_cmd(repo, &["rev-parse", "HEAD"]).ok();
+    }
+
+    // Cleanup phase — any failure here after a successful merge rolls the
+    // merge back so retrying the pipeline stays idempotent.
+    let cleanup = (|| -> Result<(), String> {
+        git_cmd(
+            repo,
+            &[
+                "worktree",
+                "remove",
+                "--force",
+                wt.to_str().ok_or("Invalid worktree path")?,
+            ],
+        )?;
+        // Branch delete is best-effort (-d fails if unmerged, which cannot
+        // happen after a successful merge; noop case uses -D deliberately).
+        let _ = git_cmd(repo, &["branch", if ahead > 0 { "-d" } else { "-D" }, &branch]);
+        Ok(())
+    })();
+
+    if let Err(cleanup_err) = cleanup {
+        if merged_sha.is_some() {
+            let rollback = git_cmd(repo, &["reset", "--hard", &pre_merge_sha]);
+            let rolled = if rollback.is_ok() { "merge rolled back" } else { "ROLLBACK FAILED" };
+            let short = &pre_merge_sha[..pre_merge_sha.len().min(12)];
+            return Err(format!(
+                "Post-merge cleanup failed: {cleanup_err} ({rolled} to {short}). Branch {branch} was kept — retry the commit pipeline.",
+            ));
+        }
+        return Err(format!("Worktree cleanup failed: {cleanup_err}"));
+    }
+
+    if let Some(rid) = run_id.as_deref() {
+        remove_worktree_meta(repo, rid);
+    } else if let Some(name) = wt.file_name().and_then(|n| n.to_str()) {
+        remove_worktree_meta(repo, name);
+    }
+
+    let message = match (&committed, ahead) {
+        (Some(hash), n) if n > 0 => {
+            format!("committed pending changes ({hash}) and merged {branch} ({n} commit(s))")
+        }
+        (None, n) if n > 0 => format!("merged {branch} ({n} commit(s))"),
+        (Some(hash), _) => format!("committed pending changes ({hash}) and merged {branch}"),
+        (None, _) => format!("no changes to merge from {branch}; worktree cleaned up"),
+    };
+
+    let status = if ahead > 0 || committed.is_some() { "merged" } else { "noop" };
+    Ok(MergeTxResult {
+        status: status.to_string(),
+        message,
+        pre_merge_sha,
+        merged_sha,
+        committed_hash: committed,
+    })
+}
+
+/// Legacy string-result merge — delegates to the transactional pipeline so
+/// there is exactly one merge implementation (locking + rollback included).
 #[tauri::command(rename_all = "camelCase")]
 pub fn agent_git_merge_worktree(
     app: AppHandle,
     repo_dir: String,
     worktree_path: String,
     branch: String,
+    commit_message: Option<String>,
 ) -> Result<String, String> {
-    validate_ref("branch", &branch)?;
+    agent_git_merge_worktree_tx(app, repo_dir, worktree_path, branch, commit_message, None)
+        .map(|r| r.message)
+}
+
+// ---------------------------------------------------------------------------
+// Worktree state queries + pruning (MCP + lifecycle surfaces)
+// ---------------------------------------------------------------------------
+
+/// Snapshot of one worktree, queryable by agents over MCP and by the UI.
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct WorktreeState {
+    pub exists: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub branch: Option<String>,
+    /// Files with uncommitted changes inside the worktree.
+    pub dirty_files: u32,
+    /// Commits the branch is ahead of the repo's current HEAD.
+    pub ahead: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_commit: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub run_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub task_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<String>,
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn agent_git_worktree_state(
+    app: AppHandle,
+    repo_dir: String,
+    worktree_path: String,
+) -> Result<WorktreeState, String> {
+    let repo_buf = authorize_dir(&app, &repo_dir)?;
+    let repo = repo_buf.as_path();
+    let wt = match require_worktree_inside(repo, &worktree_path) {
+        Ok(p) if p.is_dir() => p,
+        _ => {
+            return Ok(WorktreeState {
+                exists: false,
+                branch: None,
+                dirty_files: 0,
+                ahead: 0,
+                last_commit: None,
+                run_id: None,
+                task_id: None,
+                created_at: None,
+            })
+        }
+    };
+
+    let run_id = wt.file_name().and_then(|n| n.to_str()).map(str::to_string);
+    let meta = run_id.as_deref().and_then(|rid| read_worktree_meta(repo, rid));
+    let branch = meta
+        .as_ref()
+        .map(|m| m.branch.clone())
+        .or_else(|| git_cmd(&wt, &["rev-parse", "--abbrev-ref", "HEAD"]).ok());
+    let dirty_files = git_cmd(&wt, &["status", "--porcelain"])
+        .map(|s| s.lines().filter(|l| !l.trim().is_empty()).count() as u32)
+        .unwrap_or(0);
+    let ahead = branch
+        .as_deref()
+        .and_then(|b| commits_ahead(repo, b).ok())
+        .unwrap_or(0);
+    let last_commit = git_cmd(&wt, &["log", "-1", "--format=%h %s"]).ok().filter(|s| !s.is_empty());
+
+    Ok(WorktreeState {
+        exists: true,
+        branch,
+        dirty_files,
+        ahead,
+        last_commit,
+        run_id,
+        task_id: meta.as_ref().and_then(|m| m.task_id.clone()),
+        created_at: meta.map(|m| m.created_at),
+    })
+}
+
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct WorktreeListEntry {
+    pub run_id: String,
+    pub worktree_path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub branch: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub task_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<String>,
+}
+
+/// Enumerate the repo's agent worktrees (directories under `.worktrees/`,
+/// joined with their lifecycle metadata).
+#[tauri::command(rename_all = "camelCase")]
+pub fn agent_git_list_worktrees(
+    app: AppHandle,
+    repo_dir: String,
+) -> Result<Vec<WorktreeListEntry>, String> {
+    let repo_buf = authorize_dir(&app, &repo_dir)?;
+    Ok(agent_git_list_worktrees_inner(repo_buf.as_path()))
+}
+
+/// Remove agent worktrees whose runs are gone (not in `keep_run_ids`),
+/// delete their branches, and let git prune stale administrative entries.
+/// Returns the number of worktrees reaped.
+#[tauri::command(rename_all = "camelCase")]
+pub fn agent_git_prune_worktrees(
+    app: AppHandle,
+    repo_dir: String,
+    keep_run_ids: Vec<String>,
+) -> Result<u32, String> {
+    let repo_buf = authorize_dir(&app, &repo_dir)?;
+    let repo = repo_buf.as_path();
+    let _lock = acquire_repo_lock(repo)?;
+    let keep: HashSet<String> = keep_run_ids.into_iter().collect();
+    let mut reaped = 0u32;
+
+    for entry in agent_git_list_worktrees_inner(repo) {
+        if keep.contains(&entry.run_id) {
+            continue;
+        }
+        let _ = git_cmd(repo, &["worktree", "remove", "--force", &entry.worktree_path]);
+        if let Some(branch) = entry.branch.as_deref() {
+            if validate_ref("branch", branch).is_ok() {
+                let _ = git_cmd(repo, &["branch", "-D", branch]);
+            }
+        }
+        remove_worktree_meta(repo, &entry.run_id);
+        // Remove leftover directories git no longer tracks.
+        let _ = std::fs::remove_dir_all(&entry.worktree_path);
+        reaped += 1;
+    }
+    let _ = git_cmd(repo, &["worktree", "prune"]);
+    Ok(reaped)
+}
+
+fn agent_git_list_worktrees_inner(repo: &Path) -> Vec<WorktreeListEntry> {
+    let root = repo.join(".worktrees");
+    let mut out = Vec::new();
+    let Ok(entries) = std::fs::read_dir(&root) else {
+        return out;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        let Some(run_id) = path.file_name().and_then(|n| n.to_str()).map(str::to_string) else {
+            continue;
+        };
+        let meta = read_worktree_meta(repo, &run_id);
+        out.push(WorktreeListEntry {
+            run_id,
+            worktree_path: path.to_string_lossy().to_string(),
+            branch: meta.as_ref().map(|m| m.branch.clone()),
+            task_id: meta.as_ref().and_then(|m| m.task_id.clone()),
+            created_at: meta.map(|m| m.created_at),
+        });
+    }
+    out
+}
+
+/// Commit pending worktree changes on the agent branch WITHOUT merging —
+/// used by the PR flow and for checkpointing before review.
+#[tauri::command(rename_all = "camelCase")]
+pub fn agent_git_commit_worktree(
+    app: AppHandle,
+    repo_dir: String,
+    worktree_path: String,
+    message: Option<String>,
+) -> Result<String, String> {
     let repo_buf = authorize_dir(&app, &repo_dir)?;
     let repo = repo_buf.as_path();
     let wt = require_worktree_inside(repo, &worktree_path)?;
-
-    git_cmd(repo, &["merge", "--no-edit", &branch])?;
-    let _ = git_cmd(
-        repo,
-        &[
-            "worktree",
-            "remove",
-            "--force",
-            wt.to_str().ok_or("Invalid worktree path")?,
-        ],
-    );
-    let _ = git_cmd(repo, &["branch", "-d", &branch]);
-    Ok(format!("Merged {branch} into current branch"))
+    match commit_all_in(&wt, &safe_commit_message(message))? {
+        Some(hash) => Ok(format!("Committed pending changes ({hash}) on the run branch")),
+        None => Ok("Worktree already clean — nothing to commit".to_string()),
+    }
 }
 
 /// Remove an agent worktree and delete its branch without merging.
@@ -193,6 +646,9 @@ pub fn agent_git_discard_worktree(
     let repo_buf = authorize_dir(&app, &repo_dir)?;
     let repo = repo_buf.as_path();
     if let Ok(wt) = require_worktree_inside(repo, &worktree_path) {
+        if let Some(run_id) = wt.file_name().and_then(|n| n.to_str()) {
+            remove_worktree_meta(repo, run_id);
+        }
         let _ = git_cmd(
             repo,
             &[
@@ -217,8 +673,25 @@ pub fn agent_git_diff(
     let repo = repo_buf.as_path();
     let base = base_ref.unwrap_or_else(|| "HEAD".to_string());
     validate_ref("base ref", &base)?;
-    let diff = git_cmd(repo, &["diff", "--stat", &base])?;
-    let files_changed = diff.lines().filter(|l| l.contains('|')).count() as u32;
+    let mut diff = git_cmd(repo, &["diff", "--stat", &base])?;
+    let mut files_changed = diff.lines().filter(|l| l.contains('|')).count() as u32;
+
+    // `git diff` is blind to untracked files, which is most of what a fresh
+    // agent run produces — surface them so reviews aren't misleadingly empty.
+    let untracked = git_cmd(repo, &["ls-files", "--others", "--exclude-standard"]).unwrap_or_default();
+    if !untracked.trim().is_empty() {
+        let names: Vec<&str> = untracked.lines().take(50).collect();
+        files_changed += untracked.lines().count() as u32;
+        diff.push_str(&format!(
+            "\n\nUntracked (new) files:\n{}",
+            names
+                .iter()
+                .map(|n| format!("  + {n}"))
+                .collect::<Vec<_>>()
+                .join("\n")
+        ));
+    }
+
     Ok(GitDiffResult {
         diff: diff.chars().take(8000).collect(),
         files_changed,

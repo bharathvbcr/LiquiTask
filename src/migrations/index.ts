@@ -9,6 +9,7 @@
  */
 
 import type { Migration } from "../../types";
+import { migrateV1_0_to_V1_1_AgenticBoard } from "./agenticBoard";
 
 /**
  * All registered migrations, ordered by version.
@@ -16,19 +17,12 @@ import type { Migration } from "../../types";
  */
 export const MIGRATIONS: Migration[] = [
   // v1.0.0 is the baseline - no migration needed
-  // Example migration for future v1.1.0
-  // Uncomment and modify when releasing v1.1.0
-  /*
-    {
-        version: '1.1.0',
-        description: 'Add savedViews array to support persistent filter views',
-        migrate: (data: MigratableAppData): MigratableAppData => ({
-            ...data,
-            savedViews: data.savedViews ?? [],
-            version: '1.1.0',
-        }),
-    },
-    */
+  {
+    version: "1.1.0",
+    description:
+      "Agentic board: reframe columns to Task / In Progress / Completed / Commit",
+    migrate: migrateV1_0_to_V1_1_AgenticBoard,
+  },
 ];
 
 /**

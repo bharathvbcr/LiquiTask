@@ -22,8 +22,6 @@
     "App.tsx",
     "index.tsx",
     "types.ts",
-    "components/**/*.ts",
-    "components/**/*.tsx",
     "src/**/*.ts",
     "src/**/*.tsx",
     "vite.config.ts",
@@ -35,6 +33,7 @@
     "build",
     "release",
     "src-tauri",
+    "vendor",
     ".worktrees",
     "node_modules"
   ]

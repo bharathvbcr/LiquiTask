@@ -8,6 +8,9 @@ export type { GlassPanelProps } from "./GlassPanel";
 export { GlassCard } from "./GlassCard";
 export type { GlassCardProps } from "./GlassCard";
 
+export { FlatCard } from "./FlatCard";
+export type { FlatCardProps } from "./FlatCard";
+
 export { PresenceRing } from "./PresenceRing";
 export type { PresenceRingProps, PresenceStatus } from "./PresenceRing";
 
@@ -19,3 +22,9 @@ export type { StreamTextProps } from "./StreamText";
 
 export { ApprovalCard } from "./ApprovalCard";
 export type { ApprovalCardProps } from "./ApprovalCard";
+
+export { DIFF_LINE_CAP, DiffView, parseUnifiedDiff } from "./DiffView";
+export type { DiffFile, DiffViewProps } from "./DiffView";
+
+export { groupToolEvents, ToolTimeline } from "./ToolTimeline";
+export type { ToolTimelineEntry, ToolTimelineProps } from "./ToolTimeline";

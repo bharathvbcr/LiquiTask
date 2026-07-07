@@ -1369,12 +1369,327 @@ pub fn agent_open_in_terminal(
 }
 
 // ---------------------------------------------------------------------------
+// Developer tool detection & launch (IDEs / editors)
+// ---------------------------------------------------------------------------
+
+/// A locally installed IDE / editor launcher discovered on PATH. Distinct from
+/// `AgentCliStatus` (agent CLIs): these are GUI editors the user can open a repo
+/// in. Detection is best-effort — a missing launcher simply reports
+/// `available: false` rather than erroring.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct DevTool {
+    /// Stable id used by the frontend (e.g. "vscode").
+    pub id: String,
+    /// Human label (e.g. "Visual Studio Code").
+    pub name: String,
+    /// The PATH binary that was found (or the first candidate when none exists).
+    pub binary: String,
+    pub available: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+    /// Always "ide" for now; lets the UI group tools by kind.
+    pub kind: String,
+    /// How the tool should be launched: "path" (PATH launcher via `<bin> <dir>`),
+    /// "bundle" (macOS .app via `open -a <appName> <dir>`), or "none".
+    pub launch: String,
+    /// macOS app display name for `open -a`, when `launch == "bundle"`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub app_name: Option<String>,
+}
+
+/// Curated IDE / editor launchers. Each entry lists candidate PATH binary names
+/// (priority order) and candidate macOS `.app` bundle names. Detection prefers a
+/// PATH launcher (reliable `<bin> <dir>` folder-open) and falls back to the app
+/// bundle so editors still appear when the CLI launcher was never installed.
+const IDE_TOOLS: &[(&str, &str, &[&str], &[&str])] = &[
+    ("vscode", "Visual Studio Code", &["code"], &["Visual Studio Code"]),
+    (
+        "vscode-insiders",
+        "VS Code Insiders",
+        &["code-insiders"],
+        &["Visual Studio Code - Insiders"],
+    ),
+    ("cursor", "Cursor", &["cursor"], &["Cursor"]),
+    ("windsurf", "Windsurf", &["windsurf"], &["Windsurf"]),
+    ("zed", "Zed", &["zed"], &["Zed"]),
+    ("sublime", "Sublime Text", &["subl"], &["Sublime Text"]),
+    (
+        "jetbrains",
+        "JetBrains (IntelliJ IDEA)",
+        &["idea"],
+        &["IntelliJ IDEA", "IntelliJ IDEA CE", "IntelliJ IDEA Community Edition"],
+    ),
+];
+
+/// Directories scanned for `.app` bundles. Empty on non-macOS so bundle
+/// detection is a no-op there (PATH detection still runs).
+fn ide_app_search_dirs() -> Vec<PathBuf> {
+    if !cfg!(target_os = "macos") {
+        return Vec::new();
+    }
+    let mut dirs = vec![PathBuf::from("/Applications")];
+    if let Ok(home) = std::env::var("HOME") {
+        if !home.is_empty() {
+            dirs.push(PathBuf::from(home).join("Applications"));
+        }
+    }
+    dirs
+}
+
+/// Find the first `<app>.app` bundle that exists in any search dir. Returns the
+/// matched app display name and the bundle path.
+fn resolve_app_bundle(apps: &[&str], dirs: &[PathBuf]) -> Option<(String, String)> {
+    for app in apps {
+        for dir in dirs {
+            let bundle = dir.join(format!("{app}.app"));
+            if bundle.exists() {
+                return Some(((*app).to_string(), bundle.to_string_lossy().into_owned()));
+            }
+        }
+    }
+    None
+}
+
+/// Detect installed IDE / editor launchers. Prefers a PATH launcher, then falls
+/// back to a macOS `.app` bundle so an editor still shows up (and stays
+/// launchable via `open -a`) even without its `code`/`cursor`/… CLI shim.
+#[tauri::command(rename_all = "camelCase")]
+pub fn agent_detect_ide_tools() -> Vec<DevTool> {
+    let app_dirs = ide_app_search_dirs();
+    IDE_TOOLS
+        .iter()
+        .map(|(id, name, bins, apps)| {
+            // 1) PATH launcher — most reliable.
+            for bin in bins.iter() {
+                if let Some(found) = find_executable(bin) {
+                    return DevTool {
+                        id: (*id).to_string(),
+                        name: (*name).to_string(),
+                        binary: (*bin).to_string(),
+                        available: true,
+                        path: Some(found.to_string_lossy().into_owned()),
+                        kind: "ide".to_string(),
+                        launch: "path".to_string(),
+                        app_name: None,
+                    };
+                }
+            }
+            // 2) macOS .app bundle fallback.
+            if let Some((app_name, bundle)) = resolve_app_bundle(apps, &app_dirs) {
+                return DevTool {
+                    id: (*id).to_string(),
+                    name: (*name).to_string(),
+                    binary: bins.first().map(|b| (*b).to_string()).unwrap_or_default(),
+                    available: true,
+                    path: Some(bundle),
+                    kind: "ide".to_string(),
+                    launch: "bundle".to_string(),
+                    app_name: Some(app_name),
+                };
+            }
+            // 3) Not found.
+            DevTool {
+                id: (*id).to_string(),
+                name: (*name).to_string(),
+                binary: bins.first().map(|b| (*b).to_string()).unwrap_or_default(),
+                available: false,
+                path: None,
+                kind: "ide".to_string(),
+                launch: "none".to_string(),
+                app_name: None,
+            }
+        })
+        .collect()
+}
+
+/// Reject anything that isn't a bare executable name — guards the PATH-launch
+/// modes against smuggled shell syntax or absolute paths.
+fn validate_tool_name(tool: &str) -> Result<(), String> {
+    if tool.is_empty()
+        || tool.len() > 64
+        || tool.starts_with('-')
+        || !tool
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.')
+    {
+        return Err(format!("Invalid tool name: {tool}"));
+    }
+    Ok(())
+}
+
+/// Validate a macOS app display name for `open -a`. Spaces are allowed (e.g.
+/// "Visual Studio Code") but a leading '-' (flag injection into `open`), path
+/// separators, and control chars are rejected. `open -a` is exec'd without a
+/// shell, so this only needs to block those specific footguns.
+fn validate_app_name(name: &str) -> Result<(), String> {
+    if name.is_empty()
+        || name.len() > 128
+        || name.starts_with('-')
+        || name.contains('/')
+        || name.chars().any(char::is_control)
+    {
+        return Err(format!("Invalid application name: {name}"));
+    }
+    Ok(())
+}
+
+/// Launch a detected agent CLI or IDE in an authorised workspace directory.
+///
+/// - `mode = "app"`: spawn a PATH launcher with the folder (`<bin> <dir>`), e.g.
+///   opening the repo in VS Code / Cursor via its `code`/`cursor` shim.
+/// - `mode = "bundle"`: open the folder in a macOS `.app` bundle via
+///   `open -a <appName> <dir>` (used when no CLI launcher is on PATH).
+/// - `mode = "terminal"`: open Terminal.app at the directory and run the tool
+///   (macOS only), mirroring `agent_open_in_terminal`.
+///
+/// The directory must be an authorised workspace path.
+#[tauri::command(rename_all = "camelCase")]
+pub fn agent_open_in_tool(
+    app: AppHandle,
+    tool: String,
+    working_dir: String,
+    mode: String,
+) -> Result<(), String> {
+    let data = read_storage(&app)?;
+    let authorized = safe_workspace_paths(&data);
+    if !is_path_authorized(&working_dir, &authorized) {
+        return Err(format!(
+            "Working directory is not an authorised workspace path: {working_dir}"
+        ));
+    }
+
+    match mode.as_str() {
+        "app" => {
+            validate_tool_name(&tool)?;
+            let bin =
+                find_executable(&tool).ok_or_else(|| format!("Tool not found on PATH: {tool}"))?;
+            Command::new(&bin)
+                .arg(&working_dir)
+                .current_dir(&working_dir)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .map_err(|e| format!("Failed to launch {tool}: {e}"))?;
+            Ok(())
+        }
+        "bundle" => {
+            if !cfg!(target_os = "macos") {
+                return Err("Opening an app bundle is only supported on macOS.".to_string());
+            }
+            validate_app_name(&tool)?;
+            Command::new("open")
+                .arg("-a")
+                .arg(&tool)
+                .arg(&working_dir)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .map_err(|e| format!("Failed to open {tool}: {e}"))?;
+            Ok(())
+        }
+        "terminal" => {
+            if !cfg!(target_os = "macos") {
+                return Err("Opening a tool in Terminal is only supported on macOS.".to_string());
+            }
+            validate_tool_name(&tool)?;
+            let bin =
+                find_executable(&tool).ok_or_else(|| format!("Tool not found on PATH: {tool}"))?;
+            let bin_str = bin.to_string_lossy().to_string();
+            let shell_cmd = format!(
+                "cd {} && {}",
+                shell_single_quote(&working_dir),
+                shell_single_quote(&bin_str)
+            );
+            let script = format!(
+                "tell application \"Terminal\"\nactivate\ndo script \"{}\"\nend tell",
+                applescript_escape(&shell_cmd)
+            );
+            Command::new("osascript")
+                .arg("-e")
+                .arg(script)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .map_err(|e| format!("Failed to open Terminal: {e}"))?;
+            Ok(())
+        }
+        other => Err(format!("Unknown launch mode: {other}")),
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn detect_ide_tools_reports_every_known_editor() {
+        let tools = agent_detect_ide_tools();
+        assert_eq!(tools.len(), IDE_TOOLS.len());
+        for tool in &tools {
+            assert_eq!(tool.kind, "ide");
+            // Availability agrees with whether a path was resolved…
+            assert_eq!(tool.available, tool.path.is_some());
+            // …and with the launch strategy.
+            assert_eq!(tool.available, tool.launch != "none");
+            assert!(!tool.binary.is_empty());
+            // Bundle launches must carry the app name; path launches must not.
+            match tool.launch.as_str() {
+                "bundle" => assert!(tool.app_name.is_some()),
+                _ => assert!(tool.app_name.is_none()),
+            }
+        }
+        assert!(tools.iter().any(|t| t.id == "vscode"));
+    }
+
+    #[test]
+    fn resolve_app_bundle_finds_dot_app() {
+        let base = std::env::temp_dir().join(format!("lt-ide-{}", std::process::id()));
+        let apps_dir = base.join("Applications");
+        std::fs::create_dir_all(apps_dir.join("Foo.app")).unwrap();
+
+        let found = resolve_app_bundle(&["Foo"], std::slice::from_ref(&apps_dir));
+        assert!(found.is_some());
+        let (name, path) = found.unwrap();
+        assert_eq!(name, "Foo");
+        assert!(path.ends_with("Foo.app"));
+
+        assert!(resolve_app_bundle(&["Missing"], std::slice::from_ref(&apps_dir)).is_none());
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn validate_app_name_allows_spaces_but_blocks_footguns() {
+        assert!(validate_app_name("Visual Studio Code").is_ok());
+        assert!(validate_app_name("IntelliJ IDEA CE").is_ok());
+        assert!(validate_app_name("").is_err());
+        assert!(validate_app_name("-app").is_err());
+        assert!(validate_app_name("../../Foo").is_err());
+        assert!(validate_app_name("App/../evil").is_err());
+    }
+
+    #[test]
+    fn validate_tool_name_accepts_plain_binaries() {
+        assert!(validate_tool_name("code").is_ok());
+        assert!(validate_tool_name("cursor-agent").is_ok());
+        assert!(validate_tool_name("code_insiders.1").is_ok());
+    }
+
+    #[test]
+    fn validate_tool_name_rejects_shell_smuggling() {
+        assert!(validate_tool_name("").is_err());
+        assert!(validate_tool_name("-rf").is_err());
+        assert!(validate_tool_name("code; rm -rf /").is_err());
+        assert!(validate_tool_name("/usr/bin/code").is_err());
+        assert!(validate_tool_name("code && echo hi").is_err());
+    }
 
     #[test]
     fn augmented_path_includes_homebrew() {

@@ -398,8 +398,8 @@ class TaskCleanupService {
   /** Pure JS redundancy analysis (web fallback). `now` replaces `new Date()`. */
   private analyzeRedundancyJs(allTasks: Task[], now: Date): RedundancyAnalysis[] {
     const analyses: RedundancyAnalysis[] = [];
-    const completedTasks = allTasks.filter((t) => t.status === "Completed" || t.completedAt);
-    const activeTasks = allTasks.filter((t) => t.status !== "Completed" && !t.completedAt);
+    const completedTasks = allTasks.filter((t) => t.status === "Commit" || t.completedAt);
+    const activeTasks = allTasks.filter((t) => t.status !== "Commit" && !t.completedAt);
 
     for (const task of activeTasks) {
       for (const completed of completedTasks) {

@@ -1,10 +1,10 @@
 /**
- * The command hierarchy — ranks, duties, and enforceable boundaries.
+ * Team roles — ranks, duties, and enforceable boundaries.
  *
- * Each role couples a rank to the actions it may take. `assertAllowed` makes the
- * chain of command machine-checkable (only the Lead writes the dashboard, only
- * the Reviewer performs QC, a Worker never reviews its own work), so the
- * orchestrator can hard-enforce it rather than trusting a prompt.
+ * Each role couples a rank to the actions it may take. `assertAllowed` makes
+ * the role boundaries machine-checkable (only the Lead writes the dashboard,
+ * only the Reviewer performs QC, a Worker never reviews its own work), so the
+ * orchestrator can hard-enforce them rather than trusting a prompt.
  */
 
 import type { CampaignAction, CampaignRank, CampaignRoleDef } from "./campaignTypes";
@@ -14,7 +14,7 @@ export class ForbiddenActionError extends Error {
     public readonly rank: CampaignRank,
     public readonly action: CampaignAction,
   ) {
-    super(`${rank} is forbidden from '${action}' — it violates the chain of command`);
+    super(`${rank} is not allowed to '${action}' — it is outside this role's boundaries`);
     this.name = "ForbiddenActionError";
   }
 }
@@ -38,26 +38,26 @@ const role = (
 export const CAMPAIGN_ROLES: Record<CampaignRank, CampaignRoleDef> = {
   commander: role(
     "commander",
-    "Commander",
-    "Relays the Lord's order to the Lead and steps back. Never works.",
+    "Coordinator",
+    "Passes your request to the Lead and steps back. Never works.",
     null,
     ["relay_order", "read_dashboard", "notify", "contact_human"],
     [
-      "Receive the Lord's order (an epic) and record it as a campaign command.",
-      "Hand the command to the Lead, then yield so the Lord may issue more.",
+      "Receive the user's request (an epic) and record it as the run's goal.",
+      "Hand the goal to the Lead, then yield so the user can make more requests.",
       "Read the dashboard; never write it, never execute a task, never bypass the Lead.",
     ],
   ),
   lead: role(
     "lead",
-    "Lead · Traffic Control",
-    "Decomposes the epic, dispatches Workers in parallel, owns the dashboard.",
+    "Lead",
+    "Splits the epic into subtasks, assigns Workers in parallel, owns the dashboard.",
     "commander",
     ["decompose", "assign", "write_dashboard", "route_qc", "rollup", "notify", "read_dashboard", "contact_human"],
     [
-      "Decompose the epic (DevCouncil plan) and classify each subtask by Bloom level.",
-      "Dispatch execution tasks to Workers in parallel; route analysis/QC to the Reviewer.",
-      "Own the dashboard and roll verified work up to the Commander.",
+      "Split the epic into subtasks (DevCouncil plan) and classify each by Bloom level.",
+      "Assign execution tasks to Workers in parallel; route analysis/QC to the Reviewer.",
+      "Own the dashboard and roll verified work up to the Coordinator.",
       "Never do the work yourself — running one worker when several could is Lead laziness.",
     ],
   ),
@@ -75,12 +75,12 @@ export const CAMPAIGN_ROLES: Record<CampaignRank, CampaignRoleDef> = {
   ),
   reviewer: role(
     "reviewer",
-    "Reviewer · Quality Control",
+    "Reviewer",
     "A thinker, not a doer. Verifies finished work via the DevCouncil gate.",
     "lead",
     ["qc_review", "deep_analysis", "aggregate_reports", "write_report"],
     [
-      "Quality-control Worker output through the DevCouncil verify gate.",
+      "Quality-check Worker output through the DevCouncil verify gate.",
       "Own architecture, root-cause and strategy work (Bloom Analyze/Evaluate/Create).",
       "Aggregate verdicts and report up to the Lead. Never manage Workers, never implement.",
     ],

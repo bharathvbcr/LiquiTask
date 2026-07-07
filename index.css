@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-family: 'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
   --accent-red: #ff1f1f;
   --bg-primary: #030000;
   --bg-secondary: #0a0505;
@@ -131,6 +131,189 @@ body {
   background-attachment: fixed;
 }
 
+/* ============================================================
+   Ambient "liquid glass" backdrop
+   Slow-drifting crimson metaball blobs over the warm near-black
+   canvas. Rendered by <LiquidBackdrop /> behind all app content.
+   ============================================================ */
+.liquid-backdrop__base {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% -15%, #200707 0%, rgba(3, 0, 0, 0) 55%),
+    radial-gradient(circle at 85% 110%, rgba(69, 10, 10, 0.55) 0%, rgba(3, 0, 0, 0) 50%);
+}
+
+.liquid-backdrop__blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(64px);
+  mix-blend-mode: screen;
+  opacity: 0.55;
+  will-change: transform, opacity;
+  transform: translateZ(0);
+}
+
+.liquid-backdrop__blob--1 {
+  width: 48vw;
+  height: 48vw;
+  top: -14vh;
+  left: -10vw;
+  background: radial-gradient(
+    circle,
+    rgba(220, 38, 38, 0.55) 0%,
+    rgba(127, 29, 29, 0.18) 45%,
+    transparent 70%
+  );
+  animation: liquid-drift-1 26s ease-in-out infinite;
+}
+
+.liquid-backdrop__blob--2 {
+  width: 42vw;
+  height: 42vw;
+  bottom: -16vh;
+  right: -8vw;
+  background: radial-gradient(
+    circle,
+    rgba(185, 28, 28, 0.5) 0%,
+    rgba(127, 29, 29, 0.16) 48%,
+    transparent 72%
+  );
+  animation: liquid-drift-2 34s ease-in-out infinite;
+}
+
+.liquid-backdrop__blob--3 {
+  width: 30vw;
+  height: 30vw;
+  top: 28vh;
+  left: 34vw;
+  background: radial-gradient(
+    circle,
+    rgba(255, 31, 31, 0.4) 0%,
+    rgba(220, 38, 38, 0.12) 46%,
+    transparent 70%
+  );
+  opacity: 0.45;
+  animation: liquid-drift-3 22s ease-in-out infinite;
+}
+
+.liquid-backdrop__blob--4 {
+  width: 36vw;
+  height: 36vw;
+  bottom: 6vh;
+  left: 8vw;
+  background: radial-gradient(
+    circle,
+    rgba(153, 27, 27, 0.42) 0%,
+    rgba(60, 10, 10, 0.14) 50%,
+    transparent 74%
+  );
+  animation: liquid-drift-4 30s ease-in-out infinite;
+}
+
+/* Soft diagonal sheen sweeping across the glass */
+.liquid-backdrop__sheen {
+  position: absolute;
+  inset: -20%;
+  background: linear-gradient(
+    115deg,
+    transparent 38%,
+    rgba(255, 80, 80, 0.05) 50%,
+    transparent 62%
+  );
+  mix-blend-mode: screen;
+  opacity: 0.7;
+  animation: liquid-sheen 18s ease-in-out infinite;
+}
+
+@keyframes liquid-drift-1 {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  33% {
+    transform: translate3d(6vw, 7vh, 0) scale(1.18);
+  }
+  66% {
+    transform: translate3d(-4vw, 3vh, 0) scale(0.9);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes liquid-drift-2 {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1.05);
+  }
+  40% {
+    transform: translate3d(-7vw, -6vh, 0) scale(0.85);
+  }
+  70% {
+    transform: translate3d(-2vw, 4vh, 0) scale(1.2);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1.05);
+  }
+}
+
+@keyframes liquid-drift-3 {
+  0% {
+    transform: translate3d(0, 0, 0) scale(0.95);
+    opacity: 0.4;
+  }
+  50% {
+    transform: translate3d(5vw, -8vh, 0) scale(1.3);
+    opacity: 0.55;
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(0.95);
+    opacity: 0.4;
+  }
+}
+
+@keyframes liquid-drift-4 {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  35% {
+    transform: translate3d(8vw, -4vh, 0) scale(1.15);
+  }
+  75% {
+    transform: translate3d(3vw, 5vh, 0) scale(0.88);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes liquid-sheen {
+  0%,
+  100% {
+    transform: translate3d(-12%, -6%, 0);
+    opacity: 0.35;
+  }
+  50% {
+    transform: translate3d(12%, 6%, 0);
+    opacity: 0.8;
+  }
+}
+
+/* Light theme: soft red tints instead of additive glow */
+.theme-light .liquid-backdrop__base {
+  background:
+    radial-gradient(circle at 50% -15%, rgba(254, 226, 226, 0.8) 0%, rgba(248, 249, 250, 0) 55%),
+    radial-gradient(circle at 85% 110%, rgba(254, 202, 202, 0.5) 0%, rgba(248, 249, 250, 0) 50%);
+}
+
+.theme-light .liquid-backdrop__blob {
+  mix-blend-mode: multiply;
+  opacity: 0.14;
+}
+
+.theme-light .liquid-backdrop__sheen {
+  opacity: 0.25;
+}
+
 /* Custom Scrollbar for dark theme */
 ::-webkit-scrollbar {
   width: 8px;
@@ -162,7 +345,31 @@ body {
   border-radius: 1.5rem;
 }
 
+.liquid-glass--soft {
+  background: rgba(20, 10, 10, 0.58);
+  box-shadow:
+    0 16px 48px -12px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+}
+
 .liquid-card {
+  position: relative;
+  isolation: isolate;
+  --blob-x: 0%;
+  --blob-y: 14%;
+  --blob-x2: 0%;
+  --blob-y2: 14%;
+  --blob-drop-x: 0%;
+  --blob-drop-y: 22%;
+  --blob-scale-x: 1;
+  --blob-scale-y: 1;
+  --blob-tilt: 0deg;
+  --blob-surface-tilt: 0deg;
+  --blob-speed: 0;
+  --blob-r1: 44%;
+  --blob-r2: 56%;
+  --blob-r3: 52%;
+  --blob-r4: 48%;
   background: rgba(30, 10, 10, 0.4);
   -webkit-backdrop-filter: blur(20px);
   backdrop-filter: blur(20px);
@@ -175,6 +382,131 @@ body {
     background 0.4s ease;
 }
 
+.liquid-card-blob {
+  position: absolute;
+  border-radius: var(--blob-r1, 44%) var(--blob-r2, 56%) var(--blob-r3, 52%) var(--blob-r4, 48%) /
+    var(--blob-r4, 48%) var(--blob-r1, 44%) var(--blob-r2, 56%) var(--blob-r3, 52%);
+  filter: blur(16px);
+  will-change: transform, border-radius, opacity;
+  transition: opacity 0.35s ease;
+}
+
+.liquid-card-blob--base {
+  width: 88%;
+  height: 42%;
+  left: 6%;
+  top: 52%;
+  opacity: 0.28;
+  background: radial-gradient(ellipse 80% 90% at 50% 20%, rgba(200, 30, 30, 0.35), rgba(120, 10, 10, 0.12) 55%, transparent 78%);
+  transform: translate(calc(var(--blob-x) * 0.35), calc(var(--blob-y) * 0.25))
+    scale(calc(var(--blob-scale-x) * 1.08), calc(var(--blob-scale-y) * 0.72));
+  filter: blur(20px);
+}
+
+.liquid-card-blob--primary {
+  width: 72%;
+  height: 68%;
+  left: 14%;
+  top: 8%;
+  opacity: 0.42;
+  background: radial-gradient(circle at 35% 35%, rgba(255, 90, 90, 0.55), rgba(185, 28, 28, 0.18) 52%, transparent 72%);
+  transform: translate(var(--blob-x), var(--blob-y)) rotate(var(--blob-tilt))
+    scale(var(--blob-scale-x), var(--blob-scale-y));
+  transform-origin: 50% 72%;
+}
+
+.liquid-card-blob--secondary {
+  width: 58%;
+  height: 54%;
+  left: 20%;
+  top: 18%;
+  opacity: 0.24;
+  background: radial-gradient(circle at 60% 40%, rgba(255, 40, 40, 0.35), transparent 70%);
+  transform: translate(var(--blob-x2), var(--blob-y2)) rotate(var(--blob-surface-tilt))
+    scale(calc(var(--blob-scale-x) * 0.88), calc(var(--blob-scale-y) * 1.06));
+  transform-origin: 50% 80%;
+}
+
+.liquid-card-blob--droplet {
+  width: 22%;
+  height: 20%;
+  left: 40%;
+  top: 62%;
+  opacity: calc(0.12 + var(--blob-speed) * 0.62);
+  background: radial-gradient(circle at 40% 35%, rgba(255, 160, 160, 0.75), rgba(220, 38, 38, 0.2) 55%, transparent 75%);
+  border-radius: 50% 50% 46% 54% / 58% 42% 58% 42%;
+  filter: blur(10px);
+  transform: translate(var(--blob-drop-x), var(--blob-drop-y))
+    scale(calc(0.65 + var(--blob-speed) * 0.45));
+  transform-origin: 50% 30%;
+}
+
+.liquid-card-blob--droplet-trail {
+  width: 14%;
+  height: 13%;
+  left: 44%;
+  top: 68%;
+  opacity: calc(var(--blob-speed) * 0.45);
+  filter: blur(8px);
+  transform: translate(calc(var(--blob-drop-x) * 1.25 - 2%), calc(var(--blob-drop-y) * 1.15 + 4%))
+    scale(calc(0.45 + var(--blob-speed) * 0.3));
+}
+
+.liquid-card--blob-active .liquid-card-blob--primary {
+  opacity: 0.58;
+}
+
+.liquid-card--blob-active .liquid-card-blob--secondary {
+  opacity: 0.34;
+}
+
+.liquid-card--blob-active .liquid-card-blob--base {
+  opacity: 0.38;
+}
+
+.liquid-card:hover .liquid-card-blob--primary,
+.liquid-card:focus-within .liquid-card-blob--primary {
+  opacity: 0.52;
+}
+
+.liquid-card--blob-active .liquid-card-blob {
+  animation: none;
+}
+
+@keyframes liquid-card-morph {
+  0%,
+  100% {
+    border-radius: 44% 56% 52% 48% / 48% 44% 56% 52%;
+  }
+  50% {
+    border-radius: 56% 44% 47% 53% / 53% 48% 52% 47%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .liquid-card-blob {
+    animation: none;
+    transform: none !important;
+    opacity: 0.18;
+  }
+
+  .liquid-card-blob--droplet,
+  .liquid-card-blob--droplet-trail {
+    display: none;
+  }
+}
+
+[data-gpu-tier='reduced'] .liquid-card-blob {
+  animation: none;
+  filter: blur(8px);
+  opacity: 0.16;
+}
+
+[data-gpu-tier='reduced'] .liquid-card-blob--droplet,
+[data-gpu-tier='reduced'] .liquid-card-blob--droplet-trail {
+  display: none;
+}
+
 .liquid-card:hover {
   background: rgba(45, 12, 12, 0.6);
   border-color: rgba(255, 50, 50, 0.4);
@@ -185,36 +517,143 @@ body {
 }
 
 .liquid-button {
-  background: linear-gradient(135deg, rgba(255, 50, 50, 0.1) 0%, rgba(150, 10, 10, 0.1) 100%);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 100, 100, 0.2);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 50, 50, 0.14) 0%,
+    rgba(30, 10, 10, 0.55) 48%,
+    rgba(12, 6, 6, 0.72) 100%
+  );
+  -webkit-backdrop-filter: blur(16px) saturate(1.15);
+  backdrop-filter: blur(16px) saturate(1.15);
+  border: 1px solid rgba(255, 100, 100, 0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 8px 24px rgba(0, 0, 0, 0.35),
+    0 0 20px rgba(220, 38, 38, 0.12);
   color: #fff;
-  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition:
+    transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    box-shadow 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    border-color 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    background 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   position: relative;
   overflow: hidden;
 }
 
 .liquid-button::before {
-  content: "";
+  content: '';
   position: absolute;
-  top: 0; left: -100%; width: 50%; height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-  transition: all 0.5s ease;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transform: translateX(0);
+  transition: transform 0.5s ease;
+  will-change: transform;
 }
 
 .liquid-button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(255, 50, 50, 0.2), inset 0 0 15px rgba(255, 50, 50, 0.3);
-  border-color: rgba(255, 100, 100, 0.5);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 70, 70, 0.2) 0%,
+    rgba(45, 12, 12, 0.62) 48%,
+    rgba(18, 8, 8, 0.78) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 12px 28px rgba(0, 0, 0, 0.4),
+    0 0 28px rgba(255, 50, 50, 0.22);
+  border-color: rgba(255, 120, 120, 0.42);
 }
 
 .liquid-button:hover::before {
-  left: 150%;
+  transform: translateX(500%);
 }
 
 .liquid-button:active {
   transform: translateY(1px);
+}
+
+/* LiquidButton hover — morphing wavy blobs */
+.liquid-btn-waves {
+  pointer-events: none;
+}
+
+.liquid-btn-wave {
+  position: absolute;
+  width: 150%;
+  height: 150%;
+  left: -25%;
+  top: -25%;
+  opacity: 0.55;
+  filter: blur(10px);
+  mix-blend-mode: screen;
+  will-change: transform, border-radius;
+}
+
+.liquid-btn-wave--1 {
+  background: radial-gradient(circle at 35% 35%, rgba(255, 140, 140, 0.65), rgba(220, 38, 38, 0.2) 52%, transparent 72%);
+  animation: liquid-btn-wave-1 2.6s ease-in-out infinite;
+}
+
+.liquid-btn-wave--2 {
+  background: radial-gradient(circle at 65% 60%, rgba(255, 80, 80, 0.45), rgba(127, 29, 29, 0.15) 50%, transparent 70%);
+  animation: liquid-btn-wave-2 3.2s ease-in-out infinite;
+}
+
+.liquid-btn-wave--3 {
+  background: radial-gradient(circle at 50% 100%, rgba(255, 200, 200, 0.35), transparent 62%);
+  animation: liquid-btn-wave-3 2.1s ease-in-out infinite;
+  opacity: 0.35;
+}
+
+@keyframes liquid-btn-wave-1 {
+  0%,
+  100% {
+    transform: translate(0%, 6%) rotate(0deg) scale(1);
+    border-radius: 42% 58% 60% 40% / 48% 42% 58% 52%;
+  }
+  50% {
+    transform: translate(10%, -10%) rotate(10deg) scale(1.08);
+    border-radius: 58% 42% 45% 55% / 55% 48% 52% 45%;
+  }
+}
+
+@keyframes liquid-btn-wave-2 {
+  0%,
+  100% {
+    transform: translate(-4%, -6%) rotate(-6deg) scale(1.02);
+    border-radius: 55% 45% 50% 50% / 45% 55% 45% 55%;
+  }
+  50% {
+    transform: translate(8%, 8%) rotate(8deg) scale(0.96);
+    border-radius: 40% 60% 55% 45% / 60% 40% 55% 45%;
+  }
+}
+
+@keyframes liquid-btn-wave-3 {
+  0%,
+  100% {
+    transform: translate(0%, 12%) scaleX(1.1) scaleY(0.9);
+    border-radius: 50% 50% 40% 60% / 60% 40% 60% 40%;
+  }
+  50% {
+    transform: translate(-8%, 0%) scaleX(0.95) scaleY(1.05);
+    border-radius: 45% 55% 60% 40% / 50% 50% 45% 55%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .liquid-btn-wave {
+    animation: none;
+  }
+}
+
+[data-gpu-tier='reduced'] .liquid-btn-wave {
+  animation: none;
+  filter: none;
 }
 
 .liquid-input {
@@ -259,7 +698,9 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(8px);
   border-radius: 9999px;
-  transition: background 0.2s ease, border-color 0.2s ease;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
 }
 
 .liquid-badge:hover {
@@ -278,12 +719,105 @@ body {
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
+/* ===== Liquid drag & drop ===== */
+
+/*
+ * The dragged card wobbles like a blob of liquid while it follows the cursor.
+ * The organic outline is a static border-radius (set once, not repainted);
+ * only `transform` is keyframed so the wobble is compositor-only during the
+ * highest-motion-sensitivity interaction in the app.
+ */
+@keyframes liquid-drag {
+  0% {
+    transform: scale(1, 1);
+  }
+  25% {
+    transform: scale(1.04, 0.96);
+  }
+  50% {
+    transform: scale(0.965, 1.035);
+  }
+  75% {
+    transform: scale(1.02, 0.985);
+  }
+  100% {
+    transform: scale(1, 1);
+  }
+}
+.liquid-drag-blob {
+  border-radius: 46% 54% 58% 42% / 55% 46% 54% 45%;
+  animation: liquid-drag 0.85s ease-in-out infinite;
+  filter: saturate(1.35) drop-shadow(0 0 42px rgba(239, 68, 68, 0.5));
+  will-change: transform;
+  overflow: hidden;
+}
+
+/* A splash of red rings + droplets radiates from where a card is dropped. */
+.lt-splash {
+  position: fixed;
+  z-index: 9998;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+.lt-splash .ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 120px;
+  height: 120px;
+  margin: -60px 0 0 -60px;
+  border: 3px solid rgba(239, 68, 68, 0.7);
+  border-radius: 9999px;
+  animation: lt-splash-ring 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.lt-splash .ring2 {
+  width: 74px;
+  height: 74px;
+  margin: -37px 0 0 -37px;
+  border-color: rgba(255, 120, 120, 0.6);
+  animation-delay: 0.08s;
+}
+.lt-splash .drop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 9px;
+  height: 9px;
+  margin: -4.5px 0 0 -4.5px;
+  border-radius: 9999px;
+  background: radial-gradient(circle at 35% 30%, #ff6b6b, #b91c1c);
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.7);
+  animation: lt-drop-fly 0.5s ease-out forwards;
+}
+@keyframes lt-splash-ring {
+  0% {
+    transform: scale(0.3);
+    opacity: 0.9;
+    border-width: 3px;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+    border-width: 0.5px;
+  }
+}
+@keyframes lt-drop-fly {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx, 0), var(--dy, 0)) scale(0.4);
+  }
+}
+
 /* Radiant inset top-line for premium panels */
 .liquid-topline {
   position: relative;
 }
 .liquid-topline::before {
-  content: "";
+  content: '';
   position: absolute;
   top: 0;
   left: 10%;
@@ -303,7 +837,9 @@ body {
 
 /* Hover lift effect — gentle float */
 .hover-lift {
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+  transition:
+    transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.3s ease;
 }
 .hover-lift:hover {
   transform: translateY(-3px);
@@ -312,7 +848,10 @@ body {
 
 /* Icon button with glow-on-hover */
 .icon-btn {
-  transition: color 0.2s, background 0.2s, transform 0.2s;
+  transition:
+    color 0.2s,
+    background 0.2s,
+    transform 0.2s;
   border-radius: 0.6rem;
   padding: 0.5rem;
 }
@@ -328,7 +867,13 @@ body {
 /* Subtle divider with gradient fade */
 .liquid-divider {
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08) 30%, rgba(255, 255, 255, 0.08) 70%, transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.08) 30%,
+    rgba(255, 255, 255, 0.08) 70%,
+    transparent
+  );
   border: none;
   margin: 0;
 }
@@ -342,11 +887,11 @@ body {
 
 /* Number/statistic display with strong visual hierarchy */
 .stat-number {
-  font-family: "Outfit", "Inter", sans-serif;
+  font-family: 'Outfit', 'Inter', sans-serif;
   font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1;
-  background: linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.7) 100%);
+  background: linear-gradient(135deg, #fff 0%, rgba(255, 255, 255, 0.7) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -374,7 +919,7 @@ body {
   position: relative;
 }
 .status-dot-active::after {
-  content: "";
+  content: '';
   position: absolute;
   inset: -3px;
   border-radius: 9999px;
@@ -384,7 +929,11 @@ body {
 }
 
 @keyframes ping {
-  75%, 100% { transform: scale(2); opacity: 0; }
+  75%,
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
 }
 
 /* Drag-over highlight for kanban columns */
@@ -414,8 +963,6 @@ body {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 50, 50, 0.4);
 }
-
-
 
 /* Text utilities */
 .text-glow {
@@ -838,6 +1385,32 @@ textarea:focus-visible {
   }
 }
 
+/*
+ * GPU-tier degradation — set by src/utils/gpuDetection.ts on boot when the
+ * webview's WebGL renderer string reports a software rasterizer (remote
+ * desktop, some VMs/CI, headless GPUs). Drops the effects that are expensive
+ * without compositor hardware: continuous ambient background animation and
+ * stacked backdrop-filter blur.
+ */
+[data-gpu-tier='reduced'] .liquid-backdrop__blob,
+[data-gpu-tier='reduced'] .liquid-backdrop__sheen {
+  animation: none;
+}
+
+[data-gpu-tier='reduced'] .liquid-drag-blob {
+  animation: none;
+  border-radius: 1rem;
+}
+
+[data-gpu-tier='reduced'] .liquid-glass,
+[data-gpu-tier='reduced'] .liquid-card,
+[data-gpu-tier='reduced'] .liquid-button,
+[data-gpu-tier='reduced'] .liquid-badge,
+[data-gpu-tier='reduced'] .liquid-surface {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
 /* Dynamic color classes for BulkActionsBar */
 .column-color-indicator {
   background-color: var(--column-color, currentColor);
@@ -855,4 +1428,89 @@ textarea:focus-visible {
 
 .scrollbar-hide::-webkit-scrollbar {
   display: none; /* Chrome, Safari, Opera */
+}
+
+/* ============================================================
+   Design tokens — LiquiTask "Liquid Glass" design system.
+   Source of truth: docs/DESIGN_SYSTEM.md (extracted from the
+   design-system handoff). Prefer var(--lt-*) and the .liquid-*
+   surface classes above over hard-coded values in new UI work.
+   ============================================================ */
+:root {
+  /* Signature red ramp */
+  --lt-red-50: #fef2f2;
+  --lt-red-300: #f87171; /* links, hovered accents */
+  --lt-red-400: #ef4444; /* focus rings, active icon accent */
+  --lt-red-500: #ff1f1f; /* brand accent (wordmark, glows) */
+  --lt-red-600: #dc2626;
+  --lt-red-700: #b91c1c;
+  --lt-red-900: #7f1d1d; /* gradient bottoms */
+
+  /* Near-black backgrounds (warm, red-shifted) */
+  --lt-bg-primary: #030000; /* app canvas */
+  --lt-bg-secondary: #0a0505; /* raised panels, menus */
+  --lt-bg-well: #020000; /* modal backdrop */
+  --lt-ink-900: #0a0a0a; /* modal body */
+
+  /* Slate text ramp */
+  --lt-text-primary: #e2e8f0;
+  --lt-text-secondary: #94a3b8;
+  --lt-text-muted: #64748b;
+  --lt-text-faint: #475569;
+
+  /* Semantic status hues (columns, priority, toasts) */
+  --lt-status-pending: #64748b;
+  --lt-status-progress: #3b82f6;
+  --lt-status-review: #f59e0b;
+  --lt-status-completed: #10b981;
+  --lt-status-delivered: #a855f7;
+  --lt-select-cyan: #22d3ee;
+  --lt-priority-high: #ef4444;
+  --lt-priority-medium: #eab308;
+  --lt-priority-low: #10b981;
+
+  /* Hairlines & glass fills */
+  --lt-border-subtle: rgba(255, 255, 255, 0.08);
+  --lt-border-faint: rgba(255, 255, 255, 0.05);
+  --lt-border-strong: rgba(255, 255, 255, 0.18);
+  --lt-border-active: rgba(255, 50, 50, 0.3);
+  --lt-glass-panel: rgba(10, 5, 5, 0.85); /* .liquid-glass */
+  --lt-glass-card: rgba(30, 10, 10, 0.4); /* .liquid-card */
+  --lt-glass-surface: rgba(12, 6, 6, 0.92); /* .liquid-surface */
+  --lt-glass-hair: rgba(255, 255, 255, 0.06); /* .liquid-badge */
+
+  /* Radii */
+  --lt-radius-sm: 0.5rem;
+  --lt-radius-md: 0.75rem; /* inputs, menu items */
+  --lt-radius-lg: 1rem; /* buttons, popovers */
+  --lt-radius-xl: 1.5rem; /* glass panels */
+  --lt-radius-2xl: 2rem; /* modals, task cards */
+  --lt-radius-pill: 9999px;
+
+  /* Shadows & glows */
+  --lt-shadow-glass:
+    0 20px 60px -15px rgba(0, 0, 0, 0.95), inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+  --lt-shadow-card: 0 8px 32px rgba(0, 0, 0, 0.3);
+  --lt-shadow-surface: 0 24px 64px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --lt-glow-red: 0 0 20px rgba(239, 68, 68, 0.25), 0 0 60px rgba(239, 68, 68, 0.1);
+  --lt-glow-red-strong: 0 0 30px rgba(255, 30, 30, 0.6);
+
+  /* Motion */
+  --lt-ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --lt-ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --lt-ease-glass: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Type */
+  --lt-font-sans: 'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  --lt-font-display: 'Outfit', 'Inter', sans-serif;
+  --lt-font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+  --lt-tracking-tight: -0.03em;
+  --lt-tracking-widest: 0.1em;
+
+  /* Semantic aliases (prefer these in product code) */
+  --lt-accent: var(--lt-red-500);
+  --lt-accent-hover: var(--lt-red-300);
+  --lt-surface: var(--lt-bg-secondary);
+  --lt-canvas: var(--lt-bg-primary);
+  --lt-selection: rgba(255, 31, 31, 0.3);
 }

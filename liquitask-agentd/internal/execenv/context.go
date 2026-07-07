@@ -29,9 +29,12 @@ type taskContextMarkerFile struct {
 }
 
 // writeContextFiles renders and writes .agent_context/issue_context.md and
-// skills into the appropriate provider-native location.
+// skills into the appropriate provider-native location. For Claude Code (and
+// CodeBuddy) it also provisions the daemon's default subagents into
+// {workDir}/.claude/agents/ (see writeClaudeAgents).
 //
 // Claude:      skills → {workDir}/.claude/skills/{name}/SKILL.md  (native discovery)
+//              agents → {workDir}/.claude/agents/{name}.md  (native subagent discovery)
 // Codex:       skills → handled separately in Prepare via codex-home
 // Copilot:     skills → {workDir}/.github/skills/{name}/SKILL.md  (native project-level discovery)
 // OpenCode:    skills → {workDir}/.opencode/skills/{name}/SKILL.md  (native discovery)
@@ -86,6 +89,17 @@ func writeContextFiles(workDir, provider string, ctx TaskContextForEnv, manifest
 			if err := writeSkillFiles(skillsDir, ctx.AgentSkills, manifest); err != nil {
 				return fmt.Errorf("write skill files: %w", err)
 			}
+		}
+	}
+
+	// Claude Code (and the Claude-compatible CodeBuddy) discover project-scoped
+	// subagents from {workDir}/.claude/agents/. Provision the daemon's default
+	// set there so a managed `claude` run can delegate to a code-reviewer,
+	// test-runner, debugger, or codebase-explorer out of the box. User-authored
+	// agents of the same filename are preserved (see writeClaudeAgents).
+	if providerUsesClaudeAgents(provider) {
+		if err := writeClaudeAgents(workDir, ctx, manifest); err != nil {
+			return fmt.Errorf("write claude agents: %w", err)
 		}
 	}
 

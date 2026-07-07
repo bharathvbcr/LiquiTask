@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { AgentSkill, Task } from "../../../../types";
-import { buildCouncilGoal, buildTaskPrompt } from "../agentPrompt";
+import { buildCouncilGoal, buildTaskPrompt, withRepoFileIndex } from "../agentPrompt";
 
 const makeTask = (overrides: Partial<Task> = {}): Task => ({
   id: "task-1",
@@ -67,6 +67,27 @@ describe("buildTaskPrompt", () => {
     const prompt = buildTaskPrompt(makeTask(), skills);
     expect(prompt).toContain("Skill number 4");
     expect(prompt).not.toContain("Skill number 5");
+  });
+});
+
+describe("withRepoFileIndex", () => {
+  it("appends the real file index and no-ops on empty", () => {
+    const base = "PROMPT";
+    expect(withRepoFileIndex(base, [])).toBe(base);
+    expect(withRepoFileIndex(base, undefined)).toBe(base);
+
+    const out = withRepoFileIndex(base, ["src/a.ts", "src/b.ts"]);
+    expect(out).toContain("Repository files (real index)");
+    expect(out).toContain("- src/a.ts");
+    expect(out).toContain("- src/b.ts");
+  });
+
+  it("caps the list at 150 and notes how many more", () => {
+    const files = Array.from({ length: 200 }, (_, i) => `src/file${i}.ts`);
+    const out = withRepoFileIndex("P", files);
+    expect(out).toContain("src/file0.ts");
+    expect(out).toContain("and 50 more file(s).");
+    expect(out).not.toContain("- src/file150.ts");
   });
 });
 

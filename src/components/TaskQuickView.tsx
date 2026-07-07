@@ -4,6 +4,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { PriorityDefinition, Task } from "../../types";
 import { formatMinutes } from "../hooks/useTimer";
+import { IconButton } from "./common/IconButton";
+import { PriorityBadge } from "./PriorityBadge";
 
 interface TaskQuickViewProps {
   task: Task;
@@ -88,15 +90,11 @@ export const TaskQuickView: React.FC<TaskQuickViewProps> = ({
         <div className="p-3 border-b border-white/5 flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <span
-                className="px-2 py-0.5 rounded text-[10px] font-bold uppercase"
-                style={{
-                  backgroundColor: `${priorityDef.color}20`,
-                  color: priorityDef.color,
-                }}
-              >
-                {priorityDef.label}
-              </span>
+              <PriorityBadge
+                label={priorityDef.label}
+                color={priorityDef.color}
+                icon={"icon" in priorityDef ? priorityDef.icon : undefined}
+              />
               <span className="text-[10px] font-mono text-slate-500">{task.jobId}</span>
             </div>
             <h4 className="font-bold text-white text-sm leading-tight truncate">{task.title}</h4>
@@ -106,12 +104,9 @@ export const TaskQuickView: React.FC<TaskQuickViewProps> = ({
               </p>
             )}
           </div>
-          <button
-            onClick={onClose}
-            className="icon-btn text-slate-500 hover:text-white shrink-0"
-          >
+          <IconButton onClick={onClose} className="shrink-0" aria-label="Close quick view">
             <X size={14} />
-          </button>
+          </IconButton>
         </div>
 
         {/* Content */}

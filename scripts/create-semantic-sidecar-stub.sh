@@ -50,7 +50,6 @@ EOF
 
 if [[ "$(uname -s)" == "Darwin" ]]; then
   create_stub "aarch64-apple-darwin"
-  create_stub "x86_64-apple-darwin"
 else
   triple="$(python3 semantic_layer/build_sidecar.py --print-target)"
   create_stub "$triple"

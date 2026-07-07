@@ -2,6 +2,7 @@ import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 import type { BoardColumn, Task } from "../../types";
 import { useKeybinding } from "../context/KeybindingContext";
+import agentDispatchService from "../services/agents/agentDispatchService";
 
 interface UseBoardKeyboardNavOptions {
   columns: BoardColumn[];
@@ -213,6 +214,17 @@ export function useBoardKeyboardNav({
       } else if (matches("task:move-prev", e) && focusedTaskId) {
         e.preventDefault();
         moveTaskToColumn("prev");
+      }
+      // One-keystroke agent handoff: smart-match dispatches the focused task.
+      else if (matches("task:send-agent", e) && focusedTaskId) {
+        e.preventDefault();
+        const task = tasks.find((t) => t.id === focusedTaskId);
+        if (task && agentDispatchService.canDispatch()) {
+          void agentDispatchService.dispatch(task);
+        } else if (agentDispatchService.canOfferSetup()) {
+          // First run: guide straight to Settings → Agents.
+          agentDispatchService.requestSetup();
+        }
       }
       // Select/Open task
       else if (matches("nav:select", e) && focusedTaskId) {

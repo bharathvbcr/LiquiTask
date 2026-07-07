@@ -1108,6 +1108,21 @@ class AiService {
     return null;
   }
 
+  isProviderConfigured(): boolean {
+    const config = storageService.get<AIConfig | null>(STORAGE_KEYS.AI_CONFIG, null);
+    if (!config) return false;
+
+    if (config.provider === "gemini") {
+      return Boolean(config.geminiApiKey?.trim() && config.geminiModel?.trim());
+    }
+
+    if (config.provider === "ollama") {
+      return Boolean(config.ollamaModel?.trim());
+    }
+
+    return false;
+  }
+
   async extractTasksFromText(input: string, context: AIContext): Promise<AITaskSchema[]> {
     const provider = this.getProvider();
     if (!provider) throw new Error("AI provider is not configured. Please go to Settings > AI.");

@@ -1,10 +1,17 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { InlineDatePicker, InlineEditable, InlineSelect } from "../InlineEditable";
 
 describe("InlineEditable", () => {
   beforeEach(() => {
     vi.useFakeTimers();
+  });
+
+  // Restore real timers so waitFor/findBy in later test files (same worker)
+  // aren't starved by leaked fake timers — this broke TaskCard's quick-view
+  // portal test when the suites ran together.
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("should render initial value in a span", () => {
@@ -124,28 +131,25 @@ describe("InlineDatePicker", () => {
     const onSave = vi.fn();
     render(<InlineDatePicker value={null} onSave={onSave} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /No date/i }));
-    const input = screen.getByLabelText("Select due date");
-    fireEvent.change(input, { target: { value: "2026-07-05" } });
+    fireEvent.click(screen.getByRole("button", { name: "Select due date" }));
+    fireEvent.click(screen.getByRole("button", { name: "Today" }));
 
     expect(onSave).toHaveBeenCalled();
     const savedDate = onSave.mock.calls[0][0] as Date;
-    expect(savedDate.getFullYear()).toBe(2026);
-    expect(savedDate.getMonth()).toBe(6);
-    expect(savedDate.getDate()).toBe(5);
+    expect(savedDate).toBeInstanceOf(Date);
   });
 
   it("clears date when Clear Date is clicked", () => {
     const onSave = vi.fn();
     render(<InlineDatePicker value={new Date(2026, 6, 5)} onSave={onSave} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /Jul 5/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Select due date" }));
     fireEvent.click(screen.getByText("Clear Date"));
 
     expect(onSave).toHaveBeenCalledWith(null);
   });
 
-  it("stops pointerdown propagation on date input", () => {
+  it("stops pointerdown propagation on calendar controls", () => {
     const outerHandler = vi.fn();
     render(
       <div onPointerDown={outerHandler}>
@@ -153,8 +157,8 @@ describe("InlineDatePicker", () => {
       </div>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /No date/i }));
-    fireEvent.pointerDown(screen.getByLabelText("Select due date"));
+    fireEvent.click(screen.getByRole("button", { name: "Select due date" }));
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Today" }));
     expect(outerHandler).not.toHaveBeenCalled();
   });
 });

@@ -1,7 +1,7 @@
 import { Calendar, Flag, Image as ImageIcon, Loader2, Plus, X } from "lucide-react";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
-import type { PriorityDefinition, Project } from "../../types";
+import type { PriorityDefinition, Project, ToastType } from "../../types";
 import { STORAGE_KEYS } from "../constants";
 import { aiService } from "../services/aiService";
 import storageService from "../services/storageService";
@@ -18,14 +18,16 @@ interface QuickAddBarProps {
       timeEstimate?: number;
       tags?: string[];
       summary?: string;
+      assignee?: string;
     },
   ) => void;
   isVisible: boolean;
   onClose: () => void;
   projects?: Array<{ id: string; name: string }>;
+  addToast?: (message: string, type: ToastType) => void;
 }
 
-export const QuickAddBar: React.FC<QuickAddBarProps> = ({ onAddTask, isVisible, onClose }) => {
+export const QuickAddBar: React.FC<QuickAddBarProps> = ({ onAddTask, isVisible, onClose, projects, addToast }) => {
   const [input, setInput] = useState("");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -123,6 +125,17 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({ onAddTask, isVisible, 
     }
   };
 
+  /** Match a `#project` token against known projects (exact, then prefix, then substring). */
+  const matchProject = (name: string | undefined) => {
+    if (!name || !projects?.length) return undefined;
+    const needle = name.toLowerCase();
+    return (
+      projects.find((p) => p.name.toLowerCase() === needle) ??
+      projects.find((p) => p.name.toLowerCase().startsWith(needle)) ??
+      projects.find((p) => p.name.toLowerCase().includes(needle))
+    );
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmittingRef.current || (!input.trim() && !imagePreview)) return;
@@ -130,17 +143,25 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({ onAddTask, isVisible, 
     try {
       const parsed = parseQuickTask(input || "Task from Image");
       if (parsed.title) {
+        const project = matchProject(parsed.projectName);
+        if (parsed.projectName && !project) {
+          addToast?.(`No project matching "#${parsed.projectName}" — using the active one.`, "info");
+        }
         onAddTask(parsed.title, {
           priority: parsed.priority,
           dueDate: parsed.dueDate,
+          projectId: project?.id,
           timeEstimate: parsed.timeEstimate,
           tags: parsed.tags,
           summary: aiSummary,
+          assignee: parsed.assignee,
         });
         setInput("");
         setImagePreview(null);
         setAiSummary(undefined);
         onClose();
+      } else {
+        addToast?.("Enter a task title before adding.", "warning");
       }
     } finally {
       isSubmittingRef.current = false;
@@ -266,6 +287,22 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({ onAddTask, isVisible, 
                       ~{parsed.timeEstimate}m
                     </span>
                   )}
+                  {parsed.assignee && (
+                    <span className="px-2 py-0.5 rounded text-xs bg-sky-500/20 text-sky-400">
+                      → {parsed.assignee}
+                    </span>
+                  )}
+                  {parsed.projectName && (
+                    <span
+                      className={`px-2 py-0.5 rounded text-xs ${
+                        matchProject(parsed.projectName)
+                          ? "bg-violet-500/20 text-violet-400"
+                          : "bg-white/10 text-slate-500 line-through"
+                      }`}
+                    >
+                      #{matchProject(parsed.projectName)?.name ?? parsed.projectName}
+                    </span>
+                  )}
                   {parsed.tags.map((tag) => (
                     <span
                       key={tag}
@@ -299,6 +336,7 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({ onAddTask, isVisible, 
                   <Hint label="#project" description="Project" />
                   <Hint label="+tag" description="Add tag" />
                   <Hint label="~2h" description="Estimate" />
+                  <Hint label=">agent" description="Assign" />
                 </div>
                 <div className="text-[10px] text-red-500/80 flex items-center gap-1">
                   <kbd className="px-1 py-0.5 bg-white/5 rounded">Ctrl</kbd>+

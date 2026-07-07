@@ -1,7 +1,7 @@
 import { AlertTriangle, Brain, CheckCircle2, Loader2, Merge } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
-import { ModalWrapper } from "../../components/ModalWrapper";
+import { ModalWrapper } from "./ModalWrapper";
 import type { DuplicateGroup, MergeSuggestion, Task } from "../../types";
 import { useConfirmation } from "../contexts/ConfirmationContext";
 import { taskCleanupService } from "../services/taskCleanupService";

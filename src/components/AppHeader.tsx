@@ -1,37 +1,21 @@
 import {
-  Bell,
-  Brain,
-  Calendar,
-  Command,
-  Filter,
-  Maximize2,
   Menu,
-  MessageSquare,
-  Minimize2,
-  Search,
-  Sparkles,
-  Tag,
-  Undo2,
-  User,
 } from "lucide-react";
 import type React from "react";
 import { lazy, Suspense, useEffect, useRef } from "react";
-import { LiquidButton } from "../../components/LiquidButton";
+import { LiquidButton } from "./LiquidButton";
 import type { CustomFieldDefinition, FilterState, SavedView } from "../../types";
 
 import type { SearchHistoryItem } from "../hooks/useSearchHistory";
 import type { FilterGroup } from "../types/queryTypes";
+import { HeaderFilterPopover } from "./HeaderFilterPopover";
+import { HeaderToolsMenu } from "./HeaderToolsMenu";
 import { ViewSwitcher } from "./ViewSwitcher";
 
 const SearchHistoryDropdown = lazy(() => import("./SearchHistoryDropdown"));
 const SavedViewControls = lazy(() =>
   import("./SavedViewControls").then((module) => ({
     default: module.SavedViewControls,
-  })),
-);
-const FilterBuilder = lazy(() =>
-  import("./FilterBuilder").then((module) => ({
-    default: module.FilterBuilder,
   })),
 );
 
@@ -72,10 +56,9 @@ interface AppHeaderProps {
   onViewModeChange: (viewMode: "board" | "gantt" | "stats" | "calendar") => void;
   onUndo: () => void;
   onToggleCompactView: () => void;
-  onToggleFilter: () => void;
+  onFilterOpenChange: (open: boolean) => void;
   onRequestNotificationPermission: () => void;
   onOpenTaskModal: () => void;
-  onOpenCommandPalette: () => void;
   onSearchQueryChange: (query: string) => void;
   onSearchFocusChange: (focused: boolean) => void;
   onApplyView: (id: string) => void;
@@ -87,14 +70,12 @@ interface AppHeaderProps {
   onAiPrioritize?: () => void;
   onAiInsights?: () => void;
   onNaturalLanguageSearch?: (query: string) => void;
-  isNaturalLanguageSearch?: boolean;
-  onToggleNaturalLanguageSearch?: () => void;
+  aiSearchEnabled?: boolean;
   onOpenMobileNav?: () => void;
   onToggleAssistant?: () => void;
 }
 
 export const AppHeader: React.FC<AppHeaderProps> = ({
-  isHeaderExpanded,
   sidebarOffset,
   currentView,
   viewMode,
@@ -121,10 +102,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onViewModeChange,
   onUndo,
   onToggleCompactView,
-  onToggleFilter,
+  onFilterOpenChange,
   onRequestNotificationPermission,
   onOpenTaskModal,
-  onOpenCommandPalette,
   onSearchQueryChange,
   onSearchFocusChange,
   onApplyView,
@@ -136,8 +116,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onAiPrioritize,
   onAiInsights,
   onNaturalLanguageSearch,
-  isNaturalLanguageSearch = false,
-  onToggleNaturalLanguageSearch,
+  aiSearchEnabled = false,
   onOpenMobileNav,
   onToggleAssistant,
 }) => {
@@ -152,235 +131,77 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     [],
   );
 
+  const title =
+    currentView === "dashboard"
+      ? "Executive Dashboard"
+      : currentView === "archive"
+        ? "Archive"
+        : viewMode === "gantt"
+          ? "Gantt View"
+          : currentProjectName;
+
+  const subtitle =
+    currentView === "dashboard"
+      ? "Cross-project Overview"
+      : currentView === "archive"
+        ? "Archived Tasks"
+        : viewMode === "gantt"
+          ? "Timeline & Dependencies"
+          : `Project Board • ${currentProjectTaskCount} Active Tasks${
+              currentProjectPinned ? " • Pinned" : ""
+            }`;
+
   return (
-  <header
-    className={`sticky top-0 z-50 mb-4 overflow-hidden rounded-3xl border border-white/5 px-8 shadow-xl liquid-glass will-change-transform md:mr-[72px] ${isHeaderExpanded ? "py-6 max-h-[600px]" : "py-4 max-h-24"} transition-[transform,padding,max-height] duration-[400ms] ease-[cubic-bezier(0.22,1,0.36,1)]`}
-    style={{ transform: `translateX(${sidebarOffset}px)` }}
-    onMouseEnter={() => onHeaderExpand(true)}
-    onMouseLeave={() => onHeaderExpand(false)}
-  >
-    <div
-      className={`flex items-center gap-4 transition-opacity duration-300 ${isHeaderExpanded ? "opacity-0 h-0 overflow-hidden" : "opacity-100 h-16"}`}
+    <header
+      className="sticky top-0 z-50 mb-4 flex flex-col gap-3 rounded-3xl border border-white/5 px-6 py-3.5 shadow-xl liquid-glass liquid-glass--soft will-change-transform md:mr-[72px]"
+      style={{ transform: `translateX(${sidebarOffset}px)` }}
     >
-      {onOpenMobileNav && (
-        <button
-          onClick={onOpenMobileNav}
-          className="md:hidden p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
-          aria-label="Open navigation menu"
-        >
-          <Menu size={20} />
-        </button>
-      )}
-
-      <div className="flex flex-col min-w-0">
-        <div className="flex items-center gap-2">
-          <h2 className="text-xl font-bold text-white tracking-tight drop-shadow-md text-glow truncate">
-            {currentView === "dashboard"
-              ? "Executive Dashboard"
-              : currentView === "archive"
-                ? "Archive"
-                : viewMode === "gantt"
-                  ? "Gantt View"
-                  : currentProjectName}
-          </h2>
-          {parentProjectName && currentView === "project" && (
-            <span className="text-[10px] text-slate-500 border border-white/5 bg-white/5 px-1.5 rounded uppercase tracking-wider">
-              {parentProjectName}
-            </span>
-          )}
-        </div>
-        {currentView === "project" && viewMode !== "gantt" && (
-          <span className="text-[10px] text-slate-400 font-medium truncate">
-            {currentProjectTaskCount} Active Tasks {currentProjectPinned && "• Pinned"}
-          </span>
+      {/* Single clean row: title · search · view switcher · tools · New Task */}
+      <div className="flex items-center gap-3">
+        {onOpenMobileNav && (
+          <button
+            onClick={onOpenMobileNav}
+            className="md:hidden flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg p-2 text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
+            aria-label="Open navigation menu"
+          >
+            <Menu size={20} />
+          </button>
         )}
-      </div>
-      <div className="shrink-0 ml-auto flex items-center gap-2">
-        <ViewSwitcher
-          currentView={currentView}
-          viewMode={viewMode}
-          onViewModeChange={onViewModeChange}
-          hideBoardAndGantt={true}
-        />
-      </div>
-    </div>
 
-    <div
-      className={`flex flex-col gap-5 transition-opacity duration-300 ${isHeaderExpanded ? "opacity-100" : "opacity-0 h-0 overflow-hidden"}`}
-    >
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4 flex-1 min-w-0">
-          <div className="min-w-0 flex-1">
-            <h2 className="text-3xl font-bold text-white tracking-tight drop-shadow-md text-glow truncate">
-              {currentView === "dashboard"
-                ? "Executive Dashboard"
-                : currentView === "archive"
-                  ? "Archive"
-                  : viewMode === "gantt"
-                    ? "Gantt View"
-                    : currentProjectName}
+        {/* Title + subtitle — compact, stays on one line */}
+        <div className="flex min-w-0 shrink-0 flex-col max-w-[150px] lg:max-w-[220px]">
+          <div className="flex items-center gap-2 min-w-0">
+            <h2 className="truncate text-xl font-bold tracking-tight text-white text-glow">
+              {title}
             </h2>
-            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-              {parentProjectName && currentView === "project" && (
-                <span className="text-xs text-red-300/70 px-2 py-0.5 rounded-md border border-red-500/10 bg-red-500/5 shrink-0">
-                  {parentProjectName} /
-                </span>
-              )}
-              <p className="text-slate-400 text-sm font-medium">
-                {currentView === "dashboard"
-                  ? "Cross-project Overview"
-                  : currentView === "archive"
-                    ? "Archived Tasks"
-                    : viewMode === "gantt"
-                      ? "Timeline & Dependencies"
-                      : `Project Board • ${currentProjectTaskCount} Active Tasks`}
-              </p>
-            </div>
-          </div>
-          <div className="shrink-0">
-            <ViewSwitcher
-              currentView={currentView}
-              viewMode={viewMode}
-              onViewModeChange={onViewModeChange}
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={onUndo}
-            disabled={!canUndo}
-            className={`icon-btn transition-all relative group ${canUndo ? "text-slate-400 hover:text-white" : "text-slate-600 opacity-40 cursor-not-allowed"}`}
-            title={
-              canUndo
-                ? "Undo last action (Ctrl+Z) - Revert task changes, deletions, or moves"
-                : "Undo (Ctrl+Z) - No actions to undo"
-            }
-            aria-label="Undo last action"
-          >
-            <Undo2 size={18} />
-          </button>
-          <button
-            onClick={onToggleCompactView}
-            className={`icon-btn transition-all relative group ${isCompactView ? "text-red-400 bg-red-500/10 border border-red-500/20" : "text-slate-400 hover:text-white"}`}
-            title={
-              isCompactView
-                ? "Expand View - Show full task details"
-                : "Compact View - Show condensed task cards"
-            }
-            aria-label={isCompactView ? "Expand view" : "Compact view"}
-          >
-            {isCompactView ? <Maximize2 size={18} /> : <Minimize2 size={18} />}
-          </button>
-          {onAiPrioritize && (
-            <button
-              onClick={onAiPrioritize}
-              className="icon-btn transition-all text-slate-400 hover:text-red-400 relative group"
-              title="AI Prioritize - Let AI analyze and suggest optimal task priorities"
-              aria-label="AI Prioritize tasks"
-            >
-              <Sparkles size={18} />
-            </button>
-          )}
-          {onAiInsights && (
-            <button
-              onClick={onAiInsights}
-              className="icon-btn transition-all text-slate-400 hover:text-red-400 relative group"
-              title="AI Insights - View AI-generated analysis and recommendations"
-              aria-label="AI Insights"
-            >
-              <Brain size={18} />
-            </button>
-          )}
-          {onToggleAssistant && (
-            <button
-              onClick={onToggleAssistant}
-              className="icon-btn transition-all text-slate-400 hover:text-red-400 relative group"
-              title="AI Assistant (Ctrl+J) - Chat with AI to manage your workspace"
-              aria-label="AI Assistant"
-            >
-              <MessageSquare size={18} />
-            </button>
-          )}
-          <button
-            onClick={onToggleFilter}
-            className={`icon-btn transition-all relative group ${isFilterOpen ? "text-red-400 bg-red-500/10 border border-red-500/20" : "text-slate-400 hover:text-white"}`}
-            title={
-              isFilterOpen
-                ? `Close Filters${hasActiveFilters ? ` - ${activeFilterCount} active filter${activeFilterCount !== 1 ? "s" : ""}` : " - No filters applied"}`
-                : `Filters${hasActiveFilters ? ` - ${activeFilterCount} active filter${activeFilterCount !== 1 ? "s" : ""}` : " - No filters applied"}`
-            }
-            aria-label={
-              hasActiveFilters
-                ? `${isFilterOpen ? "Close" : "Open"} filters panel, ${activeFilterCount} active`
-                : isFilterOpen
-                  ? "Close filters panel"
-                  : "Open filters panel"
-            }
-            {...(isFilterOpen ? { "aria-expanded": "true" } : { "aria-expanded": "false" })}
-          >
-            <Filter size={18} />
-            {hasActiveFilters && (
-              <span
-                aria-hidden="true"
-                className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-bold leading-none shadow-[0_0_8px_rgba(239,68,68,0.6)]"
-              >
-                {activeFilterCount}
+            {parentProjectName && currentView === "project" && (
+              <span className="hidden xl:inline shrink-0 rounded border border-red-500/10 bg-red-500/5 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-red-300/70">
+                {parentProjectName}
               </span>
             )}
-          </button>
-          <button
-            className={`relative icon-btn ${notificationPermission === "granted" ? "text-red-400 hover:text-red-300" : "text-slate-400 hover:text-white"}`}
-            aria-label={
-              notificationPermission === "granted"
-                ? "Notifications enabled"
-                : "Enable notifications"
-            }
-            title={
-              notificationPermission === "granted"
-                ? "Notifications - Desktop alerts enabled for task reminders"
-                : notificationPermission === "denied"
-                  ? "Notifications - Permission denied, check browser settings"
-                  : "Notifications - Click to enable desktop alerts for task reminders"
-            }
-            onClick={onRequestNotificationPermission}
-          >
-            <Bell size={18} />
-          </button>
-          <LiquidButton
-            label="New Task"
-            onClick={onOpenTaskModal}
-            title="New Task (C) - Create a new task quickly"
-          />
+          </div>
+          <span className="truncate text-xs font-medium text-slate-400">{subtitle}</span>
         </div>
-      </div>
 
-      <div className="flex items-center gap-4 flex-wrap">
-        <div
-          className={`relative flex-shrink-0 transition-all duration-300 ease-in-out ${isSearchFocused || searchQuery.length > 0 ? "min-w-[280px] max-w-md" : "w-48"}`}
-        >
+        {/* Search — grows to fill the middle */}
+        <div className="relative min-w-0 flex-1">
           <div
             role="search"
-            className={`flex items-center gap-3 bg-black/30 border px-4 py-3 rounded-2xl text-slate-400 focus-within:ring-2 focus-within:bg-black/40 transition-all shadow-lg w-full ${isNaturalLanguageSearch ? "border-red-500/50 focus-within:border-red-500/50 focus-within:ring-red-500/20" : "border-white/10 focus-within:border-red-500/50 focus-within:ring-red-500/20"}`}
+            className="flex h-11 w-full items-center rounded-2xl border border-white/10 bg-black/30 px-4 text-slate-400 shadow-lg transition-all focus-within:border-red-500/50 focus-within:bg-black/40 focus-within:ring-2 focus-within:ring-red-500/20"
             title={
-              isNaturalLanguageSearch
-                ? 'Natural Language Search (AI-powered) - Type queries like "high priority tasks due this week"'
-                : "Search tasks and fields - Press / to focus, Enter to search"
+              aiSearchEnabled
+                ? "Search tasks or ask in plain language — press Enter for AI filters"
+                : "Search tasks and fields — press / to focus"
             }
           >
-            {isNaturalLanguageSearch ? (
-              <Sparkles size={18} className="text-red-400 shrink-0" />
-            ) : (
-              <Search size={18} className="text-slate-500 shrink-0" />
-            )}
             <input
               ref={searchInputRef}
-              type="text"
-              aria-label={isNaturalLanguageSearch ? "Natural language task search" : "Search tasks"}
+              type="search"
+              aria-label="Search tasks"
               placeholder={
-                isNaturalLanguageSearch
-                  ? 'Ask AI: "high priority tasks due this week"...'
-                  : "Search tasks... (Press / to focus)"
+                aiSearchEnabled
+                  ? "Search or ask in plain language…"
+                  : "Search tasks…"
               }
               value={searchQuery}
               onChange={(e) => onSearchQueryChange(e.target.value)}
@@ -395,49 +216,20 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               onBlur={() => {
                 blurTimeoutRef.current = setTimeout(() => {
                   onSearchFocusChange(false);
+                  onHeaderExpand(false);
                   blurTimeoutRef.current = null;
                 }, 200);
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && searchQuery.trim()) {
                   searchHistory.addToHistory(searchQuery.trim());
-                  if (isNaturalLanguageSearch && onNaturalLanguageSearch) {
+                  if (aiSearchEnabled && onNaturalLanguageSearch) {
                     onNaturalLanguageSearch(searchQuery.trim());
                   }
                 }
               }}
-              className="bg-transparent border-none outline-none focus:outline-none focus-visible:outline-none text-sm w-full placeholder-slate-500 text-slate-200"
+              className="w-full min-w-0 border-none bg-transparent text-sm text-slate-200 placeholder-slate-500 outline-none focus:outline-none focus-visible:outline-none"
             />
-            {onToggleNaturalLanguageSearch && (
-              <button
-                type="button"
-                onClick={onToggleNaturalLanguageSearch}
-                aria-label={
-                  isNaturalLanguageSearch
-                    ? "Switch to standard search"
-                    : "Switch to AI natural language search"
-                }
-                aria-pressed={isNaturalLanguageSearch}
-                className={`p-1.5 rounded-lg transition-all shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 ${isNaturalLanguageSearch ? "text-red-400 hover:text-red-300 hover:bg-red-500/10" : "text-slate-500 hover:text-red-400 hover:bg-red-500/10"}`}
-                title={
-                  isNaturalLanguageSearch
-                    ? "Switch to standard search"
-                    : "AI Natural Language Search - Type queries in plain English"
-                }
-              >
-                <Sparkles size={14} />
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={onOpenCommandPalette}
-              className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
-              title="Command Palette (Cmd+K) - Quick actions, navigation, and shortcuts"
-              aria-label="Open command palette"
-              aria-haspopup="dialog"
-            >
-              <Command size={14} />
-            </button>
           </div>
           {isSearchFocused && (
             <Suspense fallback={null}>
@@ -457,7 +249,36 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Right cluster: view switcher · filter · tools menu · saved views · New Task */}
+        <div className="flex shrink-0 items-center gap-1.5">
+          <ViewSwitcher
+            currentView={currentView}
+            viewMode={viewMode}
+            onViewModeChange={onViewModeChange}
+          />
+          <HeaderFilterPopover
+            isFilterOpen={isFilterOpen}
+            hasActiveFilters={hasActiveFilters}
+            activeFilterCount={activeFilterCount}
+            filters={filters}
+            activeFilterGroup={activeFilterGroup}
+            customFields={customFields}
+            onFilterOpenChange={onFilterOpenChange}
+            onFiltersChange={onFiltersChange}
+            onAdvancedFilterChange={onAdvancedFilterChange}
+            onClearFilters={onClearFilters}
+          />
+          <HeaderToolsMenu
+            canUndo={canUndo}
+            isCompactView={isCompactView}
+            notificationPermission={notificationPermission}
+            onUndo={onUndo}
+            onToggleCompactView={onToggleCompactView}
+            onRequestNotificationPermission={onRequestNotificationPermission}
+            onAiPrioritize={onAiPrioritize}
+            onAiInsights={onAiInsights}
+            onToggleAssistant={onToggleAssistant}
+          />
           <Suspense fallback={null}>
             <SavedViewControls
               views={views}
@@ -467,112 +288,13 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               onDeleteView={onDeleteView}
             />
           </Suspense>
+          <LiquidButton
+            label="New Task"
+            onClick={onOpenTaskModal}
+            title="New Task (C) - Create a new task quickly"
+          />
         </div>
       </div>
-
-      <div
-        className={`pt-4 border-t border-white/5 overflow-hidden transition-all duration-400 ease-[cubic-bezier(0.4,0,0.2,1)] ${isFilterOpen ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0"}`}
-        aria-hidden={!isFilterOpen}
-      >
-        <div className="flex flex-wrap items-end gap-4">
-          <div className="space-y-1.5">
-            <label htmlFor="filter-assignee" className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1">
-              <User size={10} /> Assignee
-            </label>
-            <input
-              id="filter-assignee"
-              type="text"
-              value={filters.assignee}
-              onChange={(e) => onFiltersChange({ ...filters, assignee: e.target.value })}
-              className="bg-black/20 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-slate-300 w-32 focus:border-red-500/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 outline-none"
-              placeholder="Name..."
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label htmlFor="filter-tag" className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1">
-              <Tag size={10} /> Tag
-            </label>
-            <input
-              id="filter-tag"
-              type="text"
-              value={filters.tags}
-              onChange={(e) => onFiltersChange({ ...filters, tags: e.target.value })}
-              className="bg-black/20 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-slate-300 w-32 focus:border-red-500/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 outline-none"
-              placeholder="Category..."
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1">
-              <Calendar size={10} /> Date Range
-            </label>
-            <div className="flex items-center gap-2">
-              <select
-                value={filters.dateRange || ""}
-                onChange={(e) =>
-                  onFiltersChange({
-                    ...filters,
-                    dateRange: e.target.value as FilterState["dateRange"],
-                  })
-                }
-                className="bg-black/20 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-slate-300 focus:border-red-500/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 outline-none"
-                aria-label="Date range filter type"
-                title="Date range filter type"
-              >
-                <option value="">None</option>
-                <option value="due">Due Date</option>
-                <option value="created">Created Date</option>
-              </select>
-              {filters.dateRange && (
-                <>
-                  <label className="sr-only">Start date</label>
-                  <input
-                    type="date"
-                    value={filters.startDate}
-                    onChange={(e) => onFiltersChange({ ...filters, startDate: e.target.value })}
-                    className="bg-black/20 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-300 [color-scheme:dark] focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30"
-                    aria-label="Start date"
-                    title="Start date"
-                  />
-                  <span className="text-slate-500">-</span>
-                  <label className="sr-only">End date</label>
-                  <input
-                    type="date"
-                    value={filters.endDate}
-                    onChange={(e) => onFiltersChange({ ...filters, endDate: e.target.value })}
-                    className="bg-black/20 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-slate-300 [color-scheme:dark] focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30"
-                    aria-label="End date"
-                    title="End date"
-                  />
-                </>
-              )}
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClearFilters}
-            aria-label="Clear all filters"
-            className="ml-auto text-xs text-red-400 hover:text-white underline focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 rounded px-1"
-          >
-            Clear All
-          </button>
-        </div>
-
-        <div className="pt-4 border-t border-white/5">
-          <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-1">
-            Advanced Query
-          </h4>
-          {isFilterOpen && (
-            <Suspense fallback={null}>
-              <FilterBuilder
-                rootGroup={activeFilterGroup}
-                onChange={onAdvancedFilterChange}
-                customFields={customFields}
-              />
-            </Suspense>
-          )}
-        </div>
-      </div>
-    </div>
-  </header>
+    </header>
   );
 };

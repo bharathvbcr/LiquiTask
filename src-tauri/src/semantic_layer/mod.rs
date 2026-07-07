@@ -16,24 +16,16 @@ mod router;
 pub use config::SemanticLayerConfig;
 pub use orchestrator::{PipelineMetrics, SemanticOrchestrator};
 
-use std::sync::Mutex;
-
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
+#[cfg(test)]
 use config::ModelTier;
 use orchestrator::PipelineResult;
 
 const ENGINE_VERSION: &str = "1.0.0";
 
 pub struct SemanticLayerState(pub tokio::sync::Mutex<Option<SemanticOrchestrator>>);
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SemanticLayerSpawnArgs {
-    pub port: Option<u16>,
-    pub ollama_url: Option<String>,
-}
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -311,8 +303,6 @@ fn map_pipeline_result(result: PipelineResult) -> SemanticLayerChatResponse {
 
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-
-pub struct SemanticLayerProcess(pub Mutex<Option<Child>>);
 
 fn sidecar_binary_name() -> &'static str {
     #[cfg(windows)]

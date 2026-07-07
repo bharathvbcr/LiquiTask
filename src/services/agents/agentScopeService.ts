@@ -32,6 +32,54 @@ function normalizePath(path: string): string {
     .replace(/\/+$/, "");
 }
 
+/**
+ * Convert a glob (supporting `*`, `**`, `?`) into an anchored RegExp.
+ * `*` matches within a single path segment; `**` matches across segments.
+ */
+function globToRegExp(glob: string): RegExp {
+  let re = "";
+  for (let i = 0; i < glob.length; i++) {
+    const c = glob[i];
+    if (c === "*") {
+      if (glob[i + 1] === "*") {
+        re += ".*";
+        i++;
+        if (glob[i + 1] === "/") i++; // let `**/` collapse to `.*`
+      } else {
+        re += "[^/]*";
+      }
+    } else if (c === "?") {
+      re += "[^/]";
+    } else {
+      re += c.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+    }
+  }
+  return new RegExp(`^${re}$`);
+}
+
+/**
+ * Does a planned-file pattern cover `normalizedTarget`?
+ * - a trailing slash marks a directory: matches the dir and everything beneath it
+ * - `*` / `**` / `?` are treated as globs
+ * - everything else is an exact (normalized) file match
+ *
+ * This is the "glob-aware" half of scope enforcement: a plan that scopes a
+ * subsystem (`src/services/agents/`) or a file group (`src/services/*.ts`) no
+ * longer reverts sibling edits the planner clearly intended.
+ */
+function patternMatches(rawPattern: string, normalizedTarget: string): boolean {
+  const isDir = /\/\s*$/.test(rawPattern);
+  const pattern = normalizePath(rawPattern);
+  if (pattern.length === 0) return false;
+  if (isDir) {
+    return normalizedTarget === pattern || normalizedTarget.startsWith(`${pattern}/`);
+  }
+  if (/[*?]/.test(pattern)) {
+    return globToRegExp(pattern).test(normalizedTarget);
+  }
+  return pattern === normalizedTarget;
+}
+
 class AgentScopeService {
   /** taskId -> planned file whitelist (only present for DevCouncil-planned tasks). */
   private scopeByTask = new Map<string, PlannedFile[]>();
@@ -86,7 +134,11 @@ class AgentScopeService {
     }
 
     const normalizedTarget = normalizePath(filePath);
-    const entry = scope.find((f) => normalizePath(f.path) === normalizedTarget);
+    // Prefer an exact file match (most specific — preserves a file's read_only /
+    // delete intent) before falling back to directory- and glob-scoped entries.
+    const entry =
+      scope.find((f) => normalizePath(f.path) === normalizedTarget) ??
+      scope.find((f) => patternMatches(f.path, normalizedTarget));
 
     if (!entry) {
       return {

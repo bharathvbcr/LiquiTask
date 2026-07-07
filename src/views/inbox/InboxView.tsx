@@ -6,15 +6,24 @@ import {
   DollarSign,
   Inbox as InboxIcon,
   MessageSquare,
+  RotateCcw,
   ShieldAlert,
+  Trash2,
+  Wrench,
   XCircle,
 } from "lucide-react";
 import type React from "react";
 import { useMemo, useState } from "react";
 
-import { isAwaitingReview, isBlockedRun } from "../../core/inbox/deriveInboxItems";
+import {
+  formatRepairFeedback,
+  isAwaitingReview,
+  isBlockedRun,
+} from "../../core/inbox/deriveInboxItems";
+import type { PendingPlan } from "../../services/agents/agentPlannerService";
 import type { AgentStandupDigest } from "../../services/agents/agentStandupDigestService";
-import { ApprovalCard, GlassCard, PresenceRing, StatusPill } from "../../ui";
+import type { DeadLetter } from "../../services/deadLetterService";
+import { ApprovalCard, FlatCard, PresenceRing, StatusPill } from "../../ui";
 import type { PresenceStatus } from "../../ui";
 import type { AgentProfile, AgentRun, Task } from "../../../types";
 
@@ -33,8 +42,22 @@ export interface InboxViewProps {
   onApprove?: (task: Task, run: AgentRun) => void;
   /** Reject a finished run awaiting review, with required feedback text. */
   onReject?: (task: Task, run: AgentRun, feedback: string) => void;
+  /** DevCouncil plans awaiting the plan-gate decision (Rework Plan §3.4 item 1). */
+  pendingPlans?: PendingPlan[];
+  /** Approve a pending plan — materializes subtasks and spawns scoped runs. */
+  onApprovePlan?: (plan: PendingPlan) => void;
+  /** Reject a pending plan, with required feedback text. */
+  onRejectPlan?: (plan: PendingPlan, feedback: string) => void;
+  /** Re-run a gate-blocked run seeded with its formatted blocking gaps. */
+  onSendRepair?: (run: AgentRun, feedback: string) => void;
   /** Dismiss the standup digest summary card. */
   onDismissStandup?: () => void;
+  /** Open dead-lettered actions (failed merges / agent actions / runs). */
+  deadLetters?: DeadLetter[];
+  /** Re-execute a dead-lettered action through its registered handler. */
+  onRetryDeadLetter?: (id: string) => void;
+  /** Discard a dead-lettered action permanently. */
+  onDiscardDeadLetter?: (id: string) => void;
 }
 
 type InboxCard =
@@ -65,6 +88,31 @@ function formatRelativeTime(date: Date): string {
   const diffDay = Math.round(diffHr / 24);
   return `${diffDay}d ago`;
 }
+
+const PlanRejectInput: React.FC<{
+  plan: PendingPlan;
+  onReject: (plan: PendingPlan, feedback: string) => void;
+}> = ({ plan, onReject }) => {
+  const [feedback, setFeedback] = useState("");
+  return (
+    <div className="space-y-1.5">
+      <input
+        type="text"
+        value={feedback}
+        onChange={(e) => setFeedback(e.target.value)}
+        placeholder="Rejection feedback (required to reject)…"
+        className="w-full bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-[11px] text-white"
+      />
+      <button
+        type="button"
+        onClick={() => onReject(plan, feedback)}
+        className="w-full py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px] font-medium flex items-center justify-center gap-1"
+      >
+        <MessageSquare size={10} /> Reject plan with feedback
+      </button>
+    </div>
+  );
+};
 
 const RejectInput: React.FC<{
   task: Task;
@@ -105,7 +153,14 @@ export const InboxView: React.FC<InboxViewProps> = ({
   onOpenRun,
   onApprove,
   onReject,
+  pendingPlans = [],
+  onApprovePlan,
+  onRejectPlan,
+  onSendRepair,
   onDismissStandup,
+  deadLetters = [],
+  onRetryDeadLetter,
+  onDiscardDeadLetter,
 }) => {
   const agentById = useMemo(() => {
     const map = new Map<string, AgentProfile>();
@@ -156,7 +211,8 @@ export const InboxView: React.FC<InboxViewProps> = ({
       standupDigest.pendingPermissions > 0 ||
       standupDigest.activeRuns > 0);
 
-  const isEmpty = cards.length === 0 && !hasStandupContent;
+  const isEmpty =
+    cards.length === 0 && pendingPlans.length === 0 && deadLetters.length === 0 && !hasStandupContent;
 
   return (
     <div className="flex flex-col h-full overflow-y-auto custom-scrollbar px-4 py-4 space-y-3 max-w-2xl mx-auto w-full">
@@ -165,6 +221,40 @@ export const InboxView: React.FC<InboxViewProps> = ({
       )}
 
       {isEmpty && <EmptyInboxState />}
+
+      {deadLetters.map((letter) => (
+        <DeadLetterCard
+          key={letter.id}
+          letter={letter}
+          onRetry={onRetryDeadLetter}
+          onDiscard={onDiscardDeadLetter}
+        />
+      ))}
+
+      {pendingPlans.map((plan) => (
+        <ApprovalCard
+          key={plan.id}
+          title={`${plan.epicTitle} — plan awaiting approval`}
+          description={`${plan.agentName} proposed ${plan.subtasks.length} subtask(s) from dev plan (${plan.requirementsCount} requirement(s)). Approving creates the subtasks and starts scoped runs.`}
+          approveLabel="Approve plan"
+          onApprove={onApprovePlan ? () => onApprovePlan(plan) : undefined}
+        >
+          <ul className="space-y-0.5 text-[11px] text-slate-400 max-h-24 overflow-y-auto custom-scrollbar">
+            {plan.subtasks.map((subtask) => (
+              <li key={subtask.id} className="truncate">
+                • {subtask.title}
+                {subtask.plannedFiles?.length ? (
+                  <span className="text-slate-500">
+                    {" "}
+                    · {subtask.plannedFiles.length} file(s) in scope
+                  </span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+          {onRejectPlan && <PlanRejectInput plan={plan} onReject={onRejectPlan} />}
+        </ApprovalCard>
+      ))}
 
       {approvalCards.map((card) => {
         const agent = agentById.get(card.run.agentId);
@@ -209,11 +299,73 @@ export const InboxView: React.FC<InboxViewProps> = ({
           card={card}
           agent={agentById.get(card.run.agentId)}
           onOpenRun={onOpenRun}
+          onSendRepair={onSendRepair}
         />
       ))}
     </div>
   );
 };
+
+const DEAD_LETTER_KIND_LABEL: Record<DeadLetter["kind"], string> = {
+  merge: "Failed merge",
+  "mcp-action": "Failed agent action",
+  run: "Failed run",
+  automation: "Failed automation",
+  "event-log": "Unrecorded change",
+};
+
+/**
+ * Dead-letter card: a failed side effect (merge, MCP board write, run) held
+ * for triage with one-click Retry (re-executes through the registered
+ * handler) or Discard. Nothing that fails after intent-capture is silent.
+ */
+const DeadLetterCard: React.FC<{
+  letter: DeadLetter;
+  onRetry?: (id: string) => void;
+  onDiscard?: (id: string) => void;
+}> = ({ letter, onRetry, onDiscard }) => (
+  <FlatCard className="border-red-500/20 bg-red-950/20">
+    <div className="flex items-start gap-2">
+      <ShieldAlert size={14} className="text-red-400 mt-0.5 shrink-0" />
+      <div className="min-w-0 flex-1 space-y-1">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] uppercase tracking-wide text-red-400/80">
+            {DEAD_LETTER_KIND_LABEL[letter.kind]}
+          </span>
+          {letter.attempts > 0 && (
+            <span className="text-[10px] text-slate-500">
+              {letter.attempts} retr{letter.attempts === 1 ? "y" : "ies"}
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-white font-medium truncate">{letter.title}</p>
+        <p className="text-[11px] text-slate-400 whitespace-pre-wrap break-words max-h-20 overflow-y-auto custom-scrollbar">
+          {letter.detail}
+        </p>
+        <div className="flex items-center gap-2 pt-1">
+          {onRetry && (
+            <button
+              type="button"
+              onClick={() => onRetry(letter.id)}
+              className="px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[11px] font-medium flex items-center gap-1"
+            >
+              <RotateCcw size={10} /> Retry
+            </button>
+          )}
+          {onDiscard && (
+            <button
+              type="button"
+              onClick={() => onDiscard(letter.id)}
+              className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-slate-300 text-[11px] font-medium flex items-center gap-1"
+            >
+              <Trash2 size={10} /> Discard
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  </FlatCard>
+);
 
 const StandupDigestCard: React.FC<{ digest: AgentStandupDigest; onDismiss?: () => void }> = ({
   digest,
@@ -227,7 +379,7 @@ const StandupDigestCard: React.FC<{ digest: AgentStandupDigest; onDismiss?: () =
   });
 
   return (
-    <GlassCard className="bg-gradient-to-br from-slate-900/80 to-black/40">
+    <FlatCard className="bg-gradient-to-br from-slate-900/80 to-black/40">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
           <Coffee size={16} className="text-amber-300" />
@@ -284,7 +436,7 @@ const StandupDigestCard: React.FC<{ digest: AgentStandupDigest; onDismiss?: () =
           ))}
         </ul>
       )}
-    </GlassCard>
+    </FlatCard>
   );
 };
 
@@ -292,13 +444,20 @@ const InboxRunCard: React.FC<{
   card: InboxCard;
   agent: AgentProfile | undefined;
   onOpenRun?: (runId: string) => void;
-}> = ({ card, agent, onOpenRun }) => {
+  onSendRepair?: (run: AgentRun, feedback: string) => void;
+}> = ({ card, agent, onOpenRun, onSendRepair }) => {
   const { run, task } = card;
   const title = task?.title ?? run.taskId;
   const ts = card.sortTs ? new Date(card.sortTs) : undefined;
+  // Verify-verdict repair loop: a gate-blocked run exposes its blocking gaps
+  // and a one-click repair action that resumes the run seeded with them.
+  const blockingGaps =
+    card.kind === "blocked" && run.verification && !run.verification.passed
+      ? run.verification.blockingGaps
+      : undefined;
 
   return (
-    <GlassCard>
+    <FlatCard>
       <div className="flex items-center gap-2.5">
         <PresenceRing status={presenceForRun(run)} size={28}>
           <Bot size={13} className="text-red-300" />
@@ -328,13 +487,35 @@ const InboxRunCard: React.FC<{
         <p className="text-[11px] text-slate-400 truncate">{run.summary}</p>
       )}
 
-      {card.kind === "blocked" && (
-        <p className="text-[11px] text-amber-300/90 truncate">
-          {run.verification && !run.verification.passed
-            ? `Blocking gaps: ${run.verification.blockingGaps.join(" · ")}`
-            : run.error || "Blocked — needs attention."}
-        </p>
-      )}
+      {card.kind === "blocked" &&
+        (blockingGaps ? (
+          <div className="space-y-1.5">
+            <p className="text-[11px] font-medium text-amber-300">
+              DevCouncil gate: {blockingGaps.length} blocking gap(s)
+            </p>
+            <ul className="space-y-0.5 text-[11px] text-amber-300/90 max-h-24 overflow-y-auto custom-scrollbar">
+              {blockingGaps.map((gap, index) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: static list recomputed each render, no natural id
+                <li key={`${run.id}-gap-${index}`} className="break-words">
+                  • {gap}
+                </li>
+              ))}
+            </ul>
+            {onSendRepair && blockingGaps.length > 0 && (
+              <button
+                type="button"
+                onClick={() => onSendRepair(run, formatRepairFeedback(blockingGaps))}
+                className="w-full py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px] font-medium flex items-center justify-center gap-1 hover:bg-amber-500/20 transition-colors"
+              >
+                <Wrench size={10} /> Send repair run
+              </button>
+            )}
+          </div>
+        ) : (
+          <p className="text-[11px] text-amber-300/90 truncate">
+            {run.error || "Blocked — needs attention."}
+          </p>
+        ))}
 
       {onOpenRun && (
         <button
@@ -345,7 +526,7 @@ const InboxRunCard: React.FC<{
           Open run
         </button>
       )}
-    </GlassCard>
+    </FlatCard>
   );
 };
 

@@ -1,6 +1,6 @@
 import { FolderPlus, Lightbulb, Plus, Rocket, Sparkles, Zap } from "lucide-react";
 import type React from "react";
-import { LiquidButton } from "../../components/LiquidButton";
+import { LiquidButton } from "./LiquidButton";
 
 interface EmptyStateProps {
   type: "tasks" | "projects" | "search";

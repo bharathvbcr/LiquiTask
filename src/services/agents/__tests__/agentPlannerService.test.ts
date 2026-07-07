@@ -1,8 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import agentPlannerService, {
+  approvePendingPlan,
   assignSubtasksToAgents,
+  getPendingPlans,
   materializeSubtasks,
+  registerPendingPlan,
+  rejectPendingPlan,
+  subscribePendingPlans,
 } from "../agentPlannerService";
 import type { AgentProfile, BoardColumn, Task } from "../../../../types";
 
@@ -110,5 +115,54 @@ describe("agentPlannerService", () => {
     ]);
     expect(result.tasks).toHaveLength(1);
     expect(result.tasks[0].sourceGap).toContain("Missing unit test");
+  });
+});
+
+// The store is a module-level singleton, so tests find their own plan by id
+// instead of asserting on absolute pending counts.
+describe("pending-plan store", () => {
+  const planInput = () => ({
+    epicId: "epic-1",
+    epicTitle: "Build auth",
+    agentId: "planner-1",
+    agentName: "Planner",
+    goal: "Build auth — OAuth + sessions",
+    subtasks: [{ id: "T1", title: "A", description: "", dependsOn: [] }],
+    requirementsCount: 3,
+  });
+
+  it("registers a plan as pending and notifies subscribers", () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribePendingPlans(listener);
+    // Replay-on-subscribe (agentMcpService pattern).
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    const plan = registerPendingPlan(planInput());
+    expect(plan.status).toBe("pending");
+    expect(getPendingPlans().some((p) => p.id === plan.id)).toBe(true);
+    expect(listener).toHaveBeenCalledTimes(2);
+    expect(listener.mock.lastCall?.[0].some((p: { id: string }) => p.id === plan.id)).toBe(true);
+
+    unsubscribe();
+    approvePendingPlan(plan.id);
+    expect(listener).toHaveBeenCalledTimes(2);
+  });
+
+  it("approvePendingPlan resolves the plan out of the pending feed exactly once", () => {
+    const plan = registerPendingPlan(planInput());
+    const approved = approvePendingPlan(plan.id);
+    expect(approved?.status).toBe("approved");
+    expect(getPendingPlans().some((p) => p.id === plan.id)).toBe(false);
+    // Second resolution (double-click / stale card) is a no-op.
+    expect(approvePendingPlan(plan.id)).toBeUndefined();
+  });
+
+  it("rejectPendingPlan discards the plan but keeps the feedback on record", () => {
+    const plan = registerPendingPlan(planInput());
+    const rejected = rejectPendingPlan(plan.id, "Too many subtasks — split differently.");
+    expect(rejected?.status).toBe("rejected");
+    expect(rejected?.rejectionFeedback).toBe("Too many subtasks — split differently.");
+    expect(getPendingPlans().some((p) => p.id === plan.id)).toBe(false);
+    expect(rejectPendingPlan(plan.id, "again")).toBeUndefined();
   });
 });

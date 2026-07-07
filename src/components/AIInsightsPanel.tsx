@@ -13,6 +13,7 @@ import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 import type { AIContext, AIInsight, PriorityDefinition, Project, Task } from "../../types";
 import { STORAGE_KEYS } from "../constants";
+import { IconButton } from "./common/IconButton";
 import { aiService } from "../services/aiService";
 import storageService from "../services/storageService";
 
@@ -84,20 +85,12 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ allTasks, isOp
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={loadInsights}
-              disabled={isLoading}
-              className="icon-btn text-slate-400 hover:text-white disabled:opacity-50"
-              title="Refresh insights"
-            >
+            <IconButton onClick={loadInsights} disabled={isLoading} title="Refresh insights">
               <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
-            </button>
-            <button
-              onClick={onClose}
-              className="icon-btn text-slate-400 hover:text-white"
-            >
+            </IconButton>
+            <IconButton onClick={onClose} aria-label="Close AI insights">
               <X size={16} />
-            </button>
+            </IconButton>
           </div>
         </div>
 

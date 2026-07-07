@@ -27,7 +27,7 @@ export class RecurringTaskService {
   constructor(options: RecurringTaskServiceOptions) {
     this.onCreateTask = options.onCreateTask;
     this.onUpdateTask = options.onUpdateTask;
-    this.getDefaultStatus = options.getDefaultStatus ?? (() => "Pending");
+    this.getDefaultStatus = options.getDefaultStatus ?? (() => "Task");
     this.onAgentRecurringTask = options.onAgentRecurringTask;
   }
 

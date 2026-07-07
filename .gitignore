@@ -88,6 +88,10 @@ crates/**/target/
 src-tauri/gen/
 src-tauri/binaries/semantic-layer-*
 src-tauri/binaries/liquitask-agentd*
+src-tauri/.fastembed_cache/
+
+# Vendored reference checkouts — not our source, kept locally for reference only.
+vendor/
 
 # liquitask-agentd (Go sidecar) — source is tracked; the compiled binary is not.
 liquitask-agentd/liquitask-agentd

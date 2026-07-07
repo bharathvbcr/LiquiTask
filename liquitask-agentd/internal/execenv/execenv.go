@@ -75,6 +75,15 @@ type TaskContextForEnv struct {
 	AgentName               string
 	AgentInstructions       string // agent identity/persona instructions, injected into CLAUDE.md
 	AgentSkills             []SkillContextForEnv
+	// DisabledDefaultClaudeAgents lists built-in default subagent names
+	// (filename stems, e.g. "debugger") the workspace has turned off for Claude
+	// Code runs. Empty ships the full embedded set. Ignored for non-Claude
+	// providers. See writeClaudeAgents.
+	DisabledDefaultClaudeAgents []string
+	// CustomClaudeAgents are workspace-defined subagents written into a Claude
+	// run's .claude/agents/ alongside (or overriding) the defaults. Ignored for
+	// non-Claude providers.
+	CustomClaudeAgents []ClaudeAgentSpec
 	Repos                   []RepoContextForEnv     // workspace repos available for checkout
 	ProjectID               string                  // issue's project, when present
 	ProjectTitle            string                  // human-readable project title

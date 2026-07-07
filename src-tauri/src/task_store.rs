@@ -1,7 +1,19 @@
-//! Additive SQLite export schema for tasks/projects/board columns (Rework Plan
-//! Phase 5 groundwork).
+//! SQLite store for the task domain: the **live append-only task event log**
+//! (source of truth for the event-sourced board) plus the additive snapshot
+//! export schema for tasks/projects/board columns (Rework Plan Phase 5
+//! groundwork).
 //!
-//! This module is deliberately **not** a live store. It mirrors the shape of
+//! ## Event log (live)
+//!
+//! `task_events` is the durable write-ahead log behind
+//! `src/core/events/taskEventStore.ts`. Every board mutation is appended here
+//! BEFORE any projection (React state, IndexedDB mirror, snapshot tables) is
+//! updated, and the board is rebuilt from this log on boot. Appends are
+//! transactional: a batch lands entirely or not at all.
+//!
+//! ## Snapshot export (additive groundwork)
+//!
+//! The snapshot half of this module is deliberately **not** a live store. It mirrors the shape of
 //! `Task` / `Project` / `BoardColumn` from `types.ts` (as currently persisted
 //! by `src/services/indexedDBService.ts`) into a brand-new SQLite file
 //! (`tasks_export.sqlite3`) that nothing else reads from yet. It exists so a
@@ -280,9 +292,154 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
             is_completed  INTEGER,
             wip_limit     INTEGER
         );
+
+        CREATE TABLE IF NOT EXISTS task_events (
+            seq        INTEGER PRIMARY KEY AUTOINCREMENT,
+            id         TEXT NOT NULL UNIQUE,
+            stream_id  TEXT NOT NULL,
+            event_type TEXT NOT NULL,
+            payload    TEXT NOT NULL,
+            actor      TEXT NOT NULL,
+            run_id     TEXT,
+            ts         TEXT NOT NULL,
+            v          INTEGER NOT NULL DEFAULT 1
+        );
+        CREATE INDEX IF NOT EXISTS idx_task_events_stream ON task_events(stream_id, seq);
+        CREATE INDEX IF NOT EXISTS idx_task_events_type ON task_events(event_type, seq);
         ",
     )
     .map_err(|e| format!("Failed to init task store schema: {e}"))
+}
+
+// ---------------------------------------------------------------------------
+// Task event log (live, append-only)
+// ---------------------------------------------------------------------------
+
+/// Wire shape for one event as sent by `taskEventStore.ts` (payload is an
+/// opaque, pre-serialized JSON string — the log never interprets it).
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskEventIn {
+    pub id: String,
+    pub stream_id: String,
+    pub event_type: String,
+    pub payload: String,
+    pub actor: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub run_id: Option<String>,
+    pub ts: String,
+    #[serde(default = "default_event_version")]
+    pub v: i64,
+}
+
+fn default_event_version() -> i64 {
+    1
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskEventOut {
+    pub seq: i64,
+    pub id: String,
+    pub stream_id: String,
+    pub event_type: String,
+    pub payload: String,
+    pub actor: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub run_id: Option<String>,
+    pub ts: String,
+    pub v: i64,
+}
+
+fn validate_event(event: &TaskEventIn) -> Result<(), String> {
+    if event.id.is_empty() || event.id.len() > 128 {
+        return Err("Invalid event id".to_string());
+    }
+    if event.stream_id.is_empty() || event.stream_id.len() > 128 {
+        return Err(format!("Invalid stream id on event {}", event.id));
+    }
+    if event.event_type.is_empty() || event.event_type.len() > 64 {
+        return Err(format!("Invalid event type on event {}", event.id));
+    }
+    if event.payload.len() > 1_000_000 {
+        return Err(format!("Event payload too large on event {}", event.id));
+    }
+    Ok(())
+}
+
+/// Append a batch atomically. Any invalid or duplicate event aborts the whole
+/// batch (explicit transaction + rollback) so the log can never half-apply a
+/// logical mutation.
+fn append_events(conn: &mut Connection, events: &[TaskEventIn]) -> Result<Vec<i64>, String> {
+    for event in events {
+        validate_event(event)?;
+    }
+    let tx = conn
+        .transaction()
+        .map_err(|e| format!("Failed to open event-log transaction: {e}"))?;
+    let mut seqs = Vec::with_capacity(events.len());
+    for event in events {
+        tx.execute(
+            "INSERT INTO task_events (id, stream_id, event_type, payload, actor, run_id, ts, v)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            rusqlite::params![
+                event.id,
+                event.stream_id,
+                event.event_type,
+                event.payload,
+                event.actor,
+                event.run_id,
+                event.ts,
+                event.v,
+            ],
+        )
+        .map_err(|e| format!("Failed to append event {}: {e}", event.id))?;
+        seqs.push(tx.last_insert_rowid());
+    }
+    tx.commit()
+        .map_err(|e| format!("Failed to commit event batch: {e}"))?;
+    Ok(seqs)
+}
+
+fn read_events(
+    conn: &Connection,
+    since_seq: Option<i64>,
+    limit: Option<i64>,
+) -> Result<Vec<TaskEventOut>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT seq, id, stream_id, event_type, payload, actor, run_id, ts, v
+             FROM task_events WHERE seq > ?1 ORDER BY seq ASC LIMIT ?2",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(
+            rusqlite::params![since_seq.unwrap_or(0), limit.unwrap_or(i64::MAX)],
+            |row| {
+                Ok(TaskEventOut {
+                    seq: row.get(0)?,
+                    id: row.get(1)?,
+                    stream_id: row.get(2)?,
+                    event_type: row.get(3)?,
+                    payload: row.get(4)?,
+                    actor: row.get(5)?,
+                    run_id: row.get(6)?,
+                    ts: row.get(7)?,
+                    v: row.get(8)?,
+                })
+            },
+        )
+        .map_err(|e| e.to_string())?;
+    let mut out = Vec::new();
+    for row in rows {
+        out.push(row.map_err(|e| e.to_string())?);
+    }
+    Ok(out)
+}
+
+fn count_events(conn: &Connection) -> Result<i64, String> {
+    conn.query_row("SELECT COUNT(*) FROM task_events", [], |row| row.get(0))
+        .map_err(|e| e.to_string())
 }
 
 /// Serialize an `Option<T>` to a JSON string, or `None` when absent — used
@@ -314,6 +471,24 @@ impl TaskStore {
             *guard = Some(conn);
         }
         let conn = guard.as_ref().expect("just initialised");
+        f(conn)
+    }
+
+    /// Mutable-connection variant for operations that need an explicit
+    /// rusqlite transaction (the event log's atomic batch append).
+    fn with_conn_mut<T>(
+        &self,
+        app: &AppHandle,
+        f: impl FnOnce(&mut Connection) -> Result<T, String>,
+    ) -> Result<T, String> {
+        let mut guard = self.conn.lock().map_err(|_| "task store lock poisoned".to_string())?;
+        if guard.is_none() {
+            let path = db_path(app)?;
+            let conn = Connection::open(&path).map_err(|e| format!("Failed to open task store: {e}"))?;
+            init_schema(&conn)?;
+            *guard = Some(conn);
+        }
+        let conn = guard.as_mut().expect("just initialised");
         f(conn)
     }
 
@@ -690,6 +865,37 @@ pub fn task_store_read_snapshot(app: AppHandle, store: tauri::State<'_, TaskStor
     store.read_snapshot(&app)
 }
 
+/// Append a batch of task events atomically. Returns the assigned sequence
+/// numbers in input order. The whole batch fails on any invalid/duplicate
+/// event — this is the transactional write-ahead step of every board mutation.
+#[tauri::command(rename_all = "camelCase")]
+pub fn task_events_append(
+    app: AppHandle,
+    store: tauri::State<'_, TaskStore>,
+    events: Vec<TaskEventIn>,
+) -> Result<Vec<i64>, String> {
+    store.with_conn_mut(&app, |conn| append_events(conn, &events))
+}
+
+/// Read events after `since_seq` (exclusive), oldest first.
+#[tauri::command(rename_all = "camelCase")]
+pub fn task_events_read(
+    app: AppHandle,
+    store: tauri::State<'_, TaskStore>,
+    since_seq: Option<i64>,
+    limit: Option<i64>,
+) -> Result<Vec<TaskEventOut>, String> {
+    store.with_conn(&app, |conn| read_events(conn, since_seq, limit))
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn task_events_count(
+    app: AppHandle,
+    store: tauri::State<'_, TaskStore>,
+) -> Result<i64, String> {
+    store.with_conn(&app, count_events)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -700,6 +906,75 @@ mod tests {
         let conn = Connection::open_in_memory().expect("open in-memory db");
         init_schema(&conn).expect("init schema");
         conn
+    }
+
+    fn sample_event(id: &str, stream: &str) -> TaskEventIn {
+        TaskEventIn {
+            id: id.to_string(),
+            stream_id: stream.to_string(),
+            event_type: "task.updated".to_string(),
+            payload: "{}".to_string(),
+            actor: "user".to_string(),
+            run_id: None,
+            ts: "2026-07-06T00:00:00.000Z".to_string(),
+            v: 1,
+        }
+    }
+
+    #[test]
+    fn event_append_assigns_monotonic_seqs() {
+        let mut conn = memory_conn();
+        let seqs = append_events(
+            &mut conn,
+            &[sample_event("e1", "t1"), sample_event("e2", "t1")],
+        )
+        .expect("append");
+        assert_eq!(seqs, vec![1, 2]);
+        let read = read_events(&conn, None, None).expect("read");
+        assert_eq!(read.len(), 2);
+        assert_eq!(read[0].id, "e1");
+        assert_eq!(read[1].seq, 2);
+        assert_eq!(count_events(&conn).expect("count"), 2);
+    }
+
+    #[test]
+    fn event_append_is_atomic_on_duplicate() {
+        let mut conn = memory_conn();
+        append_events(&mut conn, &[sample_event("e1", "t1")]).expect("seed");
+        // Second batch contains a duplicate id — the WHOLE batch must roll back.
+        let result = append_events(
+            &mut conn,
+            &[sample_event("e2", "t1"), sample_event("e1", "t1")],
+        );
+        assert!(result.is_err());
+        assert_eq!(count_events(&conn).expect("count"), 1);
+    }
+
+    #[test]
+    fn event_read_since_seq_is_exclusive() {
+        let mut conn = memory_conn();
+        append_events(
+            &mut conn,
+            &[
+                sample_event("e1", "t1"),
+                sample_event("e2", "t1"),
+                sample_event("e3", "t2"),
+            ],
+        )
+        .expect("append");
+        let tail = read_events(&conn, Some(1), None).expect("read");
+        assert_eq!(tail.len(), 2);
+        assert_eq!(tail[0].id, "e2");
+    }
+
+    #[test]
+    fn event_validation_rejects_bad_input() {
+        let mut conn = memory_conn();
+        let mut bad = sample_event("", "t1");
+        assert!(append_events(&mut conn, &[bad.clone()]).is_err());
+        bad = sample_event("e1", "");
+        assert!(append_events(&mut conn, &[bad]).is_err());
+        assert_eq!(count_events(&conn).expect("count"), 0);
     }
 
     fn sample_task_minimal() -> TaskRecord {

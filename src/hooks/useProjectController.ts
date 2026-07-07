@@ -20,19 +20,27 @@ export const useProjectController = ({
   const [projectTypes, setProjectTypes] = useState<ProjectType[]>(initialProjectTypes);
 
   const handleCreateProject = useCallback(
-    (nameOrProject: string | Partial<Project>, icon?: string, parentId?: string) => {
+    (
+      nameOrProject: string | Partial<Project>,
+      icon?: string,
+      parentId?: string,
+      workspacePaths?: string[],
+    ) => {
       let name: string;
       let finalIcon: string;
       let finalParentId: string | undefined;
+      let finalWorkspacePaths: string[] | undefined;
 
       if (typeof nameOrProject === "string") {
         name = nameOrProject;
         finalIcon = icon || "folder";
         finalParentId = parentId;
+        finalWorkspacePaths = workspacePaths;
       } else {
         name = nameOrProject.name || "New Project";
         finalIcon = nameOrProject.icon || "folder";
         finalParentId = nameOrProject.parentId;
+        finalWorkspacePaths = nameOrProject.workspacePaths ?? workspacePaths;
       }
 
       const siblings = projects.filter((p) => p.parentId === finalParentId);
@@ -45,6 +53,9 @@ export const useProjectController = ({
         icon: finalIcon,
         parentId: finalParentId,
         order: maxOrder + 1,
+        ...(finalWorkspacePaths && finalWorkspacePaths.length > 0
+          ? { workspacePaths: finalWorkspacePaths }
+          : {}),
       };
       setProjects((prev) => [...prev, newProject]);
       addToast(`Workspace "${name}" created`, "success");

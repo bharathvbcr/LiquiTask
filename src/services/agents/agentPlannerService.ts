@@ -2,7 +2,10 @@
  * DevCouncil planner + repair orchestration.
  *
  * Rust runs `dev plan` / `dev repair` and parses export JSON; this service
- * materialises board tasks and assigns them across the agent team.
+ * materialises board tasks and assigns them across the agent team. Plans no
+ * longer materialise straight away: the plan gate (Rework Plan §3.4 item 1)
+ * parks each `dev plan` result in the pending-plan store below so the Inbox
+ * can render an approval card, and only approval triggers materialisation.
  */
 
 import type { AgentProfile, Task, TaskLink } from "../../../types";
@@ -127,6 +130,91 @@ export function materializeSubtasks(options: PlannerMaterializeOptions): Materia
   return { tasks, assignments };
 }
 
+// ---------------------------------------------------------------------------
+// Pending-plan store (plan gate)
+// ---------------------------------------------------------------------------
+
+/** A `dev plan` result awaiting the user's approve/reject decision in the Inbox. */
+export interface PendingPlan {
+  id: string;
+  /** Epic (parent) task the plan decomposes. */
+  epicId: string;
+  epicTitle: string;
+  /** Planner agent that produced the plan. */
+  agentId: string;
+  agentName: string;
+  goal: string;
+  subtasks: DevCouncilSubtask[];
+  requirementsCount: number;
+  createdAt: Date;
+  status: "pending" | "approved" | "rejected";
+  /** Reviewer feedback recorded when the plan is rejected. */
+  rejectionFeedback?: string;
+}
+
+type PendingPlanListener = (plans: PendingPlan[]) => void;
+
+// Resolved plans are retained (capped) rather than deleted so a rejection's
+// feedback stays on record for the session; only `pending` plans are surfaced.
+const MAX_STORED_PLANS = 50;
+let plans: PendingPlan[] = [];
+const planListeners = new Set<PendingPlanListener>();
+
+function notifyPlanListeners(): void {
+  const snapshot = getPendingPlans();
+  planListeners.forEach((l) => {
+    l(snapshot);
+  });
+}
+
+export function getPendingPlans(): PendingPlan[] {
+  return plans.filter((p) => p.status === "pending");
+}
+
+/** Listener pattern mirrors agentMcpService.subscribePermissions: replay-on-subscribe. */
+export function subscribePendingPlans(listener: PendingPlanListener): () => void {
+  planListeners.add(listener);
+  listener(getPendingPlans());
+  return () => planListeners.delete(listener);
+}
+
+export function registerPendingPlan(
+  input: Omit<PendingPlan, "id" | "createdAt" | "status" | "rejectionFeedback">,
+): PendingPlan {
+  const plan: PendingPlan = {
+    ...input,
+    id: `plan-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    createdAt: new Date(),
+    status: "pending",
+  };
+  plans = [plan, ...plans].slice(0, MAX_STORED_PLANS);
+  notifyPlanListeners();
+  return plan;
+}
+
+/**
+ * Mark a pending plan approved and hand it back for materialisation. Returns
+ * undefined when the plan was already resolved (double-click, stale card), so
+ * callers can't materialise the same plan twice.
+ */
+export function approvePendingPlan(planId: string): PendingPlan | undefined {
+  const plan = plans.find((p) => p.id === planId && p.status === "pending");
+  if (!plan) return undefined;
+  plan.status = "approved";
+  notifyPlanListeners();
+  return plan;
+}
+
+/** Discard a pending plan, keeping the reviewer's feedback on record. */
+export function rejectPendingPlan(planId: string, feedback: string): PendingPlan | undefined {
+  const plan = plans.find((p) => p.id === planId && p.status === "pending");
+  if (!plan) return undefined;
+  plan.status = "rejected";
+  plan.rejectionFeedback = feedback.trim() || undefined;
+  notifyPlanListeners();
+  return plan;
+}
+
 function epicGoalFromTask(task: Task): string {
   const parts = [task.title];
   if (task.summary?.trim()) parts.push(task.summary.trim());
@@ -185,4 +273,9 @@ export default {
   materializeSubtasks,
   assignSubtasksToAgents,
   buildLinkedTask,
+  getPendingPlans,
+  subscribePendingPlans,
+  registerPendingPlan,
+  approvePendingPlan,
+  rejectPendingPlan,
 };

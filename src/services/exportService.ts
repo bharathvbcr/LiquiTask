@@ -308,7 +308,7 @@ Generated: {{date}}
         // Each category is escaped; the comma separator between categories is literal.
         icsLines.push(`CATEGORIES:${task.tags.map((tag) => this.escapeICS(tag)).join(",")}`);
       }
-      icsLines.push(`STATUS:${task.status === "Completed" ? "COMPLETED" : "NEEDS-ACTION"}`);
+      icsLines.push(`STATUS:${task.status === "Commit" || task.completedAt ? "COMPLETED" : "NEEDS-ACTION"}`);
       icsLines.push("END:VTODO");
     });
 

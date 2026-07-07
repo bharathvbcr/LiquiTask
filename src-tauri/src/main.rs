@@ -55,28 +55,35 @@ mod secure_key_store;
 mod semantic_layer;
 mod storage_tasks;
 mod task_store;
+mod terminal;
 use agent_runner::{
-    agent_detect_clis, agent_open_in_terminal, agent_run_active, agent_run_cancel,
-    agent_runner_inject_guidance, agent_runner_pause, agent_runner_resume, agent_run_start,
-    agent_runs_reattach, AgentProcessRegistry,
+    agent_detect_clis, agent_detect_ide_tools, agent_open_in_terminal, agent_open_in_tool,
+    agent_run_active, agent_run_cancel, agent_runner_inject_guidance, agent_runner_pause,
+    agent_runner_resume, agent_run_start, agent_runs_reattach, AgentProcessRegistry,
 };
 use agentd::{
     agentd_detect, agentd_ensure, agentd_permission_respond, agentd_run_cancel,
     agentd_run_inject, agentd_run_pause, agentd_run_reattach, agentd_run_resume,
-    agentd_run_start, agentd_skills_list, AgentdState,
+    agentd_run_start, agentd_skill_read, agentd_skills_list, AgentdState,
 };
 use agentd_store::{
     agentd_store_list_agents, agentd_store_list_devcouncil_evidence, agentd_store_list_devcouncil_requirements,
     agentd_store_list_devcouncil_tasks, agentd_store_list_run_events, agentd_store_list_runs, AgentdStore,
 };
-use task_store::{task_store_export_snapshot, task_store_read_snapshot, TaskStore};
+use task_store::{
+    task_events_append, task_events_count, task_events_read, task_store_export_snapshot,
+    task_store_read_snapshot, TaskStore,
+};
+use terminal::{terminal_close, terminal_open, terminal_resize, terminal_write, TerminalRegistry};
 use agent_mcp::{
     agent_mcp_cleanup, agent_mcp_init, agent_mcp_list_requests, agent_mcp_resolve_bridge,
     agent_mcp_write_config, agent_mcp_write_response,
 };
 use agent_git::{
-    agent_container_build, agent_container_system_status, agent_git_create_pr, agent_git_create_worktree,
-    agent_git_diff, agent_git_discard_worktree, agent_git_merge_worktree,
+    agent_container_build, agent_container_system_status, agent_git_commit_worktree,
+    agent_git_create_pr, agent_git_create_worktree, agent_git_diff, agent_git_discard_worktree,
+    agent_git_list_worktrees, agent_git_merge_worktree, agent_git_merge_worktree_tx,
+    agent_git_prune_worktrees, agent_git_worktree_state,
 };
 use github_sync::{
     github_auth_status, github_detect_repo, github_issue_close, github_issue_comment, github_issue_list,
@@ -88,7 +95,10 @@ use agent_core::{
 };
 use agent_analytics::agent_compute_analytics;
 use agent_devcouncil::{
-    agent_dev_cli_available, agent_dev_parse_export, agent_dev_plan, agent_dev_repair, agent_dev_verify,
+    agent_dev_cli_available, agent_dev_discover, agent_dev_init, agent_dev_install,
+    agent_dev_install_local, agent_dev_map, agent_dev_parse_export, agent_dev_plan,
+    agent_dev_repair, agent_dev_repo_files, agent_dev_repo_map_summary, agent_dev_status,
+    agent_dev_verify,
 };
 use agent_devcouncil_evidence::agent_dev_mirror_evidence;
 use agent_skills::{agent_skills_capture, agent_skills_delete, agent_skills_filter};
@@ -776,6 +786,7 @@ fn main() {
         .manage(AgentdState::default())
         .manage(AgentdStore::default())
         .manage(TaskStore::default())
+        .manage(TerminalRegistry::default())
         .setup(|app| {
             setup_tray(app.handle())?;
             Ok(())
@@ -810,9 +821,12 @@ fn main() {
             semantic_layer_feedback,
             semantic_layer_stats,
             agent_detect_clis,
+            agent_detect_ide_tools,
+            agent_open_in_tool,
             agentd_ensure,
             agentd_detect,
             agentd_skills_list,
+            agentd_skill_read,
             agentd_run_start,
             agentd_run_cancel,
             agentd_run_pause,
@@ -828,6 +842,9 @@ fn main() {
             agentd_store_list_devcouncil_evidence,
             task_store_export_snapshot,
             task_store_read_snapshot,
+            task_events_append,
+            task_events_read,
+            task_events_count,
             agent_run_start,
             agent_run_cancel,
             agent_runner_pause,
@@ -844,6 +861,11 @@ fn main() {
             agent_mcp_cleanup,
             agent_git_create_worktree,
             agent_git_merge_worktree,
+            agent_git_merge_worktree_tx,
+            agent_git_worktree_state,
+            agent_git_list_worktrees,
+            agent_git_prune_worktrees,
+            agent_git_commit_worktree,
             agent_git_discard_worktree,
             agent_git_diff,
             agent_git_create_pr,
@@ -858,6 +880,14 @@ fn main() {
             agent_dev_repair,
             agent_dev_parse_export,
             agent_dev_cli_available,
+            agent_dev_status,
+            agent_dev_init,
+            agent_dev_map,
+            agent_dev_install,
+            agent_dev_install_local,
+            agent_dev_discover,
+            agent_dev_repo_map_summary,
+            agent_dev_repo_files,
             agent_dev_mirror_evidence,
             ai_ollama_generate,
             ai_ollama_health,
@@ -897,6 +927,10 @@ fn main() {
             github_auth_status,
             tray_update_active_runs,
             tray_update_inbox_count,
+            terminal_open,
+            terminal_write,
+            terminal_resize,
+            terminal_close,
         ])
         .build(tauri::generate_context!())
         .expect("error while building LiquiTask")
