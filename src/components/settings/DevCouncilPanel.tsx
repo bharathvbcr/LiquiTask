@@ -16,6 +16,10 @@ import devcouncilService, {
   DEVCOUNCIL_INSTALL_COMMAND,
   type DevCouncilStatus,
 } from "../../services/agents/devcouncilService";
+import {
+  summarizeSync,
+  syncDevCouncilWorkspace,
+} from "../../services/agents/devcouncilWorkspaceSync";
 import type { ToastType } from "../../../types";
 
 interface DevCouncilPanelProps {
@@ -37,7 +41,7 @@ function formatAge(secs?: number): string {
  */
 export const DevCouncilPanel: React.FC<DevCouncilPanelProps> = ({ workingDir, addToast }) => {
   const [status, setStatus] = useState<DevCouncilStatus | null>(null);
-  const [busy, setBusy] = useState<"install" | "init" | "map" | "bootstrap" | null>(null);
+  const [busy, setBusy] = useState<"install" | "init" | "map" | "bootstrap" | "sync" | null>(null);
 
   const refresh = useCallback(async () => {
     if (!isTauri() || !workingDir) {
@@ -98,6 +102,33 @@ export const DevCouncilPanel: React.FC<DevCouncilPanelProps> = ({ workingDir, ad
       );
     } catch (err) {
       addToast(err instanceof Error ? err.message : "DevCouncil action failed.", "error");
+    } finally {
+      setBusy(null);
+      void refresh();
+    }
+  };
+
+  /**
+   * Manual "Sync Now": force the full workspace sync (regenerate map, inject
+   * skills, mirror evidence, prewarm context) — the same work the app runs
+   * automatically when this workspace becomes active.
+   */
+  const runSync = async () => {
+    setBusy("sync");
+    try {
+      const result = await syncDevCouncilWorkspace(workingDir, { force: true });
+      if (result.needsInit) {
+        addToast(
+          "DevCouncil isn't initialized here yet — run Set Up DevCouncil first, or hand it to an agent.",
+          "warning",
+        );
+      } else if (result.ran) {
+        addToast(summarizeSync(result), "success");
+      } else if (!result.status.cliAvailable) {
+        addToast("DevCouncil CLI not found — nothing to sync.", "info");
+      }
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : "DevCouncil sync failed.", "error");
     } finally {
       setBusy(null);
       void refresh();
@@ -212,6 +243,22 @@ export const DevCouncilPanel: React.FC<DevCouncilPanelProps> = ({ workingDir, ad
               : status.repoMapPresent
                 ? "Refresh repo map"
                 : "Generate repo map"}
+          </button>
+        )}
+        {status.cliAvailable && status.initialized && (
+          <button
+            type="button"
+            disabled={busy !== null}
+            onClick={() => void runSync()}
+            title="Regenerate map, inject skills, mirror evidence, prewarm context"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-300 text-[11px] font-medium hover:bg-white/10 transition-all disabled:opacity-50"
+          >
+            {busy === "sync" ? (
+              <Loader2 size={11} className="animate-spin" />
+            ) : (
+              <RefreshCw size={11} />
+            )}
+            {busy === "sync" ? "Syncing…" : "Sync Now"}
           </button>
         )}
       </div>

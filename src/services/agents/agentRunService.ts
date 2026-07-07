@@ -19,6 +19,8 @@ import { mergeSkillCatalog, type InstalledSkill } from '../../core/skills/mergeS
 import { catalogEntryToSkill, selectSkillsForTask } from './skillSelection';
 import { checkAgentBudget, getAgentDailyStats, resolveAgentModel } from './agentPolicyService';
 import { parseClaudeStreamLine, parseCouncilReport } from './agentStreamParser';
+import deadLetterService from '../deadLetterService';
+import { resolveAgentWorkspace, type WorkspaceResolution } from './resolveAgentWorkspace';
 import type {
   AgentProfile,
   AgentRun,
@@ -152,6 +154,12 @@ class AgentRunService {
   private verifyBuffers = new Map<string, string[]>();
   private listeners = new Set<Listener>();
   private hooks: AgentRunTaskHooks = {};
+  /**
+   * Resolves the working directory for a run from the task's project workspace.
+   * Injected by the app layer (which owns projects); when unset the service
+   * keeps the agent's own `workingDir` (legacy behaviour, used by tests).
+   */
+  private workspaceResolver?: (task: Task, agent: AgentProfile) => WorkspaceResolution;
   private unlisten: (() => void) | null = null;
   private unlistenAgentd: (() => void) | null = null;
   /** sidecar runId -> local run id, for routing inbound agentd-run-events. */
@@ -343,6 +351,50 @@ class AgentRunService {
     this.hooks = hooks;
   }
 
+  /**
+   * Provide the project-workspace resolver (see {@link resolveAgentWorkspace}).
+   * The app layer owns projects, so it supplies the lookup — the run service
+   * stays project-agnostic, matching how task hooks are injected.
+   */
+  setWorkspaceResolver(
+    resolver: (task: Task, agent: AgentProfile) => WorkspaceResolution,
+  ): void {
+    this.workspaceResolver = resolver;
+  }
+
+  /**
+   * Bind a run to the correct working directory. Returns a *clone* of the agent
+   * with its `workingDir` set to the task's project workspace so every
+   * downstream path (worktree creation, cwd, and the eventual merge target) uses
+   * it. Throws — and records a dead-letter for Inbox visibility — when the
+   * project has no workspace folder linked (policy: never run in the wrong repo).
+   */
+  private resolveRunAgent(
+    task: Task,
+    agent: AgentProfile,
+  ): { agent: AgentProfile; note?: string } {
+    if (!this.workspaceResolver) return { agent };
+    const resolution = this.workspaceResolver(task, agent);
+    if (!resolution.ok) {
+      deadLetterService.record({
+        kind: 'run',
+        title: `Can't run "${task.title}"`,
+        detail: resolution.reason,
+        taskId: task.id,
+      });
+      throw new Error(resolution.reason);
+    }
+    if (!resolution.overrodeAgentDir || resolution.workingDir === agent.workingDir) {
+      return { agent };
+    }
+    return {
+      agent: { ...agent, workingDir: resolution.workingDir },
+      note: `Running in project workspace ${resolution.workingDir}${
+        resolution.projectName ? ` (${resolution.projectName})` : ''
+      } — the agent's configured folder (${agent.workingDir || 'unset'}) is outside this project.`,
+    };
+  }
+
   subscribe(listener: Listener): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
@@ -450,13 +502,21 @@ class AgentRunService {
     if (!isTauri()) return null;
     if (this.getActiveRunForTask(task.id)) return null;
 
-    if (this.activeByAgent.has(agent.id)) {
-      this.queue.push({ task, agent });
-      const run = this.createRun(task, agent, 'queued');
+    // Bind the run to the task's project workspace (throws if blocked). The
+    // resolved agent clone flows into both the immediate and queued paths, so
+    // the worktree/cwd/merge all target the right repository.
+    const { agent: runAgent, note } = this.resolveRunAgent(task, agent);
+
+    if (this.activeByAgent.has(runAgent.id)) {
+      this.queue.push({ task, agent: runAgent });
+      const run = this.createRun(task, runAgent, 'queued');
+      if (note) this.pushEvent(run, 'info', note);
       this.upsert(run);
       return run;
     }
-    return this.startRun(task, agent);
+    const run = await this.startRun(task, runAgent);
+    if (note) this.pushEvent(run, 'info', note);
+    return run;
   }
 
   async cancel(runId: string): Promise<void> {
@@ -543,6 +603,26 @@ class AgentRunService {
     return cleared;
   }
 
+  /**
+   * Re-insert runs previously removed by {@link clearFinishedRuns} / {@link removeRun}
+   * — the Undo path behind the "Cleared N · Undo" affordance. Only terminal runs
+   * that aren't already present are restored, so an undo can never clobber a live
+   * run or duplicate an existing card. Returns the number of runs restored.
+   */
+  restoreRuns(runs: AgentRun[]): number {
+    let restored = 0;
+    for (const run of runs) {
+      if (!this.isTerminal(run) || this.runs.has(run.id)) continue;
+      this.runs.set(run.id, run);
+      restored += 1;
+    }
+    if (restored > 0) {
+      this.notify();
+      this.schedulePersist();
+    }
+    return restored;
+  }
+
   /** Pause a running agent process (SIGSTOP on Unix, thread suspend on Windows). */
   async pause(runId: string): Promise<void> {
     const run = this.runs.get(runId);
@@ -607,7 +687,7 @@ class AgentRunService {
     if (!run.sessionId) throw new Error('No resumable session for this run.');
     const { invoke } = await import('@tauri-apps/api/core');
     await invoke('agent_open_in_terminal', {
-      workingDir: run.worktreePath ?? agent.workingDir,
+      workingDir: run.worktreePath ?? this.runRepoDir(run) ?? agent.workingDir,
       sessionId: run.sessionId,
     });
   }
@@ -629,7 +709,7 @@ class AgentRunService {
 
     // agentd runs resume through the sidecar with the runtime's own session id.
     if (run.engine === 'agentd') {
-      const followUpCwd = run.worktreePath ?? context.agent.workingDir;
+      const followUpCwd = run.worktreePath ?? this.runRepoDir(run) ?? context.agent.workingDir;
       const sidecarId = await localApi.runStart({
         taskId: run.taskId,
         runtime: providerToRuntime(context.agent.provider),
@@ -650,7 +730,7 @@ class AgentRunService {
     }
 
     const { invoke } = await import('@tauri-apps/api/core');
-    const followUpWorkingDir = run.worktreePath ?? context.agent.workingDir;
+    const followUpWorkingDir = run.worktreePath ?? this.runRepoDir(run) ?? context.agent.workingDir;
     const mcpConfig = await agentMcpService.prepareMcpConfig(
       run.id,
       run.taskId,
@@ -683,7 +763,7 @@ class AgentRunService {
    */
   async mergeWorktree(run: AgentRun, options?: { verify?: boolean }): Promise<string> {
     const context = this.runContext.get(run.id);
-    const repoDir = context?.agent.workingDir ?? this.repoDirForRun(run);
+    const repoDir = this.runRepoDir(run);
     if (!run.worktreePath || !run.gitBranch || !repoDir) {
       throw new Error('No worktree to merge.');
     }
@@ -710,10 +790,7 @@ class AgentRunService {
   async pruneStaleWorktrees(agents: AgentProfile[]): Promise<void> {
     if (!isTauri()) return;
     const keepByRepo = new Map<string, Set<string>>();
-    const repoFor = (run: AgentRun): string | undefined => {
-      const context = this.runContext.get(run.id);
-      return context?.agent.workingDir ?? this.repoDirForRun(run);
-    };
+    const repoFor = (run: AgentRun): string | undefined => this.runRepoDir(run);
     for (const run of this.getRuns()) {
       if (!run.worktreePath) continue;
       const repo = repoFor(run);
@@ -744,8 +821,7 @@ class AgentRunService {
 
   /** Commit worktree changes on the run branch without merging (PR flow). */
   async commitWorktree(run: AgentRun, message?: string): Promise<string> {
-    const context = this.runContext.get(run.id);
-    const repoDir = context?.agent.workingDir ?? this.repoDirForRun(run);
+    const repoDir = this.runRepoDir(run);
     if (!run.worktreePath || !repoDir) {
       throw new Error('No worktree to commit.');
     }
@@ -776,6 +852,19 @@ class AgentRunService {
     return undefined;
   }
 
+  /**
+   * Authoritative base repo dir for a run. Prefers the dir the run resolved to
+   * at start (`run.repoDir`, persisted), then the live in-session context, then
+   * a worktree-derived guess. This is what merge/discard/prune/terminal must use
+   * instead of the agent profile's `workingDir`, which can be stale or
+   * re-supplied from the roster after a relaunch.
+   */
+  private runRepoDir(run: AgentRun): string | undefined {
+    return (
+      run.repoDir ?? this.runContext.get(run.id)?.agent.workingDir ?? this.repoDirForRun(run)
+    );
+  }
+
   private worktreeCommitMessage(run: AgentRun): string {
     const context = this.runContext.get(run.id);
     const title = context?.task.title ?? 'agent task';
@@ -785,13 +874,13 @@ class AgentRunService {
 
   /** Remove the run's worktree and delete its branch without merging. */
   async discardWorktree(run: AgentRun): Promise<void> {
-    const context = this.runContext.get(run.id);
-    if (!run.worktreePath || !run.gitBranch || !context) {
+    const repoDir = this.runRepoDir(run);
+    if (!run.worktreePath || !run.gitBranch || !repoDir) {
       throw new Error('No worktree to discard.');
     }
     const { invoke } = await import('@tauri-apps/api/core');
     await invoke('agent_git_discard_worktree', {
-      repoDir: context.agent.workingDir,
+      repoDir,
       worktreePath: run.worktreePath,
       branch: run.gitBranch,
     });
@@ -1429,6 +1518,9 @@ class AgentRunService {
       status,
       createdAt: new Date(),
       events: [],
+      // `agent` here is already the workspace-resolved clone (see assign()), so
+      // this captures the project-correct repo dir and persists it with the run.
+      repoDir: agent.workingDir || undefined,
     };
     this.runContext.set(run.id, { task, agent });
     agentScopeService.bindTaskScopeToRun(run.id, task.id);
@@ -1462,9 +1554,15 @@ class AgentRunService {
 
     const context = this.runContext.get(run.id);
     if (context) {
-      // Compound a skill from every successful run (fire-and-forget).
+      // Compound a skill from every successful run (fire-and-forget). Key it by
+      // the run's resolved repo dir so it's findable on the next run in the same
+      // project (not the agent profile's possibly-stale folder).
       if (status === 'completed') {
-        void agentSkillsService.captureFromRun(run, context.task, context.agent.workingDir);
+        void agentSkillsService.captureFromRun(
+          run,
+          context.task,
+          this.runRepoDir(run) ?? context.agent.workingDir,
+        );
       }
       this.hooks.onRunFinished?.(context.task.id, run);
     }

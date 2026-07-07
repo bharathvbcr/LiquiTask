@@ -139,6 +139,11 @@ const buildTauriDesktopApi = (): DesktopAPI => {
           console.error(`Failed to write workspace file "${filePath}":`, err);
           throw err instanceof Error ? err : new Error(String(err));
         }),
+      ensureDir: (dirPath, scopePaths) =>
+        invoke<void>("workspace_ensure_dir", { dirPath, scopePaths }).catch((err) => {
+          console.error(`Failed to ensure workspace dir "${dirPath}":`, err);
+          throw err instanceof Error ? err : new Error(String(err));
+        }),
       searchFiles: (query, scopePaths) =>
         invoke<WorkspaceSearchResult[]>("workspace_search_files", { query, scopePaths }).catch(
           (err) => {

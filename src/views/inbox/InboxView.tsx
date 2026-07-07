@@ -3,17 +3,21 @@ import {
   Bot,
   CheckCircle2,
   Coffee,
+  CornerUpLeft,
   DollarSign,
   Inbox as InboxIcon,
   MessageSquare,
+  RefreshCw,
   RotateCcw,
   ShieldAlert,
   Trash2,
+  Undo2,
   Wrench,
+  X,
   XCircle,
 } from "lucide-react";
 import type React from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   formatRepairFeedback,
@@ -25,7 +29,7 @@ import type { AgentStandupDigest } from "../../services/agents/agentStandupDiges
 import type { DeadLetter } from "../../services/deadLetterService";
 import { ApprovalCard, FlatCard, PresenceRing, StatusPill } from "../../ui";
 import type { PresenceStatus } from "../../ui";
-import { formatRunError } from "../../utils/runProgress";
+import { formatRelativeTime, formatRunError, runStatusTone } from "../../utils/runProgress";
 import type { AgentProfile, AgentRun, Task } from "../../../types";
 
 export interface InboxViewProps {
@@ -65,6 +69,12 @@ export interface InboxViewProps {
   onClearFinished?: () => void;
   /** Return a finished/failed run's task to the board (clears a stuck card). */
   onReturnToBoard?: (runId: string) => void;
+  /** Dismiss a single finished/failed run card. */
+  onDismissRun?: (runId: string) => void;
+  /** Re-run a failed/cancelled run for the same task. */
+  onRetryRun?: (runId: string) => void;
+  /** Restore a cleared snapshot of runs (the Undo affordance). */
+  onRestoreRuns?: (runs: AgentRun[]) => void;
 }
 
 type InboxCard =
@@ -83,17 +93,6 @@ function presenceForRun(run: AgentRun): PresenceStatus {
     return "working";
   }
   return "idle";
-}
-
-function formatRelativeTime(date: Date): string {
-  const diffMs = Date.now() - date.getTime();
-  const diffMin = Math.round(diffMs / 60_000);
-  if (diffMin < 1) return "just now";
-  if (diffMin < 60) return `${diffMin}m ago`;
-  const diffHr = Math.round(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
-  const diffDay = Math.round(diffHr / 24);
-  return `${diffDay}d ago`;
 }
 
 const PlanRejectInput: React.FC<{
@@ -171,7 +170,18 @@ export const InboxView: React.FC<InboxViewProps> = ({
   onClearDeadLetters,
   onClearFinished,
   onReturnToBoard,
+  onDismissRun,
+  onRetryRun,
+  onRestoreRuns,
 }) => {
+  const [undo, setUndo] = useState<{ runs: AgentRun[] } | null>(null);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    },
+    [],
+  );
   const agentById = useMemo(() => {
     const map = new Map<string, AgentProfile>();
     for (const agent of agents) map.set(agent.id, agent);
@@ -227,6 +237,30 @@ export const InboxView: React.FC<InboxViewProps> = ({
   const canClearDeadLetters = !!onClearDeadLetters && deadLetters.length > 0;
   const canClearFinished = !!onClearFinished && otherCards.length > 0;
 
+  // Clear finished cards, keeping a short-lived snapshot so the action is
+  // reversible via the Undo bar (worktree-pending runs can't be single-removed,
+  // so they're excluded from the snapshot).
+  const handleClearFinished = () => {
+    const snapshot = otherCards.map((c) => c.run).filter((r) => !r.worktreePath);
+    if (onDismissRun && snapshot.length > 0) {
+      for (const r of snapshot) onDismissRun(r.id);
+    } else {
+      onClearFinished?.();
+    }
+    if (onRestoreRuns && snapshot.length > 0) {
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+      setUndo({ runs: snapshot });
+      undoTimerRef.current = setTimeout(() => setUndo(null), 7000);
+    }
+  };
+
+  const handleUndo = () => {
+    if (undo) onRestoreRuns?.(undo.runs);
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    undoTimerRef.current = null;
+    setUndo(null);
+  };
+
   return (
     <div className="flex flex-col h-full overflow-y-auto custom-scrollbar px-4 py-4 space-y-3 max-w-2xl mx-auto w-full">
       {(canClearDeadLetters || canClearFinished) && (
@@ -244,13 +278,28 @@ export const InboxView: React.FC<InboxViewProps> = ({
           {canClearFinished && (
             <button
               type="button"
-              onClick={() => onClearFinished?.()}
+              onClick={handleClearFinished}
               className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-300 transition-colors"
               title="Clear finished run cards from the inbox"
             >
               <Trash2 size={11} /> Clear finished ({otherCards.length})
             </button>
           )}
+        </div>
+      )}
+
+      {undo && (
+        <div className="flex items-center justify-between gap-2 rounded-xl bg-white/5 border border-white/10 px-3 py-2">
+          <span className="text-[11px] text-slate-400">
+            Cleared {undo.runs.length} finished run{undo.runs.length === 1 ? "" : "s"}
+          </span>
+          <button
+            type="button"
+            onClick={handleUndo}
+            className="inline-flex items-center gap-1 text-[11px] font-medium text-red-300 hover:text-red-200 transition-colors"
+          >
+            <Undo2 size={11} /> Undo
+          </button>
         </div>
       )}
 
@@ -339,6 +388,8 @@ export const InboxView: React.FC<InboxViewProps> = ({
           onOpenRun={onOpenRun}
           onSendRepair={onSendRepair}
           onReturnToBoard={onReturnToBoard}
+          onDismissRun={onDismissRun}
+          onRetryRun={onRetryRun}
         />
       ))}
     </div>
@@ -485,10 +536,14 @@ const InboxRunCard: React.FC<{
   onOpenRun?: (runId: string) => void;
   onSendRepair?: (run: AgentRun, feedback: string) => void;
   onReturnToBoard?: (runId: string) => void;
-}> = ({ card, agent, onOpenRun, onSendRepair, onReturnToBoard }) => {
+  onDismissRun?: (runId: string) => void;
+  onRetryRun?: (runId: string) => void;
+}> = ({ card, agent, onOpenRun, onSendRepair, onReturnToBoard, onDismissRun, onRetryRun }) => {
   const { run, task } = card;
   const title = task?.title ?? run.taskId;
   const ts = card.sortTs ? new Date(card.sortTs) : undefined;
+  const isRecoverable = run.status === "failed" || run.status === "cancelled";
+  const canDismiss = !!onDismissRun && !run.worktreePath;
   // Verify-verdict repair loop: a gate-blocked run exposes its blocking gaps
   // and a one-click repair action that resumes the run seeded with them.
   const blockingGaps =
@@ -500,7 +555,7 @@ const InboxRunCard: React.FC<{
   const runError = card.kind !== "blocked" ? formatRunError(run) : undefined;
 
   return (
-    <FlatCard>
+    <FlatCard className="group">
       <div className="flex items-center gap-2.5">
         <PresenceRing status={presenceForRun(run)} size={28}>
           <Bot size={13} className="text-red-300" />
@@ -508,22 +563,35 @@ const InboxRunCard: React.FC<{
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="text-xs text-white truncate">{title}</p>
-            <StatusPill status={run.isPaused ? "paused" : run.status} />
+            <StatusPill status={run.isPaused ? "paused" : run.status} tone={runStatusTone(run)} />
           </div>
           <p className="text-[11px] text-slate-500 truncate">
             {agent?.name ?? "Agent"}
             {ts ? ` · ${formatRelativeTime(ts)}` : ""}
           </p>
         </div>
-        {run.status === "completed" ? (
-          <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
-        ) : run.status === "failed" ? (
-          <XCircle size={14} className="text-red-400 shrink-0" />
-        ) : card.kind === "blocked" ? (
-          <ShieldAlert size={14} className="text-amber-400 shrink-0" />
-        ) : (
-          <XCircle size={14} className="text-slate-500 shrink-0" />
-        )}
+        <div className="flex items-center gap-1 shrink-0">
+          {run.status === "completed" ? (
+            <CheckCircle2 size={14} className="text-emerald-400" />
+          ) : run.status === "failed" ? (
+            <XCircle size={14} className="text-red-400" />
+          ) : card.kind === "blocked" ? (
+            <ShieldAlert size={14} className="text-amber-400" />
+          ) : (
+            <XCircle size={14} className="text-slate-500" />
+          )}
+          {canDismiss && (
+            <button
+              type="button"
+              onClick={() => onDismissRun?.(run.id)}
+              className="p-1 rounded-lg text-slate-500 hover:text-white hover:bg-white/10 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+              aria-label="Dismiss run"
+              title="Dismiss this run"
+            >
+              <X size={13} />
+            </button>
+          )}
+        </div>
       </div>
 
       {run.summary && card.kind === "finished" && run.status !== "failed" && (
@@ -576,6 +644,16 @@ const InboxRunCard: React.FC<{
             Open run
           </button>
         )}
+        {onRetryRun && isRecoverable && (
+          <button
+            type="button"
+            onClick={() => onRetryRun(run.id)}
+            className="inline-flex items-center gap-1 text-[11px] text-red-300/90 hover:text-red-200"
+            title="Start a fresh run for this task"
+          >
+            <RefreshCw size={10} /> Retry
+          </button>
+        )}
         {onReturnToBoard &&
           (run.status === "failed" || run.status === "cancelled" || card.kind === "blocked") && (
             <button
@@ -584,7 +662,7 @@ const InboxRunCard: React.FC<{
               className="inline-flex items-center gap-1 text-[11px] text-sky-300/90 hover:text-sky-200"
               title="Return this task to the board"
             >
-              <RotateCcw size={10} /> Return to board
+              <CornerUpLeft size={10} /> Return to board
             </button>
           )}
       </div>

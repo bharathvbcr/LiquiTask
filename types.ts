@@ -266,6 +266,14 @@ export interface AgentRun {
   numTurns?: number;
   costUsd?: number;
   sessionId?: string;
+  /**
+   * Base repository directory this run resolved to at start (the task's project
+   * workspace). Authoritative over the agent profile's `workingDir`, which can
+   * be stale or re-supplied from the roster after a relaunch. Consumers needing
+   * the run's repo (worktree create, merge target, terminal, prune) prefer this.
+   * Unset on runs created before this field existed.
+   */
+  repoDir?: string;
   /** Git branch created for this run (when gitWorktree enabled). */
   gitBranch?: string;
   /** Isolated worktree path (when gitWorktree enabled). */

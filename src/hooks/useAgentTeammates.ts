@@ -19,15 +19,18 @@ import type {
   AgentProfile,
   AgentRun,
   BoardColumn,
+  Project,
   Task,
   ToastType,
 } from "../../types";
+import { resolveAgentWorkspace } from "../services/agents/resolveAgentWorkspace";
 import { generateTaskId, getBacklogColumnId } from "../utils/taskUtils";
 
 interface UseAgentTeammatesArgs {
   isLoaded: boolean;
   tasks: Task[];
   columns: BoardColumn[];
+  projects: Project[];
   handleUpdateTask: (
     taskId: string,
     updates: Partial<Task>,
@@ -63,6 +66,7 @@ export const useAgentTeammates = ({
   isLoaded,
   tasks,
   columns,
+  projects,
   handleUpdateTask,
   handleCreateTask,
   addToast,
@@ -75,6 +79,17 @@ export const useAgentTeammates = ({
   tasksRef.current = tasks;
   const columnsRef = useRef(columns);
   columnsRef.current = columns;
+  const projectsRef = useRef(projects);
+  projectsRef.current = projects;
+
+  // Bind runs to the task's project workspace (fixes agents running in the
+  // wrong repo). The resolver reads the latest projects via the ref, so it
+  // stays current without re-registering.
+  useEffect(() => {
+    agentRunService.setWorkspaceResolver((task, agent) =>
+      resolveAgentWorkspace(task, agent, projectsRef.current),
+    );
+  }, []);
   /** taskId -> assignee already auto-picked, to avoid re-trigger loops. */
   const pickedUpRef = useRef(new Map<string, string>());
   /** runId -> repair tasks already created from gate gaps. */
@@ -320,7 +335,12 @@ export const useAgentTeammates = ({
                 const worker = agentService.getAgentByAssignee(repairTask.assignee);
                 if (worker?.autoPickup) {
                   pickedUpRef.current.set(repairTask.id, repairTask.assignee);
-                  void agentRunService.assign(repairTask, worker);
+                  void agentRunService.assign(repairTask, worker).catch((err) => {
+                    addToast(
+                      err instanceof Error ? err.message : "Could not start repair run.",
+                      "error",
+                    );
+                  });
                 }
               }
             } catch (err) {
@@ -509,6 +529,65 @@ export const useAgentTeammates = ({
       cleared > 0 ? "info" : "warning",
     );
   }, [addToast]);
+
+  /**
+   * Dismiss a single finished/failed run card. Worktree-pending runs are kept
+   * (Merge/Discard first) — the service refuses those and we surface why.
+   */
+  const dismissRun = useCallback(
+    (runId: string) => {
+      const removed = agentRunService.removeRun(runId);
+      if (!removed) {
+        addToast("Resolve this run's worktree (Merge or Discard) before dismissing it.", "warning");
+      }
+    },
+    [addToast],
+  );
+
+  /**
+   * Restore runs removed by a bulk clear — the "Undo" affordance. The surface
+   * hands back the exact snapshot it cleared; the service ignores any that are
+   * already present so undo is idempotent.
+   */
+  const restoreRuns = useCallback(
+    (snapshot: AgentRun[]) => {
+      const restored = agentRunService.restoreRuns(snapshot);
+      if (restored > 0) {
+        addToast(`Restored ${restored} run${restored === 1 ? "" : "s"}.`, "info");
+      }
+    },
+    [addToast],
+  );
+
+  /**
+   * Re-run a failed/cancelled run: start a fresh run for the same task, then
+   * drop the old terminal card once the new run is under way so it visually
+   * replaces the failure instead of stacking beside it.
+   */
+  const retryAgentRun = useCallback(
+    async (runId: string) => {
+      const run = agentRunService.getRuns().find((r) => r.id === runId);
+      if (!run) {
+        addToast("That run no longer exists.", "warning");
+        return;
+      }
+      const task = tasksRef.current.find((t) => t.id === run.taskId);
+      if (!task) {
+        addToast("The task for this run no longer exists.", "warning");
+        return;
+      }
+      await startAgentRun(task);
+      const started = agentRunService
+        .getRunsForTask(task.id)
+        .some(
+          (r) =>
+            r.id !== runId &&
+            (r.status === "queued" || r.status === "running" || r.status === "verifying"),
+        );
+      if (started) agentRunService.removeRun(runId);
+    },
+    [addToast, startAgentRun],
+  );
 
   /** Bulk-dismiss every open dead-letter / failed-action item in the Inbox. */
   const clearDeadLetters = useCallback(() => {
@@ -744,7 +823,12 @@ export const useAgentTeammates = ({
         const worker = agentService.getAgentByAssignee(agentName);
         if (child && worker) {
           pickedUpRef.current.set(childId, agentName);
-          void agentRunService.assign(child, worker);
+          void agentRunService.assign(child, worker).catch((err) => {
+            addToast(
+              err instanceof Error ? err.message : `Could not start ${agentName}'s run.`,
+              "error",
+            );
+          });
         }
       }
     },
@@ -944,6 +1028,9 @@ export const useAgentTeammates = ({
     cancelAgentRun,
     stopAgentRun,
     clearFinishedRuns,
+    dismissRun,
+    restoreRuns,
+    retryAgentRun,
     clearDeadLetters,
     openRunInTerminal,
     assignTaskToAgent,

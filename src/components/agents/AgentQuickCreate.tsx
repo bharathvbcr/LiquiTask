@@ -8,7 +8,7 @@
  * Settings → Agents for fine-tuning.
  */
 
-import { CheckCircle2, FolderOpen, Loader2, Plus, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, FolderOpen, Loader2, Plus, X } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 
@@ -58,6 +58,14 @@ export const AgentQuickCreate: React.FC<AgentQuickCreateProps> = ({
 
   const defaultDir = workspacePaths[0] ?? '';
 
+  // Guard: flag when the chosen folder isn't one of the active project's linked
+  // workspace paths. Agents aren't bound to a project, and runs are redirected
+  // to the task's project workspace at run time — so this is a heads-up, not a
+  // hard block, to catch the "agent points at the wrong repo" mistake early.
+  const effectiveDir = (workingDir || defaultDir).trim();
+  const outsideProject =
+    workspacePaths.length > 0 && !!effectiveDir && !workspacePaths.includes(effectiveDir);
+
   // Prefill from the active project's linked workspace whenever the form opens.
   useEffect(() => {
     if (open && !workingDir && defaultDir) setWorkingDir(defaultDir);
@@ -85,6 +93,13 @@ export const AgentQuickCreate: React.FC<AgentQuickCreateProps> = ({
     if (agentService.getAgentByAssignee(trimmed)) {
       addToast?.(`An agent named "${trimmed}" already exists.`, 'warning');
       return;
+    }
+    // Non-blocking heads-up when the folder is outside the active project.
+    if (workspacePaths.length > 0 && !workspacePaths.includes(dir)) {
+      addToast?.(
+        `Heads up: ${folderBasename(dir)} isn't linked to this project. Runs for this project's tasks will still use the project's workspace.`,
+        'warning',
+      );
     }
     setSaving(true);
     try {
@@ -182,6 +197,16 @@ export const AgentQuickCreate: React.FC<AgentQuickCreateProps> = ({
           <FolderOpen size={12} /> Browse
         </button>
       </div>
+      {outsideProject && (
+        <p className="text-[10px] text-amber-300/90 flex items-start gap-1">
+          <AlertTriangle size={11} className="mt-px shrink-0" />
+          <span>
+            This folder isn’t linked to the current project. Link it under the project’s settings if
+            the agent should work here — otherwise this project’s tasks will run in the project’s
+            own workspace.
+          </span>
+        </p>
+      )}
       <p className="text-[10px] text-slate-500">
         {defaultDir
           ? 'Works in this project’s workspace folder by default, with safe Claude Code defaults. Fine-tune in Settings → Agents.'

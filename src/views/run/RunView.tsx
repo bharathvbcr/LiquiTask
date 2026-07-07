@@ -1,9 +1,11 @@
 import {
+  AlertTriangle,
   GitBranch,
   GitMerge,
   MessageSquare,
   Pause,
   Play,
+  RefreshCw,
   Send,
   ShieldAlert,
   Square,
@@ -18,6 +20,7 @@ import { COLUMN_STATUS } from "../../constants";
 import { describePermissionInput } from "../../services/agents/agentMcpService";
 import type { AgentPermissionRequest } from "../../services/agents/agentMcpService";
 import { ApprovalCard, DiffView, GlassPanel, StatusPill, StreamText, ToolTimeline } from "../../ui";
+import { formatRunError, runStatusTone } from "../../utils/runProgress";
 import type { AgentProfile, AgentRun, Task } from "../../../types";
 
 export interface RunViewProps {
@@ -42,6 +45,10 @@ export interface RunViewProps {
   onOpenTerminal?: (run: AgentRun) => void;
   onMergeWorktree?: (run: AgentRun) => void;
   onDiscardWorktree?: (run: AgentRun) => void;
+  /** Re-run a failed/cancelled run for the same task. */
+  onRetryRun?: (runId: string) => void;
+  /** Dismiss this finished/failed run (the caller typically also closes the view). */
+  onDismissRun?: (runId: string) => void;
   /** Permission requests scoped to any run; this view filters to `run.id` itself. */
   permissionRequests?: AgentPermissionRequest[];
 }
@@ -203,6 +210,8 @@ export const RunView: React.FC<RunViewProps> = ({
   onOpenTerminal,
   onMergeWorktree,
   onDiscardWorktree,
+  onRetryRun,
+  onDismissRun,
   permissionRequests = [],
 }) => {
   const [guidanceText, setGuidanceText] = useState("");
@@ -230,6 +239,11 @@ export const RunView: React.FC<RunViewProps> = ({
   const canInjectGuidance = active && !!onInjectGuidance;
   const hasToolEvents = run.events.some((event) => event.kind === "tool");
   const runPermissionRequests = permissionRequests.filter((p) => p.runId === run.id);
+  const isFailed = run.status === "failed";
+  const isCancelled = run.status === "cancelled";
+  const showRecovery = !active && (isFailed || isCancelled) && (!!onRetryRun || !!onDismissRun);
+  const runError = isFailed ? formatRunError(run) : undefined;
+  const canDismiss = !active && !!onDismissRun && !run.worktreePath;
 
   const submitGuidance = () => {
     const text = guidanceText.trim();
@@ -261,7 +275,7 @@ export const RunView: React.FC<RunViewProps> = ({
         <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-white/5 shrink-0">
           <div className="min-w-0 space-y-1.5">
             <div className="flex items-center gap-2 flex-wrap">
-              <StatusPill status={run.isPaused ? "paused" : run.status} />
+              <StatusPill status={run.isPaused ? "paused" : run.status} tone={runStatusTone(run)} />
               {agent?.name && (
                 <span className="text-[11px] text-slate-400">{agent.name}</span>
               )}
@@ -282,6 +296,13 @@ export const RunView: React.FC<RunViewProps> = ({
 
         {/* Body */}
         <div className="flex-1 min-h-0 flex flex-col gap-3 px-5 py-4 overflow-hidden">
+          {runError && (
+            <div className="shrink-0 flex items-start gap-2 rounded-xl bg-red-500/10 border border-red-500/20 px-3 py-2">
+              <AlertTriangle size={14} className="text-red-400 mt-0.5 shrink-0" />
+              <p className="text-[12px] text-red-200/90 break-words">{runError}</p>
+            </div>
+          )}
+
           <Transcript run={run} />
 
           {hasToolEvents && (
@@ -375,6 +396,31 @@ export const RunView: React.FC<RunViewProps> = ({
 
         {/* Footer action bar */}
         <div className="shrink-0 border-t border-white/5 px-5 py-3 space-y-2.5">
+          {showRecovery && (
+            <div className="flex gap-2">
+              {onRetryRun && (
+                <button
+                  type="button"
+                  onClick={() => onRetryRun(run.id)}
+                  className="flex-1 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-300 text-[12px] font-medium flex items-center justify-center gap-1.5 hover:bg-red-500/20 transition-colors"
+                  title="Start a fresh run for this task"
+                >
+                  <RefreshCw size={12} /> Retry run
+                </button>
+              )}
+              {canDismiss && (
+                <button
+                  type="button"
+                  onClick={() => onDismissRun?.(run.id)}
+                  className="flex-1 py-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-300 text-[12px] font-medium flex items-center justify-center gap-1.5 hover:bg-white/10 transition-colors"
+                  title="Dismiss this run"
+                >
+                  <X size={12} /> Dismiss
+                </button>
+              )}
+            </div>
+          )}
+
           {showWorktreeActions && (
             <div className="flex gap-2">
               {onMergeWorktree && (

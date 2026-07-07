@@ -782,6 +782,9 @@ export const useTaskController = ({
       augmentTaskSemantically(newTask);
 
       addToast("Task created successfully (Ctrl+Z to undo)", "success");
+      // Return the created task so programmatic callers (e.g. DevCouncil
+      // auto-init) can dispatch it to an agent. The update branch returns void.
+      return newTask;
     },
     [
       tasks,

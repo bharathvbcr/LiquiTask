@@ -100,3 +100,45 @@ function firstLine(text: string, max = 200): string {
   const line = text.split("\n").find((l) => l.trim().length > 0)?.trim() ?? text.trim();
   return line.length > max ? `${line.slice(0, max - 1)}…` : line;
 }
+
+/** Status-pill / accent tone for a run, shared across the dock, inbox and run detail. */
+export type RunStatusTone = "amber" | "red" | "emerald" | "slate" | "blue" | "purple";
+
+/**
+ * Map a run's status (and paused flag) to a single presentation tone so the
+ * badge, the card's status spine, and the collapsed-pill counters all agree on
+ * one colour language: blue = in progress, purple = verifying, amber = paused /
+ * needs attention, emerald = done, red = failed, slate = queued / cancelled.
+ */
+export function runStatusTone(
+  run: Pick<AgentRun, "status" | "isPaused">,
+): RunStatusTone {
+  if (run.isPaused) return "amber";
+  switch (run.status) {
+    case "running":
+      return "blue";
+    case "verifying":
+      return "purple";
+    case "completed":
+      return "emerald";
+    case "failed":
+      return "red";
+    default:
+      return "slate";
+  }
+}
+
+/**
+ * Compact relative time ("just now", "4m ago", "2h ago", "3d ago") for run
+ * timestamps. Shared so the dock and inbox read identically.
+ */
+export function formatRelativeTime(date: Date): string {
+  const diffMs = Date.now() - date.getTime();
+  const diffMin = Math.round(diffMs / 60_000);
+  if (diffMin < 1) return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.round(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.round(diffHr / 24);
+  return `${diffDay}d ago`;
+}

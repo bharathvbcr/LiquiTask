@@ -1,13 +1,19 @@
 commands:
   lint:
+  - npm run lint
   - flake8
-  - eslint
+  - cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets
+  - cargo clippy --manifest-path crates/liquitask-core/Cargo.toml --all-targets
+  - go -C liquitask-agentd vet ./...
   test:
+  - npm run test:run
   - pytest
-  - npm test
+  - cargo test --manifest-path src-tauri/Cargo.toml
+  - cargo test --manifest-path crates/liquitask-core/Cargo.toml
+  - go -C liquitask-agentd test ./...
   typecheck:
+  - npm run typecheck
   - mypy
-  - tsc
 execution:
   checkpoint_before_each_task: true
   default_executor: native
@@ -21,32 +27,32 @@ gates:
   require_clean_git_before_task: true
 integrations:
   agent_flow:
-    enabled: false
+    enabled: true
     mode: jsonl
     trace_path: .devcouncil/logs/traces.jsonl
   code_review_graph:
     command: code-review-graph
-    enabled: false
+    enabled: true
     optional: true
 models:
   provider: openrouter
   roles:
     arbiter:
-      model: openai/gpt-4o
+      model: openai/gpt-5.1
     critic_a:
-      model: openai/gpt-4o
+      model: openai/gpt-5.1
     critic_b:
-      model: anthropic/claude-3-opus
+      model: anthropic/claude-opus-4.8
     implementation_reviewer:
-      model: openai/gpt-4o
+      model: openai/gpt-5.1
     native_agent:
-      model: anthropic/claude-3.5-sonnet
+      model: anthropic/claude-sonnet-5
     planner_a:
-      model: anthropic/claude-3.5-sonnet
+      model: anthropic/claude-sonnet-5
     planner_b:
-      model: google/gemini-pro-1.5
+      model: google/gemini-2.5-pro
     spec_writer:
-      model: anthropic/claude-3.5-sonnet
+      model: anthropic/claude-sonnet-5
 privacy:
   redact_env_vars: true
   redact_secrets_in_logs: true

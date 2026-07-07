@@ -437,7 +437,9 @@ export const useAppInitialization = ({
                   ({ default: agentRunService }) => {
                     const agent = agentService.getAgentByAssignee(newTask.assignee);
                     if (agent && shouldRunAgentOnRecurrence(agent)) {
-                      void agentRunService.assign(newTask, agent);
+                      // Fire-and-forget: swallow a blocked-workspace rejection
+                      // (surfaced as an Inbox dead-letter) so it isn't unhandled.
+                      void agentRunService.assign(newTask, agent).catch(() => {});
                     }
                   },
                 );

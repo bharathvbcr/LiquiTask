@@ -12,6 +12,7 @@ import { COLUMN_STATUS, FEATURE_FLAGS, STORAGE_KEYS } from './src/constants';
 import { useConfirmation } from './src/contexts/ConfirmationContext';
 import { AgentRunsDock } from './src/components/agents/AgentRunsDock';
 import { AgentStandupCard } from './src/components/agents/AgentStandupCard';
+import { DevCouncilSyncPrompt } from './src/components/agents/DevCouncilSyncPrompt';
 import agentMcpService, {
   type AgentPermissionRequest,
 } from './src/services/agents/agentMcpService';
@@ -25,6 +26,7 @@ import { useGitHubSync } from './src/hooks/useGitHubSync';
 import { useAiKeyboardShortcuts } from './src/hooks/useAiKeyboardShortcuts';
 import { useAppInitialization } from './src/hooks/useAppInitialization';
 import { useAutoArchive } from './src/hooks/useAutoArchive';
+import { useDevCouncilWorkspaceSync } from './src/hooks/useDevCouncilWorkspaceSync';
 import { useGlobalKeyboardShortcuts } from './src/hooks/useGlobalKeyboardShortcuts';
 import { useProjectController } from './src/hooks/useProjectController';
 import useSavedViews from './src/hooks/useSavedViews';
@@ -37,6 +39,7 @@ import { aiService } from './src/services/aiService';
 import agentRunService from './src/services/agents/agentRunService';
 import agentDispatchService from './src/services/agents/agentDispatchService';
 import agentService from './src/services/agents/agentService';
+import { buildDevCouncilInitTask } from './src/services/agents/devcouncilWorkspaceSync';
 import { archiveService } from './src/services/archiveService';
 import {
   activateEncryptionAtRest,
@@ -686,6 +689,9 @@ const App: React.FC = () => {
     cancelAgentRun,
     stopAgentRun,
     clearFinishedRuns,
+    dismissRun,
+    restoreRuns,
+    retryAgentRun,
     clearDeadLetters,
     openRunInTerminal,
     assignTaskToAgent,
@@ -701,6 +707,7 @@ const App: React.FC = () => {
     isLoaded,
     tasks,
     columns,
+    projects,
     handleUpdateTask,
     handleCreateTask: partial => {
       handleCreateOrUpdateTask(partial, null);
@@ -754,6 +761,44 @@ const App: React.FC = () => {
   );
 
   useGitHubSync(tasks, columns, isLoaded);
+
+  // --- DevCouncil workspace sync ---------------------------------------------
+  // When the active workspace is set and DevCouncil is detected, keep it synced
+  // (repo map, injected skills, evidence mirror, prewarmed context). If the repo
+  // isn't initialized, hand initialization to a coding agent via a board task
+  // instead of shelling out to `dev init` behind the user's back.
+  const handleInitializeDevCouncil = useCallback(
+    async (dir: string) => {
+      const created = await handleCreateOrUpdateTask(
+        { ...buildDevCouncilInitTask(dir), projectId: activeProjectId },
+        null
+      );
+      if (!created) return;
+      const agents = agentService.getAgents();
+      const target =
+        agents.find(a => a.provider === 'claude-code' && a.workingDir?.trim()) ??
+        agents.find(a => a.workingDir?.trim());
+      if (!target) {
+        if (agentDispatchService.canOfferSetup()) agentDispatchService.requestSetup();
+        addToast('Added a DevCouncil setup task — create an agent to run it.', 'info');
+        return;
+      }
+      await agentDispatchService.dispatch(created, target.id, { via: 'DevCouncil auto-init' });
+    },
+    [activeProjectId, handleCreateOrUpdateTask, addToast]
+  );
+
+  const {
+    pendingInit: devcouncilInitPrompt,
+    confirmInit: confirmDevcouncilInit,
+    dismissInit: dismissDevcouncilInit,
+    syncing: devcouncilSyncing,
+  } = useDevCouncilWorkspaceSync({
+    projects,
+    activeProjectId,
+    addToast,
+    onInitializeDevCouncil: handleInitializeDevCouncil,
+  });
 
   const [standupDismissed, setStandupDismissed] = useState(false);
   const agentStandup = useAgentStandupDigest(tasks, {
@@ -2204,6 +2249,9 @@ const App: React.FC = () => {
                         onClearDeadLetters={() => clearDeadLetters()}
                         onClearFinished={() => clearFinishedRuns()}
                         onReturnToBoard={runId => void stopAgentRun(runId)}
+                        onDismissRun={dismissRun}
+                        onRestoreRuns={restoreRuns}
+                        onRetryRun={runId => void retryAgentRun(runId)}
                       />
                     </PanelBoundary>
                   ) : activeSurface === 'agents' ? (
@@ -2233,6 +2281,13 @@ const App: React.FC = () => {
           <Toast key={toast.id} toast={toast} onClose={removeToast} />
         ))}
       </div>
+
+      <DevCouncilSyncPrompt
+        pending={devcouncilInitPrompt}
+        busy={devcouncilSyncing}
+        onConfirm={() => void confirmDevcouncilInit()}
+        onDismiss={dismissDevcouncilInit}
+      />
 
       {isQuickAddOpen && (
         <Suspense fallback={null}>
@@ -2420,6 +2475,9 @@ const App: React.FC = () => {
           onCancel={runId => void stopAgentRun(runId)}
           onReturnToBoard={runId => void stopAgentRun(runId)}
           onClearFinished={() => clearFinishedRuns()}
+          onDismissRun={dismissRun}
+          onRestoreRuns={restoreRuns}
+          onRetryRun={runId => void retryAgentRun(runId)}
           onPause={runId => void pauseAgentRun(runId)}
           onResume={runId => void resumeAgentRun(runId)}
           onInjectGuidance={(runId, msg) => void injectGuidance(runId, msg)}
@@ -2464,6 +2522,11 @@ const App: React.FC = () => {
             onOpenTerminal={run => void openRunInTerminal(run)}
             onMergeWorktree={run => void mergeWorktree(run)}
             onDiscardWorktree={run => void discardWorktree(run)}
+            onRetryRun={runId => void retryAgentRun(runId)}
+            onDismissRun={runId => {
+              dismissRun(runId);
+              setSelectedRunId(null);
+            }}
             permissionRequests={shellPendingPermissions}
           />
         </Suspense>

@@ -1,4 +1,5 @@
 import {
+  AlertTriangle,
   Bot,
   CheckCircle2,
   FolderOpen,
@@ -196,8 +197,9 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
         code?: number;
       }>('agent-run-event', event => {
         if (event.payload.runId !== runId) return;
-        if (event.payload.line) {
-          setBuildLog(prev => [...prev.slice(-200), event.payload.line!]);
+        const line = event.payload.line;
+        if (line) {
+          setBuildLog(prev => [...prev.slice(-200), line]);
         }
         if (event.payload.stream === 'exit') {
           unlisten();
@@ -769,6 +771,25 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
                 Left empty, this defaults to your workspace folder: {workspaceDefaultDir}
               </span>
             )}
+            {(() => {
+              // Guard: the folder isn't one of the active project's linked
+              // workspace paths. Non-blocking — runs redirect to the task's
+              // project workspace anyway — but flag the likely mistake.
+              const projectPaths =
+                projects.find(p => p.id === activeProjectId)?.workspacePaths ?? [];
+              const dir = draft.workingDir.trim();
+              const outside = projectPaths.length > 0 && !!dir && !projectPaths.includes(dir);
+              return outside ? (
+                <span className="text-xs text-amber-300/90 flex items-start gap-1.5">
+                  <AlertTriangle size={12} className="mt-0.5 shrink-0" />
+                  <span>
+                    This folder isn’t linked to the current project. This project’s tasks will run
+                    in the project’s workspace, not here — link it under the project’s settings if
+                    the agent should work in this folder.
+                  </span>
+                </span>
+              ) : null;
+            })()}
             {devcouncilStatus === 'checking' && (
               <span className="text-xs text-slate-500 flex items-center gap-1.5">
                 <Loader2 size={12} className="animate-spin" /> Checking for DevCouncil project…

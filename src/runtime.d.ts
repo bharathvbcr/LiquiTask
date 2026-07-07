@@ -18,6 +18,7 @@ declare global {
     setPaths: (paths: string[]) => Promise<void>;
     readFile: (filePath: string, scopePaths?: string[]) => Promise<string>;
     writeFile: (filePath: string, content: string, scopePaths?: string[]) => Promise<void>;
+    ensureDir: (dirPath: string, scopePaths?: string[]) => Promise<void>;
     searchFiles: (query: string, scopePaths?: string[]) => Promise<WorkspaceSearchResult[]>;
   }
 

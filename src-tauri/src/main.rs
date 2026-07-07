@@ -633,6 +633,61 @@ fn workspace_write_file(
     fs::write(&resolved, content).map_err(|e| e.to_string())
 }
 
+/// Create a directory (and any missing parents) inside an authorized workspace.
+///
+/// `workspace_write_file` deliberately refuses to create missing parent dirs, so
+/// callers that need a fresh tree (e.g. injecting skills into `.claude/skills/…`)
+/// must materialize it first. Authorization mirrors the new-file path in
+/// `workspace_write_file`: we canonicalize the nearest existing ancestor and
+/// require it to sit inside an authorized path, blocking symlink/`..` escapes
+/// before anything is created, then re-check the resolved tree afterwards.
+#[tauri::command(rename_all = "camelCase")]
+fn workspace_ensure_dir(
+    app: AppHandle,
+    dir_path: String,
+    scope_paths: Option<Vec<String>>,
+) -> Result<(), String> {
+    let data = read_storage(&app)?;
+    let paths = resolve_workspace_scope(&safe_workspace_paths(&data), &scope_paths);
+
+    if !is_path_authorized(&dir_path, &paths) {
+        return Err(format!("Unauthorized directory access: {dir_path}"));
+    }
+
+    // Walk up to the nearest existing ancestor and canonicalize it, so a symlinked
+    // or `..`-laden ancestor can't smuggle the target outside the workspace before
+    // we create it.
+    let mut ancestor = Path::new(&dir_path);
+    let real_ancestor = loop {
+        if let Ok(real) = dunce::canonicalize(ancestor) {
+            break real;
+        }
+        match ancestor.parent() {
+            Some(parent) => ancestor = parent,
+            None => return Err(format!("Invalid directory path: {dir_path}")),
+        }
+    };
+    if !is_path_authorized(&real_ancestor.to_string_lossy(), &paths) {
+        return Err(format!(
+            "Unauthorized directory access to resolved path: {}",
+            real_ancestor.to_string_lossy()
+        ));
+    }
+
+    fs::create_dir_all(&dir_path).map_err(|e| e.to_string())?;
+
+    // Defense in depth: the freshly created tree must still resolve inside the
+    // workspace (guards a race where a symlink appeared mid-create).
+    let resolved = dunce::canonicalize(&dir_path).map_err(|e| e.to_string())?;
+    if !is_path_authorized(&resolved.to_string_lossy(), &paths) {
+        return Err(format!(
+            "Unauthorized directory access to resolved path: {}",
+            resolved.to_string_lossy()
+        ));
+    }
+    Ok(())
+}
+
 #[derive(Serialize)]
 struct WorkspaceSearchResult {
     path: String,
@@ -812,6 +867,7 @@ fn main() {
             workspace_set_paths,
             workspace_read_file,
             workspace_write_file,
+            workspace_ensure_dir,
             workspace_search_files,
             semantic_layer_spawn,
             semantic_layer_stop,

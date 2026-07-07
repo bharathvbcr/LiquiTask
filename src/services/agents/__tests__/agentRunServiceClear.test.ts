@@ -87,4 +87,29 @@ describe("agentRunService clear / remove", () => {
     // A second bulk clear is a no-op.
     expect(svc.clearFinishedRuns()).toBe(0);
   });
+
+  it("restoreRuns re-inserts a cleared snapshot (the Undo path)", async () => {
+    const svc = await bootWith([
+      persisted("done", "completed"),
+      persisted("failed", "failed"),
+    ]);
+    // Snapshot before clearing, exactly as the UI's Undo affordance does.
+    const snapshot = svc.getRuns();
+    expect(snapshot).toHaveLength(2);
+    expect(svc.clearFinishedRuns()).toBe(2);
+    expect(svc.getRuns()).toHaveLength(0);
+
+    // Undo restores every run in the snapshot…
+    expect(svc.restoreRuns(snapshot)).toBe(2);
+    expect(svc.getRuns().map((r) => r.id).sort()).toEqual(["done", "failed"]);
+    // …and is idempotent — a second restore adds nothing (already present).
+    expect(svc.restoreRuns(snapshot)).toBe(0);
+  });
+
+  it("restoreRuns refuses non-terminal runs (never resurrects a live run)", async () => {
+    const svc = await bootWith([persisted("done", "completed")]);
+    const live = { ...svc.getRuns()[0], id: "live", status: "running" } as AgentRun;
+    expect(svc.restoreRuns([live])).toBe(0);
+    expect(svc.getRuns().map((r) => r.id)).toEqual(["done"]);
+  });
 });

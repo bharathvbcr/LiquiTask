@@ -24,6 +24,7 @@ commands.allow = [
   "workspace_set_paths",
   "workspace_read_file",
   "workspace_write_file",
+  "workspace_ensure_dir",
   "workspace_search_files",
   "semantic_layer_spawn",
   "semantic_layer_stop",

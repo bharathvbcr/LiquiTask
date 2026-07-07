@@ -137,11 +137,22 @@ export const defaultCampaignRunner: CampaignRunner = {
           });
         }
       });
-      void agentRunService.assign(task, agent).then((run) => {
-        if (run === null) {
-          finish({ ok: false, verified: false, blockingGaps: ["run could not be started"] });
-        }
-      });
+      void agentRunService
+        .assign(task, agent)
+        .then((run) => {
+          if (run === null) {
+            finish({ ok: false, verified: false, blockingGaps: ["run could not be started"] });
+          }
+        })
+        .catch((err) => {
+          // e.g. the task's project has no workspace linked — surface it as a
+          // campaign failure instead of an unhandled rejection.
+          finish({
+            ok: false,
+            verified: false,
+            blockingGaps: [err instanceof Error ? err.message : "run could not be started"],
+          });
+        });
     });
   },
 };
