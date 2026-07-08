@@ -263,6 +263,9 @@ export const useAgentTeammates = ({
         };
 
         if (succeeded) {
+          // Refresh the auto-retry budget: a task that succeeds should be
+          // eligible to auto-retry again if a *future* run of it crashes.
+          autoRetryCountRef.current.delete(taskId);
           const completedCol =
             columnsRef.current.find((c) => c.id === COLUMN_STATUS.COMPLETED) ??
             columnsRef.current.find(

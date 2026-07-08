@@ -57,6 +57,7 @@ import { debounce } from './src/utils/debounce';
 import { buildTaskContextIndex, getTasksFromContextIndex } from './src/utils/taskContextIndex';
 import { filterTasksBySearch } from './src/utils/taskSearch';
 import { getBacklogColumnId } from './src/utils/taskUtils';
+import { buildBoardContextQuickAddPrefill, SIMILAR_TITLE_THRESHOLD } from './src/utils/taskParser';
 import { persistStorageQuiet } from './src/utils/persistStorage';
 import type {
   ActivityItem,
@@ -137,11 +138,6 @@ const ProjectBoard = lazy(() => import('./src/views/board/ProjectBoard'));
 const ArchiveView = lazy(() =>
   import('./src/views/board/ArchiveView').then(module => ({
     default: module.ArchiveView,
-  }))
-);
-const QuickAddBar = lazy(() =>
-  import('./src/components/QuickAddBar').then(module => ({
-    default: module.QuickAddBar,
   }))
 );
 const CommandPalette = lazy(() =>
@@ -429,6 +425,8 @@ const App: React.FC = () => {
   const toastSeqRef = useRef(0);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [taskModalAiPrefill, setTaskModalAiPrefill] = useState("");
+  const [taskModalFocusAi, setTaskModalFocusAi] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [creatingSubProjectFor, setCreatingSubProjectFor] = useState<string | undefined>(undefined);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -474,7 +472,6 @@ const App: React.FC = () => {
     setEncryptionEpoch(epoch => epoch + 1);
   }, []);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
-  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
   const [isKeyboardShortcutsOpen, setIsKeyboardShortcutsOpen] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -504,6 +501,7 @@ const App: React.FC = () => {
     autoSuggestPriorities: false,
     autoSuggestTags: false,
     cleanupOnCreate: false,
+    similarTitleThreshold: SIMILAR_TITLE_THRESHOLD,
   });
 
   // Load AI settings
@@ -515,6 +513,7 @@ const App: React.FC = () => {
         autoSuggestPriorities: savedConfig.autoSuggestPriorities ?? false,
         autoSuggestTags: savedConfig.autoSuggestTags ?? false,
         cleanupOnCreate: savedConfig.cleanupOnCreate ?? false,
+        similarTitleThreshold: savedConfig.similarTitleThreshold ?? SIMILAR_TITLE_THRESHOLD,
       });
     }
   }, []);
@@ -1264,6 +1263,13 @@ const App: React.FC = () => {
     }
   }, []);
 
+  const boardQuickAddPrefill = useCallback(() => {
+    const activeProject = projects.find(project => project.id === activeProjectId);
+    const backlogColumn =
+      columns.find(column => column.id === getBacklogColumnId(columns)) ?? columns[0];
+    return buildBoardContextQuickAddPrefill(activeProject?.name, backlogColumn?.title);
+  }, [activeProjectId, columns, projects]);
+
   const commandActions = useMemo(() => {
     const baseActions: CommandAction[] = [
       {
@@ -1275,6 +1281,36 @@ const App: React.FC = () => {
         aliases: ['create', 'new task', 'quick task'],
         action: () => {
           setEditingTask(null);
+          setTaskModalAiPrefill('');
+          setTaskModalFocusAi(false);
+          setIsTaskModalOpen(true);
+        },
+      },
+      {
+        id: 'action:quick-add-form',
+        label: 'Open Quick Add Form',
+        category: 'action',
+        description: 'Open task form with AI quick-add field focused',
+        keywords: ['quick', 'add', 'syntax', 'capture', 'ai'],
+        aliases: ['quick add form', 'task quick add', 'ai quick add'],
+        action: (ctx) => {
+          setEditingTask(null);
+          setTaskModalAiPrefill(ctx?.query ?? boardQuickAddPrefill());
+          setTaskModalFocusAi(true);
+          setIsTaskModalOpen(true);
+        },
+      },
+      {
+        id: 'action:quick-add-syntax-help',
+        label: 'Quick Add Syntax Help',
+        category: 'action',
+        description: 'Open task form with quick-add command examples',
+        keywords: ['quick', 'add', 'syntax', 'help', 'cheat', 'commands'],
+        aliases: ['syntax help', 'quick add help', 'command syntax'],
+        action: () => {
+          setEditingTask(null);
+          setTaskModalAiPrefill('$Title !h @src/file.ts +tag @tom #project >agent ~2h');
+          setTaskModalFocusAi(true);
           setIsTaskModalOpen(true);
         },
       },
@@ -1282,10 +1318,15 @@ const App: React.FC = () => {
         id: 'action:quick-add',
         label: 'Quick Add Task',
         category: 'action',
-        description: 'Open natural language quick task entry',
+        description: 'Open task form with AI quick-add focused (image paste supported in modal)',
         keywords: ['add', 'quick', 'task', 'capture'],
         aliases: ['quick add', 'capture task'],
-        action: () => setIsQuickAddOpen(true),
+        action: () => {
+          setEditingTask(null);
+          setTaskModalAiPrefill(boardQuickAddPrefill());
+          setTaskModalFocusAi(true);
+          setIsTaskModalOpen(true);
+        },
       },
       {
         id: 'action:undo',
@@ -1697,6 +1738,7 @@ const App: React.FC = () => {
   }, [
     activeProjectId,
     addToast,
+    boardQuickAddPrefill,
     handleCreateOrUpdateTask,
     handleAiInsights,
     handleAiPrioritize,
@@ -2155,6 +2197,8 @@ const App: React.FC = () => {
                 onRequestNotificationPermission={handleRequestNotificationPermission}
                 onOpenTaskModal={() => {
                   setEditingTask(null);
+                  setTaskModalAiPrefill('');
+                  setTaskModalFocusAi(false);
                   setIsTaskModalOpen(true);
                 }}
                 onSearchQueryChange={setSearchQuery}
@@ -2289,46 +2333,15 @@ const App: React.FC = () => {
         onDismiss={dismissDevcouncilInit}
       />
 
-      {isQuickAddOpen && (
-        <Suspense fallback={null}>
-          <QuickAddBar
-            isVisible={isQuickAddOpen}
-            onClose={() => setIsQuickAddOpen(false)}
-            projects={projects}
-            addToast={addToast}
-            onAddTask={(title, options) => {
-              const targetProject = options?.projectId
-                ? projects.find(project => project.id === options.projectId)
-                : undefined;
-              handleCreateOrUpdateTask(
-                {
-                  title,
-                  projectId: targetProject?.id ?? activeProjectId,
-                  priority: options?.priority,
-                  dueDate: options?.dueDate,
-                  timeEstimate: options?.timeEstimate,
-                  tags: options?.tags,
-                  summary: options?.summary,
-                  assignee: options?.assignee,
-                },
-                null
-              );
-              if (options?.assignee && agentService.getAgentByAssignee(options.assignee)) {
-                addToast(
-                  `Assigned to agent ${options.assignee} — will pick up per agent settings.`,
-                  'info'
-                );
-              }
-            }}
-          />
-        </Suspense>
-      )}
-
       {isTaskModalOpen && (
         <Suspense fallback={<ModalLoadingFallback />}>
           <TaskFormModal
             isOpen={isTaskModalOpen}
-            onClose={() => setIsTaskModalOpen(false)}
+            onClose={() => {
+              setIsTaskModalOpen(false);
+              setTaskModalAiPrefill('');
+              setTaskModalFocusAi(false);
+            }}
             onSubmit={data => handleCreateOrUpdateTask(data, editingTask)}
             onBulkCreateTasks={handleBulkCreateTasks}
             initialData={editingTask}
@@ -2338,6 +2351,10 @@ const App: React.FC = () => {
             availableTasks={tasks}
             columns={columns}
             allProjects={projects}
+            workspacePaths={projects.find(p => p.id === activeProjectId)?.workspacePaths ?? []}
+            globalWorkspacePaths={assistantGlobalPaths}
+            initialAiInput={taskModalAiPrefill}
+            focusAiInput={taskModalFocusAi}
             aiSettings={aiSettings}
             addToast={addToast}
           />

@@ -20,6 +20,11 @@ import { type ParsedTask, parseQuickTask } from "../utils/taskParser";
 
 type CommandActionKeywordSet = string[];
 
+export interface CommandActionContext {
+  /** Current palette search query when the action is executed. */
+  query: string;
+}
+
 export interface CommandAction {
   id: string;
   label: string;
@@ -29,7 +34,7 @@ export interface CommandAction {
   shortcut?: string;
   keywords?: CommandActionKeywordSet;
   aliases?: CommandActionKeywordSet;
-  action: () => void;
+  action: (ctx?: CommandActionContext) => void;
 }
 
 interface CommandPaletteProps {
@@ -258,11 +263,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
   const executeAction = useCallback(
     (action: CommandAction) => {
-      action.action();
+      action.action({ query: query.trim() });
       onActionExecuted?.(action.id);
       onClose();
     },
-    [onActionExecuted, onClose],
+    [onActionExecuted, onClose, query],
   );
 
   // Handle keyboard navigation

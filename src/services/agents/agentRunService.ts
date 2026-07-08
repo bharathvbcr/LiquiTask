@@ -1650,6 +1650,9 @@ class AgentRunService {
     run.error = error;
     run.isPaused = false;
     run.finishedAt = new Date();
+    // Drop the sidecar-id routing entry: the run is done, so no more inbound
+    // agentd events should resolve to it. Prevents a slow per-run map leak.
+    if (run.agentdRunId) this.agentdIdMap.delete(run.agentdRunId);
     void agentMcpService.cleanup(run.id);
     void this.refreshGitDiff(run);
     this.upsert(run);
@@ -1708,12 +1711,28 @@ class AgentRunService {
     if (!context) return;
     const [agentId] = context;
     this.activeByAgent.delete(agentId);
+    this.dequeueNext(agentId);
+  }
 
+  /**
+   * Start the next queued run for a freed agent. If it can't start (e.g. the
+   * agent hit its budget between enqueue and now), the stuck `queued` placeholder
+   * is finalized as failed and the next queued run is tried — instead of leaving
+   * a card stuck in the queue behind an unhandled promise rejection.
+   */
+  private dequeueNext(agentId: string): void {
     const nextIndex = this.queue.findIndex(q => q.agent.id === agentId);
-    if (nextIndex >= 0) {
-      const [next] = this.queue.splice(nextIndex, 1);
-      void this.startRun(next.task, next.agent);
-    }
+    if (nextIndex < 0) return;
+    const [next] = this.queue.splice(nextIndex, 1);
+    void this.startRun(next.task, next.agent).catch(err => {
+      const queued = this.getRunsForTask(next.task.id).find(r => r.status === 'queued');
+      if (queued) {
+        this.finishRun(queued, 'failed', err instanceof Error ? err.message : String(err));
+      }
+      // finishRun on a queued placeholder never held the agent, so it won't
+      // re-dequeue — advance to the next queued run explicitly.
+      this.dequeueNext(agentId);
+    });
   }
 
   private pushEvent(run: AgentRun, kind: AgentRunEventKind, text: string): void {

@@ -2,8 +2,17 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Tooltip } from "../Tooltip";
 
+const { mockFeatureFlags } = vi.hoisted(() => ({
+  mockFeatureFlags: { TOOLTIPS_ENABLED: true },
+}));
+
+vi.mock("../../constants", () => ({
+  FEATURE_FLAGS: mockFeatureFlags,
+}));
+
 describe("Tooltip", () => {
   beforeEach(() => {
+    mockFeatureFlags.TOOLTIPS_ENABLED = true;
     vi.useFakeTimers();
   });
 
@@ -126,6 +135,26 @@ describe("Tooltip", () => {
 
     fireEvent.keyDown(trigger, { key: "Escape" });
     expect(screen.queryByText("Tooltip Content")).not.toBeInTheDocument();
+  });
+
+  it("renders only children when tooltips are disabled", () => {
+    mockFeatureFlags.TOOLTIPS_ENABLED = false;
+
+    render(
+      <Tooltip content="Tooltip Content">
+        <button>Trigger</button>
+      </Tooltip>,
+    );
+
+    const trigger = screen.getByText("Trigger");
+    fireEvent.mouseEnter(trigger);
+
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+
+    expect(screen.queryByText("Tooltip Content")).not.toBeInTheDocument();
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
   });
 
   it("wraps a disabled trigger in a focusable proxy so the tooltip stays reachable", () => {

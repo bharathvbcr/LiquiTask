@@ -2,7 +2,7 @@ import type { AgentRun, Task } from "../../../types";
 import taskEventStore from "../../core/events/taskEventStore";
 import { isTauri } from "../../runtime/runtimeEnvironment";
 import deadLetterService, { type DeadLetter } from "../deadLetterService";
-import { nativeDevVerify } from "../nativeBridge";
+import { nativeDevVerify, type DevVerifyResult } from "../nativeBridge";
 
 /**
  * The transactional Commit-stage pipeline (Completed → Commit).
@@ -49,6 +49,29 @@ export interface MergePipelineBoardHooks {
   moveTaskToCommit: (taskId: string, note: string) => void;
 }
 
+export interface VerifyGateDecision {
+  passed: boolean;
+  blockingGaps: string[];
+  blockCount: number;
+}
+
+/**
+ * Decide whether the DevCouncil verify gate should block a merge. Only
+ * *concrete* blocking evidence stops it — blocking gaps or blocked tasks. A
+ * non-passing verdict with neither (e.g. nothing tracked to verify, or only
+ * advisory findings) must NOT block: that produced the contradictory
+ * "verify gate failed (0 gap(s))" that blocked legitimate commits.
+ */
+export function evaluateVerifyGate(verdict: DevVerifyResult): VerifyGateDecision {
+  const blockingGaps = (verdict.tasks ?? [])
+    .flatMap((t) => t.gaps ?? [])
+    .filter((g) => g.blocking)
+    .map((g) => g.description)
+    .filter((d): d is string => Boolean(d?.trim()));
+  const blockCount = Math.max(blockingGaps.length, verdict.blocked_tasks ?? 0);
+  return { passed: blockCount === 0, blockingGaps, blockCount };
+}
+
 class MergePipelineService {
   private boardHooks: MergePipelineBoardHooks | null = null;
 
@@ -77,16 +100,12 @@ class MergePipelineService {
       if (input.verify) {
         const verdict = await nativeDevVerify(run.worktreePath ?? repoDir).catch(() => null);
         if (verdict?.cli_available) {
-          verifyPassed = verdict.ok && verdict.blocked_tasks === 0;
-          if (!verifyPassed) {
-            const gaps = verdict.tasks
-              .flatMap((t) => t.gaps)
-              .filter((g) => g.blocking)
-              .map((g) => g.description)
-              .slice(0, 5);
+          const gate = evaluateVerifyGate(verdict);
+          verifyPassed = gate.passed;
+          if (!gate.passed) {
             throw new Error(
-              `DevCouncil verify gate failed (${verdict.total_gaps} gap(s))${
-                gaps.length ? `: ${gaps.join("; ")}` : ""
+              `DevCouncil verify gate failed (${gate.blockCount} blocking issue(s))${
+                gate.blockingGaps.length ? `: ${gate.blockingGaps.slice(0, 5).join("; ")}` : ""
               }`,
             );
           }

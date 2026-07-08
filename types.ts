@@ -563,6 +563,8 @@ export interface AIConfig {
   autoSuggestTags?: boolean;
   cleanupOnCreate?: boolean;
   insightsFrequency?: "daily" | "weekly" | "manual";
+  /** Fuzzy duplicate-title threshold for quick-add warnings (0–1). Default 0.68. */
+  similarTitleThreshold?: number;
   autoOrganize?: AutoOrganizeConfig;
 }
 

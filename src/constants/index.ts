@@ -42,6 +42,16 @@ export const STORAGE_KEYS = {
   DEAD_LETTERS: "liquitask-dead-letters",
   /** Explicit path override for the DevCouncil CLI (Settings → Agents). */
   DEVCOUNCIL_CLI_PATH: "liquitask-devcouncil-cli-path",
+  /** Recent quick-add strings for one-click re-apply in TaskFormModal. */
+  QUICK_ADD_RECENT: "liquitask-quick-add-recent",
+  /** When true, the recent quick-add chips row is hidden in TaskFormModal. */
+  QUICK_ADD_RECENT_HIDDEN: "liquitask-quick-add-recent-hidden",
+  /** Last-used AI refine preset label in TaskFormModal. */
+  QUICK_ADD_REFINE_PRESET: "liquitask-quick-add-refine-preset",
+  /** When true, the Quick Add Guide panel is expanded in TaskFormModal. */
+  QUICK_ADD_GUIDE_OPEN: "liquitask-quick-add-guide-open",
+  /** Feature-usage flags for rotating quick-add tips (no telemetry). */
+  QUICK_ADD_USAGE_FLAGS: "liquitask-quick-add-usage-flags",
 } as const;
 
 export const FEATURE_FLAGS = {
@@ -50,6 +60,8 @@ export const FEATURE_FLAGS = {
   AGENTD_SIDECAR_ENABLED: true,
   /** Use v3 four-surface shell (Inbox/Board/Agents/Run). */
   V3_SHELL_ENABLED: true,
+  /** Show hover/focus tooltips on controls. */
+  TOOLTIPS_ENABLED: false,
 } as const;
 
 // Default column configuration — the agentic four-stage board:

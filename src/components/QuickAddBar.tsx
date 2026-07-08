@@ -21,13 +21,22 @@ interface QuickAddBarProps {
       assignee?: string;
     },
   ) => void;
+  /** When set, text submit opens TaskFormModal with this input instead of creating directly. */
+  onOpenTaskForm?: (input: string) => void;
   isVisible: boolean;
   onClose: () => void;
   projects?: Array<{ id: string; name: string }>;
   addToast?: (message: string, type: ToastType) => void;
 }
 
-export const QuickAddBar: React.FC<QuickAddBarProps> = ({ onAddTask, isVisible, onClose, projects, addToast }) => {
+export const QuickAddBar: React.FC<QuickAddBarProps> = ({
+  onAddTask,
+  onOpenTaskForm,
+  isVisible,
+  onClose,
+  projects,
+  addToast,
+}) => {
   const [input, setInput] = useState("");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -141,7 +150,17 @@ export const QuickAddBar: React.FC<QuickAddBarProps> = ({ onAddTask, isVisible, 
     if (isSubmittingRef.current || (!input.trim() && !imagePreview)) return;
     isSubmittingRef.current = true;
     try {
-      const parsed = parseQuickTask(input || "Task from Image");
+      const textInput = input || "Task from Image";
+      if (onOpenTaskForm && textInput.trim()) {
+        onOpenTaskForm(textInput.trim());
+        setInput("");
+        setImagePreview(null);
+        setAiSummary(undefined);
+        onClose();
+        return;
+      }
+
+      const parsed = parseQuickTask(textInput);
       if (parsed.title) {
         const project = matchProject(parsed.projectName);
         if (parsed.projectName && !project) {

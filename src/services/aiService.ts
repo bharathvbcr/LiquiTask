@@ -62,24 +62,49 @@ const parseDueDateLocal = (value?: string): Date | undefined => {
   return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 };
 
-const parseJsonFromLlmContent = (content: string): unknown => {
-  try {
-    return JSON.parse(content);
-  } catch {
-    const startBrace = content.indexOf("{");
-    const startBracket = content.indexOf("[");
-    const start =
-      startBrace !== -1 && (startBracket === -1 || startBrace < startBracket)
-        ? startBrace
-        : startBracket;
-    const endBrace = content.lastIndexOf("}");
-    const endBracket = content.lastIndexOf("]");
-    const end = Math.max(endBrace, endBracket);
-    if (start !== -1 && end !== -1 && end > start) {
-      return JSON.parse(content.substring(start, end + 1));
+/** Unwrap a ```json … ``` (or bare ``` … ```) markdown code fence, if present. */
+const stripCodeFences = (content: string): string => {
+  const fenced = content.match(/```(?:json|javascript|js)?\s*([\s\S]*?)```/i);
+  return fenced ? fenced[1] : content;
+};
+
+/** First `{`/`[` … last `}`/`]` region — recovers JSON embedded in prose. */
+const extractJsonRegion = (content: string): string | null => {
+  const startBrace = content.indexOf("{");
+  const startBracket = content.indexOf("[");
+  const start =
+    startBrace !== -1 && (startBracket === -1 || startBrace < startBracket)
+      ? startBrace
+      : startBracket;
+  const end = Math.max(content.lastIndexOf("}"), content.lastIndexOf("]"));
+  return start !== -1 && end > start ? content.substring(start, end + 1) : null;
+};
+
+/** Remove trailing commas before `}`/`]` — a very common LLM JSON defect. */
+const stripTrailingCommas = (content: string): string =>
+  content.replace(/,(\s*[}\]])/g, "$1");
+
+/**
+ * Parse JSON from an LLM response, tolerating the usual real-world noise:
+ * markdown code fences, surrounding prose, and trailing commas. Falls back
+ * progressively before giving up.
+ */
+export const parseJsonFromLlmContent = (content: string): unknown => {
+  const cleaned = stripCodeFences(content).trim();
+  const candidates = [cleaned, extractJsonRegion(cleaned)];
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      try {
+        return JSON.parse(stripTrailingCommas(candidate));
+      } catch {
+        // Try the next candidate.
+      }
     }
-    throw new Error("Failed to parse Ollama response");
   }
+  throw new Error("Failed to parse JSON from LLM response");
 };
 
 const parseAgentToolCalls = (

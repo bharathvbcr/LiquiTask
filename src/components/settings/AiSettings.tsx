@@ -86,6 +86,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
     autoSuggestTags: false,
     cleanupOnCreate: false,
     insightsFrequency: "manual" as "daily" | "weekly" | "manual",
+    similarTitleThreshold: 0.68,
   });
 
   const defaultAutoOrganize: AutoOrganizeConfig = {
@@ -204,6 +205,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
         autoSuggestTags: savedConfig.autoSuggestTags ?? false,
         cleanupOnCreate: savedConfig.cleanupOnCreate ?? false,
         insightsFrequency: savedConfig.insightsFrequency ?? "manual",
+        similarTitleThreshold: savedConfig.similarTitleThreshold ?? 0.68,
       });
       if (savedConfig.autoOrganize) {
         setAutoOrganize(savedConfig.autoOrganize);
@@ -262,6 +264,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
       autoSuggestTags: aiManagement.autoSuggestTags,
       cleanupOnCreate: aiManagement.cleanupOnCreate,
       insightsFrequency: aiManagement.insightsFrequency,
+      similarTitleThreshold: aiManagement.similarTitleThreshold,
       autoOrganize,
     };
     persistAiConfig(sanitizedConfig);
@@ -810,6 +813,38 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
               checked={aiManagement.autoDetectDuplicates}
               onChange={(v) => setAiManagement((prev) => ({ ...prev, autoDetectDuplicates: v }))}
             />
+
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <Merge size={16} className="text-slate-400 shrink-0" />
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-slate-200">Similar Title Threshold</div>
+                  <div className="text-[10px] text-slate-500">
+                    Quick-add fuzzy duplicate warnings (0.50–0.95)
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <input
+                  type="range"
+                  min={0.5}
+                  max={0.95}
+                  step={0.01}
+                  value={aiManagement.similarTitleThreshold}
+                  onChange={(e) =>
+                    setAiManagement((prev) => ({
+                      ...prev,
+                      similarTitleThreshold: Number(e.target.value),
+                    }))
+                  }
+                  className="w-24 accent-red-500"
+                  aria-label="Similar title threshold"
+                />
+                <span className="text-xs font-mono text-slate-400 w-10 text-right">
+                  {aiManagement.similarTitleThreshold.toFixed(2)}
+                </span>
+              </div>
+            </div>
 
             <ToggleRow
               icon={Zap}

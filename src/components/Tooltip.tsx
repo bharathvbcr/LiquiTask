@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import { FEATURE_FLAGS } from "../constants";
 
 type TooltipChildProps = React.HTMLAttributes<HTMLElement> & {
   ref?: React.Ref<HTMLElement>;
@@ -35,7 +36,15 @@ function mergeRefs<T>(...refs: Array<React.Ref<T> | undefined>) {
   };
 }
 
-export const Tooltip: React.FC<TooltipProps> = ({
+export const Tooltip: React.FC<TooltipProps> = (props) => {
+  if (!FEATURE_FLAGS.TOOLTIPS_ENABLED) {
+    return props.children;
+  }
+
+  return <TooltipActive {...props} />;
+};
+
+const TooltipActive: React.FC<TooltipProps> = ({
   content,
   children,
   delay = 300,
