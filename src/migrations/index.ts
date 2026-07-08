@@ -10,6 +10,7 @@
 
 import type { Migration } from "../../types";
 import { migrateV1_0_to_V1_1_AgenticBoard } from "./agenticBoard";
+import { migrateV1_1_to_V1_2_NormalizeTaskStrings } from "./normalizeTaskStrings";
 
 /**
  * All registered migrations, ordered by version.
@@ -22,6 +23,12 @@ export const MIGRATIONS: Migration[] = [
     description:
       "Agentic board: reframe columns to Task / In Progress / Completed / Commit",
     migrate: migrateV1_0_to_V1_1_AgenticBoard,
+  },
+  {
+    version: "1.2.0",
+    description:
+      "Normalize task string fields (title/summary/subtitle/tags/subtask titles) to strings",
+    migrate: migrateV1_1_to_V1_2_NormalizeTaskStrings,
   },
 ];
 

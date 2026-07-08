@@ -1,5 +1,8 @@
 # Moving business logic to Rust (`liquitask-core`)
 
+> **Adding new components?** See `docs/RUST_COMPONENTS_AGENTS.md` for the
+> step-by-step agent checklist (core module → Tauri wrapper → TS bridge → oracle).
+
 This change moves the deterministic business logic of six services out of
 TypeScript and into a new, framework-free Rust crate, exposed to the app through
 Tauri commands. It was produced with a multi-agent workflow: one reference slice

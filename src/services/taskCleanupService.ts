@@ -11,6 +11,7 @@ import type {
   TaskCluster,
 } from "../../types";
 import { STORAGE_KEYS } from "../constants";
+import { asString } from "../utils/coerce";
 import { toCoreTask } from "../runtime/coreDto";
 import { callNative } from "../runtime/runtimeEnvironment";
 import { aiService } from "./aiService";
@@ -342,7 +343,9 @@ class TaskCleanupService {
       ...archiveTasks.flatMap((t) =>
         t.subtasks.filter(
           (st) =>
-            !keepTask.subtasks.some((kst) => kst.title.toLowerCase() === st.title.toLowerCase()),
+            !keepTask.subtasks.some(
+              (kst) => asString(kst.title).toLowerCase() === asString(st.title).toLowerCase(),
+            ),
         ),
       ),
     ];
@@ -419,7 +422,9 @@ class TaskCleanupService {
       const subtaskOf = activeTasks.find(
         (other) =>
           other.id !== task.id &&
-          other.subtasks.some((st) => st.title.toLowerCase() === task.title.toLowerCase()),
+          other.subtasks.some(
+            (st) => asString(st.title).toLowerCase() === asString(task.title).toLowerCase(),
+          ),
       );
 
       if (subtaskOf) {
@@ -635,12 +640,12 @@ class TaskCleanupService {
       const clusterTasks = [task.id];
       processed.add(task.id);
 
-      const taskWords = new Set(task.title.toLowerCase().split(/\s+/));
+      const taskWords = new Set(asString(task.title).toLowerCase().split(/\s+/));
 
       for (const other of allTasks) {
         if (processed.has(other.id)) continue;
 
-        const otherWords = new Set(other.title.toLowerCase().split(/\s+/));
+        const otherWords = new Set(asString(other.title).toLowerCase().split(/\s+/));
         const overlap = [...taskWords].filter((w) => otherWords.has(w)).length;
 
         if (overlap >= 2) {

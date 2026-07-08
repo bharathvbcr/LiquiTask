@@ -5,6 +5,7 @@ import { isTauri } from "../../runtime/runtimeEnvironment";
 import deadLetterService from "../deadLetterService";
 import storageService from "../storageService";
 import type { ActivityItem, AgentRun, BoardColumn, Task } from "../../../types";
+import { asString } from "../../utils/coerce";
 import { generateTaskId } from "../../utils/taskUtils";
 import agentScopeService from "./agentScopeService";
 
@@ -704,7 +705,7 @@ class AgentMcpService {
       tags: task.tags,
       subtasks: (task.subtasks ?? []).map((s) => ({
         id: s.id,
-        title: s.title,
+        title: asString(s.title),
         completed: s.completed,
       })),
       columns: columns.map((c) => ({
@@ -828,7 +829,7 @@ class AgentMcpService {
       openSubtasks.length > 0
         ? ` Note: ${openSubtasks.length} subtask(s) are still open (${openSubtasks
             .slice(0, 3)
-            .map((s) => s.title)
+            .map((s) => asString(s.title))
             .join(", ")}${openSubtasks.length > 3 ? ", …" : ""}) — the reviewer will see them.`
         : "";
     return {
@@ -845,10 +846,14 @@ class AgentMcpService {
     const needle = String(args.subtask ?? args.title ?? args.id ?? "").trim();
     if (!needle) throw new Error("subtask (id or title) is required");
     const lower = needle.toLowerCase();
+    // Coerce the title: a subtask persisted with a non-string title (e.g. an
+    // AI-generated `{ title }` object) would otherwise crash `.toLowerCase()`
+    // and fail the whole agent action.
     const target = (task.subtasks ?? []).find(
-      (s) => s.id === needle || s.title.toLowerCase() === lower,
+      (s) => s.id === needle || asString(s?.title).toLowerCase() === lower,
     );
     if (!target) throw new Error(`Subtask not found: ${needle}`);
+    const targetTitle = asString(target.title);
     const completed = args.completed === undefined ? !target.completed : Boolean(args.completed);
     this.requireHooks.updateTask(task.id, {
       subtasks: (task.subtasks ?? []).map((s) =>
@@ -856,11 +861,11 @@ class AgentMcpService {
       ),
       activity: [
         ...(task.activity ?? []),
-        activity("agent-mcp", `${completed ? "checked off" : "reopened"} subtask: ${target.title}`),
+        activity("agent-mcp", `${completed ? "checked off" : "reopened"} subtask: ${targetTitle}`),
       ],
     });
     return {
-      content: [{ type: "text", text: `Subtask "${target.title}" ${completed ? "completed" : "reopened"}` }],
+      content: [{ type: "text", text: `Subtask "${targetTitle}" ${completed ? "completed" : "reopened"}` }],
     };
   }
 
