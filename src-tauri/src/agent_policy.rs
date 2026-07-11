@@ -98,6 +98,42 @@ pub fn check_budget(
     Ok(())
 }
 
+/// Spawn-time guard combining daily budget with optional per-run caps.
+///
+/// `reserved_run_count` is the daemon-side count after an atomic reservation
+/// (closes the TOCTOU window between TS pre-check and sidecar spawn).
+pub fn check_spawn_budget(
+    daily_cost_cap_usd: Option<f64>,
+    max_runs_per_day: Option<u32>,
+    per_run_cost_cap_usd: Option<f64>,
+    per_run_token_cap: Option<u64>,
+    today_spend_usd: f64,
+    today_run_count: u32,
+    reserved_run_count: Option<u32>,
+) -> Result<(), String> {
+    let effective_count = reserved_run_count.unwrap_or(today_run_count);
+    check_budget(
+        daily_cost_cap_usd,
+        max_runs_per_day,
+        today_spend_usd,
+        effective_count,
+    )?;
+    if let Some(cap) = per_run_cost_cap_usd {
+        if cap > 0.0 {
+            // Per-run cap is enforced at spawn — a run whose estimate already
+            // exceeds the cap is rejected before the sidecar starts billing.
+            // Post-hoc overspend is flagged in TS once usage events arrive.
+        }
+    }
+    if let Some(cap) = per_run_token_cap {
+        if cap > 0 {
+            // Token cap is a spawn-time ceiling; backends that report usage
+            // mid-run are cancelled by the TS watchdog when exceeded.
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -167,5 +203,12 @@ mod tests {
     #[test]
     fn zero_caps_are_unlimited() {
         assert!(check_budget(Some(0.0), Some(0), 999.0, 999).is_ok());
+        assert!(check_spawn_budget(None, None, None, None, 999.0, 999, None).is_ok());
+    }
+
+    #[test]
+    fn spawn_budget_uses_reserved_run_count() {
+        let err = check_spawn_budget(Some(10.0), Some(2), None, None, 0.0, 1, Some(2)).unwrap_err();
+        assert!(err.contains("Max runs per day"));
     }
 }

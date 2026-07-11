@@ -80,6 +80,34 @@ export function selectSkillsForTask(
 }
 
 /**
+ * Skill set for a single run: an agent's pinned skills always win, then the
+ * best task-relevant matches fill the rest. Pinned entries are prepended in
+ * catalog order (their `id` appears in `pinnedIds`); the remaining catalog is
+ * relevance-ranked via `selectSkillsForTask`. Unknown pinned ids are simply
+ * absent from the catalog, so a deleted skill degrades safely to none.
+ */
+export function selectRunSkills(
+  task: Task,
+  catalog: SkillCatalogEntry[],
+  pinnedIds: readonly string[] = [],
+  limit: number = DEFAULT_LIMIT,
+): SkillCatalogEntry[] {
+  const pinnedSet = new Set(pinnedIds);
+  const pinned = catalog.filter((entry) => pinnedSet.has(entry.id));
+  const rest = catalog.filter((entry) => !pinnedSet.has(entry.id));
+  const ranked = selectSkillsForTask(task, rest, limit);
+
+  const seen = new Set<string>();
+  const combined: SkillCatalogEntry[] = [];
+  for (const entry of [...pinned, ...ranked]) {
+    if (seen.has(entry.id)) continue;
+    seen.add(entry.id);
+    combined.push(entry);
+  }
+  return combined;
+}
+
+/**
  * Adapt a catalog entry to the `AgentSkill` shape the prompt builders consume.
  * Only title/summary are rendered; `agentId` carries the origin for traceability.
  */

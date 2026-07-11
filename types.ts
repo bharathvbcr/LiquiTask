@@ -126,6 +126,29 @@ export interface Task {
     number: number;
     url: string;
   };
+  /** PR/CI/review metadata populated by the feedback loop (In Review stage). */
+  prState?: TaskPrState;
+}
+
+/** Pull-request lifecycle metadata shown on In Review cards. */
+export interface TaskPrState {
+  url?: string;
+  prNumber?: number;
+  /** draft | open | merged | closed */
+  state?: string;
+  isDraft?: boolean;
+  ci?: {
+    passed: number;
+    failed: number;
+    pending: number;
+    allPassed?: boolean;
+  };
+  review?: {
+    /** approved | changes_requested | commented | pending */
+    decision?: string;
+    unresolvedThreads?: number;
+  };
+  updatedAt?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -133,16 +156,16 @@ export interface Task {
 // ---------------------------------------------------------------------------
 
 /**
- * Which engine executes the agent's work. `claude-code` runs through the
- * legacy in-process Rust runner (feature-rich: containers, council mode, MCP
- * board bridge); every other value is a liquitask-agentd runtime id (kept in
- * lockstep with liquitask-agentd/internal/detect/detect.go) executed via the
- * Go sidecar when `FEATURE_FLAGS.AGENTD_SIDECAR_ENABLED` is on.
+ * Which engine executes the agent's work. Every provider value maps to a
+ * liquitask-agentd runtime id (claude-code → `claude`) and executes via the
+ * Go sidecar when `FEATURE_FLAGS.AGENTD_SIDECAR_ENABLED` is on. Council mode
+ * uses the slim Rust DevCouncil runner instead.
  */
 export type AgentProvider =
   | "claude-code"
   | "codex"
   | "cursor"
+  | "grok"
   | "copilot"
   | "opencode"
   | "openclaw"
@@ -158,8 +181,14 @@ export type AgentProvider =
 /** Where the agent process runs. `container` uses apple/container (macOS 26+). */
 export type AgentSandbox = "host" | "container";
 
+/** Opt-in OS-level sandbox wrapping for agent spawns (sandbox-exec / bwrap). */
+export type AgentSandboxMode = "none" | "os";
+
 /** Claude Code permission mode used for host runs. */
 export type AgentPermissionMode = "default" | "plan" | "acceptEdits" | "bypassPermissions";
+
+/** Per-tool permission policy forwarded to agentd (unlisted tools default to ask). */
+export type AgentToolPolicyAction = "allow" | "ask" | "deny";
 
 /**
  * How a run executes:
@@ -169,8 +198,13 @@ export type AgentPermissionMode = "default" | "plan" | "acceptEdits" | "bypassPe
  */
 export type AgentRunMode = "direct" | "council";
 
-/** Agent role — planner agents decompose epics via DevCouncil `dev plan`. */
-export type AgentRole = "default" | "planner";
+/**
+ * Agent role:
+ * - `default` / `coder` — executes implementation work.
+ * - `planner` — decomposes epics via DevCouncil `dev plan`.
+ * - `reviewer` — read-only diff review gate (Completed → InReview → Commit).
+ */
+export type AgentRole = "default" | "coder" | "planner" | "reviewer";
 
 /** A reusable skill compounded from a successful agent run (Multica-style). */
 export interface AgentSkill {
@@ -196,7 +230,16 @@ export interface AgentProfile {
   workingDir: string;
   model?: string;
   permissionMode: AgentPermissionMode;
+  /**
+   * Auto-approve tool prompts without user confirmation. Explicit opt-in only;
+   * `permissionMode: "bypassPermissions"` is a separate bypass path.
+   */
+  autoApprove?: boolean;
+  /** Per-tool allow/ask/deny policy forwarded to agentd `run.start`. */
+  toolPolicy?: Record<string, AgentToolPolicyAction>;
   sandbox: AgentSandbox;
+  /** Opt-in OS sandbox wrapper (sandbox-exec on macOS, bwrap on Linux). Default `none`. */
+  sandboxMode?: AgentSandboxMode;
   /** Defaults to `direct` when unset. */
   runMode?: AgentRunMode;
   /** `planner` runs `dev plan` on epic drop instead of a coding run. */
@@ -205,12 +248,25 @@ export interface AgentProfile {
   containerImage?: string;
   /** Create a git worktree per run for isolated parallel work. */
   gitWorktree?: boolean;
+  /**
+   * When worktree creation fails, run on the main checkout instead of failing
+   * the run. Defaults to false (fail closed + dead-letter).
+   */
+  allowMainCheckout?: boolean;
   /** Assigning a task starts the run immediately (Multica-style autonomy). */
   autoPickup: boolean;
   /** When a recurring instance lands on this agent, start a run automatically. */
   runsOnRecurrence: boolean;
   /** Run `dev check --verify --json` (DevCouncil) as a quality gate after runs. */
   devCouncilVerify: boolean;
+  /** Run an LLM diff review as a merge gate (alternative to DevCouncil verify). */
+  llmReviewGate?: boolean;
+  /** Commit stage strategy: merge locally (default) or push branch + open PR. */
+  commitStage?: 'merge' | 'pushPr';
+  /** Run a dedicated reviewer agent (read-only) as the merge gate. */
+  reviewerAgentGate?: boolean;
+  /** Agent profile id to use as the reviewer when reviewerAgentGate is on. */
+  reviewerAgentId?: string;
   maxTurns?: number;
   /** Daily spend cap in USD; 0 or unset = unlimited. */
   dailyCostCapUsd?: number;
@@ -231,7 +287,44 @@ export interface AgentProfile {
   autoRetryOnCrash?: boolean;
   /** `fixed` uses `model`; `auto` routes by task priority / time estimate. */
   modelRouting?: "fixed" | "auto";
+  /**
+   * Opt-in autonomous feedback loop: route CI failures, review comments, and
+   * merge conflicts back to the agent automatically (bounded by maxAttempts).
+   */
+  autoRepair?: {
+    ciFailures?: boolean;
+    reviewComments?: boolean;
+    mergeConflicts?: boolean;
+    /** Max automatic follow-up attempts per failure kind before Inbox escalation. */
+    maxAttempts?: number;
+  };
+  /** Pinned skills always injected into this agent's runs. */
+  skills?: string[];
+  /** Execution host: local machine or remote via SSH. Default `local`. */
+  host?: AgentExecutionHost;
+  /** SSH settings when `host` is `ssh`. */
+  ssh?: AgentSshConfig;
   createdAt: Date;
+}
+
+/** Where agent CLI processes execute. */
+export type AgentExecutionHost = "local" | "ssh";
+
+/** Remote execution settings (OpenSSH on unix hosts). */
+export interface AgentSshConfig {
+  /** SSH target (`user@host` or `host`). */
+  target: string;
+  /** SSH port (default 22). */
+  port?: number;
+  /** Optional identity file path. */
+  identityFile?: string;
+  /**
+   * Remote base path matching the agent's local `workingDir`. Required when
+   * Mutagen sync is not detected for the workspace.
+   */
+  remotePath?: string;
+  /** Fall back to local execution when SSH is unreachable. Default true. */
+  fallbackToLocal?: boolean;
 }
 
 export type AgentRunStatus =
@@ -263,6 +356,52 @@ export interface AgentRunVerification {
   raw?: string;
 }
 
+/** Message-index marker for session rewind (Claude/Codex JSONL sessions). */
+export interface SessionCheckpoint {
+  id: string;
+  label?: string;
+  messageIndex: number;
+  createdAt: Date;
+}
+
+/** Kind of step in a unified run trace (journal + git + session). */
+export type RunTraceStepKind =
+  | "tool"
+  | "permission"
+  | "file_write"
+  | "session"
+  | "git_checkpoint"
+  | "devcouncil";
+
+/** One reversible step in a run trace — anchored to git and/or session state. */
+export interface RunTraceStep {
+  id: string;
+  index: number;
+  kind: RunTraceStepKind;
+  label: string;
+  ts: Date;
+  gitCommitSha?: string;
+  sessionMessageIndex?: number;
+  sessionCheckpointId?: string;
+  toolName?: string;
+  permissionDecision?: "allow" | "deny" | "always";
+}
+
+/** Ordered reversible trace for one run. */
+export interface RunTrace {
+  runId: string;
+  steps: RunTraceStep[];
+}
+
+/** Structured reviewer verdict (approve / request-changes). */
+export interface ReviewVerdict {
+  verdict: "approve" | "request-changes";
+  passed: boolean;
+  blockingIssues: string[];
+  summary: string;
+  fileComments?: Array<{ path: string; line?: number; comment: string }>;
+}
+
 /** One execution of an agent against a task (Multica task lifecycle). */
 export interface AgentRun {
   id: string;
@@ -278,6 +417,16 @@ export interface AgentRun {
   summary?: string;
   numTurns?: number;
   costUsd?: number;
+  /** Live per-model token tallies from agentd `run.events` usage payloads. */
+  usage?: Record<
+    string,
+    {
+      inputTokens?: number;
+      outputTokens?: number;
+      cacheReadTokens?: number;
+      cacheWriteTokens?: number;
+    }
+  >;
   sessionId?: string;
   /**
    * Base repository directory this run resolved to at start (the task's project
@@ -305,6 +454,10 @@ export interface AgentRun {
   failureKind?: "crashed" | "timeout" | "stall";
   /** True while the agent process is paused mid-run (SIGSTOP / suspend). */
   isPaused?: boolean;
+  /** Epoch ms when the current pause began (unset while running). */
+  pausedAt?: number;
+  /** Accumulated paused time in ms, excluded from the run-timeout guardrail. */
+  pausedMs?: number;
   /** Human review outcome — feeds estimate learning. */
   reviewOutcome?: "approved" | "rejected";
   /** Reviewer feedback persisted when work is rejected. */
@@ -312,17 +465,32 @@ export interface AgentRun {
   /** Actual run duration in minutes (set on approval). */
   actualMinutes?: number;
   /**
-   * Which execution engine owns this run: the legacy Rust runner (claude-*)
-   * or the liquitask-agentd sidecar. Unset on runs persisted before v3 —
-   * treated as "legacy".
+   * Which execution engine owns this run: liquitask-agentd for direct runs,
+   * or the slim Rust DevCouncil runner for council mode. Unset on runs
+   * persisted before v3 — treated as council when a council buffer is active.
    */
-  engine?: "legacy" | "agentd";
-  /**
-   * Sidecar-assigned run id. agentd generates its own ids on run.start, so
+  engine?: "agentd" | "council";
+  /** Sidecar-assigned run id. agentd generates its own ids on run.start, so
    * lifecycle calls (cancel/pause/resume/inject) and inbound run.events are
    * keyed by this id while the UI keeps using the local `id`.
    */
   agentdRunId?: string;
+  /** Message-index rewind markers (Claude/Codex session files only). */
+  checkpoints?: SessionCheckpoint[];
+  /** Unified reversible trace steps (tool/permission/git/session). */
+  traceSteps?: RunTraceStep[];
+  /** Run id of the reviewer gate spawned for this work (local merge path). */
+  reviewerRunId?: string;
+  /** Source run when this run was created via session fork. */
+  forkedFromRunId?: string;
+  /** File/subsystem paths reserved in the daemon scope table for this run. */
+  reservedPaths?: string[];
+  /** Queued because another run holds overlapping scope. */
+  scopeBlocked?: boolean;
+  /** 1-based position in the scope wait queue. */
+  scopeWaitPosition?: number;
+  /** False when the run finished while the app was away and board hooks have not replayed. */
+  boardSynced?: boolean;
 }
 
 export interface BoardColumn {
@@ -330,6 +498,8 @@ export interface BoardColumn {
   title: string;
   color: string;
   isCompleted?: boolean;
+  /** When true, the column is omitted from the board until a task enters it. */
+  hidden?: boolean;
   wipLimit?: number;
 }
 
@@ -461,7 +631,7 @@ export interface TaskCluster {
 }
 
 // AI Provider configuration (extended)
-export type AIProviderId = "gemini" | "ollama";
+export type AIProviderId = "gemini" | "ollama" | "claude-code";
 
 export interface AutoOrganizeConfig {
   enabled: boolean;
@@ -531,6 +701,21 @@ export interface AutoOrganizeChange {
   clusterTheme?: string;
 }
 
+/** User-defined MCP server merged into agent run configs (Settings → Agents). */
+export interface UserMcpServer {
+  id: string;
+  /** MCP server key in the injected config (alphanumeric + hyphens). */
+  name: string;
+  transport: "stdio" | "http";
+  /** Stdio: executable on PATH. */
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
+  /** HTTP/SSE transport URL. */
+  url?: string;
+  enabled: boolean;
+}
+
 export interface SemanticLayerSettings {
   /** Route local Ollama calls through the semantic layer sidecar. */
   enabled?: boolean;
@@ -556,6 +741,8 @@ export interface AIConfig {
   geminiModel?: string;
   ollamaBaseUrl?: string;
   ollamaModel?: string;
+  /** Claude Code model id passed to `claude --model` (desktop only). */
+  claudeCodeModel?: string;
   semanticLayer?: SemanticLayerSettings;
   // AI Management settings
   autoDetectDuplicates?: boolean;

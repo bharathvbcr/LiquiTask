@@ -41,6 +41,27 @@ pub fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
     era * 146097 + doe - 719468
 }
 
+/// Checked variant of [`days_from_civil`] — returns `None` when the formula overflows.
+fn days_from_civil_checked(y: i64, m: i64, d: i64) -> Option<i64> {
+    let y = if m <= 2 { y.checked_sub(1)? } else { y };
+    let era = if y >= 0 {
+        y / 400
+    } else {
+        (y - 399).checked_div(400)?
+    };
+    let yoe = y.checked_sub(era.checked_mul(400)?)?;
+    let month_term = if m > 2 { m - 3 } else { m + 9 };
+    let doy = (153 * month_term + 2) / 5 + d - 1;
+    let doe = yoe
+        .checked_mul(365)?
+        .checked_add(yoe / 4)?
+        .checked_sub(yoe / 100)?
+        .checked_add(doy)?;
+    era.checked_mul(146097)?
+        .checked_add(doe)?
+        .checked_sub(719_468)
+}
+
 /// Inverse of `days_from_civil`: civil (y, m, d) from days since epoch.
 pub fn civil_from_days(z: i64) -> (i64, i64, i64) {
     let z = z + 719468;
@@ -103,13 +124,16 @@ impl Civil {
     }
 
     /// Recompose UTC civil components into epoch milliseconds.
+    /// Saturates on overflow instead of panicking.
     pub fn to_millis(&self) -> i64 {
-        let days = days_from_civil(self.year, self.month, self.day);
-        days * MS_PER_DAY
-            + self.hour * 3_600_000
-            + self.minute * 60_000
-            + self.second * 1000
-            + self.milli
+        let Some(days) = days_from_civil_checked(self.year, self.month, self.day) else {
+            return if self.year >= 0 { i64::MAX } else { i64::MIN };
+        };
+        days.saturating_mul(MS_PER_DAY)
+            .saturating_add(self.hour.saturating_mul(3_600_000))
+            .saturating_add(self.minute.saturating_mul(60_000))
+            .saturating_add(self.second.saturating_mul(1000))
+            .saturating_add(self.milli)
     }
 
     /// JS `getDay()` — 0 = Sunday.
@@ -242,5 +266,19 @@ mod tests {
         assert_eq!(days_in_month(2023, 2), 28);
         assert_eq!(days_in_month(2000, 2), 29);
         assert_eq!(days_in_month(1900, 2), 28);
+    }
+
+    #[test]
+    fn to_millis_saturates_on_overflow() {
+        let c = Civil {
+            year: i64::MAX,
+            month: 12,
+            day: 31,
+            hour: 23,
+            minute: 59,
+            second: 59,
+            milli: 999,
+        };
+        assert_eq!(c.to_millis(), i64::MAX);
     }
 }

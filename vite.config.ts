@@ -4,17 +4,27 @@ import { defineConfig } from "vite";
 import { ViteImageOptimizer } from "vite-plugin-image-optimizer";
 import { VitePWA } from "vite-plugin-pwa";
 
+const devPort = Number(process.env.PORT) || 4000;
+const previewPort = Number(process.env.PORT) || 4173;
+// When PORT is assigned (dev-autoport / preview launcher), pin it. Otherwise let
+// Vite pick the next free port from the default.
+const strictPort = process.env.PORT != null;
+
 export default defineConfig({
   base: "./",
-  // Tauri reads the dev server at a fixed URL (devUrl), so don't let Vite clear
-  // the screen (hides Rust compiler output) and pin the port deterministically.
+  // Tauri reads the dev server at devUrl; don't let Vite clear the screen (hides
+  // Rust compiler output).
   clearScreen: false,
   // Expose TAURI_ env vars to the frontend alongside the default VITE_ prefix.
   envPrefix: ["VITE_", "TAURI_ENV_"],
   server: {
-    port: 4000,
-    strictPort: true,
+    port: devPort,
+    strictPort,
     host: "0.0.0.0",
+  },
+  preview: {
+    port: previewPort,
+    strictPort: process.env.PORT != null,
   },
   plugins: [
     react(),

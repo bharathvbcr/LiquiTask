@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import type { Project, Task, ToastType } from "../../types";
 import { useKeybinding } from "../context/KeybindingContext";
+import { shouldBlockAppShortcut } from "../utils/keyboardTarget";
 
 interface KeyboardShortcutsProps {
   handleUndo: () => void;
@@ -9,6 +10,7 @@ interface KeyboardShortcutsProps {
   setIsAssistantOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setIsTaskModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setEditingTask: React.Dispatch<React.SetStateAction<Task | null>>;
+  openQuickAdd?: () => void;
   searchInputRef: React.RefObject<HTMLInputElement | null>;
   tasks: Task[];
   projects: Project[];
@@ -23,6 +25,7 @@ export const useGlobalKeyboardShortcuts = ({
   setIsAssistantOpen,
   setIsTaskModalOpen,
   setEditingTask,
+  openQuickAdd,
   searchInputRef,
   tasks,
   projects,
@@ -33,7 +36,7 @@ export const useGlobalKeyboardShortcuts = ({
 
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      const isInput = ["INPUT", "TEXTAREA"].includes((e.target as HTMLElement).tagName);
+      if (shouldBlockAppShortcut(e)) return;
 
       if (matches("global:command-palette", e)) {
         e.preventDefault();
@@ -47,11 +50,11 @@ export const useGlobalKeyboardShortcuts = ({
         e.preventDefault();
         setIsSidebarCollapsed((prev) => !prev);
       }
-      if (matches("global:undo", e) && !isInput) {
+      if (matches("global:undo", e)) {
         e.preventDefault();
         handleUndo();
       }
-      if (matches("global:export", e) && !isInput) {
+      if (matches("global:export", e)) {
         e.preventDefault();
         import("../services/exportService").then(({ exportService }) => {
           const projectMap = new Map<string, string>(projects.map((p) => [p.id, p.name]));
@@ -63,12 +66,21 @@ export const useGlobalKeyboardShortcuts = ({
         e.preventDefault();
         setIsCommandPaletteOpen(false);
       }
-      if (matches("global:create-task", e) && !isInput) {
+      if (matches("global:create-task", e)) {
         e.preventDefault();
         setEditingTask(null);
         setIsTaskModalOpen(true);
       }
-      if (matches("global:search-focus", e) && !isInput) {
+      if (matches("global:quick-add", e)) {
+        e.preventDefault();
+        if (openQuickAdd) {
+          openQuickAdd();
+        } else {
+          setEditingTask(null);
+          setIsTaskModalOpen(true);
+        }
+      }
+      if (matches("global:search-focus", e)) {
         e.preventDefault();
         searchInputRef.current?.focus();
       }
@@ -89,6 +101,7 @@ export const useGlobalKeyboardShortcuts = ({
     setIsSidebarCollapsed,
     setIsTaskModalOpen,
     setEditingTask,
+    openQuickAdd,
     searchInputRef,
   ]);
 };

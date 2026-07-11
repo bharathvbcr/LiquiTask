@@ -5,6 +5,12 @@ coding agent like you'd assign it to a colleague. The agent picks up the work in
 your repo, streams progress into the card's activity trail, and the card moves
 across the board as the run progresses.
 
+> **AI features gate.** Agent surfaces (Inbox/Agents tabs, dispatch entry points,
+> agent dock, semantic sidecar) are only active when **Enable AI Features** is on
+> in Settings → General (`src/utils/aiFeatures.ts`). Simple mode keeps the board
+> and task manager intact without agent UI. The first-run choice is made in
+> `ExperienceChoiceGate` on fresh installs.
+
 ## The agentic board: Task → In Progress → Completed → Commit
 
 The kanban board is the agent lifecycle:
@@ -21,14 +27,14 @@ branch `agent/<runId>-<slug>`) by default, so parallel agents never collide.
 The Commit stage auto-commits any changes the agent left uncommitted, merges
 the branch (`--no-ff`) into your current branch, and removes the worktree;
 merge conflicts keep the card in Completed with the branch preserved for
-manual resolution. Every run — all 14 runtimes, not just Claude Code — gets
+manual resolution. Every run — all 15 runtimes, not just Claude Code — gets
 the `liquitask` MCP server injected, with board tools: `get_task`,
 `update_status`, `complete_task`, `post_comment`, `create_subtask`,
 `toggle_subtask`, `report_blocker`, and `get_user_guidance`.
 
 Agents are not limited to Claude Code. Runs are dispatched through the
-`liquitask-agentd` Go sidecar, which drives **14 coding-agent runtimes** — Claude
-Code, Codex, Cursor, Antigravity, GitHub Copilot, OpenCode, Kimi, Kiro, Qoder,
+`liquitask-agentd` Go sidecar, which drives **15 coding-agent runtimes** — Claude
+Code, Codex, Cursor, Grok Build, Antigravity, GitHub Copilot, OpenCode, Kimi, Kiro, Qoder,
 CodeBuddy, Hermes (ACP), Pi, Trae, and OpenClaw — whichever CLIs you have
 installed and authenticated. Each agent profile binds to one runtime.
 
@@ -41,17 +47,19 @@ Board (assign task to agent)
             ├─ prompt: buildTaskPrompt(task, compounded skills)
             ├─ agentd (default, AGENTD_SIDECAR_ENABLED):
             │      src-tauri/agentd.rs ── JSON-RPC run.start ──▶ liquitask-agentd
-            │        └─ 14 runtimes: claude · codex · cursor · antigravity · copilot ·
+            │        └─ 15 runtimes: claude · codex · cursor · grok · antigravity · copilot ·
             │           opencode · kimi · kiro · qoder · codebuddy · hermes · pi · trae · openclaw
-            ├─ claude (fallback): agent_runner.rs spawns
-            │      claude -p "<task brief>" --output-format stream-json
+            ├─ council subprocesses: agent_council_runner.rs
+            │      dev e2e / dev check --verify (+ agent_cli_util.rs for PATH/CLI resolution)
             ├─ sandbox:  container run -v repo:/work liquitask-agent ...   (opt-in)
-            └─ council:  dev plan → scoped run → dev verify                (DevCouncil)
+            └─ council:  dev plan → scoped run (agentd) → dev verify     (DevCouncil)
 ```
 
 `agentd` owns runtime detection, spawn, JSON-stream parsing, resume sessions,
-MCP config injection, per-agent thinking levels, and per-OS invocation quirks.
-The Rust `agent_runner.rs` path remains as the Claude fallback during migration.
+MCP config injection, per-agent thinking levels, and per-OS invocation quirks
+for all direct runs (including Claude Code). Council-mode `dev` subprocesses and
+their durable journal/reattach path live in `agent_council_runner.rs`, with
+shared CLI resolution in `agent_cli_util.rs`.
 
 ## Sending work to agents (one action from anywhere)
 
@@ -86,8 +94,9 @@ hunting for any of it.
 an Agent" and deep-link to Settings → Agents, where the working directory is
 prefilled from your workspace folder.
 
-- **Agent profiles** live in Settings → Agents. The agent's *name* is its
-  assignee label: any task assigned to that name routes to the agent.
+- **Agent profiles** live in Settings → Agents (or `AgentFormModal` from the
+  roster / first-run setup flow). The agent's *name* is its assignee label: any
+  task assigned to that name routes to the agent.
 - **Working directory** must be an authorised workspace folder (the same
   security boundary as workspace file access). It defaults to the active
   workspace's linked folder (or the first authorised workspace path) — leave
@@ -103,7 +112,7 @@ prefilled from your workspace folder.
   an activity entry; completion posts the agent's summary; failures land in the
   card's error logs.
 - **Queueing**: one run per agent at a time; further assignments queue.
-- **Runtime** (per agent): the profile picks one of the 14 supported CLIs plus a
+- **Runtime** (per agent): the profile picks one of the 15 supported CLIs plus a
   model and thinking level. `Settings → Agents` shows live detection (installed /
   version) per runtime; runs route to that runtime through `agentd`.
 - **Run mode** (per agent): `direct` runs the task on the chosen runtime and
@@ -126,7 +135,7 @@ prefilled from your workspace folder.
 
 | Capability | Requirement |
 |---|---|
-| Agent runs (host) | The chosen runtime's CLI installed and authenticated — `claude`, `codex`, `cursor-agent`, or any of the 14 supported CLIs |
+| Agent runs (host) | The chosen runtime's CLI installed and authenticated — `claude`, `codex`, `agent`/`cursor-agent`, `grok`, or any of the 15 supported CLIs |
 | Sidecar | `liquitask-agentd` (bundled with the app; built via `npm run build:agentd`) |
 | DevCouncil gate | `dev` CLI on PATH (DevCouncil repo, via uv) |
 | Container sandbox | macOS 26+, Apple silicon, `container system start`, image built from `agent-sandbox/Dockerfile` |
@@ -144,10 +153,12 @@ detected by `agent_dev_cli_available()`.
   (`run_dev_plan`), producing typed Tasks/Requirements and a `PlannedFile` scope
   whitelist rendered as an Inbox approval card. Approving spawns agent runs bound
   to that scope.
-- **Scope enforcement (two gates).** The whitelist is passed into `run.start`;
+- **Scope enforcement (MCP bridge).** The whitelist is passed into `run.start`;
   the runtime receives it via its permission mechanism (MCP permission server for
-  Claude Code, config injection for others), and the Rust policy layer
-  (`agent_policy.rs`) blocks out-of-scope writes as a second, independent gate.
+  Claude Code, config injection for others). Out-of-scope mutating tool calls are
+  denied by `agentScopeService.ts` on the MCP permission-prompt path
+  (`agentMcpService.ts`). **`agent_policy.rs` is not scope enforcement** — it
+  only handles spawn-time model routing and per-agent daily budget caps.
 - **Verify gate.** Each successful run is followed by `dev verify`
   (`run_dev_verify`) — a 4-tier proof (scope compliance, tests, coverage, rigor).
   Blocking gaps post to the card and mark the run failed until they clear. The
@@ -170,13 +181,30 @@ Opt-in per agent. Runs execute inside a lightweight Linux VM with only the
 repo mounted at `/work`:
 
 ```bash
-cd agent-sandbox
+cd docs/archive/agent-sandbox   # Dockerfile lives here today
 container build -t liquitask-agent:latest .
 container system start   # once per boot
 ```
 
 The runner passes `ANTHROPIC_API_KEY` through when set; inside the VM the run
 uses `--dangerously-skip-permissions` since the VM itself is the sandbox.
+
+**Current state.** Per-agent opt-in via `AgentForm` (`sandbox: "container"`) →
+`agentRunService` → Rust `agentd.rs` → `liquitask-agentd` `run.start`
+(`ContainerImage` on `StartParams`) → `PrepareManagedCommand` /
+`wrapContainerRun` in `container.go`. `run.start` fails immediately when
+`containerImage` is set but the apple/container system is unavailable; the
+error surfaces on the failed run card in the dock. Agent Settings exposes
+`agent_container_build` / `agent_container_system_status` (`agent_git.rs`); the
+AgentForm container toggle is enabled when `container system status` succeeds
+on macOS 26+ Apple silicon.
+
+**Remaining polish:**
+
+1. Journal / reattach semantics for VM-backed runs (PID is the `container` CLI
+   parent; reconcile on exit like `claude-container` mode in `run_store.rs`).
+2. Move or symlink `docs/archive/agent-sandbox/` back to repo-root
+   `agent-sandbox/` if the build UX should match AGENT_TEAMMATES examples.
 
 ## Security model
 
@@ -188,6 +216,46 @@ uses `--dangerously-skip-permissions` since the VM itself is the sandbox.
   rejected.
 - Every process is tracked and cancellable; on relaunch, runs are reconciled
   against the durable journal (see below) rather than blanket-failed.
+
+### OS sandbox (`sandboxMode: os`)
+
+Per-agent opt-in (`AgentForm` → `agentRunService` → `liquitask-agentd`
+`PrepareManagedCommand` / Rust `agent_sandbox.rs`). macOS uses `sandbox-exec`
+with `(deny default)`, global `(allow file-read*)`, and `(allow file-write*
+(subpath …))` only for the worktree cwd, git metadata, MCP bridge dir, agent
+CLI config homes, and `TMPDIR`. Linux uses `bwrap` with an equivalent bind
+list.
+
+Live smoke tests: `liquitask-agentd/internal/agent/sandbox_darwin_test.go`
+(`TestOSSandboxWriteContainment`, `TestOSSandboxMcpSecretReadable`). On macOS,
+writes inside the worktree succeed; writes to `~/Documents` are denied. Writable
+roots must be symlink-resolved (`/var` → `/private/var`) — see
+`canonicalSandboxRoot` in `sandbox_profile.go`.
+
+### MCP bridge containment (Phase A + gaps)
+
+**Phase A (done):** `LIQUITASK_MCP_SECRET` and `LIQUITASK_RESPONSE_SECRET`
+are scrubbed from every `mcpServers.*.env` block before configs hit disk or
+agent CLIs (`ScrubMcpConfigSecrets` in agentd). The Node bridge
+(`scripts/liquitask-mcp-bridge.mjs`) reads signing keys from
+`<LIQUITASK_MCP_DIR>/.secret` (guidance MAC) and
+`<LIQUITASK_MCP_DIR>/response-secret` (bound response MAC) — both mode 0600,
+never from env. `agent_mcp_init` returns only `mcpDir` to the renderer. The
+OS sandbox profile denies read of both secret files (and the agentd RPC
+token/socket) when `sandboxMode: os`.
+
+**Remaining same-user read gap:** The OS sandbox profile still has `(allow
+file-read*)`, so a sandboxed agent CLI (or any code it runs) can read
+`<mcpDir>/.secret` if it learns the path from the MCP config env
+(`LIQUITASK_MCP_DIR`). Writes outside the allowlist remain blocked.
+
+**Phase B (partial — FD handoff MVP):** `scripts/liquitask-mcp-bridge.mjs`
+now accepts `LIQUITASK_MCP_SECRET_FD` / `LIQUITASK_RESPONSE_SECRET_FD` so an
+agentd-owned bridge child can receive signing keys via inherited file
+descriptors instead of reading `<mcpDir>/.secret` / `response-secret`. Full
+containment still needs agentd to spawn the bridge directly (stdio/socket) and
+stop writing secrets to agent-readable files — tracked for a follow-up when
+runtime MCP launch is restructured.
 
 ## Durable / headless runs (Runtime v2, phase 1)
 
@@ -204,9 +272,12 @@ stdout.ndjson  the agent's raw stream-json stdout (the durable event log)
 stderr.log     captured stderr
 ```
 
-**Survival mechanism (`run_store.rs` + `agent_runner.rs`).** The child is
-spawned **detached** with stdout/stderr redirected to those files instead of
-parent-owned pipes:
+**Survival mechanism.** Sidecar runs reattach via `agentd_run_reattach` /
+`run.reattach` in the Go daemon (journal + in-memory runs; reconciles dead PIDs
+with process start-time identity checks matching the council path).
+Council subprocesses use the durable journal in
+`run_store.rs` + `agent_council_runner.rs`: the child is spawned **detached**
+with stdout/stderr redirected to those files instead of parent-owned pipes:
 
 - **unix** — its **own process group** (`process_group(0)`), so an app-quit
   signal to our group misses it, and with stdout on a file it never takes a
@@ -225,7 +296,8 @@ consumes, persisting a byte cursor as it goes. Cancel kills the whole subtree
 still marks `running`:
 
 - **PID alive** → re-adopt it: resume tailing from the persisted cursor, so the
-  live stream and the board pick up where they left off.
+  live stream and the board pick up where they left off. Council reattach also
+  verifies process start-time to guard against PID reuse.
 - **PID dead** → it finished while the app was closed: reconcile the outcome
   from `stdout.ndjson` and finalize the record. Reconciliation is **mode-aware**
   — Claude/container runs parse the `result` line, council runs

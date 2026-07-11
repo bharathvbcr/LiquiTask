@@ -10,7 +10,7 @@
   },
   "type": "module",
   "scripts": {
-    "dev": "npm run prepare:semantic-sidecar-stub && npm run build:agentd && npm run free-dev-port && tauri dev",
+    "dev": "npm run prepare:semantic-sidecar-stub && npm run build:agentd && node scripts/dev-autoport.mjs",
     "free-dev-port": "bash scripts/free-dev-port.sh",
     "dev:web": "vite",
     "build": "npm run build:semantic-sidecar && npm run build:agentd && tauri build",

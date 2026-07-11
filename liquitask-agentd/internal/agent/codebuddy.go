@@ -43,7 +43,7 @@ func buildCodebuddyArgs(opts ExecOptions, logger *slog.Logger) []string {
 		"--input-format", "stream-json",
 		"--verbose",
 		"--strict-mcp-config",
-		"--permission-mode", "bypassPermissions",
+		"--permission-mode", resolveClaudePermissionMode(opts),
 		"--disallowedTools", "AskUserQuestion",
 	}
 	if opts.Model != "" {
@@ -103,33 +103,37 @@ func (b *codebuddyBackend) Execute(ctx context.Context, prompt string, opts Exec
 
 	cmd := exec.CommandContext(runCtx, execPath, args...)
 	hideAgentWindow(cmd)
+	if err := PrepareManagedCommand(cmd, opts, 10*time.Second); err != nil {
+		cancel()
+		return nil, err
+	}
 	b.cfg.Logger.Info("agent command", "exec", execPath, "args", args)
-	cmd.WaitDelay = 10 * time.Second
 	if opts.Cwd != "" {
 		cmd.Dir = opts.Cwd
 	}
 	cmd.Env = buildEnv(b.cfg.Env)
 
-	stdout, err := cmd.StdoutPipe()
+	pio, err := AttachProcessIO(cmd, "codebuddy", opts)
 	if err != nil {
 		cancel()
-		return nil, fmt.Errorf("codebuddy stdout pipe: %w", err)
+		return nil, fmt.Errorf("codebuddy process io: %w", err)
 	}
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		cancel()
-		return nil, fmt.Errorf("codebuddy stdin pipe: %w", err)
-	}
+	stdout := pio.Stdout
+	stdin := pio.Stdin
 	var closeStdinOnce sync.Once
 	closeStdin := func() { closeStdinOnce.Do(func() { _ = stdin.Close() }) }
 
 	stderrBuf := newStderrTail(newLogWriter(b.cfg.Logger, "[codebuddy:stderr] "), agentStderrTailBytes)
-	cmd.Stderr = stderrBuf
+	if pio.PtyMaster == nil {
+		cmd.Stderr = stderrBuf
+	}
 
-	if err := cmd.Start(); err != nil {
-		closeStdin()
-		cancel()
-		return nil, fmt.Errorf("start codebuddy: %w", err)
+	if !pio.ProcessStarted {
+		if err := cmd.Start(); err != nil {
+			closeStdin()
+			cancel()
+			return nil, fmt.Errorf("start codebuddy: %w", err)
+		}
 	}
 
 	b.cfg.Logger.Info("codebuddy started", "pid", cmd.Process.Pid, "cwd", opts.Cwd, "model", opts.Model)
@@ -223,7 +227,7 @@ func (b *codebuddyBackend) Execute(ctx context.Context, prompt string, opts Exec
 					})
 				}
 			case "control_request":
-				b.handleControlRequest(msg, stdin)
+				b.handleControlRequest(runCtx, msg, stdin, opts)
 			}
 		}
 
@@ -279,7 +283,7 @@ func (b *codebuddyBackend) Execute(ctx context.Context, prompt string, opts Exec
 		}
 	}()
 
-	sess := &Session{Messages: msgCh, Result: resCh}
+	sess := &Session{Messages: msgCh, Result: resCh, PtyMaster: pio.PtyMaster}
 	sess.pid.Store(int32(cmd.Process.Pid))
 	return sess, nil
 }
@@ -347,8 +351,7 @@ func (b *codebuddyBackend) handleUser(msg codebuddySDKMessage, ch chan<- Message
 	}
 }
 
-func (b *codebuddyBackend) handleControlRequest(msg codebuddySDKMessage, stdin interface{ Write([]byte) (int, error) }) {
-	// Auto-approve all tool uses in autonomous/daemon mode.
+func (b *codebuddyBackend) handleControlRequest(ctx context.Context, msg codebuddySDKMessage, stdin interface{ Write([]byte) (int, error) }, opts ExecOptions) {
 	var req codebuddyControlRequestPayload
 	if err := json.Unmarshal(msg.Request, &req); err != nil {
 		return
@@ -362,13 +365,23 @@ func (b *codebuddyBackend) handleControlRequest(msg codebuddySDKMessage, stdin i
 		inputMap = map[string]any{}
 	}
 
+	tool := strings.TrimSpace(req.ToolName)
+	if tool == "" {
+		tool = "tool"
+	}
+	decision, _ := ResolveToolPermission(ctx, tool, inputMap, opts)
+	behavior := "deny"
+	if decision.Allowed {
+		behavior = "allow"
+	}
+
 	response := map[string]any{
 		"type": "control_response",
 		"response": map[string]any{
 			"subtype":    "success",
 			"request_id": msg.RequestID,
 			"response": map[string]any{
-				"behavior":     "allow",
+				"behavior":     behavior,
 				"updatedInput": inputMap,
 			},
 		},

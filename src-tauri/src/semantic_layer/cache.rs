@@ -271,7 +271,7 @@ impl SemanticCache {
 
     pub fn save(&self, directory: &Path) -> Result<(), String> {
         let inner = self.inner.lock().unwrap();
-        fs::create_dir_all(directory).map_err(|e| e.to_string())?;
+        super::url_allowlist::secure_cache_dir(directory)?;
         let meta = CacheMeta {
             next_id: inner.next_id,
             threshold: inner.calibrator.threshold,
@@ -281,7 +281,8 @@ impl SemanticCache {
         let tmp = directory.join("cache.meta.json.tmp");
         let data = serde_json::to_string(&meta).map_err(|e| e.to_string())?;
         fs::write(&tmp, data).map_err(|e| e.to_string())?;
-        fs::rename(&tmp, directory.join("cache.meta.json")).map_err(|e| e.to_string())
+        fs::rename(&tmp, directory.join("cache.meta.json")).map_err(|e| e.to_string())?;
+        super::url_allowlist::secure_cache_dir(directory)
     }
 
     pub fn load(&self, directory: &Path) -> bool {

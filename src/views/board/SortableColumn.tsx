@@ -16,8 +16,10 @@ interface SortableColumnProps {
   onEditTask: (task: Task) => void;
   onUpdateTask: (task: Task) => void;
   onDeleteTask: (taskId: string) => void;
+  onArchiveTask?: (taskId: string) => void;
   isCompact?: boolean;
   onCopyTask?: (message: string) => void;
+  onDuplicateAsQuickAdd?: (task: Task) => void;
   projectName?: string;
   projects?: Project[];
   onMoveToWorkspace?: (taskId: string, projectId: string) => void;
@@ -28,6 +30,7 @@ interface SortableColumnProps {
   onToggleTaskSelection?: (taskId: string, shiftKey?: boolean) => void;
   onApproveAgentWork?: (task: Task, run: AgentRun) => void;
   onRejectAgentWork?: (task: Task, run: AgentRun, feedback: string) => void;
+  agentDispatchEnabled?: boolean;
 }
 
 export const SortableColumn: React.FC<SortableColumnProps> = ({
@@ -39,8 +42,10 @@ export const SortableColumn: React.FC<SortableColumnProps> = ({
   onEditTask,
   onUpdateTask,
   onDeleteTask,
+  onArchiveTask,
   isCompact,
   onCopyTask,
+  onDuplicateAsQuickAdd,
   projectName,
   projects = [],
   onMoveToWorkspace,
@@ -51,6 +56,7 @@ export const SortableColumn: React.FC<SortableColumnProps> = ({
   onToggleTaskSelection,
   onApproveAgentWork,
   onRejectAgentWork,
+  agentDispatchEnabled = true,
 }) => {
   // Column header is draggable for reordering columns
   const {
@@ -188,14 +194,15 @@ export const SortableColumn: React.FC<SortableColumnProps> = ({
                       key={task.id}
                       task={task}
                       priorities={priorities}
-                      isCompletedColumn={column.isCompleted}
                       onMoveTask={onMoveTask}
                       onEditTask={onEditTask}
                       onUpdateTask={onUpdateTask}
                       onDeleteTask={onDeleteTask}
+                      onArchiveTask={onArchiveTask}
                       allTasks={allTasks}
                       isCompact={isCompact}
                       onCopyTask={onCopyTask}
+                      onDuplicateAsQuickAdd={onDuplicateAsQuickAdd}
                       projectName={projectName}
                       projects={projects}
                       onMoveToWorkspace={onMoveToWorkspace}
@@ -204,6 +211,7 @@ export const SortableColumn: React.FC<SortableColumnProps> = ({
                       onToggleSelect={onToggleTaskSelection}
                       onApproveAgentWork={onApproveAgentWork}
                       onRejectAgentWork={onRejectAgentWork}
+                      agentDispatchEnabled={agentDispatchEnabled}
                     />
                   ))
                 ) : (
@@ -223,14 +231,15 @@ export const SortableColumn: React.FC<SortableColumnProps> = ({
                     key={task.id}
                     task={task}
                     priorities={priorities}
-                    isCompletedColumn={column.isCompleted}
                     onMoveTask={onMoveTask}
                     onEditTask={onEditTask}
                     onUpdateTask={onUpdateTask}
                     onDeleteTask={onDeleteTask}
+                    onArchiveTask={onArchiveTask}
                     allTasks={allTasks}
                     isCompact={isCompact}
                     onCopyTask={onCopyTask}
+                    onDuplicateAsQuickAdd={onDuplicateAsQuickAdd}
                     projectName={projectName}
                     projects={projects}
                     onMoveToWorkspace={onMoveToWorkspace}
@@ -239,6 +248,7 @@ export const SortableColumn: React.FC<SortableColumnProps> = ({
                     onToggleSelect={onToggleTaskSelection}
                     onApproveAgentWork={onApproveAgentWork}
                     onRejectAgentWork={onRejectAgentWork}
+                    agentDispatchEnabled={agentDispatchEnabled}
                   />
                 ))
               ) : (

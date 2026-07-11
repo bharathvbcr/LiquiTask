@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::AppHandle;
 
-use crate::agent_runner::{augmented_path, find_executable};
+use crate::agent_cli_util::{augmented_path, find_executable, is_devcouncil_checkout, resolve_dev_cli};
 use crate::{is_path_authorized, read_storage, safe_workspace_paths};
 
 // ---------------------------------------------------------------------------
@@ -127,50 +127,6 @@ fn dirs_home() -> Option<std::path::PathBuf> {
         .map(std::path::PathBuf::from)
 }
 
-/// A directory is a DevCouncil checkout when its pyproject declares the
-/// `devcouncil` package (cheap textual probe — no TOML parser needed).
-fn is_devcouncil_checkout(dir: &Path) -> bool {
-    let pyproject = dir.join("pyproject.toml");
-    match std::fs::read_to_string(pyproject) {
-        Ok(raw) => raw.contains("name = \"devcouncil\""),
-        Err(_) => false,
-    }
-}
-
-/// Resolve the DevCouncil CLI. Order:
-/// 1. explicit override (`LIQUITASK_DEV_CLI` env var — settable from the UI),
-/// 2. PATH (`dev`, then `devcouncil` console scripts),
-/// 3. `~/.local/bin` (uv tool / pipx shims on machines where GUI PATH misses it),
-/// 4. a local checkout's `.venv/bin/dev` (developer setups).
-fn resolve_dev_cli() -> Option<std::path::PathBuf> {
-    if let Some(overridden) = std::env::var_os("LIQUITASK_DEV_CLI") {
-        let p = std::path::PathBuf::from(overridden);
-        if p.is_file() {
-            return Some(p);
-        }
-    }
-    if let Some(found) = find_executable("dev").or_else(|| find_executable("devcouncil")) {
-        return Some(found);
-    }
-    if let Some(home) = dirs_home() {
-        for name in ["dev", "devcouncil"] {
-            let shim = home.join(".local").join("bin").join(name);
-            if shim.is_file() {
-                return Some(shim);
-            }
-        }
-    }
-    for checkout in local_checkout_candidates() {
-        for bin in ["bin", "Scripts"] {
-            let venv_cli = checkout.join(".venv").join(bin).join("dev");
-            if venv_cli.is_file() {
-                return Some(venv_cli);
-            }
-        }
-    }
-    None
-}
-
 pub(crate) fn validate_working_dir(app: &AppHandle, working_dir: &str) -> Result<std::path::PathBuf, String> {
     if working_dir.is_empty() || working_dir.len() > 512 {
         return Err("Invalid working directory".to_string());
@@ -200,8 +156,9 @@ fn run_dev(cwd: &Path, args: &[&str]) -> Result<(i32, String, String), String> {
 }
 
 fn extract_json_object(raw: &str) -> Option<&str> {
-    let start = raw.find('{')?;
-    Some(&raw[start..])
+    let end = raw.rfind('}')?;
+    let start = raw[..=end].rfind('{')?;
+    Some(&raw[start..=end])
 }
 
 pub fn parse_export_tasks(raw: &str) -> Result<(Vec<DevCouncilSubtask>, usize), String> {
@@ -647,6 +604,11 @@ pub fn agent_dev_parse_export(raw: String) -> Result<Vec<DevCouncilSubtask>, Str
 #[tauri::command(rename_all = "camelCase")]
 pub fn agent_dev_cli_available() -> bool {
     resolve_dev_cli().is_some()
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn agent_resolve_dev_cli_path() -> Option<String> {
+    resolve_dev_cli().map(|p| p.to_string_lossy().to_string())
 }
 
 // ---------------------------------------------------------------------------

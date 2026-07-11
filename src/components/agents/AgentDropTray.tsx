@@ -3,8 +3,9 @@ import { Bot, Sparkles } from "lucide-react";
 import type React from "react";
 
 import { checkAgentBudget, getAgentDailyStats } from "../../services/agents/agentPolicyService";
+import agentReservationService from "../../services/agents/agentReservationService";
 import agentRunService from "../../services/agents/agentRunService";
-import type { AgentProfile } from "../../../types";
+import type { AgentProfile, Task } from "../../../types";
 
 export const AGENT_DROP_PREFIX = "agent-drop:";
 
@@ -82,19 +83,27 @@ const SetupChip: React.FC = () => {
   );
 };
 
-const AgentDropChip: React.FC<{ agent: AgentProfile }> = ({ agent }) => {
+const AgentDropChip: React.FC<{ agent: AgentProfile; draggedTask?: Task }> = ({
+  agent,
+  draggedTask,
+}) => {
   const { isOver, setNodeRef } = useDroppable({
     id: `${AGENT_DROP_PREFIX}${agent.id}`,
     data: { type: "agent", agentId: agent.id },
   });
   const status = agentSubtitle(agent);
+  const scopeConflict = draggedTask
+    ? agentReservationService.wouldTaskConflict(draggedTask)
+    : undefined;
 
   return (
     <div
       ref={setNodeRef}
       className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all select-none ${
         isOver
-          ? "bg-red-500/25 border-red-400 scale-110 shadow-lg shadow-red-500/20"
+          ? scopeConflict
+            ? "bg-amber-500/25 border-amber-400 scale-110 shadow-lg shadow-amber-500/20"
+            : "bg-red-500/25 border-red-400 scale-110 shadow-lg shadow-red-500/20"
           : "bg-black/60 border-white/10"
       } ${!isOver && status.dim ? "opacity-70" : ""}`}
     >
@@ -102,7 +111,11 @@ const AgentDropChip: React.FC<{ agent: AgentProfile }> = ({ agent }) => {
       <div className="min-w-0">
         <p className="text-sm font-medium text-white truncate">{agent.name}</p>
         <p className="text-[10px] text-slate-500 truncate">
-          {isOver ? "release to hand off" : status.label}
+          {isOver
+            ? scopeConflict
+              ? "scope overlap — will queue"
+              : "release to hand off"
+            : status.label}
         </p>
       </div>
     </div>
@@ -120,9 +133,11 @@ const AgentDropChip: React.FC<{ agent: AgentProfile }> = ({ agent }) => {
 export const AgentDropTray: React.FC<{
   agents: AgentProfile[];
   visible: boolean;
+  /** Task being dragged — used to warn on scope overlap before drop. */
+  draggedTask?: Task;
   /** Render a setup chip when no agents exist (first-run discovery). */
   offerSetup?: boolean;
-}> = ({ agents, visible, offerSetup = false }) => {
+}> = ({ agents, visible, draggedTask, offerSetup = false }) => {
   if (!visible || (agents.length === 0 && !offerSetup)) return null;
 
   return (
@@ -133,7 +148,7 @@ export const AgentDropTray: React.FC<{
       {agents.length === 0 && offerSetup && <SetupChip />}
       {agents.length > 1 && <BestMatchChip />}
       {agents.slice(0, 6).map((agent) => (
-        <AgentDropChip key={agent.id} agent={agent} />
+        <AgentDropChip key={agent.id} agent={agent} draggedTask={draggedTask} />
       ))}
     </div>
   );

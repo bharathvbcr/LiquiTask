@@ -108,12 +108,16 @@ func (b *traecliBackend) Execute(ctx context.Context, prompt string, opts ExecOp
 	timeout := opts.Timeout
 	runCtx, cancel := runContext(ctx, timeout)
 
-	traecliArgs := append(
-		[]string{"acp", "serve", "--yolo"},
-		filterCustomArgs(opts.CustomArgs, traecliBlockedArgs, b.cfg.Logger)...,
-	)
+	traecliArgs := append([]string{"acp", "serve"}, filterCustomArgs(opts.CustomArgs, traecliBlockedArgs, b.cfg.Logger)...)
+	if ShouldBypassPermissions(opts) {
+		traecliArgs = append([]string{"--yolo"}, traecliArgs...)
+	}
 	cmd := exec.CommandContext(runCtx, execPath, traecliArgs...)
 	hideAgentWindow(cmd)
+	if err := PrepareManagedCommand(cmd, opts, 10*time.Second); err != nil {
+		cancel()
+		return nil, err
+	}
 	b.cfg.Logger.Info("agent command", "exec", execPath, "args", traecliArgs)
 	if opts.Cwd != "" {
 		cmd.Dir = opts.Cwd
@@ -169,6 +173,7 @@ func (b *traecliBackend) Execute(ctx context.Context, prompt string, opts ExecOp
 		stdin:        stdin,
 		pending:      make(map[int]*pendingRPC),
 		pendingTools: make(map[string]*pendingToolCall),
+		permOpts:     opts,
 		acceptNotification: func(string) bool {
 			return streamingCurrentTurn.Load()
 		},

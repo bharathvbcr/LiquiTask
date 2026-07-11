@@ -25,7 +25,7 @@ pub fn cleanup_heuristic_duplicates(tasks: Vec<Task>, threshold: f64) -> Vec<Dup
 
 /// Heuristic merge suggestion for a group of (already-selected) tasks.
 #[tauri::command]
-pub fn cleanup_heuristic_merge(tasks: Vec<Task>) -> MergeSuggestion {
+pub fn cleanup_heuristic_merge(tasks: Vec<Task>) -> Result<MergeSuggestion, String> {
     cleanup::heuristic_merge_suggestion(&tasks)
 }
 
@@ -47,4 +47,63 @@ pub fn cleanup_heuristic_categorize(tasks: Vec<Task>, now_ms: i64) -> Vec<Catego
 #[tauri::command]
 pub fn cleanup_heuristic_cluster(tasks: Vec<Task>) -> Vec<TaskCluster> {
     cleanup::heuristic_clustering(&tasks)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use liquitask_core::model::Subtask;
+
+    fn sample_task(id: &str, title: &str) -> Task {
+        Task {
+            id: id.to_string(),
+            title: title.to_string(),
+            status: "Todo".to_string(),
+            priority: "medium".to_string(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn merge_wrapper_roundtrip() {
+        let mut keep = sample_task("keep", "Task A");
+        keep.subtasks = vec![Subtask {
+            id: "s1".to_string(),
+            title: "sub".to_string(),
+            completed: false,
+        }];
+        let other = sample_task("other", "Task B");
+        let out = cleanup_heuristic_merge(vec![keep, other]).expect("merge ok");
+        assert_eq!(out.keep_task_id, "keep");
+        assert_eq!(out.archive_task_ids, vec!["other"]);
+    }
+
+    #[test]
+    fn merge_wrapper_rejects_empty() {
+        assert!(cleanup_heuristic_merge(vec![]).is_err());
+    }
+
+    #[test]
+    fn redundancy_wrapper_roundtrip() {
+        let now = 1_700_000_000_000i64;
+        let active = sample_task("act", "deploy api");
+        let mut done = sample_task("done", "deploy api");
+        done.status = "Commit".to_string();
+        let out = cleanup_analyze_redundancy(vec![active, done], now);
+        assert!(out.iter().any(|a| a.analysis_type == "completed-overlap"));
+    }
+
+    #[test]
+    fn categorize_and_cluster_wrappers_roundtrip() {
+        let now = 1_700_000_000_000i64;
+        let t = sample_task("t", "fix api bug");
+        let cats = cleanup_heuristic_categorize(vec![t.clone()], now);
+        assert_eq!(cats.len(), 1);
+        assert!(cats[0].suggested_tags.contains(&"bug".to_string()));
+
+        let a = sample_task("a", "deploy api service");
+        let b = sample_task("b", "deploy api gateway");
+        let clusters = cleanup_heuristic_cluster(vec![a, b]);
+        assert_eq!(clusters.len(), 1);
+    }
 }

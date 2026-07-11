@@ -41,6 +41,7 @@ type taskContextMarkerFile struct {
 // OpenClaw:    skills → {workDir}/skills/{name}/SKILL.md  (native discovery — paired with a per-task synthesized openclaw-config.json that pins agents.defaults.workspace to workDir; see openclaw_config.go)
 // Pi:          skills → {workDir}/.pi/skills/{name}/SKILL.md  (native discovery)
 // Cursor:      skills → {workDir}/.cursor/skills/{name}/SKILL.md  (native discovery)
+// Grok:        skills → {workDir}/.grok/skills/{name}/SKILL.md  (native discovery)
 // Kimi:        skills → {workDir}/.kimi/skills/{name}/SKILL.md  (native discovery)
 // Kiro:        skills → {workDir}/.kiro/skills/{name}/SKILL.md  (native discovery)
 // Qoder:       skills → {workDir}/.qoder/skills/{name}/SKILL.md  (project-level; see docs.qoder.com/cli/Skills.md)
@@ -282,6 +283,9 @@ func skillsDirPath(workDir, provider string) string {
 	case "cursor":
 		// Cursor natively discovers skills from .cursor/skills/ in the workdir.
 		return filepath.Join(workDir, ".cursor", "skills")
+	case "grok":
+		// Grok Build natively discovers skills from .grok/skills/ in the workdir.
+		return filepath.Join(workDir, ".grok", "skills")
 	case "kimi":
 		// Kimi Code CLI auto-discovers project-level skills from .kimi/skills/
 		// in the workdir. See https://moonshotai.github.io/kimi-cli/en/customization/skills.html

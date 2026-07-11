@@ -59,6 +59,8 @@ interface AppHeaderProps {
   onFilterOpenChange: (open: boolean) => void;
   onRequestNotificationPermission: () => void;
   onOpenTaskModal: () => void;
+  /** When true, a task card is hovering the New Task drop target. */
+  quickAddDropHover?: boolean;
   onSearchQueryChange: (query: string) => void;
   onSearchFocusChange: (focused: boolean) => void;
   onApplyView: (id: string) => void;
@@ -105,6 +107,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onFilterOpenChange,
   onRequestNotificationPermission,
   onOpenTaskModal,
+  quickAddDropHover = false,
   onSearchQueryChange,
   onSearchFocusChange,
   onApplyView,
@@ -288,11 +291,31 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               onDeleteView={onDeleteView}
             />
           </Suspense>
-          <LiquidButton
-            label="New Task"
-            onClick={onOpenTaskModal}
-            title="New Task (C) - Create a new task quickly"
-          />
+          <div
+            data-quick-add-drop-target
+            className={`inline-flex flex-col items-center relative transition-all duration-200 ${
+              quickAddDropHover ? "scale-[1.03] -translate-y-0.5" : ""
+            }`}
+          >
+            <div
+              className={`rounded-2xl transition-all duration-200 ${
+                quickAddDropHover
+                  ? "ring-2 ring-red-500/60 shadow-[0_0_24px_rgba(220,30,30,0.25)]"
+                  : ""
+              }`}
+            >
+              <LiquidButton
+                label={quickAddDropHover ? "Drop to Duplicate" : "New Task"}
+                onClick={onOpenTaskModal}
+                title="New Task (C) — Quick Add (⌘⇧N) — Drop a card here to duplicate"
+              />
+            </div>
+            {quickAddDropHover && (
+              <span className="absolute -bottom-5 text-[9px] uppercase tracking-widest font-bold text-red-400 whitespace-nowrap pointer-events-none">
+                Release to Quick Add
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </header>

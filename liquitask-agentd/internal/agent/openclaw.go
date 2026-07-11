@@ -76,8 +76,11 @@ func (b *openclawBackend) Execute(ctx context.Context, prompt string, opts ExecO
 
 	cmd := exec.CommandContext(runCtx, execPath, args...)
 	hideAgentWindow(cmd)
+	if err := PrepareManagedCommand(cmd, opts, 10*time.Second); err != nil {
+		cancel()
+		return nil, err
+	}
 	b.cfg.Logger.Info("agent command", "exec", execPath, "args", args)
-	cmd.WaitDelay = 10 * time.Second
 	if opts.Cwd != "" {
 		cmd.Dir = opts.Cwd
 	}

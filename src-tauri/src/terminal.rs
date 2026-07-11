@@ -17,6 +17,8 @@ use portable_pty::{native_pty_system, ChildKiller, CommandBuilder, MasterPty, Pt
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 
+use crate::authorize_workspace_dir;
+
 pub const TERMINAL_OUTPUT_EVENT: &str = "terminal-output";
 pub const TERMINAL_EXIT_EVENT: &str = "terminal-exit";
 
@@ -96,7 +98,8 @@ pub fn terminal_open(
     // Distinguish LiquiTask's embedded shell for user rc-file customisation.
     cmd.env("LIQUITASK_TERMINAL", "1");
     if let Some(dir) = cwd.filter(|d| !d.is_empty()) {
-        cmd.cwd(dir);
+        let authorized = authorize_workspace_dir(&app, &dir)?;
+        cmd.cwd(authorized);
     } else if let Some(home) = dirs_home() {
         cmd.cwd(home);
     }

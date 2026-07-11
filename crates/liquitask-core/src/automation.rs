@@ -10,8 +10,9 @@
 //!     the ALREADY-MATCHED rules here.
 //!
 //! Time rule (see `model` / `dateutil`): the reference clock (`new Date()` in
-//! the original scheduler) crosses in as `now_ms` (epoch millis). We NEVER read
-//! a clock here; `is_rule_due` decomposes `now_ms` into UTC civil components.
+//! the original scheduler) crosses in as `now_ms` (epoch millis) plus
+//! `timezone_offset_minutes` (JS `getTimezoneOffset()`). We NEVER read a clock
+//! here; `is_rule_due` decomposes local wall-clock civil components.
 //!
 //! Action shape is a serde union, read defensively to mirror the JS `switch`:
 //!   * `{ type: "setField", field, value }` — `value` may be ANY JSON type.
@@ -218,16 +219,18 @@ pub fn apply_actions(rules: &[Value], task: &Task) -> ApplyResult {
 /// Faithful port of the private `AutomationService.isRuleDue`.
 ///
 /// `now_ms` replaces the original `now: Date`. The original reads
-/// `getHours()/getMinutes()/getDay()/getDate()`; here we decompose `now_ms`
-/// into UTC civil components (the oracle runs the JS reference under `TZ=UTC`
-/// so the two agree). Returns `false` when the rule has no `schedule`.
-pub fn is_rule_due(rule: &Value, now_ms: i64) -> bool {
+/// `getHours()/getMinutes()/getDay()/getDate()` in **local** wall-clock time;
+/// here we shift epoch millis by `timezone_offset_minutes` (JS
+/// `getTimezoneOffset()`) before decomposing into civil components. Returns
+/// `false` when the rule has no `schedule`.
+pub fn is_rule_due(rule: &Value, now_ms: i64, timezone_offset_minutes: i64) -> bool {
     let schedule = match rule.get("schedule") {
         Some(s) if s.is_object() => s,
         _ => return false, // `if (!rule.schedule) return false;`
     };
 
-    let civil = Civil::from_millis(now_ms);
+    let local_ms = now_ms - timezone_offset_minutes * 60_000;
+    let civil = Civil::from_millis(local_ms);
 
     // currentTime = `${HH}:${mm}` with zero-padding (getHours()/getMinutes()).
     let current_time = format!("{:02}:{:02}", civil.hour, civil.minute);
@@ -374,18 +377,18 @@ mod tests {
         // Integer weekday 1 on a Monday -> due.
         let weekly_int =
             json!({ "schedule": { "frequency": "weekly", "time": "09:00", "dayOfWeek": 1 } });
-        assert!(is_rule_due(&weekly_int, now));
+        assert!(is_rule_due(&weekly_int, now, 0));
         // Fractional 1.5 -> JS `1 === 1.5` is false; must NOT truncate to 1.
         let weekly_frac =
             json!({ "schedule": { "frequency": "weekly", "time": "09:00", "dayOfWeek": 1.5 } });
-        assert!(!is_rule_due(&weekly_frac, now));
+        assert!(!is_rule_due(&weekly_frac, now, 0));
         // Monthly fractional day-of-month likewise never matches.
         let monthly_int =
             json!({ "schedule": { "frequency": "monthly", "time": "09:00", "dayOfMonth": 1 } });
-        assert!(is_rule_due(&monthly_int, now));
+        assert!(is_rule_due(&monthly_int, now, 0));
         let monthly_frac =
             json!({ "schedule": { "frequency": "monthly", "time": "09:00", "dayOfMonth": 1.7 } });
-        assert!(!is_rule_due(&monthly_frac, now));
+        assert!(!is_rule_due(&monthly_frac, now, 0));
     }
 
     #[test]
@@ -442,15 +445,15 @@ mod tests {
         let now = (Civil { year: 2024, month: 1, day: 1, hour: 12, minute: 1, second: 0, milli: 0 })
             .to_millis();
         let r = json!({ "schedule": { "frequency": "daily", "time": "12:01" } });
-        assert!(is_rule_due(&r, now));
+        assert!(is_rule_due(&r, now, 0));
         let r2 = json!({ "schedule": { "frequency": "daily", "time": "12:02" } });
-        assert!(!is_rule_due(&r2, now));
+        assert!(!is_rule_due(&r2, now, 0));
     }
 
     #[test]
     fn is_rule_due_no_schedule_false() {
         let r = json!({ "id": "r" });
-        assert!(!is_rule_due(&r, 0));
+        assert!(!is_rule_due(&r, 0, 0));
     }
 
     #[test]
@@ -459,10 +462,10 @@ mod tests {
         let now = (Civil { year: 2024, month: 1, day: 1, hour: 9, minute: 0, second: 0, milli: 0 })
             .to_millis();
         let due = json!({ "schedule": { "frequency": "weekly", "time": "09:00", "dayOfWeek": 1 } });
-        assert!(is_rule_due(&due, now));
+        assert!(is_rule_due(&due, now, 0));
         let not_due =
             json!({ "schedule": { "frequency": "weekly", "time": "09:00", "dayOfWeek": 2 } });
-        assert!(!is_rule_due(&not_due, now));
+        assert!(!is_rule_due(&not_due, now, 0));
     }
 
     #[test]
@@ -473,9 +476,66 @@ mod tests {
                 .to_millis();
         let due =
             json!({ "schedule": { "frequency": "monthly", "time": "08:30", "dayOfMonth": 15 } });
-        assert!(is_rule_due(&due, now));
+        assert!(is_rule_due(&due, now, 0));
         let not_due =
             json!({ "schedule": { "frequency": "monthly", "time": "08:30", "dayOfMonth": 16 } });
-        assert!(!is_rule_due(&not_due, now));
+        assert!(!is_rule_due(&not_due, now, 0));
+    }
+
+    #[test]
+    fn is_rule_due_uses_local_wall_clock_offset() {
+        // UTC epoch for 2024-01-01T20:00:00Z. With PST offset (480 min), local
+        // wall clock is 12:00 on Jan 1.
+        let utc_ms = (Civil {
+            year: 2024,
+            month: 1,
+            day: 1,
+            hour: 20,
+            minute: 0,
+            second: 0,
+            milli: 0,
+        })
+        .to_millis();
+        let pst_offset = 480;
+        let due = json!({ "schedule": { "frequency": "daily", "time": "12:00" } });
+        assert!(is_rule_due(&due, utc_ms, pst_offset));
+        let not_due = json!({ "schedule": { "frequency": "daily", "time": "20:00" } });
+        assert!(!is_rule_due(&not_due, utc_ms, pst_offset));
+    }
+
+    #[test]
+    fn is_rule_due_dst_boundary_local_date() {
+        // US spring-forward 2024-03-10 at 2:00 AM PST -> 3:00 AM PDT.
+        // Local midnight on that Sunday is still PST (offset 480).
+        let utc_midnight = (Civil {
+            year: 2024,
+            month: 3,
+            day: 10,
+            hour: 8,
+            minute: 0,
+            second: 0,
+            milli: 0,
+        })
+        .to_millis();
+        let pst_offset = 480;
+        let due = json!({
+            "schedule": { "frequency": "weekly", "time": "00:00", "dayOfWeek": 0 }
+        });
+        assert!(is_rule_due(&due, utc_midnight, pst_offset));
+
+        // After spring-forward, 3:30 AM PDT on the same day (offset 420).
+        let utc_after = (Civil {
+            year: 2024,
+            month: 3,
+            day: 10,
+            hour: 10,
+            minute: 30,
+            second: 0,
+            milli: 0,
+        })
+        .to_millis();
+        let pdt_offset = 420;
+        let morning = json!({ "schedule": { "frequency": "daily", "time": "03:30" } });
+        assert!(is_rule_due(&morning, utc_after, pdt_offset));
     }
 }

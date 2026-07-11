@@ -66,7 +66,10 @@ func (b *opencodeBackend) Execute(ctx context.Context, prompt string, opts ExecO
 	timeout := opts.Timeout
 	runCtx, cancel := runContext(ctx, timeout)
 
-	args := []string{"run", "--format", "json", "--dangerously-skip-permissions"}
+	args := []string{"run", "--format", "json"}
+	if ShouldBypassPermissions(opts) {
+		args = append(args, "--dangerously-skip-permissions")
+	}
 	// Anchor OpenCode's project discovery (AGENTS.md walk-up + .opencode/skills/
 	// project config scan) at the task workdir. Without this, OpenCode falls
 	// back to PWD (inherited from the daemon process) or process.cwd(), which
@@ -99,6 +102,10 @@ func (b *opencodeBackend) Execute(ctx context.Context, prompt string, opts ExecO
 
 	cmd := exec.CommandContext(runCtx, execPath, args...)
 	hideAgentWindow(cmd)
+	if err := ApplyOSSandbox(cmd, opts); err != nil {
+		cancel()
+		return nil, err
+	}
 	// Run opencode in its own process group so cancellation can reach the
 	// whole tree (opencode plus any tool subprocess it spawns), not just the
 	// direct child — otherwise a cancelled or restarted run can orphan a

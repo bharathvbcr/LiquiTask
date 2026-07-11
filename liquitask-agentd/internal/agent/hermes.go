@@ -61,6 +61,10 @@ func (b *hermesBackend) Execute(ctx context.Context, prompt string, opts ExecOpt
 	hermesArgs := append([]string{"acp"}, filterCustomArgs(opts.CustomArgs, hermesBlockedArgs, b.cfg.Logger)...)
 	cmd := exec.CommandContext(runCtx, execPath, hermesArgs...)
 	hideAgentWindow(cmd)
+	if err := PrepareManagedCommand(cmd, opts, 10*time.Second); err != nil {
+		cancel()
+		return nil, err
+	}
 	b.cfg.Logger.Info("agent command", "exec", execPath, "args", hermesArgs)
 	agentsMDPresent := false
 	if opts.Cwd != "" {
@@ -75,8 +79,9 @@ func (b *hermesBackend) Execute(ctx context.Context, prompt string, opts ExecOpt
 	}
 
 	env := buildEnv(b.cfg.Env)
-	// Enable yolo mode so Hermes auto-approves all tool executions.
-	env = append(env, "HERMES_YOLO_MODE=1")
+	if ShouldBypassPermissions(opts) {
+		env = append(env, "HERMES_YOLO_MODE=1")
+	}
 	cmd.Env = env
 
 	stdout, err := cmd.StdoutPipe()
@@ -146,6 +151,7 @@ func (b *hermesBackend) Execute(ctx context.Context, prompt string, opts ExecOpt
 		stdin:        stdin,
 		pending:      make(map[int]*pendingRPC),
 		pendingTools: make(map[string]*pendingToolCall),
+		permOpts:     opts,
 		acceptNotification: func(string) bool {
 			return streamingCurrentTurn.Load()
 		},
@@ -462,6 +468,7 @@ type hermesClient struct {
 	nextID       int
 	pending      map[int]*pendingRPC
 	sessionID    string
+	permOpts     ExecOptions
 	onMessage    func(Message)
 	onPromptDone func(hermesPromptResult)
 	// acceptNotification can drop ACP session updates before dispatching to
@@ -601,17 +608,28 @@ func (c *hermesClient) handleAgentRequest(raw map[string]json.RawMessage) {
 	var resp map[string]any
 	switch method {
 	case "session/request_permission":
+		tool, input := acpPermissionTool(raw)
+		ctx := context.Background()
+		decision, _ := ResolveToolPermission(ctx, tool, input, c.permOpts)
+		optionID := "reject"
+		if decision.Allowed {
+			if decision.Always {
+				optionID = "approve_for_session"
+			} else {
+				optionID = "approve"
+			}
+		}
 		resp = map[string]any{
 			"jsonrpc": "2.0",
 			"id":      json.RawMessage(rawID),
 			"result": map[string]any{
 				"outcome": map[string]any{
 					"outcome":  "selected",
-					"optionId": "approve_for_session",
+					"optionId": optionID,
 				},
 			},
 		}
-		c.cfg.Logger.Debug("auto-approved agent permission request", "method", method)
+		c.cfg.Logger.Debug("resolved agent permission request", "method", method, "tool", tool, "allowed", decision.Allowed)
 	default:
 		// Unknown agent→client method — reply with standard "method
 		// not found" so the agent doesn't block waiting for us. Better

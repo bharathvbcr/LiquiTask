@@ -29,6 +29,7 @@ const mockDesktopAPI = {
 interface NotificationServiceInternal {
   hasPermission: boolean;
   notifiedOverdueIds: Set<string>;
+  agentAttentionLastShown: Map<string, number>;
 }
 
 describe("notificationService", () => {
@@ -53,6 +54,8 @@ describe("notificationService", () => {
     const internal = notificationService as unknown as NotificationServiceInternal;
     internal.hasPermission = false;
     internal.notifiedOverdueIds.clear();
+    internal.agentAttentionLastShown?.clear();
+    notificationService.resetAgentAttentionDedupe();
   });
 
   afterEach(() => {
@@ -187,9 +190,60 @@ describe("notificationService", () => {
     });
   });
 
+  describe("agent attention notifications", () => {
+    beforeEach(async () => {
+      notificationService.setPreferences({
+        quietHoursEnabled: false,
+        quietHoursStart: "22:00",
+        quietHoursEnd: "08:00",
+        dueDateLeadMinutes: 60,
+        overdueNudgesEnabled: true,
+        agentAttentionEnabled: true,
+      });
+      await notificationService.requestPermission();
+    });
+
+    it("dedupes permission requests within 62 seconds", () => {
+      vi.useFakeTimers();
+      const showSpy = vi.spyOn(notificationService, "show");
+
+      notificationService.notifyPermissionRequest("req-1", "Bash");
+      notificationService.notifyPermissionRequest("req-1", "Bash");
+
+      expect(showSpy).toHaveBeenCalledTimes(1);
+
+      vi.advanceTimersByTime(62_000);
+      notificationService.notifyPermissionRequest("req-1", "Bash");
+      expect(showSpy).toHaveBeenCalledTimes(2);
+      vi.useRealTimers();
+    });
+
+    it("respects agentAttentionEnabled preference", () => {
+      notificationService.setPreferences({
+        quietHoursEnabled: false,
+        quietHoursStart: "22:00",
+        quietHoursEnd: "08:00",
+        dueDateLeadMinutes: 60,
+        overdueNudgesEnabled: true,
+        agentAttentionEnabled: false,
+      });
+      const showSpy = vi.spyOn(notificationService, "show");
+      notificationService.notifyRunCompleted();
+      expect(showSpy).not.toHaveBeenCalled();
+    });
+  });
+
   describe("scheduleTaskReminder", () => {
     beforeEach(() => {
       vi.useFakeTimers();
+      notificationService.setPreferences({
+        quietHoursEnabled: false,
+        quietHoursStart: "22:00",
+        quietHoursEnd: "08:00",
+        dueDateLeadMinutes: 60,
+        overdueNudgesEnabled: true,
+        agentAttentionEnabled: true,
+      });
     });
 
     afterEach(() => {
@@ -275,6 +329,14 @@ describe("notificationService", () => {
   describe("startPeriodicCheck", () => {
     beforeEach(() => {
       vi.useFakeTimers();
+      notificationService.setPreferences({
+        quietHoursEnabled: false,
+        quietHoursStart: "22:00",
+        quietHoursEnd: "08:00",
+        dueDateLeadMinutes: 60,
+        overdueNudgesEnabled: true,
+        agentAttentionEnabled: true,
+      });
     });
 
     afterEach(() => {

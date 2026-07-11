@@ -26,15 +26,18 @@ import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { COLUMN_STATUS } from '../../constants';
+import { DEFAULT_KEYBINDINGS, formatKeybindingList, matchesKeybindingAction } from '../../constants/keybindings';
 import { useCampaign } from '../../hooks/useCampaign';
 import agentRunService from '../../services/agents/agentRunService';
 import agentMcpService, {
   describePermissionInput,
   type AgentPermissionRequest,
 } from '../../services/agents/agentMcpService';
+import { PermissionActionButtons } from './PermissionActionButtons';
 import { StatusPill } from '../../ui';
 import { CopyButton } from '../common/CopyButton';
 import { formatRunLog } from '../../utils/formatRunLog';
+import { getSafeExternalUrl } from '../../utils/safeUrl';
 import { AgentQuickCreate } from './AgentQuickCreate';
 import { AgentTeamSection, PHASE_LABEL } from './AgentTeamPanel';
 import {
@@ -45,6 +48,11 @@ import {
   runStatusTone,
   type RunStatusTone,
 } from '../../utils/runProgress';
+import {
+  deriveRunCostDisplay,
+  formatCostUsd,
+  formatTokenCount,
+} from '../../utils/runUsage';
 import type { AgentProfile, AgentRun, BoardColumn, Task, ToastType } from '../../../types';
 
 type DockTab = 'runs' | 'team';
@@ -113,6 +121,26 @@ const EVENT_COLORS: Record<string, string> = {
 
 const UNDO_WINDOW_MS = 7000;
 
+/** Compact cost + token readout for a run row or header. */
+const RunCostBadge: React.FC<{ run: AgentRun }> = ({ run }) => {
+  const display = deriveRunCostDisplay(run);
+  if (!display) return null;
+  const title = display.estimated
+    ? 'Estimated from token usage rates'
+    : 'Reported run cost';
+  return (
+    <span
+      className="text-[10px] font-mono text-slate-500 shrink-0"
+      title={title}
+    >
+      {formatCostUsd(display.costUsd, display.estimated)}
+      {display.totalTokens > 0 ? (
+        <span className="text-slate-600"> · {formatTokenCount(display.totalTokens)} tok</span>
+      ) : null}
+    </span>
+  );
+};
+
 /** Small uppercase eyebrow that heads each run group. */
 const SectionHeader: React.FC<{
   label: string;
@@ -153,11 +181,19 @@ const RunLog: React.FC<{ run: AgentRun }> = ({ run }) => {
         {run.gitBranch && (
         <div className="text-amber-300/80 flex items-center gap-1 pb-1 border-b border-white/5">
           <GitBranch size={10} /> {run.gitBranch}
-          {run.prUrl && (
-            <a href={run.prUrl} className="text-sky-400 hover:underline truncate ml-1">
-              PR
-            </a>
-          )}
+          {(() => {
+            const safePrUrl = run.prUrl ? getSafeExternalUrl(run.prUrl) : null;
+            return safePrUrl ? (
+              <a
+                href={safePrUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sky-400 hover:underline truncate ml-1"
+              >
+                PR
+              </a>
+            ) : null;
+          })()}
         </div>
       )}
       {run.gitDiff && (
@@ -305,22 +341,12 @@ const PermissionPromptPanel: React.FC<{
                 {detail}
               </pre>
             )}
-            <div className="flex gap-1.5 pt-0.5">
-              <button
-                type="button"
-                onClick={() => agentMcpService.respondToPermission(req.requestId, true)}
-                className="flex-1 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[11px] font-medium"
-              >
-                Allow
-              </button>
-              <button
-                type="button"
-                onClick={() => agentMcpService.respondToPermission(req.requestId, false)}
-                className="flex-1 py-1 rounded-lg bg-red-500/10 border border-red-500/20 text-red-300 text-[11px] font-medium"
-              >
-                Deny
-              </button>
-            </div>
+            <PermissionActionButtons
+              onRespond={(decision) =>
+                agentMcpService.respondToPermission(req.requestId, decision)
+              }
+              size="compact"
+            />
           </div>
         );
       })}
@@ -372,6 +398,8 @@ export const AgentRunsDock: React.FC<AgentRunsDockProps> = ({
   const [doneCollapsed, setDoneCollapsed] = useState(true);
   const [undo, setUndo] = useState<{ runs: AgentRun[] } | null>(null);
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dockRef = useRef<HTMLDivElement>(null);
+  const [dockFocused, setDockFocused] = useState(false);
 
   useEffect(() => {
     return agentMcpService.subscribePermissions(setPendingPermissions);
@@ -398,7 +426,7 @@ export const AgentRunsDock: React.FC<AgentRunsDockProps> = ({
       setCollapsed(false);
       setTab('team');
     } else {
-      setCollapsed(true);
+      setTab('runs');
     }
   }, [teamOpen]);
 
@@ -460,6 +488,22 @@ export const AgentRunsDock: React.FC<AgentRunsDockProps> = ({
 
   const failedCount = useMemo(() => done.filter(r => r.status === 'failed').length, [done]);
 
+  /** Completed runs awaiting approve/reject (excludes worktree-only review cards). */
+  const reviewAwaitingApproval = useMemo(() => {
+    return review.filter(run => {
+      const task = taskById.get(run.taskId);
+      return (
+        run.status === 'completed' &&
+        !run.reviewOutcome &&
+        task?.status === COLUMN_STATUS.COMPLETED &&
+        !!onApprove &&
+        !!onReject
+      );
+    });
+  }, [review, taskById, onApprove, onReject]);
+
+  const pendingBatchCount = pendingPermissions.length + reviewAwaitingApproval.length;
+
   const idleAssigned = useMemo(() => {
     const activeTaskIds = new Set(active.map(r => r.taskId));
     return tasks.filter(task => {
@@ -513,6 +557,52 @@ export const AgentRunsDock: React.FC<AgentRunsDockProps> = ({
     clearUndo();
   };
 
+  const handleApproveAllPending = () => {
+    if (pendingPermissions.length > 0) {
+      agentMcpService.respondToAllPending('allow');
+    }
+    for (const run of reviewAwaitingApproval) {
+      const task = taskById.get(run.taskId);
+      if (task) onApprove?.(task, run);
+    }
+  };
+
+  const handleDenyAllPending = () => {
+    if (pendingPermissions.length > 0) {
+      agentMcpService.respondToAllPending('deny');
+    }
+    for (const run of reviewAwaitingApproval) {
+      const task = taskById.get(run.taskId);
+      if (task) onReject?.(task, run, rejectFeedback[run.id] ?? 'Batch denied');
+    }
+  };
+
+  // Shift+A / Shift+D batch triage when the dock panel is focused.
+  useEffect(() => {
+    if (collapsed || !dockFocused || pendingBatchCount === 0) return;
+
+    const handleKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const isTextInput =
+        target &&
+        (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable);
+      if (isTextInput) return;
+
+      if (matchesKeybindingAction(event, DEFAULT_KEYBINDINGS, 'dock:approve-all-pending')) {
+        event.preventDefault();
+        handleApproveAllPending();
+        return;
+      }
+      if (matchesKeybindingAction(event, DEFAULT_KEYBINDINGS, 'dock:deny-all-pending')) {
+        event.preventDefault();
+        handleDenyAllPending();
+      }
+    };
+
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [collapsed, dockFocused, pendingBatchCount, pendingPermissions, reviewAwaitingApproval, rejectFeedback, onApprove, onReject]);
+
   const renderRunCard = (run: AgentRun, group: RunGroup) => {
     const task = taskById.get(run.taskId);
     const agent = agentById.get(run.agentId);
@@ -544,8 +634,19 @@ export const AgentRunsDock: React.FC<AgentRunsDockProps> = ({
       run.status === 'queued'
         ? (() => {
             const pos = agentRunService.getQueuePosition(run.taskId);
+            if (run.scopeBlocked) {
+              return run.scopeWaitPosition
+                ? `scope wait #${run.scopeWaitPosition}`
+                : 'scope wait';
+            }
             return pos ? `queued #${pos}` : 'queued';
           })()
+        : null;
+    const scopePathsLabel =
+      run.reservedPaths && run.reservedPaths.length > 0
+        ? run.reservedPaths.length <= 2
+          ? run.reservedPaths.join(', ')
+          : `${run.reservedPaths[0]} +${run.reservedPaths.length - 1}`
         : null;
 
     return (
@@ -585,7 +686,13 @@ export const AgentRunsDock: React.FC<AgentRunsDockProps> = ({
                 <ShieldCheck size={12} className="text-emerald-400 shrink-0" />
               )}
               <span className="text-xs text-white truncate">{task?.title ?? run.taskId}</span>
+              <RunCostBadge run={run} />
             </div>
+            {scopePathsLabel && isActive && (
+              <p className="text-[10px] text-slate-500 truncate mt-0.5" title="Reserved scope">
+                Scope: {scopePathsLabel}
+              </p>
+            )}
             {!isExpanded && (
               <p className="text-[11px] text-slate-500 truncate mt-1">
                 {isActive && lastEvent
@@ -837,7 +944,15 @@ export const AgentRunsDock: React.FC<AgentRunsDockProps> = ({
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-40 w-96 max-w-[calc(100vw-2rem)] liquid-surface overflow-hidden">
+    <div
+      ref={dockRef}
+      tabIndex={-1}
+      onFocus={() => setDockFocused(true)}
+      onBlur={e => {
+        if (!dockRef.current?.contains(e.relatedTarget as Node)) setDockFocused(false);
+      }}
+      className="fixed bottom-4 right-4 z-40 w-96 max-w-[calc(100vw-2rem)] liquid-surface overflow-hidden outline-none"
+    >
       <button
         type="button"
         onClick={toggleCollapsed}
@@ -879,6 +994,32 @@ export const AgentRunsDock: React.FC<AgentRunsDockProps> = ({
         </div>
         <ChevronDown size={14} className="text-slate-500" />
       </button>
+
+      {pendingBatchCount > 0 && (
+        <div className="flex items-center justify-between gap-2 px-4 py-2 border-t border-white/5 bg-amber-500/5">
+          <span className="text-[10px] uppercase tracking-widest text-amber-400/90">
+            {pendingBatchCount} pending
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={handleApproveAllPending}
+              className="px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[10px] font-medium hover:bg-emerald-500/20 transition-colors"
+              title={`Approve all pending (${formatKeybindingList(DEFAULT_KEYBINDINGS['dock:approve-all-pending'] ?? [])} when dock focused)`}
+            >
+              Approve All
+            </button>
+            <button
+              type="button"
+              onClick={handleDenyAllPending}
+              className="px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[10px] font-medium hover:bg-amber-500/20 transition-colors"
+              title={`Deny all pending (${formatKeybindingList(DEFAULT_KEYBINDINGS['dock:deny-all-pending'] ?? [])} when dock focused)`}
+            >
+              Deny All
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="border-t border-white/5">
         {/* Tabs */}

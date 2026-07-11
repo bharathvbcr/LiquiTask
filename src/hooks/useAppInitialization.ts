@@ -19,6 +19,8 @@ import {
   STORAGE_KEYS,
 } from "../constants";
 import taskEventStore from "../core/events/taskEventStore";
+import { replayTaskEvents } from "../core/events/taskEventReducer";
+import { draftEvent } from "../core/events/taskEvents";
 import { migrateColumnsToAgenticBoard } from "../migrations/agenticBoard";
 import { archiveService, loadArchiveSettings } from "../services/archiveService";
 import { bootstrapEncryptionAtRest, isEncryptedStorageAccessible } from "../services/encryptionSetup";
@@ -26,6 +28,11 @@ import type { AutomationRule, AutomationTrigger, TaskContext } from "../services
 import { indexedDBService } from "../services/indexedDBService";
 import storageService from "../services/storageService";
 import { semanticLayerService } from "../services/semanticLayerService";
+import { readAiFeaturesEnabled } from "../utils/aiFeatures";
+import {
+  needsOnboardingExperienceChoice,
+  skipOnboardingForExistingInstall,
+} from "../utils/onboarding";
 import { getBacklogColumnId, getCompletedColumnIds, isTaskComplete } from "../utils/taskUtils";
 import { shouldRunAgentOnRecurrence } from "../services/agents/agentRecurrence";
 import type { FilterGroup } from "../types/queryTypes";
@@ -119,6 +126,7 @@ interface InitializationProps {
   setBoardGrouping: (val: GroupingOption) => void;
   setIsCompactView: (val: boolean) => void;
   setShowSubWorkspaceTasks: (val: boolean) => void;
+  setAiFeaturesEnabled: (val: boolean) => void;
   setViewMode: (val: ViewMode) => void;
   setCurrentView: (val: CurrentView) => void;
   searchIndexServiceRef: MutableRefObject<SearchIndexServiceLike | null>;
@@ -154,6 +162,7 @@ export const useAppInitialization = ({
   setBoardGrouping,
   setIsCompactView,
   setShowSubWorkspaceTasks,
+  setAiFeaturesEnabled,
   setViewMode,
   setCurrentView,
   searchIndexServiceRef,
@@ -197,11 +206,20 @@ export const useAppInitialization = ({
       }
 
       try {
-        await semanticLayerService.initialize();
-        semanticLayerService.startHealthMonitor();
+        if (readAiFeaturesEnabled()) {
+          const data = storageService.getAllData();
+          skipOnboardingForExistingInstall(data);
+          if (!needsOnboardingExperienceChoice(data)) {
+            await semanticLayerService.initialize();
+            semanticLayerService.startHealthMonitor();
+          }
+        }
       } catch (error) {
         console.warn("[SemanticLayer] Initialization failed:", error);
       }
+
+      const data = storageService.getAllData();
+      skipOnboardingForExistingInstall(data);
 
       try {
         const storageAccessible = await isEncryptedStorageAccessible();
@@ -217,8 +235,6 @@ export const useAppInitialization = ({
       } catch (err) {
         console.warn('[Storage] Archive service init failed, continuing without archive:', err);
       }
-
-      const data = storageService.getAllData();
 
       // Defense-in-depth: data imported from older exports can bypass the
       // versioned migration — remap legacy statuses before rendering.
@@ -281,6 +297,8 @@ export const useAppInitialization = ({
       if (compactView !== undefined) setIsCompactView(compactView);
       const subTasks = storageService.get(STORAGE_KEYS.SHOW_SUB_WORKSPACE_TASKS, false);
       if (subTasks !== undefined) setShowSubWorkspaceTasks(subTasks);
+      const aiFeatures = storageService.get(STORAGE_KEYS.AI_FEATURES_ENABLED, true);
+      if (aiFeatures !== undefined) setAiFeaturesEnabled(aiFeatures);
       const savedViewMode = storageService.get(STORAGE_KEYS.VIEW_MODE, "board");
       if (savedViewMode) setViewMode(savedViewMode);
       const savedCurrentView = storageService.get(STORAGE_KEYS.CURRENT_VIEW, "project");
@@ -309,6 +327,14 @@ export const useAppInitialization = ({
     };
 
     void loadData();
+
+    const unsubscribeEvents = taskEventStore.subscribe((events) => {
+      if (events.length === 0) return;
+      setTasks((prev) => replayTaskEvents(events, prev));
+    });
+    return () => {
+      unsubscribeEvents();
+    };
     // Runs on mount and again whenever encryptionEpoch changes (i.e. after the
     // user unlocks web encryption), so decrypted data loads without a page reload.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -417,18 +443,32 @@ export const useAppInitialization = ({
               addToast(`Recurring task "${newTask.title}" created`, "info");
             },
             onUpdateTask: (taskId: string, updates: Partial<Task>) => {
-              setTasks((prev) => {
-                const next = prev.map((t) =>
-                  t.id === taskId ? { ...t, ...updates, updatedAt: new Date() } : t,
-                );
-                if (indexedDBService.isAvailable()) {
-                  const saved = next.find((t) => t.id === taskId);
-                  if (saved) {
-                    indexedDBService.saveTask(saved).catch(console.error);
+              void (async () => {
+                try {
+                  const events = await taskEventStore.append([
+                    draftEvent({
+                      streamId: taskId,
+                      type: "task.updated",
+                      payload: { patch: updates },
+                      actor: "system",
+                    }),
+                  ]);
+                  setTasks((prev) => replayTaskEvents(events, prev));
+                  if (indexedDBService.isAvailable()) {
+                    const saved = replayTaskEvents(events, tasksRef.current).find(
+                      (t) => t.id === taskId,
+                    );
+                    if (saved) indexedDBService.saveTask(saved).catch(console.error);
                   }
+                } catch (err) {
+                  console.warn("[recurring] failed to log nextOccurrence update:", err);
+                  setTasks((prev) =>
+                    prev.map((t) =>
+                      t.id === taskId ? { ...t, ...updates, updatedAt: new Date() } : t,
+                    ),
+                  );
                 }
-                return next;
-              });
+              })();
             },
             getDefaultStatus: () => getBacklogColumnId(columnsRef.current),
             onAgentRecurringTask: (newTask: Task) => {
@@ -500,9 +540,9 @@ function normalizeAgenticBoardData(
 }
 
 /**
- * Ensure the four agentic lifecycle columns exist (idempotent). The agent
- * run pipeline depends on In Progress / Completed / Commit being present:
- * cards move across them as runs start, finish, and get committed.
+ * Ensure the five agentic lifecycle columns exist (idempotent). The agent
+ * run pipeline depends on In Progress / Completed / In Review / Commit being
+ * present: cards move across them as runs start, finish, PRs open, and merge.
  */
 function ensureAgenticColumns(columns: BoardColumn[]): BoardColumn[] {
   const present = new Set(columns.map((c) => c.id));

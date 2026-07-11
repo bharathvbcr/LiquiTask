@@ -26,5 +26,11 @@ export type { ApprovalCardProps } from "./ApprovalCard";
 export { DIFF_LINE_CAP, DiffView, parseUnifiedDiff } from "./DiffView";
 export type { DiffFile, DiffViewProps } from "./DiffView";
 
+export { LazyDiffBrowser } from "./LazyDiffBrowser";
+export type { GitChangedFile, LazyDiffBrowserProps } from "./LazyDiffBrowser";
+
 export { groupToolEvents, ToolTimeline } from "./ToolTimeline";
 export type { ToolTimelineEntry, ToolTimelineProps } from "./ToolTimeline";
+
+export { RunTraceTimeline } from "./RunTraceTimeline";
+export type { RunTraceTimelineProps } from "./RunTraceTimeline";

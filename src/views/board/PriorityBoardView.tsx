@@ -48,10 +48,12 @@ interface PriorityBoardViewProps {
   onEditTask: (task: Task) => void;
   onUpdateTask: (task: Task) => void;
   onDeleteTask: (taskId: string) => void;
+  onArchiveTask?: (taskId: string) => void;
   selectedTaskIds?: Set<string>;
   onToggleTaskSelection?: (taskId: string, shiftKey?: boolean) => void;
   getTasksByContext: (statusId: string, priorityId?: string) => Task[];
   onCopyTask?: (message: string) => void;
+  onDuplicateAsQuickAdd?: (task: Task) => void;
   projectName?: string;
   projects?: Project[];
   onMoveToWorkspace?: (taskId: string, projectId: string) => void;
@@ -59,6 +61,7 @@ interface PriorityBoardViewProps {
   agentTray?: React.ReactNode;
   onApproveAgentWork?: (task: Task, run: AgentRun) => void;
   onRejectAgentWork?: (task: Task, run: AgentRun, feedback: string) => void;
+  agentDispatchEnabled?: boolean;
 }
 
 const getDropZoneId = (priorityId: string, statusId: string) => `${priorityId}::${statusId}`;
@@ -86,16 +89,19 @@ const PriorityBoardView: React.FC<PriorityBoardViewProps> = ({
   onEditTask,
   onUpdateTask,
   onDeleteTask,
+  onArchiveTask,
   selectedTaskIds,
   onToggleTaskSelection,
   getTasksByContext,
   onCopyTask,
+  onDuplicateAsQuickAdd,
   projectName,
   projects = [],
   onMoveToWorkspace,
   agentTray,
   onApproveAgentWork,
   onRejectAgentWork,
+  agentDispatchEnabled = true,
 }) => {
   return (
     <DndContext
@@ -173,14 +179,15 @@ const PriorityBoardView: React.FC<PriorityBoardViewProps> = ({
                           key={task.id}
                           task={task}
                           priorities={priorities}
-                          isCompletedColumn={column.isCompleted}
                           onMoveTask={onMoveTask}
                           onEditTask={onEditTask}
                           onUpdateTask={onUpdateTask}
                           onDeleteTask={onDeleteTask}
+                          onArchiveTask={onArchiveTask}
                           allTasks={allTasks}
                           isCompact={isCompact}
                           onCopyTask={onCopyTask}
+                          onDuplicateAsQuickAdd={onDuplicateAsQuickAdd}
                           projectName={projectName}
                           projects={projects}
                           onMoveToWorkspace={onMoveToWorkspace}
@@ -189,6 +196,7 @@ const PriorityBoardView: React.FC<PriorityBoardViewProps> = ({
                           onToggleSelect={onToggleTaskSelection}
                           onApproveAgentWork={onApproveAgentWork}
                           onRejectAgentWork={onRejectAgentWork}
+                          agentDispatchEnabled={agentDispatchEnabled}
                         />
                       ))}
                     </SortableContext>
@@ -225,7 +233,6 @@ const PriorityBoardView: React.FC<PriorityBoardViewProps> = ({
               <TaskCard
                 task={activeTask}
                 priorities={priorities}
-                isCompletedColumn={false}
                 onMoveTask={() => {}}
                 onEditTask={() => {}}
                 onUpdateTask={() => {}}

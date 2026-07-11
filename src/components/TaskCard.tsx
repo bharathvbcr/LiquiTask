@@ -14,18 +14,20 @@ import { TaskCardContextMenu } from "./taskCard/TaskCardContextMenu";
 import { TaskCardFooter } from "./taskCard/TaskCardFooter";
 import { TaskCardHeader } from "./taskCard/TaskCardHeader";
 import { TaskCardPermissionBar } from "./taskCard/TaskCardPermissionBar";
+import { TaskCardPrChip } from "./taskCard/TaskCardPrChip";
 
 interface TaskCardProps {
   task: Task;
-  isCompletedColumn?: boolean;
   onMoveTask: (taskId: string, newStatus: string) => void;
   onEditTask: (task: Task) => void;
   onUpdateTask: (task: Task) => void;
   onDeleteTask: (taskId: string) => void;
+  onArchiveTask?: (taskId: string) => void;
   priorities?: PriorityDefinition[];
   allTasks?: Task[];
   isCompact?: boolean;
   onCopyTask?: (message: string) => void;
+  onDuplicateAsQuickAdd?: (task: Task) => void;
   projectName?: string;
   projects?: Project[];
   onMoveToWorkspace?: (taskId: string, projectId: string) => void;
@@ -38,19 +40,21 @@ interface TaskCardProps {
   sortableStyle?: React.CSSProperties;
   sortableAttributes?: React.HTMLAttributes<HTMLDivElement>;
   sortableListeners?: Record<string, unknown>;
+  agentDispatchEnabled?: boolean;
 }
 
 export const TaskCard: React.FC<TaskCardProps> = ({
   task,
-  isCompletedColumn,
   onMoveTask,
   onEditTask,
   onUpdateTask,
   onDeleteTask,
+  onArchiveTask,
   priorities = [],
   allTasks = [],
   isCompact = false,
   onCopyTask,
+  onDuplicateAsQuickAdd,
   projectName,
   projects = [],
   onMoveToWorkspace,
@@ -63,6 +67,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   sortableStyle,
   sortableAttributes,
   sortableListeners,
+  agentDispatchEnabled = true,
 }) => {
   const [isSubtasksExpanded, setIsSubtasksExpanded] = useState(false);
   const [rejectFeedback, setRejectFeedback] = useState("");
@@ -86,10 +91,12 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   // while a run is active/in flight or when no agent can take work.
   const dispatchReady = agentDispatchService.canDispatch();
   const canQuickSend =
+    agentDispatchEnabled &&
     dispatchReady &&
     !runStatus &&
     !sending &&
     task.status !== COLUMN_STATUS.COMPLETED &&
+    task.status !== COLUMN_STATUS.IN_REVIEW &&
     task.status !== COLUMN_STATUS.COMMIT;
   const showAgentReview =
     isAgentTask &&
@@ -109,6 +116,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     offerAgentSetup,
     handleContextMenu,
     handleCopyAsJson,
+    handleDuplicateAsQuickAdd,
     handleMoveToWorkspace,
     handleDeleteTask,
     handleSendToAgent,
@@ -121,8 +129,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     task,
     projectName,
     onCopyTask,
+    onDuplicateAsQuickAdd,
     onMoveToWorkspace,
     onDeleteTask,
+    agentsEnabled: agentDispatchEnabled,
   });
 
   const handleSubtaskToggle = (e: React.MouseEvent, subtaskId: string) => {
@@ -212,9 +222,15 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           onSubtaskTitleChange={handleSubtaskTitleChange}
         />
 
+        {(task.prState?.url || task.prState?.state) && (
+          <TaskCardPrChip prState={task.prState} compact={isCompact} />
+        )}
+
         <TaskCardFooter
           task={task}
-          isCompletedColumn={isCompletedColumn}
+          showMarkCommittedButton={task.status === COLUMN_STATUS.COMPLETED && !showAgentReview}
+          showArchiveButton={task.status === COLUMN_STATUS.COMMIT}
+          onArchiveTask={onArchiveTask}
           isAgentTask={isAgentTask}
           agentWorking={agentWorking}
           runStatus={runStatus}
@@ -255,8 +271,19 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         onWorkspaceSubmenuEnter={handleWorkspaceSubmenuEnter}
         onWorkspaceSubmenuLeave={handleWorkspaceSubmenuLeave}
         onCopyAsJson={handleCopyAsJson}
+        onDuplicateAsQuickAdd={
+          onDuplicateAsQuickAdd ? handleDuplicateAsQuickAdd : undefined
+        }
         onMoveToWorkspaceSelect={handleMoveToWorkspace}
         onDeleteTask={handleDeleteTask}
+        onArchiveTask={
+          task.status === COLUMN_STATUS.COMMIT && onArchiveTask
+            ? () => {
+                onArchiveTask(task.id);
+                setContextMenuVisible(false);
+              }
+            : undefined
+        }
         dispatchAgents={dispatchAgents}
         showAgentSubmenu={showAgentSubmenu}
         onAgentSubmenuEnter={handleAgentSubmenuEnter}

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import stat
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -12,6 +13,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from .config import ModelTier, SemanticLayerConfig
+from .security import secure_cache_dir
 
 
 @dataclass
@@ -317,7 +319,7 @@ class SemanticCache:
         """Persist the FAISS index + entry metadata + calibrated threshold."""
         with self._lock:
             path = Path(directory)
-            path.mkdir(parents=True, exist_ok=True)
+            secure_cache_dir(path)
             self._faiss.write_index(self._index, str(path / "cache.index"))
             meta = {
                 "next_id": self._next_id,
@@ -342,7 +344,12 @@ class SemanticCache:
             }
             tmp = path / "cache.meta.json.tmp"
             tmp.write_text(json.dumps(meta))
+            try:
+                tmp.chmod(stat.S_IRUSR | stat.S_IWUSR)
+            except OSError:
+                pass
             tmp.replace(path / "cache.meta.json")
+            secure_cache_dir(path)
 
     def load(self, directory: str) -> bool:
         """Restore a previously saved cache. Returns False if nothing on disk."""

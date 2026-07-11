@@ -24,6 +24,10 @@ export interface InboxCounts {
   plans: number;
   /** Dead-lettered actions (failed merges / agent actions) awaiting retry/discard. */
   deadLetters: number;
+  /** Pending permission prompts awaiting allow/deny. */
+  permissions: number;
+  /** External agent sessions available for adoption. */
+  adoptableSessions: number;
   /** Total items that need the user's attention right now. */
   actionable: number;
 }
@@ -42,6 +46,8 @@ export function deriveInboxCounts(
   tasks: Task[],
   pendingPlanCount = 0,
   deadLetterCount = 0,
+  pendingPermissionCount = 0,
+  adoptableSessionCount = 0,
 ): InboxCounts {
   const taskById = new Map<string, Task>();
   for (const task of tasks) taskById.set(task.id, task);
@@ -61,8 +67,47 @@ export function deriveInboxCounts(
     blocked,
     plans: pendingPlanCount,
     deadLetters: deadLetterCount,
-    actionable: approvals + blocked + pendingPlanCount + deadLetterCount,
+    permissions: pendingPermissionCount,
+    adoptableSessions: adoptableSessionCount,
+    actionable:
+      approvals +
+      blocked +
+      pendingPlanCount +
+      deadLetterCount +
+      pendingPermissionCount +
+      adoptableSessionCount,
   };
+}
+
+/** Minimal permission prompt shape for Inbox sorting (matches AgentPermissionRequest). */
+export interface PermissionInboxRequest {
+  requestId: string;
+  runId: string;
+  taskId: string;
+  toolName: string;
+  input: unknown;
+  receivedAt: Date;
+}
+
+/** A pending permission prompt sorted for the Inbox approvals section. */
+export interface PermissionInboxItem {
+  request: PermissionInboxRequest;
+  sortTs: number;
+}
+
+/**
+ * Sort pending permission prompts newest-first for the unified Inbox section.
+ * Keeps permission triage logic in core/ alongside `deriveInboxCounts`.
+ */
+export function derivePermissionInboxItems<T extends PermissionInboxRequest>(
+  permissions: T[],
+): Array<{ request: T; sortTs: number }> {
+  return permissions
+    .map((request) => ({
+      request,
+      sortTs: request.receivedAt.getTime(),
+    }))
+    .sort((a, b) => b.sortTs - a.sortTs);
 }
 
 /**

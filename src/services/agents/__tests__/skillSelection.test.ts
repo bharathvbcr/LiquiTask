@@ -5,6 +5,7 @@ import type { Task } from "../../../../types";
 import {
   catalogEntryToSkill,
   scoreEntry,
+  selectRunSkills,
   selectSkillsForTask,
   taskQueryTokens,
   tokenize,
@@ -104,6 +105,56 @@ describe("selectSkillsForTask", () => {
     ];
     const [first] = selectSkillsForTask(makeTask(), catalog);
     expect(first.origin).toBe("captured");
+  });
+});
+
+describe("selectRunSkills (per-agent pinned skills)", () => {
+  it("puts pinned skills first, even when they don't match the task", () => {
+    const pinned = installed("Kubernetes deploy", "helm chart rollout", "k8s");
+    const catalog = [
+      captured("Fix login redirect", "auth session cookie handling"),
+      pinned,
+    ];
+    const result = selectRunSkills(makeTask(), catalog, [pinned.id]);
+    expect(result[0].id).toBe(pinned.id);
+    // The task-relevant captured skill still rides along after the pin.
+    expect(result.map((e) => e.title)).toContain("Fix login redirect");
+  });
+
+  it("does not duplicate a pinned skill that would also rank", () => {
+    const pinned = captured("Fix login redirect", "auth session cookie handling", "login");
+    const catalog = [pinned, captured("Other", "unrelated", "other")];
+    const result = selectRunSkills(makeTask(), catalog, [pinned.id]);
+    expect(result.filter((e) => e.id === pinned.id)).toHaveLength(1);
+  });
+
+  it("ignores unknown pinned ids (deleted skill degrades to none)", () => {
+    const catalog = [captured("Fix login redirect", "auth session cookie handling", "login")];
+    const result = selectRunSkills(makeTask(), catalog, ["does-not-exist"]);
+    expect(result.map((e) => e.id)).toEqual(["login"]);
+  });
+
+  it("behaves like selectSkillsForTask when nothing is pinned", () => {
+    const catalog = [
+      captured("Update invoice PDF export", "quarterly billing", "inv"),
+      captured("Fix login redirect", "auth session cookie handling", "login"),
+    ];
+    const pinnedResult = selectRunSkills(makeTask(), catalog, []);
+    const rankedResult = selectSkillsForTask(makeTask(), catalog);
+    expect(pinnedResult.map((e) => e.id)).toEqual(rankedResult.map((e) => e.id));
+  });
+
+  it("keeps pinned skills ahead of the ranked limit", () => {
+    const pinnedA = installed("Deploy runbook", "ops rollout steps", "a");
+    const pinnedB = installed("Incident triage", "pager escalation", "b");
+    const rest = Array.from({ length: 9 }, (_, i) =>
+      captured(`login skill ${i}`, "auth session cookie", `s${i}`),
+    );
+    const catalog = [pinnedA, pinnedB, ...rest];
+    const result = selectRunSkills(makeTask(), catalog, [pinnedA.id, pinnedB.id], 3);
+    // Both pins survive; the ranked rest respects the limit of 3.
+    expect(result.slice(0, 2).map((e) => e.id)).toEqual([pinnedA.id, pinnedB.id]);
+    expect(result).toHaveLength(5);
   });
 });
 

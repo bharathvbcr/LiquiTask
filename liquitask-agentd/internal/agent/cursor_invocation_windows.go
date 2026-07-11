@@ -58,10 +58,11 @@ func rewriteCmdToPS1(toolName, lookedUp string, args []string, logger *slog.Logg
 	return psExe, full, true
 }
 
-// platformCursorInvocation rewrites cursor-agent.cmd → PowerShell -File
-// cursor-agent.ps1 on Windows to avoid cmd.exe %* re-tokenisation.
+// platformCursorInvocation rewrites agent.cmd / cursor-agent.cmd → PowerShell
+// -File <tool>.ps1 on Windows to avoid cmd.exe %* re-tokenisation.
 func platformCursorInvocation(lookedUp string, args []string, logger *slog.Logger) (string, []string, bool) {
-	return rewriteCmdToPS1("cursor-agent", lookedUp, args, logger)
+	toolName := strings.TrimSuffix(filepath.Base(lookedUp), filepath.Ext(lookedUp))
+	return rewriteCmdToPS1(toolName, lookedUp, args, logger)
 }
 
 // defaultPowerShellLookup prefers PowerShell on PATH (PowerShell 7's pwsh.exe

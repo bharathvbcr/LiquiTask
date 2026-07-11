@@ -11,7 +11,9 @@ import {
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { useCallback, useRef, useState } from "react";
 import agentDispatchService from "../services/agents/agentDispatchService";
+import agentReservationService from "../services/agents/agentReservationService";
 import type { BoardColumn, Task } from "../../types";
+import { isDragHoveringQuickAddDropTarget, isDragOverQuickAddDropTarget } from "../utils/taskParser";
 
 /** Where the just-dropped card landed — drives the liquid splash effect. */
 export interface DropSplash {
@@ -53,6 +55,8 @@ interface UseBoardDnDControllerProps {
   showToast: (message: string, type?: "success" | "error" | "info") => void;
   /** Called when a task card is dropped on an agent chip (`agent-drop:<id>`). */
   onAssignToAgent?: (task: Task, agentId: string) => void;
+  /** Called when a task card is dropped on the New Task / quick-add target. */
+  onQuickAddFromTask?: (task: Task) => void;
 }
 
 /** Droppable id prefix used by the agent handoff tray. */
@@ -70,9 +74,12 @@ export const useBoardDnDController = ({
   getTasksByContext,
   showToast,
   onAssignToAgent,
+  onQuickAddFromTask,
 }: UseBoardDnDControllerProps) => {
   const [activeDrag, setActiveDrag] = useState<ActiveDrag | null>(null);
+  const activeDragRef = useRef<ActiveDrag | null>(null);
   const [highlightedZone, setHighlightedZone] = useState<string | null>(null);
+  const [isQuickAddDropHover, setIsQuickAddDropHover] = useState(false);
   const [splash, setSplash] = useState<DropSplash | null>(null);
   const splashIdRef = useRef(0);
 
@@ -137,17 +144,27 @@ export const useBoardDnDController = ({
       const data = active.data.current;
 
       if (data?.type === "task" && data.task) {
-        setActiveDrag({ type: "task", id, data: data.task });
+        const drag = { type: "task" as const, id, data: data.task };
+        activeDragRef.current = drag;
+        setActiveDrag(drag);
       } else if (data?.type === "column" && data.column) {
-        setActiveDrag({ type: "column", id, data: data.column });
+        const drag = { type: "column" as const, id, data: data.column };
+        activeDragRef.current = drag;
+        setActiveDrag(drag);
       } else {
         const task = tasks.find((t) => t.id === id);
         if (task) {
-          setActiveDrag({ type: "task", id, data: task });
+          const drag = { type: "task" as const, id, data: task };
+          activeDragRef.current = drag;
+          setActiveDrag(drag);
           return;
         }
         const column = columns.find((c) => c.id === id);
-        if (column) setActiveDrag({ type: "column", id, data: column });
+        if (column) {
+          const drag = { type: "column" as const, id, data: column };
+          activeDragRef.current = drag;
+          setActiveDrag(drag);
+        }
       }
     },
     [tasks, columns],
@@ -155,6 +172,11 @@ export const useBoardDnDController = ({
 
   const handleDragOver = useCallback((event: DragOverEvent) => {
     setHighlightedZone(event.over ? String(event.over.id) : null);
+    if (activeDragRef.current?.type === "task") {
+      setIsQuickAddDropHover(isDragHoveringQuickAddDropTarget(event));
+    } else {
+      setIsQuickAddDropHover(false);
+    }
   }, []);
 
   const handleColumnReorder = useCallback(
@@ -204,10 +226,25 @@ export const useBoardDnDController = ({
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
-      const { over } = event;
-      if (!activeDrag || !over) {
+      if (
+        activeDrag?.type === "task" &&
+        onQuickAddFromTask &&
+        isDragOverQuickAddDropTarget(event)
+      ) {
+        onQuickAddFromTask(activeDrag.data);
+        activeDragRef.current = null;
         setActiveDrag(null);
         setHighlightedZone(null);
+        setIsQuickAddDropHover(false);
+        return;
+      }
+
+      const { over } = event;
+      if (!activeDrag || !over) {
+        activeDragRef.current = null;
+        setActiveDrag(null);
+        setHighlightedZone(null);
+        setIsQuickAddDropHover(false);
         return;
       }
 
@@ -221,6 +258,13 @@ export const useBoardDnDController = ({
           // First-run chip: no agents yet — open Settings → Agents.
           agentDispatchService.requestSetup();
         } else {
+          const conflict = agentReservationService.wouldTaskConflict(activeDrag.data);
+          if (conflict) {
+            showToast(
+              "Scope overlap with an active run — task will queue for file scope.",
+              "info",
+            );
+          }
           onAssignToAgent?.(activeDrag.data, agentId);
         }
       } else if (activeDrag.type === "column") {
@@ -237,20 +281,25 @@ export const useBoardDnDController = ({
         }
       }
 
+      activeDragRef.current = null;
       setActiveDrag(null);
       setHighlightedZone(null);
+      setIsQuickAddDropHover(false);
     },
-    [activeDrag, handleColumnReorder, handleTaskDrop, onAssignToAgent],
+    [activeDrag, handleColumnReorder, handleTaskDrop, onAssignToAgent, onQuickAddFromTask],
   );
 
   const handleDragCancel = useCallback(() => {
+    activeDragRef.current = null;
     setActiveDrag(null);
     setHighlightedZone(null);
+    setIsQuickAddDropHover(false);
   }, []);
 
   return {
     activeDrag,
     highlightedZone,
+    isQuickAddDropHover,
     splash,
     sensors,
     handleDragStart,

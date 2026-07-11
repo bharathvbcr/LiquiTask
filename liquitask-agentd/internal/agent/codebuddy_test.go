@@ -18,6 +18,7 @@ func TestBuildCodebuddyArgs_Basic(t *testing.T) {
 		Model:        "claude-sonnet-4-20250514",
 		MaxTurns:     25,
 		SystemPrompt: "You are an agent.",
+		AutoApprove:  true,
 	}, slog.Default())
 
 	expected := []string{

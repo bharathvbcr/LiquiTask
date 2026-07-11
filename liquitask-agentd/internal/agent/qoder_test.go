@@ -276,9 +276,10 @@ func TestQoderBackendInvokesACPFlagAndFiltersBlockedArgs(t *testing.T) {
 	defer cancel()
 
 	session, err := backend.Execute(ctx, "prompt-ignored", ExecOptions{
-		Model:      "bogus-model",
-		Timeout:    30 * time.Second,
-		CustomArgs: []string{"--acp", "acp", "--yolo", "--model", "extra"},
+		Model:       "bogus-model",
+		Timeout:     30 * time.Second,
+		AutoApprove: true,
+		CustomArgs:  []string{"--acp", "acp", "--yolo", "--model", "extra"},
 	})
 	if err != nil {
 		t.Fatalf("execute: %v", err)

@@ -589,9 +589,10 @@ func TestHermesClientAutoApprovesPermissionRequest(t *testing.T) {
 
 	w := &bufferWriter{}
 	c := &hermesClient{
-		cfg:     Config{Logger: slog.Default()},
-		stdin:   w,
-		pending: make(map[int]*pendingRPC),
+		cfg:      Config{Logger: slog.Default()},
+		stdin:    w,
+		pending:  make(map[int]*pendingRPC),
+		permOpts: ExecOptions{AutoApprove: true},
 	}
 
 	c.handleLine(`{"jsonrpc":"2.0","id":42,"method":"session/request_permission","params":{"sessionId":"ses_1","options":[{"optionId":"approve","name":"Approve once","kind":"allow_once"},{"optionId":"approve_for_session","name":"Approve for this session","kind":"allow_always"},{"optionId":"reject","name":"Reject","kind":"reject_once"}],"toolCall":{"toolCallId":"tc_1","title":"Shell","content":[]}}}`)

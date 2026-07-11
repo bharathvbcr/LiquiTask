@@ -1,6 +1,8 @@
-# Semantic Layer Sidecar
+# LiquiTask Semantic Layer Sidecar
 
-Local FastAPI sidecar for Ollama routing, semantic cache, and compression. LiquiTask spawns it automatically on desktop launch when **Auto-start sidecar** is enabled in AI settings.
+Local FastAPI sidecar for Ollama routing, semantic cache, and compression. On desktop (Tauri), the **Rust in-process engine is the default path** — `semanticLayerService.ts` calls Tauri commands (`semantic_layer_spawn`, `semantic_layer_chat`, …) directly. The Python sidecar is used only when `LIQUITASK_USE_PYTHON=1` is set or for standalone dev (`python3 -m semantic_layer`).
+
+LiquiTask spawns the sidecar automatically on desktop launch when **Auto-start sidecar** is enabled in AI settings **and** AI features are enabled (`src/utils/aiFeatures.ts`). Fresh installs that choose Simple Task Management skip sidecar initialization until AI features are turned on.
 
 ## Development
 
@@ -8,10 +10,18 @@ Install Python dependencies once:
 
 ```bash
 python3 -m pip install -r semantic_layer/requirements.txt
-python3 -m semantic_layer --port 8765
+export LIQUITASK_SEMANTIC_AUTH_TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
+python3 -m semantic_layer --port 8765 --auth-token "$LIQUITASK_SEMANTIC_AUTH_TOKEN"
 ```
 
-Tauri dev mode (`npm run dev`) uses `python3 -m semantic_layer` from the repo root. Set `LIQUITASK_REPO_ROOT` if spawn cannot find the package.
+Tauri dev mode (`npm run dev`) uses the Rust in-process engine by default. Set `LIQUITASK_USE_PYTHON=1` to force the Python sidecar. Set `LIQUITASK_REPO_ROOT` if spawn cannot find the package.
+
+## Security
+
+- All sidecar HTTP endpoints require `Authorization: Bearer <token>`. The token is generated at spawn time (or set via `LIQUITASK_SEMANTIC_AUTH_TOKEN`).
+- The server binds to loopback only by default; non-loopback binds require `--allow-unsafe-bind`.
+- `ollama_base_url` is allowlisted to loopback plus hosts explicitly configured via authenticated `/v1/config`. Per-request URL overrides in `/v1/chat` are ignored.
+- Cache data under `~/.liquitask/semantic-layer` is stored with `0700` directory / `0600` file permissions.
 
 ## Production packaging
 
@@ -60,11 +70,11 @@ npm run build:mac      # Apple Silicon macOS DMG
 
 ### Runtime behavior
 
-| Mode | Spawn command |
-|------|----------------|
-| `tauri dev` (debug) | `python3 -m semantic_layer` |
-| Release / packaged | Bundled `semantic-layer` next to the app executable |
-| Override | Set `LIQUITASK_USE_PYTHON=1` to force Python in release builds |
+| Mode | Engine |
+|------|--------|
+| Tauri desktop (default) | Rust in-process via Tauri commands |
+| `LIQUITASK_USE_PYTHON=1` | Python sidecar (bundled binary or `python3 -m semantic_layer`) |
+| Standalone dev | `python3 -m semantic_layer` on `:8765` |
 
 The bundled binary includes MiniLM embedding weights offline (`TRANSFORMERS_OFFLINE=1`).
 
@@ -94,4 +104,7 @@ Expect roughly **250–400 MiB** per sidecar binary (PyTorch + sentence-transfor
 |----------|---------|
 | `LIQUITASK_REPO_ROOT` | Repo root for dev Python spawn |
 | `LIQUITASK_PYTHON` | Python executable for dev spawn |
-| `LIQUITASK_USE_PYTHON` | Force Python spawn in release builds |
+| `LIQUITASK_USE_PYTHON` | Force Python sidecar instead of Rust in-process engine |
+| `LIQUITASK_SEMANTIC_AUTH_TOKEN` | Bearer token for sidecar HTTP auth |
+| `LIQUITASK_SEMANTIC_CACHE_DIR` | Override cache directory (default `~/.liquitask/semantic-layer`) |
+| `VITE_LIQUITASK_SEMANTIC_AUTH_TOKEN` | Web dev: bearer token for HTTP client |

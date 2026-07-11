@@ -1,4 +1,6 @@
 import { useEffect } from "react";
+import { useKeybinding } from "../context/KeybindingContext";
+import { shouldBlockAppShortcut } from "../utils/keyboardTarget";
 
 interface UseAiKeyboardShortcutsProps {
   onAiPrioritize?: () => void;
@@ -9,33 +11,37 @@ interface UseAiKeyboardShortcutsProps {
   isModalOpen: boolean;
 }
 
-export const useAiKeyboardShortcuts = ({
-  onAiPrioritize,
-  onAiInsights,
-  onBulkAIOperations,
-  onAutoOrganize,
-  onUndoAiChanges,
-  isModalOpen,
-}: UseAiKeyboardShortcutsProps) => {
+export const useAiKeyboardShortcuts = (props?: UseAiKeyboardShortcutsProps) => {
+  const { matches } = useKeybinding();
+
   useEffect(() => {
+    if (!props) return;
+
+    const {
+      onAiPrioritize,
+      onAiInsights,
+      onBulkAIOperations,
+      onAutoOrganize,
+      onUndoAiChanges,
+      isModalOpen,
+    } = props;
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isModalOpen) return;
+      if (isModalOpen || shouldBlockAppShortcut(e)) return;
 
-      const isCtrl = e.ctrlKey || e.metaKey;
-
-      if (isCtrl && e.shiftKey && e.key === "P") {
+      if (matches("ai:prioritize", e)) {
         e.preventDefault();
         onAiPrioritize?.();
-      } else if (isCtrl && e.shiftKey && e.key === "I") {
+      } else if (matches("ai:insights", e)) {
         e.preventDefault();
         onAiInsights?.();
-      } else if (isCtrl && e.shiftKey && e.key === "B") {
+      } else if (matches("ai:bulk-operations", e)) {
         e.preventDefault();
         onBulkAIOperations?.();
-      } else if (isCtrl && e.shiftKey && e.key === "A") {
+      } else if (matches("ai:auto-organize", e)) {
         e.preventDefault();
         onAutoOrganize?.();
-      } else if (isCtrl && e.shiftKey && e.key === "Z") {
+      } else if (matches("ai:undo-changes", e)) {
         e.preventDefault();
         onUndoAiChanges?.();
       }
@@ -43,12 +49,5 @@ export const useAiKeyboardShortcuts = ({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [
-    onAiPrioritize,
-    onAiInsights,
-    onBulkAIOperations,
-    onAutoOrganize,
-    onUndoAiChanges,
-    isModalOpen,
-  ]);
+  }, [matches, props]);
 };

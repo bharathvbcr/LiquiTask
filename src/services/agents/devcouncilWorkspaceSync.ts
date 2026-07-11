@@ -19,6 +19,10 @@
 import { isTauri } from "../../runtime/runtimeEnvironment";
 import devcouncilService, { type DevCouncilStatus } from "./devcouncilService";
 import { injectSkillsIntoWorkspace, type SkillInjectionResult } from "./workspaceSkillsInjector";
+import {
+  ensureWorkspaceGitignore,
+  type WorkspaceGitignoreResult,
+} from "./workspaceGitignoreInjector";
 import type { Task } from "../../../types";
 
 /** Regenerate the repo map when it is missing or older than this (mirrors devcouncilService). */
@@ -35,6 +39,7 @@ export interface DevCouncilSyncSteps {
   skills: SkillInjectionResult | null;
   evidenceMirrored: boolean;
   contextPrewarmed: boolean;
+  gitignoreUpdated: boolean;
 }
 
 export interface DevCouncilSyncResult {
@@ -53,6 +58,7 @@ export interface DevCouncilSyncOptions {
   injectSkills?: boolean;
   mirrorEvidence?: boolean;
   prewarmContext?: boolean;
+  ensureGitignore?: boolean;
 }
 
 const EMPTY_STEPS: DevCouncilSyncSteps = {
@@ -60,6 +66,7 @@ const EMPTY_STEPS: DevCouncilSyncSteps = {
   skills: null,
   evidenceMirrored: false,
   contextPrewarmed: false,
+  gitignoreUpdated: false,
 };
 
 /**
@@ -77,6 +84,7 @@ export async function syncDevCouncilWorkspace(
     injectSkills = true,
     mirrorEvidence = true,
     prewarmContext = true,
+    ensureGitignore = true,
   } = options;
 
   if (!isTauri() || !workingDir) {
@@ -117,6 +125,15 @@ export async function syncDevCouncilWorkspace(
     }
   }
 
+  if (ensureGitignore) {
+    try {
+      const gitignore: WorkspaceGitignoreResult = await ensureWorkspaceGitignore(workingDir);
+      steps.gitignoreUpdated = gitignore.updated;
+    } catch {
+      steps.gitignoreUpdated = false;
+    }
+  }
+
   if (mirrorEvidence) {
     try {
       await devcouncilService.getEvidenceGraph(workingDir);
@@ -148,6 +165,7 @@ export function summarizeSync(result: DevCouncilSyncResult): string {
   if (result.steps.skills && result.steps.skills.injected > 0) {
     parts.push(`${result.steps.skills.injected} skill file(s) injected`);
   }
+  if (result.steps.gitignoreUpdated) parts.push("gitignore updated");
   if (result.steps.evidenceMirrored) parts.push("evidence mirrored");
   if (result.steps.contextPrewarmed) parts.push("context prewarmed");
   return parts.length > 0 ? `DevCouncil synced — ${parts.join(", ")}.` : "DevCouncil is up to date.";
@@ -169,6 +187,8 @@ export function buildDevCouncilInitTask(workingDir: string): Partial<Task> {
     "2. Run `dev init` in the repo root to create the `.devcouncil/` directory.",
     "3. Run `dev map` to generate `.devcouncil/repo_map.json`.",
     "4. Confirm `.devcouncil/config.yaml` and `.devcouncil/repo_map.json` exist.",
+    "5. Ensure the LiquiTask agent gitignore block is present in `.gitignore`",
+    "   (DevCouncil state, agent runtime dirs, worktrees, logs — managed by LiquiTask sync).",
     "",
     `Working directory: ${workingDir}`,
   ].join("\n");

@@ -16,7 +16,7 @@ be called from the renderer via `callNative`.
 | Move to Rust | Keep in TypeScript |
 |---|---|
 | Pure date math, scoring, aggregation, string heuristics | React UI, hooks, modals, DnD |
-| Deterministic reducers (automation actions, tag remap) | AI / LLM calls and merge logic |
+| Deterministic reducers (automation actions, tag remap) | AI / LLM calls and merge logic (gated by `aiFeatures.ts`) | Gated by `src/utils/aiFeatures.ts` in TS orchestration |
 | Board guards, event replay, query evaluation (planned) | IndexedDB / file I/O orchestration |
 | Logic shared by desktop backend **and** renderer | Non-deterministic ids (`Date.now`, `Math.random`) |
 | Hot paths used by agent runs or DevCouncil | Web/PWA fallback implementations |
@@ -191,6 +191,7 @@ tools depend on identical verdict shapes.
 | DevCouncil / agentd bridges | `src-tauri/src/agent_*.rs` | Backend I/O; different pattern from `liquitask-core` |
 | Semantic search | `semantic_layer/` (Python) | Optional sidecar |
 | React UI | `src/components/`, `src/views/` | Never port to Rust in this stack |
+| AI features gate | `src/utils/aiFeatures.ts` | User preference; TS services call `assertAiFeaturesEnabled` before LLM entry points |
 
 ---
 

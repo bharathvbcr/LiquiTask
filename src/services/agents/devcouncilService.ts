@@ -7,6 +7,7 @@ import {
   nativeListDevcouncilTasks,
 } from "../nativeBridge";
 import type { EvidenceGraph } from "./devcouncilEvidence";
+import { ensureWorkspaceGitignore } from "./workspaceGitignoreInjector";
 
 /**
  * DevCouncil workspace integration: install/init detection, repo-map
@@ -173,7 +174,14 @@ class DevCouncilService {
       try {
         const init = await this.init(workingDir);
         result.initialized = init.success;
-        if (init.success) status = await this.getStatus(workingDir);
+        if (init.success) {
+          status = await this.getStatus(workingDir);
+          try {
+            await ensureWorkspaceGitignore(workingDir);
+          } catch {
+            // best-effort
+          }
+        }
       } catch (err) {
         log.push(`dev init failed: ${err instanceof Error ? err.message : String(err)}`);
       }

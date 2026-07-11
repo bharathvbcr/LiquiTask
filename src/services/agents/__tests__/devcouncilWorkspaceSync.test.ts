@@ -13,9 +13,13 @@ vi.mock("../devcouncilService", () => ({
 vi.mock("../workspaceSkillsInjector", () => ({
   injectSkillsIntoWorkspace: vi.fn(),
 }));
+vi.mock("../workspaceGitignoreInjector", () => ({
+  ensureWorkspaceGitignore: vi.fn(),
+}));
 
 import devcouncilService from "../devcouncilService";
 import { injectSkillsIntoWorkspace } from "../workspaceSkillsInjector";
+import { ensureWorkspaceGitignore } from "../workspaceGitignoreInjector";
 import {
   buildDevCouncilInitTask,
   summarizeSync,
@@ -31,6 +35,7 @@ const svc = devcouncilService as unknown as {
   getRepoFiles: Mock;
 };
 const inject = injectSkillsIntoWorkspace as unknown as Mock;
+const ensureGitignore = ensureWorkspaceGitignore as unknown as Mock;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -45,6 +50,7 @@ beforeEach(() => {
   svc.getRepoMapContext.mockResolvedValue(null);
   svc.getRepoFiles.mockResolvedValue([]);
   inject.mockResolvedValue({ injected: 3, baseDir: "/repo/.claude/skills/liquitask" });
+  ensureGitignore.mockResolvedValue({ updated: true });
 });
 
 describe("syncDevCouncilWorkspace", () => {
@@ -83,6 +89,8 @@ describe("syncDevCouncilWorkspace", () => {
     expect(result.steps.mapRegenerated).toBe(false);
     expect(inject).toHaveBeenCalledWith("/repo");
     expect(result.steps.skills?.injected).toBe(3);
+    expect(ensureGitignore).toHaveBeenCalledWith("/repo");
+    expect(result.steps.gitignoreUpdated).toBe(true);
     expect(result.steps.evidenceMirrored).toBe(true);
     expect(result.steps.contextPrewarmed).toBe(true);
   });
@@ -104,8 +112,13 @@ describe("syncDevCouncilWorkspace", () => {
   });
 
   it("respects step toggles", async () => {
-    await syncDevCouncilWorkspace("/repo", { injectSkills: false, mirrorEvidence: false });
+    await syncDevCouncilWorkspace("/repo", {
+      injectSkills: false,
+      mirrorEvidence: false,
+      ensureGitignore: false,
+    });
     expect(inject).not.toHaveBeenCalled();
+    expect(ensureGitignore).not.toHaveBeenCalled();
     expect(svc.getEvidenceGraph).not.toHaveBeenCalled();
     expect(svc.getRepoMapContext).toHaveBeenCalled(); // prewarm still on
   });
@@ -135,11 +148,13 @@ describe("summarizeSync", () => {
         skills: { injected: 2, baseDir: "/repo/.claude/skills/liquitask" },
         evidenceMirrored: true,
         contextPrewarmed: false,
+        gitignoreUpdated: true,
       },
     };
     const text = summarizeSync(result);
     expect(text).toContain("repo map refreshed");
     expect(text).toContain("2 skill file(s) injected");
+    expect(text).toContain("gitignore updated");
     expect(text).toContain("evidence mirrored");
   });
 
@@ -148,7 +163,13 @@ describe("summarizeSync", () => {
       status: { cliAvailable: true, initialized: true, repoMapPresent: true },
       ran: true,
       needsInit: false,
-      steps: { mapRegenerated: false, skills: { injected: 0, baseDir: null }, evidenceMirrored: false, contextPrewarmed: false },
+      steps: {
+        mapRegenerated: false,
+        skills: { injected: 0, baseDir: null },
+        evidenceMirrored: false,
+        contextPrewarmed: false,
+        gitignoreUpdated: false,
+      },
     };
     expect(summarizeSync(result)).toBe("DevCouncil is up to date.");
   });
@@ -162,5 +183,6 @@ describe("buildDevCouncilInitTask", () => {
     expect(task.tags).toContain("devcouncil:init");
     expect(task.summary).toContain("/repo/app");
     expect(task.summary).toContain("dev init");
+    expect(task.summary).toContain("gitignore");
   });
 });

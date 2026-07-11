@@ -210,4 +210,12 @@ describe("AppHeader", () => {
     fireEvent.click(screen.getByLabelText("Board tools menu"));
     expect(screen.queryByRole("button", { name: "AI Assistant" })).toBeNull();
   });
+
+  it("hides AI prioritize and insights when callbacks are omitted", () => {
+    render(<AppHeader {...baseProps} isHeaderExpanded={true} />);
+
+    fireEvent.click(screen.getByLabelText("Board tools menu"));
+    expect(screen.queryByRole("button", { name: /AI Prioritize/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /AI Insights/i })).toBeNull();
+  });
 });

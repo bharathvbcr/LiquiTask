@@ -19,3 +19,60 @@ use liquitask_core::risk::{self, RiskHeuristics};
 pub fn risk_heuristics(tasks: Vec<Task>, now_ms: i64) -> RiskHeuristics {
     risk::heuristics(&tasks, now_ms)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use liquitask_core::model::TaskLink;
+
+    #[test]
+    fn risk_heuristics_wrapper_roundtrip() {
+        let now = 1_700_000_000_000i64;
+        let t2 = Task {
+            id: "t2".to_string(),
+            status: "Todo".to_string(),
+            priority: "medium".to_string(),
+            links: Some(vec![TaskLink {
+                target_task_id: "t1".to_string(),
+                link_type: "blocked-by".to_string(),
+            }]),
+            ..Default::default()
+        };
+        let t1 = Task {
+            id: "t1".to_string(),
+            status: "Todo".to_string(),
+            priority: "medium".to_string(),
+            ..Default::default()
+        };
+        let out = risk_heuristics(vec![t1, t2], now);
+        assert_eq!(out.critical_path, vec!["t1", "t2"]);
+        assert_eq!(out.risks.len(), 2);
+    }
+
+    #[test]
+    fn risk_wrapper_survives_dependency_cycle() {
+        let now = 1_700_000_000_000i64;
+        let a = Task {
+            id: "a".to_string(),
+            status: "Todo".to_string(),
+            priority: "medium".to_string(),
+            links: Some(vec![TaskLink {
+                target_task_id: "b".to_string(),
+                link_type: "blocked-by".to_string(),
+            }]),
+            ..Default::default()
+        };
+        let b = Task {
+            id: "b".to_string(),
+            status: "Todo".to_string(),
+            priority: "medium".to_string(),
+            links: Some(vec![TaskLink {
+                target_task_id: "a".to_string(),
+                link_type: "blocked-by".to_string(),
+            }]),
+            ..Default::default()
+        };
+        let out = risk_heuristics(vec![a, b], now);
+        assert!(!out.critical_path.is_empty());
+    }
+}

@@ -1,6 +1,6 @@
 # The Agentic Board: Git-Aligned State Machine, Event Sourcing & Failure Containment
 
-Status: implemented 2026-07-06 on `feature/multica-integration`.
+Status: implemented 2026-07-06 on `feature/multica-integration` (updated 2026-07-08).
 Companion docs: `docs/AGENT_TEAMMATES.md` (run lifecycle), `docs/REWORK_PLAN_MULTICA.md` (direction).
 
 LiquiTask's board is not a sticky-note wall — it is a **strict, git-aligned state
@@ -226,3 +226,11 @@ Failed retries stay open with the error appended (`attempts` counted);
 4. **No stage skipping**, for any actor, through any code path.
 5. **Nothing fails silently** after intent capture: it is in the log, in the
    DLQ, or both.
+
+## 10. Experience modes
+
+The board state machine and event log are unchanged in **Simple Task
+Management** mode (`AI_FEATURES_ENABLED: false`). Agent dispatch entry points,
+Inbox/Agents surfaces, and MCP-driven transitions are hidden when AI features
+are off; the four-column board, drag-and-drop, and manual task editing remain
+fully available. See `src/utils/aiFeatures.ts` and `ExperienceChoiceGate.tsx`.

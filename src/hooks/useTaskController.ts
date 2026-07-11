@@ -9,30 +9,41 @@ import type {
   Project,
   RecurringConfig,
   Task,
+  TaskPrState,
   ToastType,
 } from "../../types";
-import { COLUMN_STATUS } from "../constants";
+import { COLUMN_STATUS, STORAGE_KEYS } from "../constants";
 import {
   validateTransition,
   type TransitionActor,
   type TransitionContext,
 } from "../core/board/boardStateMachine";
-import { serializeTask, type TaskEventDraft } from "../core/events/taskEvents";
-import taskEventStore from "../core/events/taskEventStore";
+import { replayTaskEvents } from "../core/events/taskEventReducer";
+import { draftEvent, serializeTask, type TaskEventDraft } from "../core/events/taskEvents";
+import taskEventStore, { projectionDeltaFromEvents, revertFailedMutation } from "../core/events/taskEventStore";
 import type { AutomationTrigger, TaskContext } from "../services/automationService";
 import deadLetterService from "../services/deadLetterService";
 import { indexedDBService } from "../services/indexedDBService";
 import {
   isNativeBackend,
   nativeMutateTasks,
+  nativeSerializeTasks,
   type TaskMutateOp,
 } from "../services/nativeBridge";
+import { getNativeStorageApi } from "../runtime/runtimeEnvironment";
+import { isSqliteTaskStoreActive } from "../services/sqliteTaskStore";
 import { generateTaskId, getBacklogColumnId } from "../utils/taskUtils";
+import {
+  mapFeedbackToTaskEvent,
+  type FeedbackDaemonKind,
+} from "../services/agents/feedbackLoopService";
 
 /** Probe injected by the app shell so move validation can see agent-run state. */
 export interface AgentRunProbe {
   hasActiveRun: (taskId: string) => boolean;
   hasUnmergedWork: (taskId: string) => boolean;
+  hasScopeConflict: (taskId: string) => boolean;
+  scopeHeldByLabel: (taskId: string) => string | undefined;
 }
 
 /** Options accepted by `moveTask` — the merge pipeline moves cards with `viaMergePipeline`. */
@@ -40,6 +51,11 @@ export interface MoveTaskOptions {
   actor?: TransitionActor;
   viaMergePipeline?: boolean;
   reopen?: boolean;
+  /** Override PR-open context for In Review transitions. */
+  hasPrOpen?: boolean;
+  prMerged?: boolean;
+  /** Local reviewer-agent stage (Completed → InReview without PR). */
+  localReviewerGate?: boolean;
 }
 
 interface UndoAction {
@@ -194,6 +210,38 @@ export const useTaskController = ({
     };
   }, []);
 
+  const persistLegacyTaskMirrors = useCallback((tasks: Task[]) => {
+    if (indexedDBService.isAvailable()) {
+      indexedDBService.saveTasks(tasks).catch(console.error);
+    }
+    if (isNativeBackend()) {
+      void nativeSerializeTasks(tasks)
+        .then((serialized) => getNativeStorageApi()?.set(STORAGE_KEYS.TASKS, serialized))
+        .catch(console.error);
+    }
+  }, []);
+
+  useEffect(() => {
+    deadLetterService.registerRetryHandler("event-log", async (letter) => {
+      const events = letter.payload.events as TaskEventDraft[] | undefined;
+      if (!Array.isArray(events) || events.length === 0) {
+        throw new Error("Dead letter is missing event batch.");
+      }
+      const staged = events.map((e, i) => ({ ...draftEvent(e), seq: i + 1, v: 1 as const }));
+      const projected = replayTaskEvents(staged, tasksRef.current);
+      const delta = projectionDeltaFromEvents(events, projected);
+      const appended = await taskEventStore.commitMutation(
+        events,
+        delta.upsertTasks,
+        delta.deleteTaskIds,
+      );
+      if (!isMountedRef.current) return;
+      const finalTasks = replayTaskEvents(appended, tasksRef.current);
+      setTasks(finalTasks);
+      persistLegacyTaskMirrors(finalTasks);
+    });
+  }, [persistLegacyTaskMirrors]);
+
   const persistIndexedDB = useCallback(
     (action: { kind: "task"; task: Task } | { kind: "tasks"; tasks: Task[] } | { kind: "delete"; taskId: string }) => {
       if (!indexedDBService.isAvailable()) return;
@@ -212,9 +260,8 @@ export const useTaskController = ({
    * Event-sourced mutation funnel. The UI updates optimistically, but the
    * durable order is strict: the event batch is appended to the write-ahead
    * log FIRST; only after the log accepts it are the derived stores (SQLite
-   * snapshot via nativeMutateTasks, IndexedDB mirror) updated. If the append
-   * fails the optimistic update is rolled back and the mutation is
-   * dead-lettered instead of silently diverging from the log.
+   * snapshot, IndexedDB/native mirrors) updated. If the append fails the
+   * optimistic update is rolled back and the mutation is dead-lettered.
    */
   const commitTaskMutation = useCallback(
     (
@@ -234,15 +281,15 @@ export const useTaskController = ({
       setTasks(optimisticTasks);
 
       const persistProjections = () => {
-        if (isNativeBackend()) {
+        if (isNativeBackend() && !isSqliteTaskStoreActive()) {
           void nativeMutateTasks({ tasks: prevTasks, ...nativeRequest })
             .then((result) => {
               if (isMountedRef.current) setTasks(result);
             })
             .catch((err) => console.error("[useTaskController] nativeMutateTasks failed:", err));
-          return;
         }
-        if (indexedDBAction) persistIndexedDB(indexedDBAction);
+        persistLegacyTaskMirrors(optimisticTasks);
+        if (!isNativeBackend() && indexedDBAction) persistIndexedDB(indexedDBAction);
       };
 
       if (!events || events.length === 0) {
@@ -250,17 +297,20 @@ export const useTaskController = ({
         return;
       }
 
+      const { upsertTasks, deleteTaskIds } = projectionDeltaFromEvents(events, optimisticTasks);
+
       void taskEventStore
-        .append(events)
-        .then(persistProjections)
+        .commitMutation(events, upsertTasks, deleteTaskIds)
+        .then(() => persistProjections())
         .catch((err) => {
           if (taskEventStore.isDegraded()) {
-            // Log unavailable this session — keep the app usable on the
-            // legacy stores; the degradation was already reported at boot.
+            if (events?.length) taskEventStore.journalDegradedMutation(events);
             persistProjections();
             return;
           }
-          if (isMountedRef.current) setTasks(prevTasks);
+          if (isMountedRef.current) {
+            setTasks(revertFailedMutation(tasksRef.current, events ?? [], prevTasks));
+          }
           const message = err instanceof Error ? err.message : String(err);
           deadLetterService.record({
             kind: "event-log",
@@ -272,7 +322,7 @@ export const useTaskController = ({
           addToast("Change rolled back — the task event log rejected the write.", "error");
         });
     },
-    [persistIndexedDB, addToast],
+    [persistIndexedDB, persistLegacyTaskMirrors, addToast],
   );
 
   /** Build the state-machine context for a proposed column transition. */
@@ -305,6 +355,11 @@ export const useTaskController = ({
       }
 
       const probe = agentRunProbeRef?.current;
+      const prState = task.prState;
+      const prOpen =
+        prState?.state === "open" ||
+        prState?.state === "draft" ||
+        Boolean(prState?.url && prState.state !== "merged" && prState.state !== "closed");
       return {
         actor,
         blockedByOpen,
@@ -312,6 +367,10 @@ export const useTaskController = ({
         wipExceeded,
         hasActiveRun: probe?.hasActiveRun(task.id) ?? false,
         hasUnmergedWork: probe?.hasUnmergedWork(task.id) ?? false,
+        hasPrOpen: prOpen,
+        prMerged: prState?.state === "merged",
+        scopeReservationHeld: probe?.hasScopeConflict(task.id) ?? false,
+        scopeHeldByLabel: probe?.scopeHeldByLabel(task.id),
       };
     },
     [columns, agentRunProbeRef],
@@ -331,6 +390,24 @@ export const useTaskController = ({
       return service.processTaskEvent(event, context, allTasks, automationOpts()) ?? null;
     },
     [automationServiceRef, automationOpts],
+  );
+
+  /** Strip illegal status transitions from automation-produced updates. */
+  const sanitizeAutomationUpdates = useCallback(
+    (
+      task: Task,
+      updates: Partial<Task>,
+      actor: TransitionActor = "automation",
+    ): Partial<Task> | null => {
+      if (!updates.status || updates.status === task.status) return updates;
+      const verdict = validateTransition(task.status, updates.status, {
+        ...buildTransitionContext(task, updates.status, actor),
+      });
+      if (verdict.allowed) return updates;
+      const { status: _ignored, ...rest } = updates;
+      return Object.keys(rest).length > 0 ? rest : null;
+    },
+    [buildTransitionContext],
   );
 
   const augmentTaskSemantically = useCallback(
@@ -470,6 +547,8 @@ export const useTaskController = ({
         actorLabel?: string;
         viaMergePipeline?: boolean;
         reopen?: boolean;
+        hasPrOpen?: boolean;
+        prMerged?: boolean;
       },
     ) => {
       let taskId: string;
@@ -490,10 +569,14 @@ export const useTaskController = ({
       // hooks) face the same state machine as drag & drop.
       const actor = options?.actor ?? "user";
       if (taskUpdates.status && taskUpdates.status !== task.status) {
+        const transitionCtx = buildTransitionContext(task, taskUpdates.status, actor);
         const verdict = validateTransition(task.status, taskUpdates.status, {
-          ...buildTransitionContext(task, taskUpdates.status, actor),
+          ...transitionCtx,
           viaMergePipeline: options?.viaMergePipeline,
           reopen: options?.reopen,
+          hasPrOpen: options?.hasPrOpen ?? transitionCtx.hasPrOpen,
+          prMerged: options?.prMerged ?? transitionCtx.prMerged,
+          localReviewerGate: options?.localReviewerGate,
         });
         if (
           !verdict.allowed ||
@@ -673,7 +756,8 @@ export const useTaskController = ({
         const automationUpdates =
           automationResult instanceof Promise ? await automationResult : automationResult;
         if (automationUpdates) {
-          updatedTask = { ...updatedTask, ...automationUpdates };
+          const safe = sanitizeAutomationUpdates(updatedTask, automationUpdates);
+          if (safe) updatedTask = { ...updatedTask, ...safe };
         }
 
         if (previousTask) {
@@ -761,7 +845,8 @@ export const useTaskController = ({
           ? await createAutomationResult
           : createAutomationResult;
       if (automationUpdates) {
-        Object.assign(newTask, automationUpdates);
+        const safe = sanitizeAutomationUpdates(newTask, automationUpdates);
+        if (safe) Object.assign(newTask, safe);
       }
 
       pushUndo({ type: "task-create", taskId: newTask.id });
@@ -798,6 +883,7 @@ export const useTaskController = ({
       augmentTaskSemantically,
       commitTaskMutation,
       resolveAutomationUpdates,
+      sanitizeAutomationUpdates,
     ],
   );
 
@@ -904,10 +990,14 @@ export const useTaskController = ({
       // Git-aligned state machine: every column transition is validated here,
       // regardless of origin (drag & drop, keyboard, MCP, automation).
       const actor = options?.actor ?? "user";
+      const transitionCtx = buildTransitionContext(task, newStatus, actor);
       const verdict = validateTransition(task.status, newStatus, {
-        ...buildTransitionContext(task, newStatus, actor),
+        ...transitionCtx,
         viaMergePipeline: options?.viaMergePipeline,
         reopen: options?.reopen,
+        hasPrOpen: options?.hasPrOpen ?? transitionCtx.hasPrOpen,
+        prMerged: options?.prMerged ?? transitionCtx.prMerged,
+        localReviewerGate: options?.localReviewerGate,
       });
       if (!verdict.allowed) {
         addToast(verdict.reason ?? "That move is not allowed.", "error");
@@ -985,7 +1075,8 @@ export const useTaskController = ({
       const automationUpdates =
         moveAutomationResult instanceof Promise ? await moveAutomationResult : moveAutomationResult;
       if (automationUpdates) {
-        updatedTask = { ...updatedTask, ...automationUpdates };
+        const safe = sanitizeAutomationUpdates(updatedTask, automationUpdates);
+        if (safe) updatedTask = { ...updatedTask, ...safe };
       }
 
       const recurringService = recurringTaskServiceRef.current;
@@ -1002,7 +1093,8 @@ export const useTaskController = ({
             ? await completeAutomationResult
             : completeAutomationResult;
         if (completeUpdates) {
-          updatedTask = { ...updatedTask, ...completeUpdates };
+          const safeComplete = sanitizeAutomationUpdates(updatedTask, completeUpdates);
+          if (safeComplete) updatedTask = { ...updatedTask, ...safeComplete };
         }
       }
 
@@ -1096,6 +1188,7 @@ export const useTaskController = ({
       aiServiceRef,
       commitTaskMutation,
       resolveAutomationUpdates,
+      sanitizeAutomationUpdates,
       buildTransitionContext,
     ],
   );
@@ -1125,6 +1218,36 @@ export const useTaskController = ({
     [tasks, columns, buildTransitionContext],
   );
 
+  const patchTaskPrState = useCallback(
+    (taskId: string, patch: TaskPrState, eventType: FeedbackDaemonKind) => {
+      const task = tasks.find((t) => t.id === taskId);
+      if (!task) return;
+      const prState = {
+        ...task.prState,
+        ...patch,
+        ci: patch.ci ? { ...task.prState?.ci, ...patch.ci } : task.prState?.ci,
+        review: patch.review
+          ? { ...task.prState?.review, ...patch.review }
+          : task.prState?.review,
+      };
+      const updatedTask = mergeTaskWithUpdates(task, { prState }, new Date());
+      commitTaskMutation(
+        tasks.map((t) => (t.id === taskId ? updatedTask : t)),
+        { op: "update", taskId, patch: updatedTask },
+        { kind: "task", task: updatedTask },
+        [
+          {
+            streamId: taskId,
+            type: mapFeedbackToTaskEvent(eventType),
+            payload: { prState },
+            actor: "system",
+          },
+        ],
+      );
+    },
+    [tasks, commitTaskMutation],
+  );
+
   return {
     tasks,
     setTasks,
@@ -1132,6 +1255,7 @@ export const useTaskController = ({
     canMoveTask,
     handleUndo,
     handleUpdateTask,
+    patchTaskPrState,
     handleUpdateTaskDueDate,
     handleMoveTaskToWorkspace,
     handleCreateOrUpdateTask,

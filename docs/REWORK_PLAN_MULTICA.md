@@ -1,7 +1,7 @@
 # LiquiTask v3 — Multica-Grade Rework Plan
 
-**Date:** 2026-07-06
-**Status:** Phase 0 complete · Phase 1 in progress (liquitask-agentd scaffold + Tauri bridge)
+**Date:** 2026-07-06 (updated 2026-07-08)
+**Status:** Phase 0 complete · Phase 1 largely shipped (`liquitask-agentd` sidecar + Tauri bridge live; `AGENTD_SIDECAR_ENABLED` on by default) · Phase 2 in progress (run view + Agents surface) · first-run experience choice shipped
 **Scope:** Full UI/UX rework around Multica patterns, multi-agent execution (Claude Code, Codex, Antigravity, Cursor, +10 more), DevCouncil integration, red liquid glass theme retained.
 
 ---
@@ -25,15 +25,16 @@ Three pillars:
 ### 2.1 LiquiTask today (`/Users/bharath/Code/LiquiTask`)
 
 - **Stack:** React 19 + TypeScript + Tauri 2 + Tailwind; liquid glass theme in `index.css`/`tailwind.config.js` (dark-first glassmorphism, red accent). IndexedDB persistence (`src/services/indexedDBService.ts`), <5ms inverted-index search (`searchIndexService.ts`).
-- **Agent layer exists but is Claude-only.** Rust runner (`src-tauri/src/agent_runner.rs`, `agent_core.rs`, `run_store.rs`) supports `claude | claude-container | claude-custom | claude-resume` with cancel/pause/resume/inject-guidance/reattach. TS side: `src/services/agents/agentRunService.ts` + 18 sibling services, `src/hooks/useAgentTeammates.ts`, UI in `src/components/agents/`.
+- **Agent layer is multi-runtime via `liquitask-agentd`.** Go sidecar (`liquitask-agentd/`) drives all 15 coding-agent CLIs for direct runs; Rust bridge (`src-tauri/src/agentd.rs`, `agentd_store.rs`) supervises the sidecar and persists runs/events to SQLite. DevCouncil council-mode subprocesses use `agent_council_runner.rs`; shared CLI helpers (`augmented_path`, `find_executable`) live in `agent_cli_util.rs`. The legacy monolithic `agent_runner.rs` has been deleted. TS side: `src/services/agents/agentRunService.ts` + sibling services, `src/hooks/useAgentTeammates.ts`, UI in `src/components/agents/`.
 - **DevCouncil is already wired** (`src-tauri/src/agent_devcouncil.rs`, `agentPlannerService.ts`, `campaignOrchestratorService.ts`) for planning/campaigns — but shallowly.
-- **Known debt** (E2E_FLOW_AUDIT, POWER_USER_AUDIT): dense `App.tsx`, duplicated component trees (`components/` legacy wrappers vs `src/components/`), dead surfaces (`electron/`, `conductor/`, `CelestialBackdrop`), open learning loop (`agentEstimateLearningService.ts` reads but nothing writes back), silent failure modes.
+- **Known debt** (E2E_FLOW_AUDIT, POWER_USER_AUDIT): dense `App.tsx` (~2,900 lines), silent failure modes (automation dead-letter path not yet wired — see workstream 3), DevCouncil verify/repair loop still shallow.
+- **Debt cleared since original audit:** root `components/` legacy wrappers removed (`src/components/` is canonical); `electron/`, `conductor/`, `CelestialBackdrop.tsx` stripped; estimate-learning write path partly closed (`recordRunOutcome` on approve/reject in `useAgentTeammates.ts` → `agentEstimateLearningService.ts`; DevCouncil-verified outcomes still TODO).
 
 ### 2.2 Multica (`github.com/multica-ai/multica`, cloned for reference)
 
 - **Monorepo:** `apps/{desktop,web,mobile}` (desktop = electron-vite shell over web), `packages/{core,ui,views}`, `server/` (Go + PostgreSQL + WebSockets).
 - **Frontend:** React + TanStack Query. `packages/core` = domain logic per feature (`agents/`, `runtimes/`, `inbox/`, `chat/`, `autopilots/`, `skills/`, `squads/`, `permissions/`, `notification-preferences/`...), `packages/views` = feature screens, `packages/ui` = presentational primitives.
-- **The crown jewel — `server/pkg/agent` (Go):** unified `Backend` interface (`agent.go`) over **14 coding agents**: Claude Code, Codex, Copilot, Cursor, OpenCode, OpenClaw, Antigravity, Kimi, Kiro, Qoder, CodeBuddy, Hermes (ACP), Pi, Trae. Handles spawn, JSON-stream parsing, resume sessions, MCP config injection, per-agent thinking levels, per-OS invocation quirks, deadlock/cancel edge cases — all battle-tested with per-agent test suites.
+- **The crown jewel — `server/pkg/agent` (Go):** unified `Backend` interface (`agent.go`) over **15 coding agents**: Claude Code, Codex, Copilot, Cursor, Grok Build, OpenCode, OpenClaw, Antigravity, Kimi, Kiro, Qoder, CodeBuddy, Hermes (ACP), Pi, Trae. Handles spawn, JSON-stream parsing, resume sessions, MCP config injection, per-agent thinking levels, per-OS invocation quirks, deadlock/cancel edge cases — all battle-tested with per-agent test suites.
 - **Daemon (`server/internal/daemon` + `execenv/`):** detects installed CLIs, prepares per-run execution environments (codex home isolation, cursor MCP config, git worktrees via `repocache/`, skill mounting, handoff prompts), reconciles orphaned runs, health checks, GC.
 - **Cloud coupling:** everything flows through the Go server (auth, workspaces, realtime WS, billing, Slack/Lark/GitHub/Composio integrations). `packages/core/api` is a REST+WS client. The *daemon and agent package are the least cloud-coupled parts*; the frontend packages are coupled at exactly one seam (the `api` client + TanStack Query).
 
@@ -71,7 +72,7 @@ Three pillars:
 
 Port Multica's `server/pkg/agent` + the daemon's `execenv`/detection/reconcile logic into a standalone Go binary, **`liquitask-agentd`**, shipped as a [Tauri sidecar](https://tauri.app/develop/sidecar/). Speaks newline-delimited JSON-RPC over stdio to the Rust core.
 
-Why not rewrite in Rust: the agent package encodes hundreds of per-agent, per-OS edge cases (Windows invocation shims for Copilot/Cursor/Pi, Codex home isolation, Claude deadlock handling, ACP for Hermes) with test coverage. Rewriting forfeits that. The existing Rust `agent_runner.rs` remains as fallback for `claude-*` modes during migration, then retires.
+Why not rewrite in Rust: the agent package encodes hundreds of per-agent, per-OS edge cases (Windows invocation shims for Copilot/Cursor/Pi, Codex home isolation, Claude deadlock handling, ACP for Hermes) with test coverage. Rewriting forfeits that. All direct runs now route through the sidecar (`agentd.rs`); the former monolithic `agent_runner.rs` has been retired.
 
 What gets stripped from the ported daemon code: server client (`daemon/client.go`), auth/identity handshake, workspace registration, WS transport, billing/usage upload, cloud runtimes, auto-update. What remains: CLI detection, `Backend` implementations, `execenv` preparation (incl. git worktree repocache), run lifecycle + reconcile, local skills mounting, health.
 
@@ -115,7 +116,7 @@ Adopt Multica's **three-layer frontend layout** inside `src/`: `src/ui` (primiti
 Extend `agent_devcouncil.rs` into a full bridge:
 
 1. **Plan gate (opt-in per task):** "Assign to council" → `dev plan` subprocess → typed Tasks/Requirements + PlannedFile scope rendered as an approval card in Inbox. Approving spawns agent runs *with that scope*.
-2. **Scope enforcement:** pass PlannedFile whitelist into `run.start`; `agentd` mounts it via each backend's permission mechanism (MCP permission server for Claude Code; config injection for others) and the Rust policy layer (`agent_policy.rs`) blocks out-of-scope writes as a second gate.
+2. **Scope enforcement:** pass PlannedFile whitelist into `run.start`; `agentd` mounts it via each backend's permission mechanism (MCP permission server for Claude Code; config injection for others). Out-of-scope mutating tool calls are denied by `agentScopeService.ts` on the MCP permission-prompt path. **`agent_policy.rs` is model routing + budget, not scope.**
 3. **Verify gate:** run completion triggers `dev verify` → 4-tier proof (scope/tests/coverage/rigor) → verdict card in Inbox with typed `next_actions`. "Repair" spawns a follow-up run seeded with the structured repair instructions; done-means-proven, not agent-claims-done.
 4. **Evidence graph:** poll `.devcouncil/state.db`, mirror Requirement→Task→Diff→Evidence links into LiquiTask's artifact tables; render provenance on the task card.
 5. **MCP:** register `dev mcp-server` in the MCP config `agentd` passes to runs, so agents can self-serve checkout→verify→repair loops.
@@ -128,7 +129,7 @@ Replace the current view-switcher-of-nine-views shell with four surfaces (board 
 1. **Inbox (default).** Multica-style triage feed: approvals awaiting you, runs finished, council verdicts, blocked agents, digests. Every card has inline actions (approve/deny, open run, re-run, snooze). Badge on tray icon (`tray.rs`).
 2. **Board.** Existing ProjectBoard, decluttered: task cards gain agent chips (assignee avatar = agent, presence ring, live run status), drag-a-task-onto-an-agent in the roster rail to assign+run (existing `AgentDropTray.tsx` generalizes). Views: Kanban / Calendar / Gantt / List.
 3. **Agents.** Roster with presence, per-agent: runtime profile (binding to detected CLI + model + thinking level), skills, allowlists, run history, cost/usage. Squad composition. Runtime health (from `derive-health.ts` port + `agentd detect`).
-4. **Run view (drawer/full-screen).** Ported Multica chat/session view: streamed transcript, tool-call timeline, diff viewer, permission prompts inline, guidance injection box (existing `agent_runner_inject_guidance`), open-in-terminal escape hatch.
+4. **Run view (drawer/full-screen).** Ported Multica chat/session view: streamed transcript, tool-call timeline, diff viewer, permission prompts inline, guidance injection box (existing `agentd_run_inject` command), open-in-terminal escape hatch.
 
 **Command Deck:** the existing `CommandPalette.tsx` grows into the universal entry point (⌘K): create task, assign to agent/council, jump to run, toggle surfaces, run autopilot — every action reachable by keyboard.
 
@@ -153,7 +154,7 @@ Delete or archive in Phase 0:
 - `conductor/`, `agent-sandbox/` (superseded by `agentd` + execenv worktrees)
 - `CelestialBackdrop.tsx`
 - Root-level log/audit droppings: `*_log.txt`, `test_results.txt`, `diff.txt`, `tsc_output.txt`, etc. → `docs/archive/`
-- Rust `agent_runner.rs` claude-spawning paths — *after* Phase 2 parity (keep as fallback until then)
+- ~~Rust `agent_runner.rs`~~ — **done** (retired; direct runs → `agentd.rs`, council mode → `agent_council_runner.rs`, CLI helpers → `agent_cli_util.rs`)
 - Any `src/components/AI*.tsx` modal whose function moves into Inbox/run drawer (fold, don't duplicate)
 
 Keep untouched: `indexedDBService.ts`, `searchIndexService.ts`, `encryptionService.ts`, `storageService.ts`, `semantic_layer/`, `githubSyncService.ts`, automation/recurrence engines, board core.
@@ -171,7 +172,7 @@ Keep untouched: `indexedDBService.ts`, `searchIndexService.ts`, `encryptionServi
 ### Phase 1 — `liquitask-agentd` sidecar (≈2–3 weeks)
 - Extract `server/pkg/agent` + daemon `execenv`, detection, reconcile, local_skills into a new Go module; strip server client/auth/WS/billing/cloud-runtime code; add stdio JSON-RPC front.
 - Tauri: sidecar supervision in Rust core; bridge JSON-RPC ↔ Tauri events; extend `run_store.rs` to SQLite run/event tables.
-- Wire `agentRunService.ts` to the new surface behind a feature flag; keep old Claude path as fallback.
+- Wire `agentRunService.ts` to the new surface behind a feature flag (`AGENTD_SIDECAR_ENABLED`; now on by default).
 - Exit: a task runs end-to-end on Claude Code, Codex, Cursor, and Antigravity via `agentd`; cancel/pause/inject/reattach work; CLI detection populates runtime health UI.
 
 ### Phase 2 — Run view + Agents surface (≈2 weeks)
@@ -192,7 +193,8 @@ Keep untouched: `indexedDBService.ts`, `searchIndexService.ts`, `encryptionServi
 
 ### Phase 5 — Autopilots, squads, polish (≈2 weeks)
 - Port autopilots (merge `agentRecurrence`), squads (merge campaign roles), skills manager (merge `agentSkillsService` + `local_skills.go`).
-- Task→SQLite migration; motion polish pass; empty states; onboarding flow (detect CLIs on first run → "your agents" reveal moment).
+- Task→SQLite migration; motion polish pass; empty states.
+- **Onboarding (partial):** `ExperienceChoiceGate` ships the first-run Simple vs AI Agent Board choice (`src/utils/onboarding.ts`, `src/utils/aiFeatures.ts`); remaining: CLI detection reveal moment on first agent setup.
 - Exit: v3.0 release candidate.
 
 **Total: ~10–12 weeks.** Phases 1–2 are the critical path; 3–5 can partially overlap.
@@ -215,7 +217,7 @@ Keep untouched: `indexedDBService.ts`, `searchIndexService.ts`, `encryptionServi
 
 ## 7. Acceptance Criteria (v3.0)
 
-1. Fresh install detects ≥ all installed CLIs among the 14 supported runtimes and shows health per runtime.
+1. Fresh install detects ≥ all installed CLIs among the 15 supported runtimes and shows health per runtime.
 2. A board task can be assigned to any detected agent in ≤2 interactions (drag-to-roster or ⌘K), producing a streamed, cancellable, resumable run.
 3. Permission requests surface inline within 500ms of the agent emitting them; "always allow" persists per agent policy.
 4. Council flow: plan → scoped run → deterministic verify → verdict with typed repairs, no terminal required.

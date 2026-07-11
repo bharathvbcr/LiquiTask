@@ -12,7 +12,7 @@ type LocalSkillSummary = runtimeLocalSkillSummary
 // skill root plus the universal ~/.agents/skills fallback.
 var SupportedSkillProviders = []string{
 	"claude", "codebuddy", "codex", "copilot", "opencode", "openclaw",
-	"hermes", "pi", "cursor", "kimi", "kiro", "antigravity", "qoder", "traecli",
+	"hermes", "pi", "cursor", "grok", "kimi", "kiro", "antigravity", "qoder", "traecli",
 }
 
 // ListLocalSkills discovers locally-installed skills for one provider, or —

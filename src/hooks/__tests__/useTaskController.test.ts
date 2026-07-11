@@ -1,6 +1,59 @@
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BoardColumn, PriorityDefinition, Task } from "../../types";
+
+const mockTaskEventStore = vi.hoisted(() => ({
+  append: vi.fn(async (drafts: Array<{ streamId: string; type: string; payload: unknown }>) =>
+    drafts.map((draft, index) => ({
+      ...draft,
+      id: `evt-${index}`,
+      seq: index + 1,
+      v: 1 as const,
+      actor: "user" as const,
+      ts: new Date().toISOString(),
+    })),
+  ),
+  commitMutation: vi.fn(async (drafts: Array<{ streamId: string; type: string; payload: unknown }>) =>
+    drafts.map((draft, index) => ({
+      ...draft,
+      id: `evt-${index}`,
+      seq: index + 1,
+      v: 1 as const,
+      actor: "user" as const,
+      ts: new Date().toISOString(),
+    })),
+  ),
+  isDegraded: vi.fn(() => false),
+}));
+
+const mockDeadLetterService = vi.hoisted(() => ({
+  registerRetryHandler: vi.fn(),
+  record: vi.fn(),
+}));
+
+vi.mock("../../core/events/taskEventStore", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../core/events/taskEventStore")>();
+  return {
+    ...actual,
+    default: mockTaskEventStore,
+  };
+});
+vi.mock("../../services/deadLetterService", () => ({ default: mockDeadLetterService }));
+vi.mock("../../services/indexedDBService", () => ({
+  indexedDBService: { isAvailable: () => false, saveTask: vi.fn(), saveTasks: vi.fn() },
+}));
+vi.mock("../../services/nativeBridge", () => ({
+  isNativeBackend: () => false,
+  nativeMutateTasks: vi.fn(),
+  nativeSerializeTasks: vi.fn(),
+}));
+vi.mock("../../services/sqliteTaskStore", () => ({
+  isSqliteTaskStoreActive: () => false,
+}));
+vi.mock("../../runtime/runtimeEnvironment", () => ({
+  getNativeStorageApi: () => null,
+}));
+
 import { useTaskController } from "../useTaskController";
 
 describe("useTaskController", () => {
@@ -93,14 +146,32 @@ describe("useTaskController", () => {
     expect(mockAddToast).toHaveBeenCalledWith(expect.stringContaining("updated"), "success");
   });
 
-  it("should handle task deletion", () => {
+  it("rolls back optimistic updates and dead-letters when the event log rejects a write", async () => {
+    mockTaskEventStore.commitMutation.mockRejectedValueOnce(new Error("disk full"));
     const { result } = renderHook(() => useTaskController(props));
 
     act(() => {
-      result.current.handleDeleteTaskInternal("task-1");
+      result.current.handleCreateOrUpdateTask({ title: "Should rollback" }, null);
     });
 
-    expect(result.current.tasks.length).toBe(0);
-    expect(mockAddToast).toHaveBeenCalledWith(expect.stringContaining("deleted"), "info");
+    await waitFor(() => {
+      expect(result.current.tasks).toHaveLength(1);
+      expect(result.current.tasks[0].title).toBe("Task 1");
+    });
+    expect(mockDeadLetterService.record).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "event-log", title: expect.stringContaining("could not be recorded") }),
+    );
+    expect(mockAddToast).toHaveBeenCalledWith(
+      expect.stringContaining("rolled back"),
+      "error",
+    );
+  });
+
+  it("registers an event-log DLQ retry handler on mount", () => {
+    renderHook(() => useTaskController(props));
+    expect(mockDeadLetterService.registerRetryHandler).toHaveBeenCalledWith(
+      "event-log",
+      expect.any(Function),
+    );
   });
 });

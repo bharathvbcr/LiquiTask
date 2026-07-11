@@ -8,7 +8,7 @@
 //! Because the child's stdout/stderr are redirected to these files (not
 //! parent-owned pipes) and it is spawned in its own process group, the agent
 //! keeps running after the LiquiTask window/app closes. On relaunch,
-//! `agent_runner::reattach_runs` re-adopts still-live PIDs (resuming the live
+//! `agent_council_runner::reattach_runs` re-adopts still-live PIDs (resuming the live
 //! event stream from the persisted cursor) and reconciles runs that finished
 //! while the app was away from their `stdout.ndjson` — replacing the old
 //! "everything active is marked failed on restart" behaviour.
@@ -69,6 +69,10 @@ pub struct RunMeta {
     /// True while the agent process is SIGSTOP'd / suspended (mid-run pause).
     #[serde(default)]
     pub paused: bool,
+    /// Process start time (epoch ms) recorded at spawn — verified on reattach to
+    /// detect PID reuse after relaunch.
+    #[serde(default)]
+    pub process_start_time_ms: Option<u64>,
 }
 
 impl RunMeta {

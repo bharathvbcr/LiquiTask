@@ -9,6 +9,14 @@ use serde::{Deserialize, Serialize};
 use crate::dateutil::Civil;
 use crate::model::RecurringConfig;
 
+fn clamp_interval(interval: i64) -> i64 {
+    interval.max(1)
+}
+
+fn clamp_weekday(day: i64) -> i64 {
+    day.clamp(0, 6)
+}
+
 /// Faithful port of `RecurringTaskService.calculateNextOccurrence`.
 ///
 /// `from_ms` is the reference instant (epoch millis). Returns the next
@@ -16,7 +24,7 @@ use crate::model::RecurringConfig;
 /// like the original which only mutates date components.
 pub fn next_occurrence(config: &RecurringConfig, from_ms: i64) -> i64 {
     let c = Civil::from_millis(from_ms);
-    let interval = config.interval;
+    let interval = clamp_interval(config.interval);
 
     let next = match config.frequency.as_str() {
         "daily" => c.add_days(interval),
@@ -24,8 +32,9 @@ pub fn next_occurrence(config: &RecurringConfig, from_ms: i64) -> i64 {
         "weekly" => match &config.days_of_week {
             Some(days) if !days.is_empty() => {
                 let current_day = c.weekday();
-                let mut sorted = days.clone();
+                let mut sorted: Vec<i64> = days.iter().map(|&d| clamp_weekday(d)).collect();
                 sorted.sort_unstable();
+                sorted.dedup();
                 match sorted.iter().find(|&&day| day > current_day) {
                     Some(&next_day_this_week) => {
                         c.add_days((next_day_this_week - current_day) + (interval - 1) * 7)
@@ -160,5 +169,18 @@ mod tests {
         let r = advance(&c, ms(2024, 1, 1)); // next would be Jan 11 > Jan 5
         assert_eq!(r.next_occurrence, None);
         assert!(!r.enabled);
+    }
+
+    #[test]
+    fn interval_zero_clamps_to_one() {
+        assert_eq!(next_occurrence(&cfg("daily", 0), ms(2024, 1, 10)), ms(2024, 1, 11));
+    }
+
+    #[test]
+    fn weekly_clamps_out_of_range_weekdays() {
+        let mut c = cfg("weekly", 1);
+        c.days_of_week = Some(vec![8, -1, 3]);
+        let got = next_occurrence(&c, ms(2024, 1, 1)); // Monday (weekday 1)
+        assert_eq!(got, ms(2024, 1, 3)); // clamped to Wed (3), +2 days
     }
 }

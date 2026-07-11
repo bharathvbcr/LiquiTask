@@ -10,10 +10,12 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/liquitask/liquitask-agentd/internal/execenv"
 )
 
 // cursorBackend implements Backend by spawning the Cursor Agent CLI
-// (cursor-agent) with --output-format stream-json and parsing the JSONL
+// (agent / cursor-agent) with --output-format stream-json and parsing the JSONL
 // event stream. The protocol is similar to Claude Code's stream-json
 // format: events are newline-delimited JSON objects with a "type" field.
 type cursorBackend struct {
@@ -21,43 +23,59 @@ type cursorBackend struct {
 }
 
 func (b *cursorBackend) Execute(ctx context.Context, prompt string, opts ExecOptions) (*Session, error) {
-	execName := b.cfg.ExecutablePath
-	if execName == "" {
-		execName = "cursor-agent"
-	}
-	lookedUp, err := exec.LookPath(execName)
+	execName, lookedUp, err := resolveCursorExecutable(b.cfg.ExecutablePath)
 	if err != nil {
-		return nil, fmt.Errorf("cursor-agent executable not found at %q: %w", execName, err)
+		return nil, err
+	}
+
+	hasManagedMcp := hasManagedMcpConfig(opts.McpConfig)
+	extraEnv := map[string]string{}
+	if hasManagedMcp && opts.Cwd != "" {
+		cursorDataDir, err := execenv.PrepareCursorMcpConfig(agentdDataRoot(), opts.Cwd, opts.McpConfig)
+		if err != nil {
+			return nil, fmt.Errorf("prepare cursor mcp config: %w", err)
+		}
+		if cursorDataDir != "" {
+			extraEnv["CURSOR_DATA_DIR"] = cursorDataDir
+		}
 	}
 
 	timeout := opts.Timeout
 	runCtx, cancel := runContext(ctx, timeout)
 
-	args := buildCursorArgs(prompt, opts, b.cfg.Logger)
+	args := buildCursorArgs(prompt, opts, hasManagedMcp, b.cfg.Logger)
 	argv0, cmdArgs := chooseCursorInvocation(execName, lookedUp, args, b.cfg.Logger)
 
 	cmd := exec.CommandContext(runCtx, argv0, cmdArgs...)
 	hideAgentWindow(cmd)
+	if err := PrepareManagedCommand(cmd, opts, 500*time.Millisecond); err != nil {
+		cancel()
+		return nil, err
+	}
 	b.cfg.Logger.Info("agent command", "exec", argv0, "args", cmdArgs)
-	cmd.WaitDelay = 500 * time.Millisecond
 	if opts.Cwd != "" {
 		cmd.Dir = opts.Cwd
 	}
-	cmd.Env = buildEnv(b.cfg.Env)
+	cmd.Env = buildEnv(mergeStringMaps(b.cfg.Env, extraEnv))
 
-	stdout, err := cmd.StdoutPipe()
+	pio, err := AttachProcessIO(cmd, "cursor", opts)
 	if err != nil {
 		cancel()
-		return nil, fmt.Errorf("cursor stdout pipe: %w", err)
+		return nil, fmt.Errorf("cursor process io: %w", err)
 	}
-	cmd.Stderr = newLogWriter(b.cfg.Logger, "[cursor:stderr] ")
-
-	if err := cmd.Start(); err != nil {
-		cancel()
-		return nil, fmt.Errorf("start cursor-agent: %w", err)
+	stdout := pio.Stdout
+	if pio.PtyMaster == nil {
+		cmd.Stderr = newLogWriter(b.cfg.Logger, "[cursor:stderr] ")
 	}
 
-	b.cfg.Logger.Info("cursor-agent started", "pid", cmd.Process.Pid, "cwd", opts.Cwd, "model", opts.Model)
+	if !pio.ProcessStarted {
+		if err := cmd.Start(); err != nil {
+			cancel()
+			return nil, fmt.Errorf("start cursor agent: %w", err)
+		}
+	}
+
+	b.cfg.Logger.Info("cursor agent started", "pid", cmd.Process.Pid, "cwd", opts.Cwd, "model", opts.Model, "binary", execName)
 
 	msgCh := make(chan Message, 256)
 	resCh := make(chan Result, 1)
@@ -202,16 +220,16 @@ func (b *cursorBackend) Execute(ctx context.Context, prompt string, opts ExecOpt
 
 		if runCtx.Err() == context.DeadlineExceeded {
 			finalStatus = "timeout"
-			finalError = fmt.Sprintf("cursor-agent timed out after %s", timeout)
+			finalError = fmt.Sprintf("cursor agent timed out after %s", timeout)
 		} else if runCtx.Err() == context.Canceled && !resultSeen {
 			finalStatus = "aborted"
 			finalError = "execution cancelled"
 		} else if exitErr != nil && finalStatus == "completed" && !resultSeen {
 			finalStatus = "failed"
-			finalError = fmt.Sprintf("cursor-agent exited with error: %v", exitErr)
+			finalError = fmt.Sprintf("cursor agent exited with error: %v", exitErr)
 		}
 
-		b.cfg.Logger.Info("cursor-agent finished", "pid", cmd.Process.Pid, "status", finalStatus, "duration", duration.Round(time.Millisecond).String())
+		b.cfg.Logger.Info("cursor agent finished", "pid", cmd.Process.Pid, "status", finalStatus, "duration", duration.Round(time.Millisecond).String())
 
 		resCh <- Result{
 			Status:     finalStatus,
@@ -223,9 +241,42 @@ func (b *cursorBackend) Execute(ctx context.Context, prompt string, opts ExecOpt
 		}
 	}()
 
-	sess := &Session{Messages: msgCh, Result: resCh}
+	sess := &Session{Messages: msgCh, Result: resCh, PtyMaster: pio.PtyMaster}
 	sess.pid.Store(int32(cmd.Process.Pid))
 	return sess, nil
+}
+
+// resolveCursorExecutable prefers the modern `agent` binary, then
+// cursor-agent, then cursor. configuredPath overrides the search when set.
+func resolveCursorExecutable(configuredPath string) (execName, lookedUp string, err error) {
+	candidates := []string{"agent", "cursor-agent", "cursor"}
+	if configuredPath != "" {
+		candidates = []string{configuredPath}
+	}
+	for _, name := range candidates {
+		path, lookErr := exec.LookPath(name)
+		if lookErr == nil {
+			return name, path, nil
+		}
+	}
+	if configuredPath != "" {
+		return "", "", fmt.Errorf("cursor agent executable not found at %q", configuredPath)
+	}
+	return "", "", fmt.Errorf("cursor agent executable not found (tried agent, cursor-agent, cursor)")
+}
+
+func mergeStringMaps(base, extra map[string]string) map[string]string {
+	if len(base) == 0 && len(extra) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(base)+len(extra))
+	for k, v := range base {
+		out[k] = v
+	}
+	for k, v := range extra {
+		out[k] = v
+	}
+	return out
 }
 
 func (b *cursorBackend) handleCursorAssistant(evt *cursorStreamEvent, ch chan<- Message, output *strings.Builder) {
@@ -469,18 +520,29 @@ var cursorBlockedArgs = map[string]blockedArgMode{
 	"-p":              blockedStandalone, // non-interactive print mode
 	"--output-format": blockedWithValue,  // stream-json protocol
 	"--yolo":          blockedStandalone, // auto-approval for autonomous operation
+	"--trust":         blockedStandalone,
+	"--approve-mcps":  blockedStandalone,
+	"--mode":          blockedWithValue,
 }
 
 // buildCursorArgs assembles the argv for a one-shot cursor-agent invocation.
 //
-// Usage: cursor-agent -p <prompt> --output-format stream-json
+// Usage: agent -p <prompt> --output-format stream-json --yolo
 //
-//	--workspace <cwd> --yolo [--model <m>] [--resume <id>]
-func buildCursorArgs(prompt string, opts ExecOptions, logger *slog.Logger) []string {
+//	--workspace <cwd> [--model <m>] [--resume <id>] [--trust --approve-mcps]
+func buildCursorArgs(prompt string, opts ExecOptions, hasManagedMcp bool, logger *slog.Logger) []string {
 	args := []string{
 		"-p", prompt,
 		"--output-format", "stream-json",
-		"--yolo",
+	}
+	if ShouldBypassPermissions(opts) {
+		args = append(args, "--yolo")
+	}
+	if opts.PermissionMode == "plan" {
+		args = append(args, "--mode", "plan")
+	}
+	if hasManagedMcp {
+		args = append(args, "--trust", "--approve-mcps")
 	}
 	if opts.Cwd != "" {
 		args = append(args, "--workspace", opts.Cwd)

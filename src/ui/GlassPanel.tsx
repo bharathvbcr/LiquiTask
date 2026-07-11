@@ -9,7 +9,7 @@ export interface GlassPanelProps {
 export const GlassPanel: React.FC<GlassPanelProps> = ({ children, className = "" }) => {
   return (
     <div
-      className={`rounded-2xl border border-white/10 bg-slate-900/80 backdrop-blur-xl shadow-2xl ${className}`}
+      className={`liquid-glass rounded-2xl ${className}`}
     >
       {children}
     </div>

@@ -90,12 +90,16 @@ func (b *qoderBackend) Execute(ctx context.Context, prompt string, opts ExecOpti
 	timeout := opts.Timeout
 	runCtx, cancel := runContext(ctx, timeout)
 
-	qoderArgs := append(
-		[]string{"--yolo", "--acp"},
-		filterCustomArgs(opts.CustomArgs, qoderBlockedArgs, b.cfg.Logger)...,
-	)
+	qoderArgs := append([]string{"--acp"}, filterCustomArgs(opts.CustomArgs, qoderBlockedArgs, b.cfg.Logger)...)
+	if ShouldBypassPermissions(opts) {
+		qoderArgs = append([]string{"--yolo"}, qoderArgs...)
+	}
 	cmd := exec.CommandContext(runCtx, execPath, qoderArgs...)
 	hideAgentWindow(cmd)
+	if err := PrepareManagedCommand(cmd, opts, 10*time.Second); err != nil {
+		cancel()
+		return nil, err
+	}
 	b.cfg.Logger.Info("agent command", "exec", execPath, "args", qoderArgs)
 	if opts.Cwd != "" {
 		cmd.Dir = opts.Cwd
@@ -152,6 +156,7 @@ func (b *qoderBackend) Execute(ctx context.Context, prompt string, opts ExecOpti
 		stdin:        stdin,
 		pending:      make(map[int]*pendingRPC),
 		pendingTools: make(map[string]*pendingToolCall),
+		permOpts:     opts,
 		acceptNotification: func(string) bool {
 			return streamingCurrentTurn.Load()
 		},

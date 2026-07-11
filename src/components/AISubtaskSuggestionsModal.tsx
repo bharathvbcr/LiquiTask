@@ -180,7 +180,7 @@ export const AISubtaskSuggestionsModal: React.FC<AISubtaskSuggestionsModalProps>
     <ModalWrapper isOpen={isOpen} onClose={onClose} title="Convert to Subtasks" size="xl">
       <div className="space-y-6">
         <div className="flex items-start gap-3">
-          <div className="p-2 rounded-lg bg-green-500/20 text-green-400">
+          <div className="p-2 rounded-lg bg-red-500/20 text-red-400">
             <GitBranch size={20} />
           </div>
           <div className="flex-1">
@@ -207,7 +207,7 @@ export const AISubtaskSuggestionsModal: React.FC<AISubtaskSuggestionsModalProps>
               <div className="flex gap-2">
                 <button
                   onClick={approveAll}
-                  className="px-3 py-1.5 text-xs font-medium text-white bg-green-500/20 hover:bg-green-500/30 rounded-lg transition-colors"
+                  className="px-3 py-1.5 text-xs font-medium text-slate-300 bg-white/5 border border-white/10 hover:bg-white/10 rounded-lg transition-colors"
                 >
                   Approve All
                 </button>
@@ -245,7 +245,7 @@ export const AISubtaskSuggestionsModal: React.FC<AISubtaskSuggestionsModalProps>
                 <button
                   onClick={applyApprovedConversions}
                   disabled={applying || !suggestions.some((s) => s.approved)}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-500 text-slate-950 rounded-lg text-sm font-bold shadow-lg shadow-green-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="liquid-button flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {applying ? (
                     <Loader2 size={16} className="animate-spin" />
@@ -284,12 +284,12 @@ const SubtaskSuggestionCard: React.FC<SubtaskSuggestionCardProps> = ({
   return (
     <div
       className={`relative bg-white/5 border rounded-xl p-4 transition-all ${
-        approved ? "border-green-500/50 bg-green-500/5" : "border-white/10"
+        approved ? "border-red-500/50 bg-red-500/5" : "border-white/10"
       }`}
     >
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
-          <GitBranch size={16} className="text-green-500" />
+          <GitBranch size={16} className="text-red-400" />
           <span className="text-sm font-medium text-white">Convert to Subtask</span>
           <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded">
             {Math.round(analysis.confidence * 100)}% confidence
@@ -299,7 +299,7 @@ const SubtaskSuggestionCard: React.FC<SubtaskSuggestionCardProps> = ({
           onClick={onToggleApproval}
           className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
             approved
-              ? "bg-green-500 text-slate-950"
+              ? "bg-red-500 text-slate-950"
               : "bg-white/5 text-slate-400 hover:text-white hover:bg-white/10"
           }`}
         >
@@ -317,12 +317,12 @@ const SubtaskSuggestionCard: React.FC<SubtaskSuggestionCardProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
-          <ArrowRight size={16} className="text-green-500" />
+          <ArrowRight size={16} className="text-slate-400" />
           <span className="text-xs text-slate-400">becomes subtask of</span>
         </div>
 
         <div className="flex items-center gap-3 p-2 bg-slate-800/50 rounded-lg">
-          <div className="w-2 h-2 rounded-full bg-green-500" />
+          <div className="w-2 h-2 rounded-full bg-white/40" />
           <div className="flex-1">
             <p className="text-sm text-white font-medium">{parentTask.title}</p>
             <p className="text-xs text-slate-400">Parent task</p>
@@ -333,9 +333,9 @@ const SubtaskSuggestionCard: React.FC<SubtaskSuggestionCardProps> = ({
       {analysis.reasoning && (
         <div className="mt-3 p-3 bg-slate-800/30 border border-slate-700 rounded-lg">
           <div className="flex items-start gap-2">
-            <Brain size={14} className="text-green-400 mt-0.5 flex-shrink-0" />
+            <Brain size={14} className="text-red-400 mt-0.5 flex-shrink-0" />
             <div>
-              <p className="text-xs font-medium text-green-400 mb-1">AI Analysis</p>
+              <p className="text-xs font-medium text-red-400 mb-1">AI Analysis</p>
               <p className="text-xs text-slate-300">{analysis.reasoning}</p>
             </div>
           </div>

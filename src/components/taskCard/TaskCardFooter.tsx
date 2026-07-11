@@ -1,10 +1,14 @@
-import { Bot, Calendar, CheckCircle, Square } from "lucide-react";
+import { Archive, Bot, Calendar, CheckCircle, Square } from "lucide-react";
 import type React from "react";
 import type { Task } from "../../../types";
 
 interface TaskCardFooterProps {
   task: Task;
-  isCompletedColumn?: boolean;
+  /** Show the Completed → Commit action (hidden when agent Approve/Reject is shown). */
+  showMarkCommittedButton?: boolean;
+  /** Show the Commit → Archive action once work is committed. */
+  showArchiveButton?: boolean;
+  onArchiveTask?: (taskId: string) => void;
   isAgentTask: boolean;
   agentWorking: boolean;
   runStatus: string | null;
@@ -22,7 +26,9 @@ interface TaskCardFooterProps {
 
 export const TaskCardFooter: React.FC<TaskCardFooterProps> = ({
   task,
-  isCompletedColumn,
+  showMarkCommittedButton = false,
+  showArchiveButton = false,
+  onArchiveTask,
   isAgentTask,
   agentWorking,
   runStatus,
@@ -109,8 +115,9 @@ export const TaskCardFooter: React.FC<TaskCardFooterProps> = ({
           )}
         </div>
       )}
-      {isCompletedColumn && (
+      {showMarkCommittedButton && (
         <button
+          type="button"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation();
@@ -120,6 +127,20 @@ export const TaskCardFooter: React.FC<TaskCardFooterProps> = ({
         >
           <CheckCircle size={16} />
           <span className="text-xs font-bold uppercase">Mark Committed &amp; Close</span>
+        </button>
+      )}
+      {showArchiveButton && onArchiveTask && (
+        <button
+          type="button"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onArchiveTask(task.id);
+          }}
+          className="mt-3 hidden w-full group-hover:flex group-focus-within:flex items-center justify-center gap-2 bg-amber-900/15 hover:bg-amber-600/80 text-amber-300 hover:text-white border border-amber-500/25 p-2.5 rounded-xl transition-all"
+        >
+          <Archive size={16} />
+          <span className="text-xs font-bold uppercase">Archive Task</span>
         </button>
       )}
     </>

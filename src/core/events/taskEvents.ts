@@ -26,6 +26,12 @@ export type TaskEventType =
   | "task.updated"
   /** Column (status) transition validated by the board state machine. */
   | "task.moved"
+  /** PR opened after push+PR commit pipeline. */
+  | "task.pr_opened"
+  /** CI check-run rollup updated from GitHub polling. */
+  | "task.ci_state"
+  /** PR review decision / comment rollup updated from GitHub polling. */
+  | "task.review_state"
   | "task.deleted"
   /** Agent lifecycle facts (audit trail; task state changes ride task.*). */
   | "run.started"

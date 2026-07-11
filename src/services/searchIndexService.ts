@@ -1,4 +1,5 @@
 import type { AIContext, Task } from "../../types";
+import { readAiFeaturesEnabled } from "../utils/aiFeatures";
 import { STORAGE_KEYS } from "../constants";
 import storageService from "./storageService";
 
@@ -180,6 +181,7 @@ export class SearchIndexService {
     aiService: SemanticAiService,
     context: AIContext,
   ): Promise<void> {
+    if (!readAiFeaturesEnabled()) return;
     try {
       const keywords = await aiService.generateSemanticKeywords(task, context);
       this.setSemanticKeywords(task.id, keywords);

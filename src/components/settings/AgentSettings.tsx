@@ -1,8 +1,6 @@
 import {
-  AlertTriangle,
   Bot,
   CheckCircle2,
-  FolderOpen,
   Hammer,
   Loader2,
   Pencil,
@@ -20,23 +18,21 @@ import { getDesktopApi, isTauri } from '../../runtime/runtimeEnvironment';
 import agentMcpService from '../../services/agents/agentMcpService';
 import agentRunService from '../../services/agents/agentRunService';
 import agentService from '../../services/agents/agentService';
+import { ensureWorkspaceGitignore } from '../../services/agents/workspaceGitignoreInjector';
 import type {
-  AgentPermissionMode,
   AgentProfile,
-  AgentRole,
-  AgentRunMode,
-  AgentSandbox,
   BoardColumn,
   Project,
   Task,
   ToastType,
 } from '../../../types';
+import { AgentForm } from '../agents/AgentForm';
 import { SettingsToggle } from './SettingsToggle';
-import { DevCouncilPanel } from './DevCouncilPanel';
 import { DevToolsSettings } from './DevToolsSettings';
 import { AgentAnalyticsPanel } from './AgentAnalyticsPanel';
 import { AgentSkillsLibrary } from './AgentSkillsLibrary';
 import { GitHubSyncSettings } from './GitHubSyncSettings';
+import { McpServerSettings } from './McpServerSettings';
 
 interface AgentSettingsProps {
   addToast: (msg: string, type: ToastType) => void;
@@ -47,17 +43,6 @@ interface AgentSettingsProps {
   columns?: BoardColumn[];
   onImportGitHubTasks?: (tasks: Task[]) => void;
 }
-
-const PERMISSION_MODES: { value: AgentPermissionMode; label: string; hint: string }[] = [
-  { value: 'plan', label: 'Plan only', hint: 'Read-only; proposes a plan without editing files' },
-  { value: 'default', label: 'Default', hint: 'Asks before edits (headless runs may stall)' },
-  { value: 'acceptEdits', label: 'Accept edits', hint: 'Edits files, asks for risky commands' },
-  {
-    value: 'bypassPermissions',
-    label: 'Bypass permissions',
-    hint: 'Full autonomy — use with trusted repos only',
-  },
-];
 
 export const AgentSettings: React.FC<AgentSettingsProps> = ({
   addToast,
@@ -82,10 +67,6 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
   const [autoApprovePermissions, setAutoApprovePermissions] = useState(() =>
     agentMcpService.isAutoApproveEnabled()
   );
-  /** Sidecar-detected runtimes for the provider picker (Codex, Cursor, …). */
-  const [runtimeOptions, setRuntimeOptions] = useState<
-    { id: string; name: string; version?: string; ready: boolean }[]
-  >([]);
   /**
    * Seamless default for the working directory: the active workspace's linked
    * folder wins, else the first authorised workspace path. New agents start
@@ -115,40 +96,6 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
       cancelled = true;
     };
   }, [projects, activeProjectId]);
-
-  // Load the agentd runtime catalog once the editor opens. "claude" is
-  // represented by the dedicated claude-code option; gemini/aider are
-  // detect-only (no startable backend yet) and would fail run.start.
-  useEffect(() => {
-    if (!draft || !FEATURE_FLAGS.AGENTD_SIDECAR_ENABLED || runtimeOptions.length > 0) return;
-    let cancelled = false;
-    void localApi
-      .detectRuntimesCached()
-      .then(runtimes => {
-        if (cancelled || !runtimes) return;
-        const options = runtimes
-          .filter(
-            (
-              rt
-            ): rt is {
-              id: string;
-              name: string;
-              binary: string;
-              version?: string;
-              ready: boolean;
-            } => 'id' in rt && 'ready' in rt
-          )
-          .filter(rt => rt.id !== 'claude' && rt.id !== 'gemini' && rt.id !== 'aider')
-          // Only offer runtimes that are actually installed — the full catalog is noise.
-          .filter(rt => rt.ready)
-          .map(rt => ({ id: rt.id, name: rt.name, version: rt.version, ready: rt.ready }));
-        setRuntimeOptions(options);
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [draft, runtimeOptions.length]);
 
   const detectClis = useCallback(async (force = false) => {
     setCheckingClis(true);
@@ -218,43 +165,6 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
 
   const cliAvailable = (name: string) => clis?.find(c => c.name === name)?.available ?? false;
 
-  // -- DevCouncil preflight: does the working dir hold .devcouncil/config.yaml? --
-  const [devcouncilStatus, setDevcouncilStatus] = useState<
-    'unknown' | 'checking' | 'ok' | 'missing' | 'unauthorized'
-  >('unknown');
-
-  const draftWorkingDir = draft?.workingDir?.trim() ?? '';
-  useEffect(() => {
-    if (!draftWorkingDir || !isTauri()) {
-      setDevcouncilStatus('unknown');
-      return;
-    }
-    let cancelled = false;
-    setDevcouncilStatus('checking');
-    // Debounce while the user types a path by hand.
-    const timer = setTimeout(async () => {
-      try {
-        const api = getDesktopApi();
-        if (!api) {
-          if (!cancelled) setDevcouncilStatus('unknown');
-          return;
-        }
-        await api.workspace.readFile(`${draftWorkingDir}/.devcouncil/config.yaml`, [
-          draftWorkingDir,
-        ]);
-        if (!cancelled) setDevcouncilStatus('ok');
-      } catch (err) {
-        if (cancelled) return;
-        const message = err instanceof Error ? err.message : String(err);
-        setDevcouncilStatus(message.includes('Unauthorized') ? 'unauthorized' : 'missing');
-      }
-    }, 400);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [draftWorkingDir]);
-
   const persist = async (next: AgentProfile[]) => {
     setAgents(next);
     onAgentsChanged?.();
@@ -286,6 +196,7 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
       await persist(
         await agentService.saveAgent({ ...draft, name: draft.name.trim(), workingDir }),
       );
+      void ensureWorkspaceGitignore(workingDir);
       setDraft(null);
       addToast(`Agent "${draft.name.trim()}" saved`, 'success');
     } finally {
@@ -303,6 +214,7 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
     'claude-code',
     'codex',
     'cursor',
+    'grok',
     'copilot',
     'opencode',
     'openclaw',
@@ -378,18 +290,6 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
     } finally {
       setSaving(false);
     }
-  };
-
-  const pickWorkingDir = async () => {
-    const api = getDesktopApi();
-    const dir = await api?.workspace.selectDirectory();
-    if (!dir || !draft) return;
-    // The runner only accepts authorised workspace paths — add it to the allowlist.
-    const paths = (await api?.workspace.getPaths()) ?? [];
-    if (!paths.includes(dir)) {
-      await api?.workspace.setPaths([...paths, dir]);
-    }
-    setDraft({ ...draft, workingDir: dir });
   };
 
   if (!isTauri()) {
@@ -514,6 +414,8 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
 
       <AgentSkillsLibrary addToast={addToast} />
 
+      <McpServerSettings addToast={addToast} />
+
       <div className="p-4 rounded-xl bg-white/5 border border-white/5 space-y-2">
         <h4 className="text-sm font-medium text-white">Agent analytics</h4>
         <AgentAnalyticsPanel agents={agents} runs={agentRuns} />
@@ -571,6 +473,11 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
                     sandboxed
                   </span>
                 )}
+                {(agent.host ?? 'local') === 'ssh' && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                    remote ssh
+                  </span>
+                )}
                 {(agent.modelRouting ?? 'fixed') === 'auto' && (
                   <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
                     auto-model
@@ -587,7 +494,15 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
             <div className="flex items-center gap-1 shrink-0">
               <button
                 type="button"
-                onClick={() => setDraft({ ...agent })}
+                onClick={() =>
+                  setDraft({
+                    ...agent,
+                    workingDir: agentService.resolveWorkingDir(
+                      agent.workingDir,
+                      workspaceDefaultDir,
+                    ),
+                  })
+                }
                 className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-all"
                 aria-label={`Edit ${agent.name}`}
               >
@@ -632,414 +547,13 @@ export const AgentSettings: React.FC<AgentSettingsProps> = ({
       {/* Editor */}
       {draft ? (
         <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <label className="space-y-1.5">
-              <span className="text-xs font-medium text-slate-300">Name (assignee label)</span>
-              <input
-                value={draft.name}
-                onChange={e => setDraft({ ...draft, name: e.target.value })}
-                placeholder="e.g. Claude"
-                className="w-full liquid-input rounded-lg px-3 py-2 text-sm"
-              />
-            </label>
-            <label className="space-y-1.5">
-              <span className="text-xs font-medium text-slate-300">Runtime</span>
-              <select
-                value={draft.provider}
-                onChange={e =>
-                  setDraft({ ...draft, provider: e.target.value as AgentProfile['provider'] })
-                }
-                className="w-full liquid-input rounded-lg px-3 py-2 text-sm bg-black/20"
-              >
-                <option value="claude-code">Claude Code (native runner)</option>
-                {runtimeOptions.map(rt => (
-                  <option key={rt.id} value={rt.id}>
-                    {rt.name}
-                    {rt.version ? ` — ${rt.version}` : ''}
-                  </option>
-                ))}
-                {/* Keep a saved provider selectable even if its binary went missing. */}
-                {draft.provider !== 'claude-code' &&
-                  !runtimeOptions.some(rt => rt.id === draft.provider) && (
-                    <option value={draft.provider}>{draft.provider} (not detected)</option>
-                  )}
-              </select>
-              {draft.provider !== 'claude-code' && (
-                <span className="block text-[11px] text-slate-500">
-                  Runs via the agentd sidecar. Container sandbox, council mode and MCP board actions
-                  currently apply to Claude Code only.
-                </span>
-              )}
-            </label>
-            <label className="space-y-1.5">
-              <span className="text-xs font-medium text-slate-300">Model (optional)</span>
-              <input
-                value={draft.model ?? ''}
-                onChange={e => setDraft({ ...draft, model: e.target.value || undefined })}
-                placeholder="default"
-                className="w-full liquid-input rounded-lg px-3 py-2 text-sm"
-              />
-            </label>
-            <label className="space-y-1.5">
-              <span className="text-xs font-medium text-slate-300">Model routing</span>
-              <select
-                value={draft.modelRouting ?? 'fixed'}
-                onChange={e =>
-                  setDraft({
-                    ...draft,
-                    modelRouting: e.target.value as AgentProfile['modelRouting'],
-                  })
-                }
-                className="w-full liquid-input rounded-lg px-3 py-2 text-sm bg-black/20"
-              >
-                <option value="fixed">Fixed — always use the model above</option>
-                <option value="auto">
-                  Auto — route by task priority / time estimate (haiku → sonnet → opus)
-                </option>
-              </select>
-            </label>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <label className="space-y-1.5">
-              <span className="text-xs font-medium text-slate-300">Daily cost cap (USD)</span>
-              <input
-                type="number"
-                min={0}
-                step={0.01}
-                value={draft.dailyCostCapUsd ?? ''}
-                onChange={e => {
-                  const raw = e.target.value.trim();
-                  setDraft({
-                    ...draft,
-                    dailyCostCapUsd: raw === '' ? undefined : Math.max(0, Number(raw)),
-                  });
-                }}
-                placeholder="No cap"
-                className="w-full liquid-input rounded-lg px-3 py-2 text-sm"
-              />
-            </label>
-            <label className="space-y-1.5">
-              <span className="text-xs font-medium text-slate-300">Max runs per day</span>
-              <input
-                type="number"
-                min={0}
-                step={1}
-                value={draft.maxRunsPerDay ?? ''}
-                onChange={e => {
-                  const raw = e.target.value.trim();
-                  setDraft({
-                    ...draft,
-                    maxRunsPerDay: raw === '' ? undefined : Math.max(0, Math.floor(Number(raw))),
-                  });
-                }}
-                placeholder="Unlimited"
-                className="w-full liquid-input rounded-lg px-3 py-2 text-sm"
-              />
-            </label>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <label className="space-y-1.5">
-              <span className="text-xs font-medium text-slate-300">Run timeout (min)</span>
-              <input
-                type="number"
-                min={0}
-                step={1}
-                value={draft.runTimeoutMinutes ?? ''}
-                onChange={e => {
-                  const raw = e.target.value.trim();
-                  setDraft({
-                    ...draft,
-                    runTimeoutMinutes: raw === '' ? undefined : Math.max(0, Math.floor(Number(raw))),
-                  });
-                }}
-                placeholder="No limit"
-                className="w-full liquid-input rounded-lg px-3 py-2 text-sm"
-              />
-              <span className="text-[11px] text-slate-500">Stops a run that overruns. 0 = off.</span>
-            </label>
-            <label className="space-y-1.5">
-              <span className="text-xs font-medium text-slate-300">No-output timeout (min)</span>
-              <input
-                type="number"
-                min={0}
-                step={1}
-                value={draft.stallTimeoutMinutes ?? ''}
-                onChange={e => {
-                  const raw = e.target.value.trim();
-                  setDraft({
-                    ...draft,
-                    stallTimeoutMinutes:
-                      raw === '' ? undefined : Math.max(0, Math.floor(Number(raw))),
-                  });
-                }}
-                placeholder="25 (default)"
-                className="w-full liquid-input rounded-lg px-3 py-2 text-sm"
-              />
-              <span className="text-[11px] text-slate-500">Silent = stalled. Empty = 25; 0 = off.</span>
-            </label>
-            <label className="space-y-1.5">
-              <span className="text-xs font-medium text-slate-300">Per-run cost cap (USD)</span>
-              <input
-                type="number"
-                min={0}
-                step={0.01}
-                value={draft.perRunCostCapUsd ?? ''}
-                onChange={e => {
-                  const raw = e.target.value.trim();
-                  setDraft({
-                    ...draft,
-                    perRunCostCapUsd: raw === '' ? undefined : Math.max(0, Number(raw)),
-                  });
-                }}
-                placeholder="No cap"
-                className="w-full liquid-input rounded-lg px-3 py-2 text-sm"
-              />
-              <span className="text-[11px] text-slate-500">Flags overspend (known at run end).</span>
-            </label>
-          </div>
-
-          <div className="space-y-1.5">
-            <span className="text-xs font-medium text-slate-300">Working directory</span>
-            <div className="flex gap-2">
-              <input
-                value={draft.workingDir}
-                onChange={e => setDraft({ ...draft, workingDir: e.target.value })}
-                placeholder={workspaceDefaultDir || '/path/to/repo'}
-                className="flex-1 liquid-input rounded-lg px-3 py-2 text-sm"
-              />
-              {workspaceDefaultDir && draft.workingDir !== workspaceDefaultDir && (
-                <button
-                  type="button"
-                  onClick={() => setDraft({ ...draft, workingDir: workspaceDefaultDir })}
-                  title={workspaceDefaultDir}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-300 hover:bg-red-500/20 transition-all"
-                >
-                  Use Workspace
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => void pickWorkingDir()}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-300 hover:bg-white/10 transition-all"
-              >
-                <FolderOpen size={14} /> Browse
-              </button>
-            </div>
-            {workspaceDefaultDir && !draft.workingDir.trim() && (
-              <span className="text-xs text-slate-500">
-                Left empty, this defaults to your workspace folder: {workspaceDefaultDir}
-              </span>
-            )}
-            {(() => {
-              // Guard: the folder isn't one of the active project's linked
-              // workspace paths. Non-blocking — runs redirect to the task's
-              // project workspace anyway — but flag the likely mistake.
-              const projectPaths =
-                projects.find(p => p.id === activeProjectId)?.workspacePaths ?? [];
-              const dir = draft.workingDir.trim();
-              const outside = projectPaths.length > 0 && !!dir && !projectPaths.includes(dir);
-              return outside ? (
-                <span className="text-xs text-amber-300/90 flex items-start gap-1.5">
-                  <AlertTriangle size={12} className="mt-0.5 shrink-0" />
-                  <span>
-                    This folder isn’t linked to the current project. This project’s tasks will run
-                    in the project’s workspace, not here — link it under the project’s settings if
-                    the agent should work in this folder.
-                  </span>
-                </span>
-              ) : null;
-            })()}
-            {devcouncilStatus === 'checking' && (
-              <span className="text-xs text-slate-500 flex items-center gap-1.5">
-                <Loader2 size={12} className="animate-spin" /> Checking for DevCouncil project…
-              </span>
-            )}
-            {devcouncilStatus === 'ok' && (
-              <span className="text-xs text-emerald-400 flex items-center gap-1.5">
-                <CheckCircle2 size={12} /> DevCouncil project detected — planning &amp; verification
-                gates available.
-              </span>
-            )}
-            {devcouncilStatus === 'missing' && (
-              <span className="text-xs text-amber-400 flex items-center gap-1.5">
-                <XCircle size={12} /> No .devcouncil/config.yaml here — plan/verify will fall back
-                to plain runs. Run `dev init` in this repo to enable them.
-              </span>
-            )}
-            {devcouncilStatus === 'unauthorized' && (
-              <span className="text-xs text-slate-400 flex items-center gap-1.5">
-                <XCircle size={12} /> Folder isn&apos;t an authorised workspace yet — use Browse to
-                add it, then the DevCouncil check can run.
-              </span>
-            )}
-            {devcouncilStatus !== 'unauthorized' && (
-              <DevCouncilPanel workingDir={draftWorkingDir} addToast={addToast} />
-            )}
-          </div>
-
-          <label className="space-y-1.5 block">
-            <span className="text-xs font-medium text-slate-300">Agent role</span>
-            <select
-              value={draft.role ?? 'default'}
-              onChange={e => setDraft({ ...draft, role: e.target.value as AgentRole })}
-              className="w-full liquid-input rounded-lg px-3 py-2 text-sm bg-black/20"
-            >
-              <option value="default">Worker — executes tasks via Claude Code / council</option>
-              <option value="planner">
-                Planner — decomposes epics via DevCouncil `dev plan` on drop
-              </option>
-            </select>
-            {(draft.role ?? 'default') === 'planner' && !cliAvailable('dev') && (
-              <span className="text-xs text-amber-400 block">
-                DevCouncil CLI (`dev`) not detected — planner runs will fail until installed.
-              </span>
-            )}
-          </label>
-
-          <label className="space-y-1.5 block">
-            <span className="text-xs font-medium text-slate-300">Run mode</span>
-            <select
-              value={draft.runMode ?? 'direct'}
-              onChange={e => setDraft({ ...draft, runMode: e.target.value as AgentRunMode })}
-              className="w-full liquid-input rounded-lg px-3 py-2 text-sm bg-black/20"
-            >
-              <option value="direct">Direct — Claude Code works the task immediately</option>
-              <option value="council">
-                Council — full DevCouncil pipeline (debate planning, hooks, evidence gates)
-              </option>
-            </select>
-            {(draft.runMode ?? 'direct') === 'council' && !cliAvailable('dev') && (
-              <span className="text-xs text-amber-400 block">
-                DevCouncil CLI (`dev`) not detected — council runs will fail until it's installed.
-              </span>
-            )}
-          </label>
-
-          <label className="space-y-1.5 block">
-            <span className="text-xs font-medium text-slate-300">Permission mode</span>
-            <select
-              value={draft.permissionMode}
-              onChange={e =>
-                setDraft({ ...draft, permissionMode: e.target.value as AgentPermissionMode })
-              }
-              className="w-full liquid-input rounded-lg px-3 py-2 text-sm bg-black/20"
-            >
-              {PERMISSION_MODES.map(m => (
-                <option key={m.value} value={m.value}>
-                  {m.label} — {m.hint}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <div className="flex items-center justify-between p-3 rounded-lg bg-black/20 border border-white/5">
-            <div>
-              <span className="text-sm text-white">Auto-pickup</span>
-              <p className="text-xs text-slate-500">Start working the moment a task is assigned</p>
-            </div>
-            <SettingsToggle
-              checked={draft.autoPickup}
-              onChange={autoPickup => setDraft({ ...draft, autoPickup })}
-              color="violet"
-              aria-label="Toggle auto-pickup"
-            />
-          </div>
-
-          <div className="flex items-center justify-between p-3 rounded-lg bg-black/20 border border-white/5">
-            <div>
-              <span className="text-sm text-white">Runs on recurrence</span>
-              <p className="text-xs text-slate-500">
-                Start a run when a recurring instance is generated for this agent
-              </p>
-            </div>
-            <SettingsToggle
-              checked={draft.runsOnRecurrence ?? true}
-              onChange={runsOnRecurrence => setDraft({ ...draft, runsOnRecurrence })}
-              color="violet"
-              aria-label="Toggle runs on recurrence"
-            />
-          </div>
-
-          <div className="flex items-center justify-between p-3 rounded-lg bg-black/20 border border-white/5">
-            <div>
-              <span className="text-sm text-white">Auto-recover</span>
-              <p className="text-xs text-slate-500">
-                Return the task to the board if a run crashes or a guardrail stops it
-              </p>
-            </div>
-            <SettingsToggle
-              checked={draft.autoRecover !== false}
-              onChange={autoRecover => setDraft({ ...draft, autoRecover })}
-              color="violet"
-              aria-label="Toggle auto-recover"
-            />
-          </div>
-
-          <div className="flex items-center justify-between p-3 rounded-lg bg-black/20 border border-white/5">
-            <div>
-              <span className="text-sm text-white">Auto-retry once</span>
-              <p className="text-xs text-slate-500">
-                Retry a crashed or stalled run one time before returning it to the board
-              </p>
-            </div>
-            <SettingsToggle
-              checked={draft.autoRetryOnCrash ?? false}
-              onChange={autoRetryOnCrash => setDraft({ ...draft, autoRetryOnCrash })}
-              color="violet"
-              aria-label="Toggle auto-retry once"
-            />
-          </div>
-
-          <div className="flex items-center justify-between p-3 rounded-lg bg-black/20 border border-white/5">
-            <div>
-              <span className="text-sm text-white">DevCouncil verification gate</span>
-              <p className="text-xs text-slate-500">
-                Run `dev check --verify` after each run and post gaps to the card
-              </p>
-            </div>
-            <SettingsToggle
-              checked={draft.devCouncilVerify}
-              onChange={devCouncilVerify => setDraft({ ...draft, devCouncilVerify })}
-              color="violet"
-              aria-label="Toggle DevCouncil verification"
-            />
-          </div>
-
-          <div className="flex items-center justify-between p-3 rounded-lg bg-black/20 border border-white/5">
-            <div>
-              <span className="text-sm text-white">Git worktree per assignment</span>
-              <p className="text-xs text-slate-500">
-                Every assigned task gets its own branch + worktree — parallel agents never collide,
-                and the Commit stage merges each one back. (Recommended: on)
-              </p>
-            </div>
-            <SettingsToggle
-              checked={draft.gitWorktree ?? true}
-              onChange={gitWorktree => setDraft({ ...draft, gitWorktree })}
-              color="violet"
-              aria-label="Toggle git worktree"
-            />
-          </div>
-
-          <div className="flex items-center justify-between p-3 rounded-lg bg-black/20 border border-white/5">
-            <div>
-              <span className="text-sm text-white">Sandbox in apple/container</span>
-              <p className="text-xs text-slate-500">
-                Run inside a Linux VM (macOS 26+, image:{' '}
-                {draft.containerImage ?? 'liquitask-agent:latest'})
-              </p>
-            </div>
-            <SettingsToggle
-              checked={draft.sandbox === 'container'}
-              onChange={on =>
-                setDraft({ ...draft, sandbox: (on ? 'container' : 'host') as AgentSandbox })
-              }
-              color="violet"
-              aria-label="Toggle container sandbox"
-            />
-          </div>
+          <AgentForm
+            draft={draft}
+            onChange={setDraft}
+            workspacePaths={projects.find(p => p.id === activeProjectId)?.workspacePaths ?? []}
+            projects={projects}
+            addToast={addToast}
+          />
 
           <div className="flex gap-2 pt-1">
             <button

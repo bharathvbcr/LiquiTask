@@ -39,7 +39,7 @@ func TestSupportedTypesMatchesMigrationWhitelist(t *testing.T) {
 	want := map[string]bool{
 		"claude": true, "codebuddy": true, "codex": true, "copilot": true,
 		"opencode": true, "openclaw": true, "hermes": true,
-		"pi": true, "cursor": true, "kimi": true, "kiro": true, "antigravity": true,
+		"pi": true, "cursor": true, "grok": true, "kimi": true, "kiro": true, "antigravity": true,
 		"qoder": true, "traecli": true,
 	}
 	if len(SupportedTypes) != len(want) {

@@ -17,12 +17,14 @@ interface AutomationSettingsProps {
   columns: BoardColumn[];
   priorities: PriorityDefinition[];
   addToast: (msg: string, type: ToastType) => void;
+  aiFeaturesEnabled?: boolean;
 }
 
 export const AutomationSettings: React.FC<AutomationSettingsProps> = ({
   columns,
   priorities,
   addToast,
+  aiFeaturesEnabled = true,
 }) => {
   const { confirm } = useConfirmation();
   const [rules, setRules] = useState<AutomationRule[]>([]);
@@ -200,6 +202,7 @@ export const AutomationSettings: React.FC<AutomationSettingsProps> = ({
           availableColumns={availableColumns}
           availablePriorities={availablePriorities}
           availableAgents={agentService.getAgents().map((a) => ({ id: a.id, name: a.name }))}
+          aiFeaturesEnabled={aiFeaturesEnabled}
         />
       )}
     </div>

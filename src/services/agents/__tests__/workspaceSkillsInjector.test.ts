@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { SkillCatalogEntry } from "../../../core/skills/mergeSkillCatalog";
 import {
   INJECTED_SKILLS_SUBDIR,
+  INJECTED_SKILLS_SUBDIRS,
   planSkillInjection,
   renderSkillMarkdown,
   slugifySkill,
@@ -104,5 +105,17 @@ describe("planSkillInjection", () => {
     const plan = planSkillInjection(many, "/repo");
     // INDEX + at most 40 skill files
     expect(plan.files.length).toBe(41);
+  });
+
+  it("supports cursor and grok native subdirs", () => {
+    expect(INJECTED_SKILLS_SUBDIRS).toEqual([
+      ".claude/skills/liquitask",
+      ".cursor/skills/liquitask",
+      ".grok/skills/liquitask",
+    ]);
+    const cursorPlan = planSkillInjection([captured("c1", "Apple")], "/repo", ".cursor/skills/liquitask");
+    expect(cursorPlan.baseDir).toBe("/repo/.cursor/skills/liquitask");
+    const grokPlan = planSkillInjection([captured("c1", "Apple")], "/repo", ".grok/skills/liquitask");
+    expect(grokPlan.baseDir).toBe("/repo/.grok/skills/liquitask");
   });
 });

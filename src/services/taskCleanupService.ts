@@ -12,6 +12,8 @@ import type {
 } from "../../types";
 import { STORAGE_KEYS } from "../constants";
 import { asString } from "../utils/coerce";
+import { isTerminalTaskStatus } from "../utils/taskUtils";
+import { candidateTaskIds, validateMergeSuggestion } from "../utils/aiModalTrust";
 import { toCoreTask } from "../runtime/coreDto";
 import { callNative } from "../runtime/runtimeEnvironment";
 import { aiService } from "./aiService";
@@ -274,7 +276,8 @@ class TaskCleanupService {
     };
 
     try {
-      return await aiService.suggestMerge(group, context);
+      const suggestion = await aiService.suggestMerge(group, context);
+      return validateMergeSuggestion(group, suggestion) ?? this.heuristicMergeSuggestionNative(group);
     } catch (error) {
       console.error("AI merge suggestion failed, using heuristic:", error);
       return this.heuristicMergeSuggestionNative(group);
@@ -374,10 +377,13 @@ class TaskCleanupService {
   async executeMerge(
     suggestion: MergeSuggestion,
     onArchiveTask: (taskId: string) => void,
+    allowedTaskIds?: Set<string>,
   ): Promise<void> {
-    const { keepTaskId: _keepTaskId, archiveTaskIds, mergedFields: _mergedFields } = suggestion;
+    const { keepTaskId, archiveTaskIds } = suggestion;
 
     for (const taskId of archiveTaskIds) {
+      if (taskId === keepTaskId) continue;
+      if (allowedTaskIds && !allowedTaskIds.has(taskId)) continue;
       onArchiveTask(taskId);
     }
   }
@@ -401,8 +407,12 @@ class TaskCleanupService {
   /** Pure JS redundancy analysis (web fallback). `now` replaces `new Date()`. */
   private analyzeRedundancyJs(allTasks: Task[], now: Date): RedundancyAnalysis[] {
     const analyses: RedundancyAnalysis[] = [];
-    const completedTasks = allTasks.filter((t) => t.status === "Commit" || t.completedAt);
-    const activeTasks = allTasks.filter((t) => t.status !== "Commit" && !t.completedAt);
+    const completedTasks = allTasks.filter(
+      (t) => isTerminalTaskStatus(t.status) || t.completedAt,
+    );
+    const activeTasks = allTasks.filter(
+      (t) => !isTerminalTaskStatus(t.status) && !t.completedAt,
+    );
 
     for (const task of activeTasks) {
       for (const completed of completedTasks) {

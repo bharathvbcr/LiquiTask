@@ -6,6 +6,7 @@ import {
   CornerUpLeft,
   DollarSign,
   Inbox as InboxIcon,
+  Link2,
   MessageSquare,
   RefreshCw,
   RotateCcw,
@@ -20,11 +21,23 @@ import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  derivePermissionInboxItems,
   formatRepairFeedback,
   isAwaitingReview,
   isBlockedRun,
 } from "../../core/inbox/deriveInboxItems";
+import {
+  DEFAULT_KEYBINDINGS,
+  formatKeybindingList,
+  matchesKeybindingAction,
+} from "../../constants/keybindings";
 import type { PendingPlan } from "../../services/agents/agentPlannerService";
+import {
+  describePermissionInput,
+  type AgentPermissionRequest,
+  type PermissionResponseDecision,
+} from "../../services/agents/agentMcpService";
+import { PermissionActionButtons } from "../../components/agents/PermissionActionButtons";
 import type { AgentStandupDigest } from "../../services/agents/agentStandupDigestService";
 import type { DeadLetter } from "../../services/deadLetterService";
 import { ApprovalCard, FlatCard, PresenceRing, StatusPill } from "../../ui";
@@ -38,6 +51,7 @@ import {
 import { formatRunLog } from "../../utils/formatRunLog";
 import { CopyButton } from "../../components/common/CopyButton";
 import type { AgentProfile, AgentRun, Task } from "../../../types";
+import type { AdoptableSession } from "../../services/agents/sessionDiscoveryService";
 
 export interface InboxViewProps {
   /** All known agent runs — the raw feed this surface triages. */
@@ -70,8 +84,14 @@ export interface InboxViewProps {
   onRetryDeadLetter?: (id: string) => void;
   /** Discard a dead-lettered action permanently. */
   onDiscardDeadLetter?: (id: string) => void;
+  /** Open quick-add prefilled from a dead-letter failure context. */
+  onQuickAddFromDeadLetter?: (title: string, detail: string) => void;
   /** Discard every open dead-letter in one shot ("Clear all"). */
   onClearDeadLetters?: () => void;
+  /** Merge DLQ: merge main into worktree and send conflict context to the agent. */
+  onResolveMergeWithAgent?: (id: string) => void;
+  /** CI/review DLQ: route failure context to the agent via followUp. */
+  onSendDeadLetterToAgent?: (id: string) => void;
   /** Bulk-clear finished/failed run cards from the inbox. */
   onClearFinished?: () => void;
   /** Return a finished/failed run's task to the board (clears a stuck card). */
@@ -82,6 +102,18 @@ export interface InboxViewProps {
   onRetryRun?: (runId: string) => void;
   /** Restore a cleared snapshot of runs (the Undo affordance). */
   onRestoreRuns?: (runs: AgentRun[]) => void;
+  /** Pending permission prompts across all active runs. */
+  pendingPermissions?: AgentPermissionRequest[];
+  /** Respond to a single permission request. */
+  onRespondPermission?: (requestId: string, decision: PermissionResponseDecision) => void;
+  /** Batch approve or deny all pending permission requests. */
+  onRespondAllPermissions?: (decision: PermissionResponseDecision) => void;
+  /** External agent sessions discovered on disk, awaiting adoption. */
+  adoptableSessions?: AdoptableSession[];
+  /** Link a discovered session to the board (creates task + run). */
+  onAdoptSession?: (sessionId: string) => void;
+  /** Hide a discovered session from the inbox. */
+  onDismissSession?: (sessionId: string) => void;
 }
 
 type InboxCard =
@@ -153,6 +185,122 @@ const RejectInput: React.FC<{
   );
 };
 
+const UnifiedPermissionsSection: React.FC<{
+  requests: AgentPermissionRequest[];
+  agents: AgentProfile[];
+  agentRuns: AgentRun[];
+  tasks: Task[];
+  focusIndex: number;
+  onFocusIndexChange: (index: number) => void;
+  onRespond: (requestId: string, decision: PermissionResponseDecision) => void;
+  onRespondAll?: (decision: PermissionResponseDecision) => void;
+  onOpenRun?: (runId: string) => void;
+}> = ({
+  requests,
+  agents,
+  agentRuns,
+  tasks,
+  focusIndex,
+  onFocusIndexChange,
+  onRespond,
+  onRespondAll,
+  onOpenRun,
+}) => {
+  const agentById = useMemo(() => new Map(agents.map((a) => [a.id, a])), [agents]);
+  const taskById = useMemo(() => new Map(tasks.map((t) => [t.id, t])), [tasks]);
+  const runById = useMemo(() => new Map(agentRuns.map((r) => [r.id, r])), [agentRuns]);
+  const sortedRequests = useMemo(() => derivePermissionInboxItems(requests), [requests]);
+
+  const allowAllHint = formatKeybindingList(DEFAULT_KEYBINDINGS["inbox:permission-allow-all"] ?? []);
+  const denyAllHint = formatKeybindingList(DEFAULT_KEYBINDINGS["inbox:permission-deny-all"] ?? []);
+
+  return (
+    <FlatCard className="border-amber-500/25 bg-amber-500/5 space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <ShieldAlert size={14} className="text-amber-400" />
+          <span className="text-sm font-medium text-amber-200">
+            Permission requests ({requests.length})
+          </span>
+        </div>
+        {onRespondAll && requests.length > 1 && (
+          <div className="flex gap-1.5">
+            <button
+              type="button"
+              onClick={() => onRespondAll("allow")}
+              className="px-2 py-0.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[10px] font-medium"
+              title={allowAllHint}
+            >
+              Allow all
+            </button>
+            <button
+              type="button"
+              onClick={() => onRespondAll("deny")}
+              className="px-2 py-0.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-300 text-[10px] font-medium"
+              title={denyAllHint}
+            >
+              Deny all
+            </button>
+          </div>
+        )}
+      </div>
+      <p className="text-[10px] text-slate-500">
+        {formatKeybindingList(DEFAULT_KEYBINDINGS["inbox:permission-allow"] ?? [])} allow ·{" "}
+        {formatKeybindingList(DEFAULT_KEYBINDINGS["inbox:permission-deny"] ?? [])} deny ·{" "}
+        {allowAllHint} allow all · {denyAllHint} deny all · ↑↓ navigate
+      </p>
+      {sortedRequests.map(({ request: req }, index) => {
+        const run = runById.get(req.runId);
+        const agent = run ? agentById.get(run.agentId) : undefined;
+        const task = taskById.get(req.taskId);
+        const { summary, detail } = describePermissionInput(req.toolName, req.input);
+        const focused = index === focusIndex;
+        return (
+          <div
+            key={req.requestId}
+            className={`rounded-lg border p-2.5 space-y-1.5 transition-colors ${
+              focused
+                ? "border-amber-400/40 bg-amber-500/10"
+                : "border-amber-500/15 bg-black/20"
+            }`}
+            onMouseEnter={() => onFocusIndexChange(index)}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-medium text-amber-200">{req.toolName}</span>
+              <span className="text-[10px] text-slate-500 shrink-0">
+                {req.receivedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-300">
+              {agent?.name ?? "Agent"}
+              {task ? ` · ${task.title}` : ""}
+            </p>
+            <p className="text-[11px] text-slate-400 break-words">{summary}</p>
+            {detail !== summary && (
+              <pre className="text-[10px] text-slate-500 whitespace-pre-wrap break-all max-h-20 overflow-y-auto custom-scrollbar">
+                {detail}
+              </pre>
+            )}
+            <PermissionActionButtons
+              onRespond={(decision) => onRespond(req.requestId, decision)}
+            />
+            {onOpenRun && run && (
+              <button
+                type="button"
+                onClick={() => onOpenRun(run.id)}
+                className="w-full px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-slate-400 text-[11px]"
+                title="Open run"
+              >
+                Open run
+              </button>
+            )}
+          </div>
+        );
+      })}
+    </FlatCard>
+  );
+};
+
 /**
  * Inbox — the default landing surface. A card-based triage feed derived purely from props:
  * approvals awaiting review, finished runs, blocked agents, and a standup digest summary.
@@ -174,13 +322,23 @@ export const InboxView: React.FC<InboxViewProps> = ({
   deadLetters = [],
   onRetryDeadLetter,
   onDiscardDeadLetter,
+  onQuickAddFromDeadLetter,
   onClearDeadLetters,
+  onResolveMergeWithAgent,
+  onSendDeadLetterToAgent,
   onClearFinished,
   onReturnToBoard,
   onDismissRun,
   onRetryRun,
   onRestoreRuns,
+  pendingPermissions = [],
+  onRespondPermission,
+  onRespondAllPermissions,
+  adoptableSessions = [],
+  onAdoptSession,
+  onDismissSession,
 }) => {
+  const [permissionFocusIndex, setPermissionFocusIndex] = useState(0);
   const [undo, setUndo] = useState<{ runs: AgentRun[] } | null>(null);
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
@@ -239,7 +397,72 @@ export const InboxView: React.FC<InboxViewProps> = ({
       standupDigest.activeRuns > 0);
 
   const isEmpty =
-    cards.length === 0 && pendingPlans.length === 0 && deadLetters.length === 0 && !hasStandupContent;
+    cards.length === 0 &&
+    pendingPlans.length === 0 &&
+    deadLetters.length === 0 &&
+    pendingPermissions.length === 0 &&
+    adoptableSessions.length === 0 &&
+    !hasStandupContent;
+
+  // Keyboard shortcuts for unified permission triage (Inbox surface).
+  useEffect(() => {
+    if (pendingPermissions.length === 0 || !onRespondPermission) return;
+
+    const handleKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const isTextInput =
+        target &&
+        (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) || target.isContentEditable);
+      if (isTextInput) return;
+
+      const sorted = derivePermissionInboxItems(pendingPermissions);
+      const focused = sorted[permissionFocusIndex]?.request ?? sorted[0]?.request;
+      if (!focused) return;
+
+      if (matchesKeybindingAction(event, DEFAULT_KEYBINDINGS, "inbox:permission-allow")) {
+        event.preventDefault();
+        onRespondPermission(focused.requestId, "allow");
+        return;
+      }
+      if (matchesKeybindingAction(event, DEFAULT_KEYBINDINGS, "inbox:permission-deny")) {
+        event.preventDefault();
+        onRespondPermission(focused.requestId, "deny");
+        return;
+      }
+      if (matchesKeybindingAction(event, DEFAULT_KEYBINDINGS, "inbox:permission-allow-all")) {
+        event.preventDefault();
+        onRespondAllPermissions?.("allow");
+        return;
+      }
+      if (matchesKeybindingAction(event, DEFAULT_KEYBINDINGS, "inbox:permission-deny-all")) {
+        event.preventDefault();
+        onRespondAllPermissions?.("deny");
+        return;
+      }
+      if (event.key === "ArrowDown" && pendingPermissions.length > 1) {
+        event.preventDefault();
+        setPermissionFocusIndex((i) => Math.min(i + 1, pendingPermissions.length - 1));
+      }
+      if (event.key === "ArrowUp" && pendingPermissions.length > 1) {
+        event.preventDefault();
+        setPermissionFocusIndex((i) => Math.max(i - 1, 0));
+      }
+    };
+
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [
+    pendingPermissions,
+    permissionFocusIndex,
+    onRespondPermission,
+    onRespondAllPermissions,
+  ]);
+
+  useEffect(() => {
+    if (permissionFocusIndex >= pendingPermissions.length) {
+      setPermissionFocusIndex(Math.max(0, pendingPermissions.length - 1));
+    }
+  }, [pendingPermissions.length, permissionFocusIndex]);
 
   const canClearDeadLetters = !!onClearDeadLetters && deadLetters.length > 0;
   const canClearFinished = !!onClearFinished && otherCards.length > 0;
@@ -314,6 +537,65 @@ export const InboxView: React.FC<InboxViewProps> = ({
         <StandupDigestCard digest={standupDigest} onDismiss={onDismissStandup} />
       )}
 
+      {pendingPermissions.length > 0 && onRespondPermission && (
+        <UnifiedPermissionsSection
+          requests={pendingPermissions}
+          agents={agents}
+          agentRuns={agentRuns}
+          tasks={tasks}
+          focusIndex={permissionFocusIndex}
+          onFocusIndexChange={setPermissionFocusIndex}
+          onRespond={onRespondPermission}
+          onRespondAll={onRespondAllPermissions}
+          onOpenRun={onOpenRun}
+        />
+      )}
+
+      {adoptableSessions.length > 0 && (
+        <section className="space-y-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 px-1">
+            External Sessions
+          </p>
+          {adoptableSessions.map(({ session }) => (
+            <FlatCard key={session.sessionId} className="p-3 space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-100 truncate">
+                    {session.preview?.trim() || `External ${session.runtime} session`}
+                  </p>
+                  <p className="text-[11px] text-slate-500 truncate">
+                    {session.runtime}
+                    {session.gitBranch ? ` · ${session.gitBranch}` : ""}
+                    {session.projectPath ? ` · ${session.projectPath}` : ""}
+                  </p>
+                </div>
+                <StatusPill status="Discovered" tone="purple" />
+              </div>
+              <div className="flex items-center gap-2">
+                {onAdoptSession && (
+                  <button
+                    type="button"
+                    onClick={() => onAdoptSession(session.sessionId)}
+                    className="liquid-btn liquid-btn-primary text-xs px-3 py-1.5 inline-flex items-center gap-1"
+                  >
+                    <Link2 size={12} /> Adopt
+                  </button>
+                )}
+                {onDismissSession && (
+                  <button
+                    type="button"
+                    onClick={() => onDismissSession(session.sessionId)}
+                    className="liquid-btn liquid-btn-ghost text-xs px-3 py-1.5 inline-flex items-center gap-1"
+                  >
+                    <X size={12} /> Dismiss
+                  </button>
+                )}
+              </div>
+            </FlatCard>
+          ))}
+        </section>
+      )}
+
       {isEmpty && <EmptyInboxState />}
 
       {deadLetters.map((letter) => (
@@ -322,6 +604,9 @@ export const InboxView: React.FC<InboxViewProps> = ({
           letter={letter}
           onRetry={onRetryDeadLetter}
           onDiscard={onDiscardDeadLetter}
+          onQuickAdd={onQuickAddFromDeadLetter}
+          onResolveMergeWithAgent={onResolveMergeWithAgent}
+          onSendToAgent={onSendDeadLetterToAgent}
         />
       ))}
 
@@ -409,6 +694,8 @@ const DEAD_LETTER_KIND_LABEL: Record<DeadLetter["kind"], string> = {
   run: "Failed run",
   automation: "Failed automation",
   "event-log": "Unrecorded change",
+  ci: "CI failure",
+  review: "PR review feedback",
 };
 
 /**
@@ -420,7 +707,17 @@ const DeadLetterCard: React.FC<{
   letter: DeadLetter;
   onRetry?: (id: string) => void;
   onDiscard?: (id: string) => void;
-}> = ({ letter, onRetry, onDiscard }) => (
+  onQuickAdd?: (title: string, detail: string) => void;
+  onResolveMergeWithAgent?: (id: string) => void;
+  onSendToAgent?: (id: string) => void;
+}> = ({
+  letter,
+  onRetry,
+  onDiscard,
+  onQuickAdd,
+  onResolveMergeWithAgent,
+  onSendToAgent,
+}) => (
   <FlatCard className="border-red-500/20 bg-red-950/20">
     <div className="flex items-start gap-2">
       <ShieldAlert size={14} className="text-red-400 mt-0.5 shrink-0" />
@@ -439,7 +736,34 @@ const DeadLetterCard: React.FC<{
         <p className="text-[11px] text-slate-400 whitespace-pre-wrap break-words max-h-20 overflow-y-auto custom-scrollbar">
           {letter.detail}
         </p>
-        <div className="flex items-center gap-2 pt-1">
+        <div className="flex items-center gap-2 pt-1 flex-wrap">
+          {onQuickAdd && (
+            <button
+              type="button"
+              onClick={() => onQuickAdd(letter.title, letter.detail)}
+              className="px-2 py-1 rounded-lg bg-red-500/10 border border-red-500/20 text-red-300 text-[11px] font-medium"
+            >
+              Quick Add
+            </button>
+          )}
+          {letter.kind === "merge" && onResolveMergeWithAgent && (
+            <button
+              type="button"
+              onClick={() => onResolveMergeWithAgent(letter.id)}
+              className="px-2 py-1 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-300 text-[11px] font-medium flex items-center gap-1"
+            >
+              <Wrench size={10} /> Resolve With Agent
+            </button>
+          )}
+          {(letter.kind === "ci" || letter.kind === "review") && onSendToAgent && (
+            <button
+              type="button"
+              onClick={() => onSendToAgent(letter.id)}
+              className="px-2 py-1 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-300 text-[11px] font-medium flex items-center gap-1"
+            >
+              <Bot size={10} /> Send To Agent
+            </button>
+          )}
           {onRetry && (
             <button
               type="button"
@@ -482,7 +806,7 @@ const StandupDigestCard: React.FC<{ digest: AgentStandupDigest; onDismiss?: () =
   });
 
   return (
-    <FlatCard className="bg-gradient-to-br from-slate-900/80 to-black/40">
+    <FlatCard className="border-amber-500/15">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
           <Coffee size={16} className="text-amber-300" />

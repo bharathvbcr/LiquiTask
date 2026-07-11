@@ -86,8 +86,9 @@ describe("parseCouncilReport", () => {
     expect(verdict.blockingGaps[0]).toContain("GAP-1");
   });
 
-  it("does not block when no parseable verdict exists", () => {
+  it("fails closed when no parseable verdict exists", () => {
     const verdict = parseCouncilReport("no json here at all");
-    expect(verdict.passed).toBe(true);
+    expect(verdict.passed).toBe(false);
+    expect(verdict.blockingGaps.length).toBeGreaterThan(0);
   });
 });

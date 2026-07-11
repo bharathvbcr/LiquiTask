@@ -22,9 +22,10 @@ func TestBuildCursorArgs(t *testing.T) {
 	t.Parallel()
 
 	args := buildCursorArgs("do something", ExecOptions{
-		Cwd:   "/tmp/work",
-		Model: "composer-1.5",
-	}, slog.Default())
+		Cwd:         "/tmp/work",
+		Model:       "composer-1.5",
+		AutoApprove: true,
+	}, false, slog.Default())
 
 	expected := []string{
 		"-p", "do something",
@@ -49,7 +50,7 @@ func TestBuildCursorArgsWithResume(t *testing.T) {
 
 	args := buildCursorArgs("continue", ExecOptions{
 		ResumeSessionID: "sess-123",
-	}, slog.Default())
+	}, false, slog.Default())
 
 	hasResume := false
 	for i, a := range args {
@@ -65,11 +66,44 @@ func TestBuildCursorArgsWithResume(t *testing.T) {
 func TestBuildCursorArgsMinimal(t *testing.T) {
 	t.Parallel()
 
-	args := buildCursorArgs("hello", ExecOptions{}, slog.Default())
+	args := buildCursorArgs("hello", ExecOptions{AutoApprove: true}, false, slog.Default())
 	expected := []string{"-p", "hello", "--output-format", "stream-json", "--yolo"}
 
 	if len(args) != len(expected) {
 		t.Fatalf("expected %d args, got %d: %v", len(expected), len(args), args)
+	}
+}
+
+func TestBuildCursorArgsWithManagedMcp(t *testing.T) {
+	t.Parallel()
+
+	args := buildCursorArgs("task", ExecOptions{AutoApprove: true}, true, slog.Default())
+	for _, want := range []string{"--trust", "--approve-mcps"} {
+		found := false
+		for _, a := range args {
+			if a == want {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected %q in args, got %v", want, args)
+		}
+	}
+}
+
+func TestBuildCursorArgsPlanMode(t *testing.T) {
+	t.Parallel()
+
+	args := buildCursorArgs("task", ExecOptions{PermissionMode: "plan"}, false, slog.Default())
+	found := false
+	for i, a := range args {
+		if a == "--mode" && i+1 < len(args) && args[i+1] == "plan" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected --mode plan in args, got %v", args)
 	}
 }
 
@@ -81,7 +115,7 @@ func TestBuildCursorArgsIgnoresSystemPromptAndMaxTurns(t *testing.T) {
 	args := buildCursorArgs("task", ExecOptions{
 		SystemPrompt: "You are helpful",
 		MaxTurns:     5,
-	}, slog.Default())
+	}, false, slog.Default())
 
 	for _, a := range args {
 		if a == "--system-prompt" {
@@ -97,8 +131,9 @@ func TestBuildCursorArgsCustomArgs(t *testing.T) {
 	t.Parallel()
 
 	args := buildCursorArgs("task", ExecOptions{
-		CustomArgs: []string{"--extra", "val", "--yolo", "--output-format", "text"},
-	}, slog.Default())
+		AutoApprove: true,
+		CustomArgs:  []string{"--extra", "val", "--yolo", "--output-format", "text"},
+	}, false, slog.Default())
 
 	// --extra val should be present; --yolo and --output-format should be filtered out
 	hasExtra := false

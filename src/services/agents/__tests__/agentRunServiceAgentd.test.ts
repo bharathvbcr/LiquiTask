@@ -1,5 +1,36 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const TEST_MCP_DIR = "/tmp/liquitask-mcp/test-run";
+const TEST_MCP_SECRET = "0123456789abcdef0123456789abcdef";
+
+function mcpInitResponse(dir = TEST_MCP_DIR) {
+  return { mcpDir: dir };
+}
+
+async function waitForRunStatus(runId: string, status: string) {
+  for (let i = 0; i < 50; i += 1) {
+    const run = agentRunService.getRuns().find((r) => r.id === runId);
+    if (run?.status === status) return run;
+    await new Promise((r) => setTimeout(r, 2));
+  }
+  return agentRunService.getRuns().find((r) => r.id === runId);
+}
+
+function withMcpMocks(extra?: (cmd: string) => Promise<unknown> | undefined) {
+  return (cmd: string) => {
+    const fromExtra = extra?.(cmd);
+    if (fromExtra !== undefined) return fromExtra;
+    if (cmd === "agent_runs_reattach") return Promise.resolve([]);
+    if (cmd === "agentd_run_start") return Promise.resolve("sidecar-run-1");
+    if (cmd === "agent_mcp_init") return Promise.resolve(mcpInitResponse());
+    if (cmd === "agent_mcp_resolve_bridge")
+      return Promise.resolve("/app/scripts/liquitask-mcp-bridge.mjs");
+    if (cmd === "agent_mcp_list_requests") return Promise.resolve([]);
+    if (cmd === "agentd_store_list_runs") return Promise.resolve([]);
+    return Promise.resolve(undefined);
+  };
+}
+
 // Force the Tauri code path and stub the native bridges the service imports.
 vi.mock("../../../runtime/runtimeEnvironment", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -40,6 +71,21 @@ const codexAgent: AgentProfile = {
   autoPickup: true,
   runsOnRecurrence: false,
   devCouncilVerify: false,
+  gitWorktree: false,
+  createdAt: new Date("2026-07-01T00:00:00.000Z"),
+};
+
+const claudeAgent: AgentProfile = {
+  id: "agent-claude",
+  name: "Claude",
+  provider: "claude-code",
+  workingDir: "/tmp/claude-repo",
+  permissionMode: "acceptEdits",
+  sandbox: "host",
+  autoPickup: true,
+  runsOnRecurrence: false,
+  devCouncilVerify: false,
+  gitWorktree: false,
   createdAt: new Date("2026-07-01T00:00:00.000Z"),
 };
 
@@ -62,16 +108,15 @@ function emitAgentd(payload: Record<string, unknown>) {
 describe("agentRunService agentd routing", () => {
   beforeEach(() => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
+    invokeMock.mockReset();
+    listeners.clear();
+    agentRunService.dispose();
   });
 
   it("starts non-claude providers through agentd and maps streamed events", async () => {
     expect(FEATURE_FLAGS.AGENTD_SIDECAR_ENABLED).toBe(true);
 
-    invokeMock.mockImplementation((cmd: string) => {
-      if (cmd === "agent_runs_reattach") return Promise.resolve([]);
-      if (cmd === "agentd_run_start") return Promise.resolve("sidecar-run-1");
-      return Promise.resolve(undefined);
-    });
+    invokeMock.mockImplementation(withMcpMocks());
 
     await agentRunService.initialize();
     const run = await agentRunService.assign(task, codexAgent);
@@ -80,7 +125,7 @@ describe("agentRunService agentd routing", () => {
     // Dispatched through the sidecar bridge, not the legacy runner.
     const startCall = invokeMock.mock.calls.find((c) => c[0] === "agentd_run_start");
     expect(startCall).toBeDefined();
-    expect(startCall![1]).toMatchObject({ taskId: "task-1", runtime: "codex" });
+    expect(startCall![1]).toMatchObject({ taskId: "task-1", runtime: "codex", permissionMode: "acceptEdits" });
     expect(invokeMock.mock.calls.some((c) => c[0] === "agent_run_start")).toBe(false);
 
     expect(run!.engine).toBe("agentd");
@@ -99,7 +144,7 @@ describe("agentRunService agentd routing", () => {
       sessionId: "sess-9",
     });
 
-    const finished = agentRunService.getRuns().find((r) => r.id === run!.id)!;
+    const finished = (await waitForRunStatus(run!.id, "completed"))!;
     expect(finished.status).toBe("completed");
     expect(finished.summary).toBe("done");
     expect(finished.sessionId).toBe("sess-9");
@@ -107,6 +152,64 @@ describe("agentRunService agentd routing", () => {
       true,
     );
     expect(finished.events.some((e) => e.kind === "tool" && e.text.startsWith("bash("))).toBe(true);
+  });
+
+  it("starts claude-code through agentd with the claude runtime id", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "agent_runs_reattach") return Promise.resolve([]);
+      if (cmd === "agentd_run_start") return Promise.resolve("sidecar-claude-1");
+      if (cmd === "workspace_read_file") {
+        return Promise.reject(new Error("Unauthorized access to file"));
+      }
+      if (cmd === "agent_mcp_init") return Promise.resolve(mcpInitResponse("/tmp/liquitask-mcp/run-claude"));
+      if (cmd === "agent_mcp_resolve_bridge")
+        return Promise.resolve("/app/scripts/liquitask-mcp-bridge.mjs");
+      if (cmd === "agent_mcp_list_requests") return Promise.resolve([]);
+      return Promise.resolve(undefined);
+    });
+
+    const run = await agentRunService.assign(
+      { ...task, id: "task-claude" },
+      { ...claudeAgent, id: "agent-claude-1" },
+    );
+    expect(run?.status).toBe("running");
+    expect(run?.engine).toBe("agentd");
+    expect(run?.agentdRunId).toBe("sidecar-claude-1");
+
+    const startCall = invokeMock.mock.calls.find((c) => c[0] === "agentd_run_start")!;
+    expect(startCall[1]).toMatchObject({ taskId: "task-claude", runtime: "claude" });
+    expect(invokeMock.mock.calls.some((c) => c[0] === "agent_run_start")).toBe(false);
+  });
+
+  it("routes pause and inject through agentd for claude-code runs", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "agent_runs_reattach") return Promise.resolve([]);
+      if (cmd === "agentd_run_start") return Promise.resolve("sidecar-claude-2");
+      if (cmd === "workspace_read_file") {
+        return Promise.reject(new Error("Unauthorized access to file"));
+      }
+      if (cmd === "agent_mcp_init") return Promise.resolve(mcpInitResponse("/tmp/liquitask-mcp/run-claude-2"));
+      if (cmd === "agent_mcp_resolve_bridge")
+        return Promise.resolve("/app/scripts/liquitask-mcp-bridge.mjs");
+      if (cmd === "agent_mcp_list_requests") return Promise.resolve([]);
+      return Promise.resolve(undefined);
+    });
+
+    const run = await agentRunService.assign(
+      { ...task, id: "task-claude-2" },
+      { ...claudeAgent, id: "agent-claude-2" },
+    );
+    expect(run?.agentdRunId).toBe("sidecar-claude-2");
+
+    invokeMock.mockClear();
+    await agentRunService.pause(run!.id);
+    expect(invokeMock.mock.calls.some((c) => c[0] === "agentd_run_pause")).toBe(true);
+    expect(invokeMock.mock.calls.some((c) => c[0] === "agent_council_pause")).toBe(false);
+
+    invokeMock.mockClear();
+    await agentRunService.injectGuidance(run!.id, "focus on tests");
+    expect(invokeMock.mock.calls.some((c) => c[0] === "agent_mcp_append_guidance")).toBe(true);
+    expect(invokeMock.mock.calls.some((c) => c[0] === "agentd_run_inject")).toBe(true);
   });
 
   it("routes cancel through the sidecar for agentd runs", async () => {
@@ -137,7 +240,7 @@ describe("agentRunService agentd routing", () => {
       if (cmd === "agent_runs_reattach") return Promise.resolve([]);
       if (cmd === "agentd_run_start") return Promise.resolve("sidecar-run-3");
       if (cmd === "workspace_read_file") return Promise.resolve("version: 1");
-      if (cmd === "agent_mcp_init") return Promise.resolve("/tmp/liquitask-mcp/run-3");
+      if (cmd === "agent_mcp_init") return Promise.resolve(mcpInitResponse("/tmp/liquitask-mcp/run-3"));
       if (cmd === "agent_mcp_resolve_bridge")
         return Promise.resolve("/app/scripts/liquitask-mcp-bridge.mjs");
       if (cmd === "agent_mcp_list_requests") return Promise.resolve([]);
@@ -191,7 +294,7 @@ describe("agentRunService agentd routing", () => {
       if (cmd === "workspace_read_file") {
         return Promise.reject(new Error("Unauthorized access to file"));
       }
-      if (cmd === "agent_mcp_init") return Promise.resolve("/tmp/liquitask-mcp/run-4");
+      if (cmd === "agent_mcp_init") return Promise.resolve(mcpInitResponse("/tmp/liquitask-mcp/run-4"));
       if (cmd === "agent_mcp_resolve_bridge")
         return Promise.resolve("/app/scripts/liquitask-mcp-bridge.mjs");
       if (cmd === "agent_mcp_list_requests") return Promise.resolve([]);
@@ -217,5 +320,112 @@ describe("agentRunService agentd routing", () => {
     );
     const probes = invokeMock.mock.calls.filter((c) => c[0] === "workspace_read_file");
     expect(probes).toHaveLength(1);
+  });
+
+  it("forwards permissionMode and mcpConfig for cursor runs", async () => {
+    invokeMock.mockClear();
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "agent_runs_reattach") return Promise.resolve([]);
+      if (cmd === "agentd_run_start") return Promise.resolve("sidecar-cursor-1");
+      if (cmd === "agent_mcp_init") return Promise.resolve(mcpInitResponse("/tmp/liquitask-mcp/run-cursor"));
+      if (cmd === "agent_mcp_resolve_bridge")
+        return Promise.resolve("/app/scripts/liquitask-mcp-bridge.mjs");
+      if (cmd === "agent_mcp_list_requests") return Promise.resolve([]);
+      return Promise.resolve(undefined);
+    });
+
+    const cursorAgent: AgentProfile = {
+      ...codexAgent,
+      id: "agent-cursor-1",
+      name: "Cursor",
+      provider: "cursor",
+      permissionMode: "plan",
+      workingDir: "/tmp/cursor-repo",
+    };
+
+    await agentRunService.assign({ ...task, id: "task-cursor" }, cursorAgent);
+    const startCall = invokeMock.mock.calls.find((c) => c[0] === "agentd_run_start")!;
+    expect(startCall[1]).toMatchObject({
+      runtime: "cursor",
+      permissionMode: "plan",
+    });
+    expect((startCall[1] as { mcpConfig?: string }).mcpConfig).toBeDefined();
+  });
+
+  it("forwards timeoutMs, autoApprove, and toolPolicy to agentd_run_start", async () => {
+    invokeMock.mockClear();
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "agent_runs_reattach") return Promise.resolve([]);
+      if (cmd === "agentd_run_start") return Promise.resolve("sidecar-policy-1");
+      if (cmd === "agent_mcp_init") return Promise.resolve(mcpInitResponse("/tmp/liquitask-mcp/run-policy"));
+      if (cmd === "agent_mcp_resolve_bridge")
+        return Promise.resolve("/app/scripts/liquitask-mcp-bridge.mjs");
+      if (cmd === "agent_mcp_list_requests") return Promise.resolve([]);
+      return Promise.resolve(undefined);
+    });
+
+    const policyAgent: AgentProfile = {
+      ...codexAgent,
+      id: "agent-policy-1",
+      name: "Policy",
+      provider: "codex",
+      runTimeoutMinutes: 20,
+      autoApprove: true,
+      toolPolicy: { bash: "allow", write: "deny" },
+    };
+
+    await agentRunService.assign({ ...task, id: "task-policy" }, policyAgent);
+    const startCall = invokeMock.mock.calls.find((c) => c[0] === "agentd_run_start")!;
+    expect(startCall[1]).toMatchObject({
+      timeoutMs: 20 * 60_000,
+      autoApprove: true,
+      toolPolicy: { bash: "allow", write: "deny" },
+    });
+  });
+
+  it("does not forward autoApprove when the profile has not opted in", async () => {
+    invokeMock.mockClear();
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "agent_runs_reattach") return Promise.resolve([]);
+      if (cmd === "agentd_run_start") return Promise.resolve("sidecar-no-auto-1");
+      if (cmd === "agent_mcp_init") return Promise.resolve(mcpInitResponse("/tmp/liquitask-mcp/run-no-auto"));
+      if (cmd === "agent_mcp_resolve_bridge")
+        return Promise.resolve("/app/scripts/liquitask-mcp-bridge.mjs");
+      if (cmd === "agent_mcp_list_requests") return Promise.resolve([]);
+      return Promise.resolve(undefined);
+    });
+
+    await agentRunService.assign({ ...task, id: "task-no-auto" }, codexAgent);
+    const startCall = invokeMock.mock.calls.find((c) => c[0] === "agentd_run_start")!;
+    expect(startCall[1]).not.toHaveProperty("autoApprove");
+    expect(startCall[1]).not.toHaveProperty("timeoutMs");
+    expect(startCall[1]).not.toHaveProperty("toolPolicy");
+  });
+
+  it("starts grok through agentd with grok runtime id", async () => {
+    invokeMock.mockClear();
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "agent_runs_reattach") return Promise.resolve([]);
+      if (cmd === "agentd_run_start") return Promise.resolve("sidecar-grok-1");
+      if (cmd === "agent_mcp_init") return Promise.resolve(mcpInitResponse("/tmp/liquitask-mcp/run-grok"));
+      if (cmd === "agent_mcp_resolve_bridge")
+        return Promise.resolve("/app/scripts/liquitask-mcp-bridge.mjs");
+      if (cmd === "agent_mcp_list_requests") return Promise.resolve([]);
+      return Promise.resolve(undefined);
+    });
+
+    const grokAgent: AgentProfile = {
+      ...codexAgent,
+      id: "agent-grok-1",
+      name: "Grok",
+      provider: "grok",
+      workingDir: "/tmp/grok-repo",
+    };
+
+    const run = await agentRunService.assign({ ...task, id: "task-grok" }, grokAgent);
+    expect(run?.engine).toBe("agentd");
+    const startCall = invokeMock.mock.calls.find((c) => c[0] === "agentd_run_start")!;
+    expect(startCall[1]).toMatchObject({ runtime: "grok", permissionMode: "acceptEdits" });
+    expect((startCall[1] as { mcpConfig?: string }).mcpConfig).toBeDefined();
   });
 });

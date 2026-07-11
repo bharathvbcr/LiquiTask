@@ -3,26 +3,78 @@
  * Stdio MCP bridge for LiquiTask agent runs.
  * Claude Code connects via --mcp-config; tool calls are forwarded to the app
  * through a request/response directory (LIQUITASK_MCP_DIR).
+ *
+ * Responses and guidance are HMAC-authenticated by the LiquiTask app; unsigned
+ * files are ignored so a co-located process cannot forge approvals.
  */
 import fs from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
-const MCP_DIR = process.env.LIQUITASK_MCP_DIR;
+import {
+  isLegacyUnsignedResponse,
+  readInflightBinding,
+  unwrapBoundResponse,
+  unwrapSignedPayload,
+} from "./mcp-bridge-auth.mjs";
+
+const isDirectRun =
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
+
+const MCP_DIR = process.env.LIQUITASK_MCP_DIR ?? "";
+
+/** Read a secret from an inherited FD when agentd-owned spawn passes LIQUITASK_*_FD. */
+export function readSecretFromFd(envName) {
+  const raw = process.env[envName];
+  if (!raw) return "";
+  const fd = Number.parseInt(raw, 10);
+  if (!Number.isFinite(fd) || fd < 0) return "";
+  try {
+    const buf = Buffer.alloc(64);
+    const n = fs.readSync(fd, buf, 0, buf.length, null);
+    const secret = buf.subarray(0, n).toString("utf8").trim();
+    return secret.length >= 32 ? secret : "";
+  } catch {
+    return "";
+  }
+}
+
+/** Read the per-run HMAC secret — FD handoff first, then file fallback. */
+export function readMcpSecretFromDir(mcpDir) {
+  const fromFd = readSecretFromFd("LIQUITASK_MCP_SECRET_FD");
+  if (fromFd) return fromFd;
+  if (!mcpDir) return "";
+  try {
+    const raw = fs.readFileSync(path.join(mcpDir, ".secret"), "utf8").trim();
+    return raw.length >= 32 ? raw : "";
+  } catch {
+    return "";
+  }
+}
+
+/** Read the response-signing key — FD handoff first, then file fallback. */
+export function readResponseSecretFromDir(mcpDir) {
+  const fromFd = readSecretFromFd("LIQUITASK_RESPONSE_SECRET_FD");
+  if (fromFd) return fromFd;
+  if (!mcpDir) return "";
+  try {
+    const raw = fs.readFileSync(path.join(mcpDir, "response-secret"), "utf8").trim();
+    return raw.length >= 32 ? raw : "";
+  } catch {
+    return "";
+  }
+}
+
+const MCP_SECRET = readMcpSecretFromDir(MCP_DIR);
+const RESPONSE_SECRET = readResponseSecretFromDir(MCP_DIR);
 const TASK_ID = process.env.LIQUITASK_TASK_ID ?? "";
 const RUN_ID = process.env.LIQUITASK_RUN_ID ?? "";
 
-if (!MCP_DIR) {
-  console.error("LIQUITASK_MCP_DIR is required");
-  process.exit(1);
-}
-
-const REQUESTS_DIR = path.join(MCP_DIR, "requests");
-const RESPONSES_DIR = path.join(MCP_DIR, "responses");
-const GUIDANCE_FILE = path.join(MCP_DIR, "guidance.jsonl");
-
-for (const dir of [REQUESTS_DIR, RESPONSES_DIR]) {
-  fs.mkdirSync(dir, { recursive: true });
-}
+const REQUESTS_DIR = MCP_DIR ? path.join(MCP_DIR, "requests") : "";
+const RESPONSES_DIR = MCP_DIR ? path.join(MCP_DIR, "responses") : "";
+const INFLIGHT_DIR = MCP_DIR ? path.join(MCP_DIR, "inflight") : "";
+const GUIDANCE_FILE = MCP_DIR ? path.join(MCP_DIR, "guidance.jsonl") : "";
 
 const TOOLS = [
   {
@@ -131,6 +183,71 @@ const TOOLS = [
     },
   },
   {
+    name: "board_list",
+    description: "List board task cards, optionally filtered by column id or title.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        column: { type: "string", description: "Column id or title filter" },
+      },
+    },
+  },
+  {
+    name: "board_show",
+    description: "Show one task card by id, job id, or title prefix.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task: { type: "string", description: "Task id, job id, or title prefix" },
+      },
+      required: ["task"],
+    },
+  },
+  {
+    name: "board_create",
+    description: "Create a new board task (meta-agent orchestration).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        title: { type: "string" },
+        projectId: { type: "string" },
+        assignee: { type: "string" },
+        status: { type: "string" },
+        summary: { type: "string" },
+      },
+      required: ["title", "projectId"],
+    },
+  },
+  {
+    name: "board_assign",
+    description: "Assign a task to an agent by name.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task: { type: "string" },
+        assignee: { type: "string" },
+      },
+      required: ["task", "assignee"],
+    },
+  },
+  {
+    name: "board_dispatch",
+    description: "Start an agent run for a task (respects scope reservations).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task: { type: "string" },
+        agent: { type: "string", description: "Agent name; defaults to task assignee" },
+      },
+      required: ["task"],
+    },
+  },
+  {
+    name: "board_reservations",
+    description: "Read active file-scope reservations from the agentd daemon.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
     name: "permission_prompt",
     description:
       "Handle permission requests from Claude Code (--permission-prompt-tool). Returns allow/deny JSON.",
@@ -150,38 +267,112 @@ function send(msg) {
   process.stdout.write(`${JSON.stringify(msg)}\n`);
 }
 
-function waitForResponse(requestId, timeoutMs = 30000) {
-  const responsePath = path.join(RESPONSES_DIR, `${requestId}.json`);
+function sleepMs(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function parseResponsePayload(raw) {
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (isLegacyUnsignedResponse(parsed)) {
+    return null;
+  }
+  return unwrapSignedPayload(MCP_SECRET, parsed);
+}
+
+/**
+ * Poll for an app-signed response file. Unsigned/forged files are ignored.
+ * @param {string} responsesDir
+ * @param {string} inflightDir
+ * @param {string} requestId
+ * @param {string} secret
+ * @param {{ timeoutMs?: number, pollMs?: number }} [opts]
+ */
+export function readAuthenticatedResponse(responsesDir, requestId, secret, opts = {}, inflightDir = "") {
+  const timeoutMs = opts.timeoutMs ?? 30_000;
+  const pollMs = opts.pollMs ?? 50;
+  const responsePath = path.join(responsesDir, `${requestId}.json`);
+  const inflightPath = inflightDir ? path.join(inflightDir, `${requestId}.json`) : "";
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    if (fs.existsSync(responsePath)) {
-      const raw = fs.readFileSync(responsePath, "utf8");
-      fs.unlinkSync(responsePath);
-      return JSON.parse(raw);
+    if (inflightPath && !fs.existsSync(inflightPath)) {
+      throw new Error(`MCP request ${requestId} is not inflight`);
     }
-    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50);
+    if (fs.existsSync(responsePath)) {
+      const binding = inflightPath ? readInflightBinding(inflightPath) : null;
+      if (inflightPath && !binding) {
+        fs.unlinkSync(responsePath);
+        sleepMs(pollMs);
+        continue;
+      }
+      const raw = fs.readFileSync(responsePath, "utf8");
+      let parsed;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        fs.unlinkSync(responsePath);
+        sleepMs(pollMs);
+        continue;
+      }
+      const payload = isLegacyUnsignedResponse(parsed)
+        ? null
+        : binding
+          ? unwrapBoundResponse(secret, parsed, binding)
+          : unwrapSignedPayload(secret, parsed);
+      if (!payload) {
+        // Drop unsigned/forged files and keep waiting for an app-signed response.
+        fs.unlinkSync(responsePath);
+        sleepMs(pollMs);
+        continue;
+      }
+      fs.unlinkSync(responsePath);
+      return payload;
+    }
+    sleepMs(pollMs);
   }
   throw new Error(`MCP request ${requestId} timed out`);
 }
 
-function readPendingGuidance() {
-  if (!fs.existsSync(GUIDANCE_FILE)) {
+function waitForResponse(requestId, timeoutMs = 30000) {
+  return readAuthenticatedResponse(RESPONSES_DIR, requestId, RESPONSE_SECRET, { timeoutMs }, INFLIGHT_DIR);
+}
+
+/**
+ * @param {string} guidanceFile
+ * @param {string} secret
+ */
+export function readAuthenticatedGuidance(guidanceFile, secret) {
+  if (!fs.existsSync(guidanceFile)) {
     return [];
   }
-  const raw = fs.readFileSync(GUIDANCE_FILE, "utf8").trim();
+  const raw = fs.readFileSync(guidanceFile, "utf8").trim();
   if (!raw) return [];
   const messages = [];
   for (const line of raw.split("\n")) {
     if (!line.trim()) continue;
     try {
       const parsed = JSON.parse(line);
-      if (parsed.message) messages.push(String(parsed.message));
+      if (isLegacyUnsignedResponse(parsed)) {
+        continue;
+      }
+      const payload = unwrapSignedPayload(secret, parsed);
+      if (payload?.message) {
+        messages.push(String(payload.message));
+      }
     } catch {
-      messages.push(line);
+      // Ignore malformed lines.
     }
   }
-  fs.writeFileSync(GUIDANCE_FILE, "");
+  fs.writeFileSync(guidanceFile, "");
   return messages;
+}
+
+function readPendingGuidance() {
+  return readAuthenticatedGuidance(GUIDANCE_FILE, MCP_SECRET);
 }
 
 function callTool(name, args) {
@@ -205,7 +396,7 @@ function callTool(name, args) {
   // Permission prompts wait for user approval in the UI — allow up to 10 minutes.
   const timeoutMs = name === "permission_prompt" ? 600_000 : 30_000;
   const result = waitForResponse(requestId, timeoutMs);
-  if (result.error) throw new Error(result.error);
+  if (result.error) throw new Error(String(result.error));
   return result.content ?? [{ type: "text", text: JSON.stringify(result) }];
 }
 
@@ -266,12 +457,29 @@ function handleMessage(line) {
 }
 
 let buffer = "";
-process.stdin.setEncoding("utf8");
-process.stdin.on("data", (chunk) => {
-  buffer += chunk;
-  const lines = buffer.split("\n");
-  buffer = lines.pop() ?? "";
-  for (const line of lines) {
-    if (line.trim()) handleMessage(line);
+if (isDirectRun) {
+  if (!MCP_DIR) {
+    console.error("LIQUITASK_MCP_DIR is required");
+    process.exit(1);
   }
-});
+  if (!MCP_SECRET) {
+    console.error("MCP secret missing: expected LIQUITASK_MCP_DIR/.secret (>=32 chars)");
+    process.exit(1);
+  }
+  if (!RESPONSE_SECRET) {
+    console.error("Response secret missing: expected LIQUITASK_MCP_DIR/response-secret (>=32 chars)");
+    process.exit(1);
+  }
+  for (const dir of [REQUESTS_DIR, RESPONSES_DIR, INFLIGHT_DIR]) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  process.stdin.setEncoding("utf8");
+  process.stdin.on("data", (chunk) => {
+    buffer += chunk;
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      if (line.trim()) handleMessage(line);
+    }
+  });
+}

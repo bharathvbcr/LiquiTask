@@ -23,7 +23,7 @@ func TestBuildAntigravityArgsBasic(t *testing.T) {
 		"hello",
 		"/tmp/agy.log",
 		20*time.Minute,
-		ExecOptions{Cwd: "/work"},
+		ExecOptions{Cwd: "/work", AutoApprove: true},
 		quietAntigravityLogger(),
 	)
 
@@ -49,7 +49,7 @@ func TestBuildAntigravityArgsModel(t *testing.T) {
 		"hello",
 		"/tmp/agy.log",
 		20*time.Minute,
-		ExecOptions{Cwd: "/work", Model: "Claude Opus 4.6 (Thinking)"},
+		ExecOptions{Cwd: "/work", Model: "Claude Opus 4.6 (Thinking)", AutoApprove: true},
 		quietAntigravityLogger(),
 	)
 
@@ -84,7 +84,7 @@ func TestBuildAntigravityArgsNoCapUsesLargePrintTimeout(t *testing.T) {
 		"hello",
 		"/tmp/agy.log",
 		0,
-		ExecOptions{Cwd: "/work"},
+		ExecOptions{Cwd: "/work", AutoApprove: true},
 		quietAntigravityLogger(),
 	)
 

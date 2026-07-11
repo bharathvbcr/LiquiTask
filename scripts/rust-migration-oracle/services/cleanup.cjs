@@ -361,10 +361,14 @@ function refIsStale(task, now) {
   return isPastDue && isLowPriority && noRecentActivity;
 }
 
+function isTerminalTask(t) {
+  return t.completedAt != null || t.status === "Completed" || t.status === "Commit";
+}
+
 function refRedundancy(allTasks, now) {
   const analyses = [];
-  const completedTasks = allTasks.filter((t) => t.status === "Completed" || t.completedAt);
-  const activeTasks = allTasks.filter((t) => t.status !== "Completed" && !t.completedAt);
+  const completedTasks = allTasks.filter((t) => isTerminalTask(t));
+  const activeTasks = allTasks.filter((t) => !isTerminalTask(t));
   for (const task of activeTasks) {
     for (const completed of completedTasks) {
       const similarity = refTitleSimilarity(task.title, completed.title);
@@ -435,8 +439,8 @@ function portIsStale(task, now) {
 
 function portRedundancy(allTasks, now) {
   const analyses = [];
-  const completedTasks = allTasks.filter((t) => t.status === "Completed" || t.completedAt != null);
-  const activeTasks = allTasks.filter((t) => t.status !== "Completed" && t.completedAt == null);
+  const completedTasks = allTasks.filter((t) => isTerminalTask(t));
+  const activeTasks = allTasks.filter((t) => !isTerminalTask(t));
   for (const task of activeTasks) {
     for (const completed of completedTasks) {
       const similarity = portTitleSimilarity(task.title, completed.title);
@@ -699,7 +703,7 @@ const VOCAB = [
 const ODD = ["!!!", "café", "a\tb", "  ", "über-thing", "foo_bar", "", "UI/UX", "  lead"];
 
 const TAG_POOL = ["backend", "frontend", "api", "ui", "ux", "bug", "urgent", "db", "misc"];
-const STATUSES = ["Todo", "In Progress", "Completed", "Blocked", "Pending"];
+const STATUSES = ["Todo", "In Progress", "Completed", "Commit", "Blocked", "Pending"];
 const PRIORITIES = ["low", "medium", "high", ""];
 
 function randInt(rng, n) {

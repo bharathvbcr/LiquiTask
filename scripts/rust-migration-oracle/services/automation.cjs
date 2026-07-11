@@ -229,14 +229,15 @@ function portReducer(rules, task) {
   };
 }
 
-// Mirror of `is_rule_due`: decompose nowMs into UTC civil components.
-function portIsRuleDue(rule, nowMs) {
+// Mirror of `is_rule_due`: decompose local wall-clock civil components.
+function portIsRuleDue(rule, nowMs, timezoneOffsetMinutes = 0) {
   const schedule = rule.schedule;
   if (schedule === undefined || schedule === null || typeof schedule !== "object") {
     return false;
   }
 
-  const c = Civil.fromMillis(nowMs);
+  const localMs = nowMs - timezoneOffsetMinutes * 60_000;
+  const c = Civil.fromMillis(localMs);
   const pad = (n) => n.toString().padStart(2, "0");
   const currentTime = `${pad(c.hour)}:${pad(c.minute)}`;
 
@@ -259,9 +260,10 @@ function portIsRuleDue(rule, nowMs) {
 }
 
 function port(matchedRules, task, nowMs) {
+  const timezoneOffsetMinutes = new Date(nowMs).getTimezoneOffset();
   return {
     result: portReducer(matchedRules, task),
-    due: matchedRules.map((r) => portIsRuleDue(r, nowMs)),
+    due: matchedRules.map((r) => portIsRuleDue(r, nowMs, timezoneOffsetMinutes)),
   };
 }
 

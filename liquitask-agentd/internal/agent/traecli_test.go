@@ -150,7 +150,8 @@ func TestTraecliBlockedArgsFiltering(t *testing.T) {
 	defer cancel()
 
 	session, err := backend.Execute(ctx, "task", ExecOptions{
-		Timeout: 5 * time.Second,
+		Timeout:     5 * time.Second,
+		AutoApprove: true,
 		// Users must not be able to strip ACP mode, switch to print mode,
 		// override the permission mode, or duplicate the subcommand.
 		CustomArgs: []string{"acp", "serve", "--yolo", "-p", "--output-format", "json", "--permission-mode", "default", "--add-dir", "/tmp/extra"},
@@ -169,7 +170,7 @@ func TestTraecliBlockedArgsFiltering(t *testing.T) {
 		t.Fatalf("read args file: %v", err)
 	}
 	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
-	wantPrefix := []string{"acp", "serve", "--yolo"}
+	wantPrefix := []string{"--yolo", "acp", "serve"}
 	if len(lines) < len(wantPrefix) {
 		t.Fatalf("expected at least %d args, got %d: %q", len(wantPrefix), len(lines), lines)
 	}

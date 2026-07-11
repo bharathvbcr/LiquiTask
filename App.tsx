@@ -19,15 +19,19 @@ import agentMcpService, {
 import { localApi } from './src/core/api/localApi';
 import { deriveInboxCounts } from './src/core/inbox/deriveInboxItems';
 import { PanelBoundary } from './src/components/ErrorBoundary';
-import deadLetterService, { type DeadLetter } from './src/services/deadLetterService';
 import { useAgentStandupDigest } from './src/hooks/useAgentStandupDigest';
 import { useAgentTeammates } from './src/hooks/useAgentTeammates';
 import { useGitHubSync } from './src/hooks/useGitHubSync';
-import { useAiKeyboardShortcuts } from './src/hooks/useAiKeyboardShortcuts';
+import { AppSurfaceRouter } from './src/components/AppSurfaceRouter';
+import { useAppKeyboardOrchestration } from './src/hooks/useAppKeyboardOrchestration';
 import { useAppInitialization } from './src/hooks/useAppInitialization';
+import { useAppSurface, useSelectedRunContext } from './src/hooks/useAppSurface';
+import { useAgentTeammateWiring } from './src/hooks/useAgentTeammateWiring';
 import { useAutoArchive } from './src/hooks/useAutoArchive';
+import { useAutomationSchedulerContext } from './src/hooks/useAutomationSchedulerContext';
+import { useDeadLetterInbox } from './src/hooks/useDeadLetterInbox';
+import { useSessionDiscoveryInbox } from './src/hooks/useSessionDiscoveryInbox';
 import { useDevCouncilWorkspaceSync } from './src/hooks/useDevCouncilWorkspaceSync';
-import { useGlobalKeyboardShortcuts } from './src/hooks/useGlobalKeyboardShortcuts';
 import { useProjectController } from './src/hooks/useProjectController';
 import useSavedViews from './src/hooks/useSavedViews';
 import { useSearchHistory } from './src/hooks/useSearchHistory';
@@ -37,6 +41,7 @@ import { useTaskController } from './src/hooks/useTaskController';
 import { getRuntimeState, isTauri } from './src/runtime/runtimeEnvironment';
 import { aiService } from './src/services/aiService';
 import agentRunService from './src/services/agents/agentRunService';
+import agentReservationService from './src/services/agents/agentReservationService';
 import agentDispatchService from './src/services/agents/agentDispatchService';
 import agentService from './src/services/agents/agentService';
 import { buildDevCouncilInitTask } from './src/services/agents/devcouncilWorkspaceSync';
@@ -49,6 +54,7 @@ import {
   needsWebEncryptionUnlock,
 } from './src/services/encryptionSetup';
 import { DesktopEncryptionGate } from './src/components/DesktopEncryptionGate';
+import { ExperienceChoiceGate } from './src/components/ExperienceChoiceGate';
 import { WebEncryptionGate } from './src/components/WebEncryptionGate';
 import { indexedDBService } from './src/services/indexedDBService';
 import storageService from './src/services/storageService';
@@ -57,8 +63,23 @@ import { debounce } from './src/utils/debounce';
 import { buildTaskContextIndex, getTasksFromContextIndex } from './src/utils/taskContextIndex';
 import { filterTasksBySearch } from './src/utils/taskSearch';
 import { getBacklogColumnId } from './src/utils/taskUtils';
-import { buildBoardContextQuickAddPrefill, SIMILAR_TITLE_THRESHOLD } from './src/utils/taskParser';
+import { buildBoardContextQuickAddPrefill, buildDeadLetterQuickAddPrefill, SIMILAR_TITLE_THRESHOLD, taskToQuickAddSyntax } from './src/utils/taskParser';
 import { persistStorageQuiet } from './src/utils/persistStorage';
+import { writeAiFeaturesEnabled, readAiFeaturesEnabled } from './src/utils/aiFeatures';
+import {
+  readNotificationPreferences,
+  writeNotificationPreferences,
+  type NotificationPreferences,
+} from './src/utils/notificationPreferences';
+import {
+  readRemotePushConfig,
+  writeRemotePushConfig,
+  type RemotePushConfig,
+} from './src/utils/pushNotificationConfig';
+import {
+  needsOnboardingExperienceChoice,
+  writeOnboardingExperienceChosen,
+} from './src/utils/onboarding';
 import type {
   ActivityItem,
   ActivityType,
@@ -220,14 +241,13 @@ const AIRightRail = lazy(() =>
 
 // v3 four-surface shell (Inbox/Board/Agents/Run) — lazy, only rendered when
 // FEATURE_FLAGS.V3_SHELL_ENABLED is on. The legacy tree above stays untouched.
-const InboxView = lazy(() =>
-  import('./src/views/inbox/InboxView').then(module => ({ default: module.InboxView }))
-);
-const AgentsView = lazy(() =>
-  import('./src/views/agents/AgentsView').then(module => ({ default: module.AgentsView }))
-);
 const RunView = lazy(() =>
   import('./src/views/run/RunView').then(module => ({ default: module.RunView }))
+);
+const AgentFormModal = lazy(() =>
+  import('./src/components/agents/AgentFormModal').then(module => ({
+    default: module.AgentFormModal,
+  }))
 );
 // Bottom terminal drawer: interactive shell + live agent-output spy console.
 const TerminalDrawer = lazy(() => import('./src/components/terminal/TerminalDrawer'));
@@ -365,8 +385,6 @@ type TemplateServiceHandle = {
 
 type AdvancedFilterExecutor = (tasks: Task[], group: FilterGroup) => Task[];
 type AppView = 'project' | 'dashboard' | 'gantt' | 'archive';
-/** v3 shell surfaces (FEATURE_FLAGS.V3_SHELL_ENABLED). Run is an overlay, not a tab. */
-type AppSurface = 'inbox' | 'board' | 'agents';
 
 const App: React.FC = () => {
   const [webEncryptionBlocked, setWebEncryptionBlocked] = useState<boolean | null>(null);
@@ -416,6 +434,14 @@ const App: React.FC = () => {
   const [boardGrouping, setBoardGrouping] = useState<GroupingOption>('none');
   const [isCompactView, setIsCompactView] = useState<boolean>(false);
   const [showSubWorkspaceTasks, setShowSubWorkspaceTasks] = useState<boolean>(false);
+  const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences>(
+    () => readNotificationPreferences(),
+  );
+  const [remotePushConfig, setRemotePushConfig] = useState<RemotePushConfig>(() =>
+    readRemotePushConfig(),
+  );
+  const [aiFeaturesEnabled, setAiFeaturesEnabled] = useState<boolean>(true);
+  const [showExperienceChoice, setShowExperienceChoice] = useState(false);
   const [isHeaderExpanded, setIsHeaderExpanded] = useState<boolean>(false);
   const [currentView, setCurrentView] = useState<AppView>('project');
   const [viewMode, setViewMode] = useState<'board' | 'gantt' | 'stats' | 'calendar'>('board');
@@ -427,15 +453,20 @@ const App: React.FC = () => {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [taskModalAiPrefill, setTaskModalAiPrefill] = useState("");
   const [taskModalFocusAi, setTaskModalFocusAi] = useState(false);
+  const [quickAddDropHover, setQuickAddDropHover] = useState(false);
+  const [boardFocusedColumnIndex, setBoardFocusedColumnIndex] = useState(-1);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [creatingSubProjectFor, setCreatingSubProjectFor] = useState<string | undefined>(undefined);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState<string | undefined>(undefined);
   const [isAgentTeamOpen, setIsAgentTeamOpen] = useState(false);
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
-  // v3 shell (FEATURE_FLAGS.V3_SHELL_ENABLED) — inert while the flag is off.
-  const [activeSurface, setActiveSurface] = useState<AppSurface>('board');
-  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const { activeSurface, setActiveSurface, selectedRunId, setSelectedRunId } = useAppSurface(() =>
+    readAiFeaturesEnabled() ? 'inbox' : 'board',
+  );
+  // Visual agent manager: create/edit modal driven from the Agents surface.
+  const [isAgentFormOpen, setIsAgentFormOpen] = useState(false);
+  const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
   const [runtimeHealth, setRuntimeHealth] = useState<
     | Array<{
         id: string;
@@ -491,9 +522,9 @@ const App: React.FC = () => {
   // isAiAssistantSidebarEnabled is a module-level constant (not reactive), so an
   // empty dependency list keeps this callback stable across renders.
   const setAiAssistantOpen = useCallback((value: boolean | ((prev: boolean) => boolean)) => {
-    if (!isAiAssistantSidebarEnabled) return;
+    if (!isAiAssistantSidebarEnabled || !aiFeaturesEnabled) return;
     setIsAssistantOpen(value);
-  }, []);
+  }, [aiFeaturesEnabled]);
 
   // AI Settings
   const [aiSettings, setAiSettings] = useState({
@@ -554,17 +585,9 @@ const App: React.FC = () => {
   const agentRunProbeRef = useRef<{
     hasActiveRun: (taskId: string) => boolean;
     hasUnmergedWork: (taskId: string) => boolean;
+    hasScopeConflict: (taskId: string) => boolean;
+    scopeHeldByLabel: (taskId: string) => string | undefined;
   } | null>(null);
-  useEffect(() => {
-    if (!isTauri()) return;
-    agentRunProbeRef.current = {
-      hasActiveRun: (taskId: string) => Boolean(agentRunService.getActiveRunForTask(taskId)),
-      hasUnmergedWork: (taskId: string) =>
-        agentRunService
-          .getRunsForTask(taskId)
-          .some(r => r.status === 'completed' && Boolean(r.worktreePath) && Boolean(r.gitBranch)),
-    };
-  }, []);
   const templateServiceRef = useRef<TemplateServiceHandle | null>(null);
   const activityServiceRef = useRef<ActivityServiceHandle | null>(null);
   const advancedFilterExecutorRef = useRef<AdvancedFilterExecutor | null>(null);
@@ -585,7 +608,30 @@ const App: React.FC = () => {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
-  // Controllers
+  const handleUpdateAiFeaturesEnabled = useCallback(
+    (enabled: boolean) => {
+      setAiFeaturesEnabled(enabled);
+      writeAiFeaturesEnabled(enabled);
+      if (!enabled) {
+        addToast('AI features disabled — simple task mode', 'info');
+        setIsAiInsightsOpen(false);
+        setIsBulkAIOperationsOpen(false);
+        setIsAiMergeModalOpen(false);
+        setIsAiReorganizeModalOpen(false);
+        setIsAiSubtaskModalOpen(false);
+        setIsAiProjectAssignmentModalOpen(false);
+        setIsAiHealthDashboardOpen(false);
+        setIsAutoOrganizeOpen(false);
+        setIsAssistantOpen(false);
+        setIsAgentTeamOpen(false);
+        setSelectedRunId(null);
+        setActiveSurface(surface => (surface === 'inbox' || surface === 'agents' ? 'board' : surface));
+      } else {
+        setActiveSurface(surface => (surface === 'board' ? 'inbox' : surface));
+      }
+    },
+    [addToast],
+  );
   const {
     projects,
     setProjects,
@@ -612,6 +658,7 @@ const App: React.FC = () => {
     canMoveTask,
     handleUndo,
     handleUpdateTask,
+    patchTaskPrState,
     handleUpdateTaskDueDate,
     handleMoveTaskToWorkspace,
     handleCreateOrUpdateTask,
@@ -650,6 +697,7 @@ const App: React.FC = () => {
     setBoardGrouping,
     setIsCompactView,
     setShowSubWorkspaceTasks,
+    setAiFeaturesEnabled,
     setViewMode,
     setCurrentView,
     searchIndexServiceRef,
@@ -665,6 +713,31 @@ const App: React.FC = () => {
     pushUndo,
     encryptionEpoch,
   });
+
+  const handleExperienceChoice = useCallback((enabled: boolean) => {
+    writeAiFeaturesEnabled(enabled);
+    setAiFeaturesEnabled(enabled);
+    writeOnboardingExperienceChosen(true);
+    setShowExperienceChoice(false);
+    if (!enabled) {
+      setActiveSurface('board');
+    } else {
+      setActiveSurface('inbox');
+    }
+    if (enabled) {
+      void import('./src/services/semanticLayerService').then(({ semanticLayerService }) => {
+        void semanticLayerService.initialize().then(() => {
+          semanticLayerService.startHealthMonitor();
+        });
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    const data = storageService.getAllData();
+    setShowExperienceChoice(needsOnboardingExperienceChoice(data));
+  }, [isLoaded]);
 
   const { runAutoArchive } = useAutoArchive({
     isLoaded,
@@ -702,17 +775,44 @@ const App: React.FC = () => {
     rejectAgentWork,
     mergeWorktree,
     discardWorktree,
+    forkAgentSession,
+    saveRunCheckpoint,
+    rewindRunCheckpoint,
+    revertTraceStep,
+    forkTraceStep,
   } = useAgentTeammates({
     isLoaded,
     tasks,
     columns,
     projects,
     handleUpdateTask,
+    patchTaskPrState,
     handleCreateTask: partial => {
       handleCreateOrUpdateTask(partial, null);
     },
     addToast,
   });
+
+  // Visual agent manager handlers — open create/edit modal, delete + refresh.
+  const handleCreateAgent = useCallback(() => {
+    setEditingAgentId(null);
+    setIsAgentFormOpen(true);
+  }, []);
+  const handleEditAgent = useCallback((agentId: string) => {
+    setEditingAgentId(agentId);
+    setIsAgentFormOpen(true);
+  }, []);
+  const handleDeleteAgent = useCallback(
+    async (agentId: string) => {
+      const agent = agentService.getAgentById(agentId);
+      if (!agent) return;
+      if (!window.confirm(`Delete agent "${agent.name}"? This can't be undone.`)) return;
+      await agentService.deleteAgent(agentId);
+      refreshAgents();
+      addToast(`Agent "${agent.name}" removed`, 'info');
+    },
+    [refreshAgents, addToast],
+  );
 
   /**
    * Board move + agent lifecycle wiring:
@@ -805,31 +905,6 @@ const App: React.FC = () => {
     hours: 12,
   });
 
-  useEffect(() => {
-    if (!isTauri()) return;
-    let cancelled = false;
-    const unsubs: Array<() => void> = [];
-    void import('@tauri-apps/api/event').then(({ listen }) => {
-      if (cancelled) return;
-      void listen('tray-cancel-all', () => {
-        for (const run of agentRunService.getRuns()) {
-          if (run.status === 'queued' || run.status === 'running' || run.status === 'verifying') {
-            void cancelAgentRun(run.id);
-          }
-        }
-      }).then(u => unsubs.push(u));
-      void listen('tray-view-runs', () => {
-        addToast('Agent runs dock is at the bottom-right', 'info');
-      }).then(u => unsubs.push(u));
-    });
-    return () => {
-      cancelled = true;
-      unsubs.forEach(u => {
-        u();
-      });
-    };
-  }, [cancelAgentRun, addToast]);
-
   // v3 shell: feed RunView's inline permission prompts (same source AgentRunsDock uses).
   useEffect(() => {
     if (!FEATURE_FLAGS.V3_SHELL_ENABLED) return;
@@ -838,24 +913,24 @@ const App: React.FC = () => {
 
   // Dead-letter queue subscription: failed merges / agent actions / runs
   // surface as Inbox items with retry/discard actions.
-  const [deadLetters, setDeadLetters] = useState<DeadLetter[]>([]);
-  useEffect(() => deadLetterService.subscribe(setDeadLetters), []);
-  const handleRetryDeadLetter = useCallback(
-    (id: string) => {
-      void deadLetterService.retry(id).then(({ ok, error }) => {
-        if (ok) addToast('Retry succeeded.', 'success');
-        else addToast(error ?? 'Retry failed.', 'error');
-      });
+  const { deadLetters, handleRetryDeadLetter, handleDiscardDeadLetter, handleResolveMergeWithAgent, handleSendDeadLetterToAgent } = useDeadLetterInbox({
+    addToast,
+  });
+
+  const {
+    adoptableSessions,
+    handleAdoptSession,
+    handleDismissSession,
+  } = useSessionDiscoveryInbox({
+    isLoaded,
+    tasks,
+    projects,
+    columns,
+    handleCreateTask: task => {
+      handleCreateOrUpdateTask(task, null);
     },
-    [addToast]
-  );
-  const handleDiscardDeadLetter = useCallback(
-    (id: string) => {
-      deadLetterService.discard(id);
-      addToast('Dead letter discarded.', 'info');
-    },
-    [addToast]
-  );
+    addToast,
+  });
 
   // v3 shell: keep the tray tooltip reflecting the Inbox's actionable count instead of
   // raw active-run count, once Inbox (not the runs dock) is the primary surface.
@@ -865,12 +940,14 @@ const App: React.FC = () => {
       agentRuns,
       tasks,
       pendingPlans.length,
-      deadLetters.length
+      deadLetters.length,
+      shellPendingPermissions.length,
+      adoptableSessions.length,
     );
     void import('@tauri-apps/api/core').then(({ invoke }) =>
       invoke('tray_update_inbox_count', { count: actionable }).catch(() => undefined)
     );
-  }, [agentRuns, tasks, pendingPlans, deadLetters]);
+  }, [agentRuns, tasks, pendingPlans, deadLetters, shellPendingPermissions.length, adoptableSessions.length]);
 
   // v3 shell: populate the Agents surface's runtime-health strip when the sidecar is on.
   // Detection is cached (localApi.detectRuntimesCached) so revisits are instant; the
@@ -910,11 +987,36 @@ const App: React.FC = () => {
   columnsRef.current = columns;
 
   useEffect(() => {
-    assignToAgentRef.current = (taskId, agentId) => {
-      const task = tasksRef.current.find(t => t.id === taskId);
-      if (task) void assignTaskToAgent(task, agentId);
+    if (!isTauri()) return;
+    agentRunProbeRef.current = {
+      hasActiveRun: (taskId: string) => Boolean(agentRunService.getActiveRunForTask(taskId)),
+      hasUnmergedWork: (taskId: string) =>
+        agentRunService
+          .getRunsForTask(taskId)
+          .some(r => r.status === 'completed' && Boolean(r.worktreePath) && Boolean(r.gitBranch)),
+      hasScopeConflict: (taskId: string) => {
+        const task = tasksRef.current.find(t => t.id === taskId);
+        if (!task) return false;
+        return Boolean(agentReservationService.wouldTaskConflict(task));
+      },
+      scopeHeldByLabel: (taskId: string) => {
+        const task = tasksRef.current.find(t => t.id === taskId);
+        if (!task) return undefined;
+        const conflict = agentReservationService.wouldTaskConflict(task);
+        if (!conflict) return undefined;
+        const holderRun = agentRunService.getRuns().find(r => r.id === conflict.runId);
+        return holderRun ? `run on task ${holderRun.taskId.slice(0, 8)}` : conflict.runId;
+      },
     };
-  }, [assignTaskToAgent]);
+  }, [tasks, agentRuns]);
+
+  useAgentTeammateWiring({
+    assignToAgentRef,
+    tasksRef,
+    assignTaskToAgent,
+    cancelAgentRun,
+    addToast,
+  });
 
   // First-run bootstrap: send-to-agent entry points deep-link here when no
   // agent profile exists yet, landing the user directly on Settings → Agents.
@@ -925,24 +1027,21 @@ const App: React.FC = () => {
     });
   }, []);
 
-  useEffect(() => {
-    if (!isLoaded) return;
-    const service = automationServiceRef.current;
-    if (!service) return;
-
-    service.configureSchedulerContext({
-      getAllTasks: () => tasksRef.current,
-      applyTaskUpdates: (taskId, updates) => {
-        handleUpdateTask(taskId, updates);
-      },
-      notify: message => addToast(message, 'info'),
-      getColumns: () => columnsRef.current,
+  const persistAutomationRules = useCallback((rules: import('./src/services/automationService').AutomationRule[]) => {
+    persistStorageQuiet(STORAGE_KEYS.AUTOMATION_RULES, rules, message => {
+      addToast(`Failed to save automation rules: ${message}`, 'error');
     });
+  }, [addToast]);
 
-    return () => {
-      service.clearSchedulerContext();
-    };
-  }, [isLoaded, addToast, handleUpdateTask]);
+  useAutomationSchedulerContext({
+    isLoaded,
+    automationServiceRef,
+    tasksRef,
+    columnsRef,
+    applyTaskUpdates: handleUpdateTask,
+    addToast,
+    onRulesPersist: persistAutomationRules,
+  });
 
   const handleUpdateProjectPaths = useCallback(
     (projectId: string, paths: string[]) => {
@@ -974,46 +1073,8 @@ const App: React.FC = () => {
     addTask: task => handleCreateOrUpdateTask(task, null),
     updateTask: (id, updates) => handleUpdateTask(id, updates),
     searchTasks: query => searchIndexServiceRef.current?.search(query) || [],
+    enabled: aiFeaturesEnabled,
   });
-
-  // Keyboard Shortcuts
-  useGlobalKeyboardShortcuts({
-    handleUndo,
-    setIsCommandPaletteOpen,
-    setIsSidebarCollapsed,
-    setIsAssistantOpen: setAiAssistantOpen,
-    setIsTaskModalOpen,
-    setEditingTask,
-    searchInputRef,
-    tasks,
-    projects,
-    addToast,
-    isCommandPaletteOpen,
-  });
-
-  useEffect(() => {
-    const handleShortcutHelp = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      const isTextInput =
-        target &&
-        (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable);
-
-      if (event.key === '?' && !isTextInput) {
-        event.preventDefault();
-        setIsKeyboardShortcutsOpen(true);
-      }
-
-      // Ctrl+` toggles the terminal drawer (VS Code convention). Allowed even
-      // from text inputs — matches editor behaviour and the shell IS an input.
-      if (event.key === '`' && event.ctrlKey && !event.metaKey && !event.altKey) {
-        event.preventDefault();
-        setIsTerminalOpen(prev => !prev);
-      }
-    };
-
-    window.addEventListener('keydown', handleShortcutHelp);
-    return () => window.removeEventListener('keydown', handleShortcutHelp);
-  }, []);
 
   // Saved Views
   const { views, activeViewId, createView, applyView, deleteView } = useSavedViews(isLoaded);
@@ -1199,25 +1260,44 @@ const App: React.FC = () => {
     addToast('Undid last AI change', 'info');
   }, [aiChangesUndoStack, handleUpdateTask, addToast]);
 
-  // AI Keyboard Shortcuts
-  useAiKeyboardShortcuts({
-    onAiPrioritize: handleAiPrioritize,
-    onAiInsights: handleAiInsights,
-    onBulkAIOperations: () => setIsBulkAIOperationsOpen(true),
-    onAutoOrganize: () => setIsAutoOrganizeOpen(true),
-    onUndoAiChanges: handleUndoAiChanges,
-    isModalOpen:
-      isTaskModalOpen ||
-      isSettingsModalOpen ||
-      isCommandPaletteOpen ||
-      isKeyboardShortcutsOpen ||
-      isAiInsightsOpen ||
-      isBulkAIOperationsOpen ||
-      isAiMergeModalOpen ||
-      isAiReorganizeModalOpen ||
-      isAiSubtaskModalOpen ||
-      isAiProjectAssignmentModalOpen ||
-      isAutoOrganizeOpen,
+  useAppKeyboardOrchestration({
+    global: {
+      handleUndo,
+      setIsCommandPaletteOpen,
+      setIsSidebarCollapsed,
+      setIsAssistantOpen: setAiAssistantOpen,
+      setIsTaskModalOpen,
+      setEditingTask,
+      openQuickAdd: () => openQuickAddModal(),
+      searchInputRef,
+      tasks,
+      projects,
+      addToast,
+      isCommandPaletteOpen,
+    },
+    ai: aiFeaturesEnabled
+      ? {
+          onAiPrioritize: handleAiPrioritize,
+          onAiInsights: handleAiInsights,
+          onBulkAIOperations: () => setIsBulkAIOperationsOpen(true),
+          onAutoOrganize: () => setIsAutoOrganizeOpen(true),
+          onUndoAiChanges: handleUndoAiChanges,
+          isModalOpen:
+            isTaskModalOpen ||
+            isSettingsModalOpen ||
+            isCommandPaletteOpen ||
+            isKeyboardShortcutsOpen ||
+            isAiInsightsOpen ||
+            isBulkAIOperationsOpen ||
+            isAiMergeModalOpen ||
+            isAiReorganizeModalOpen ||
+            isAiSubtaskModalOpen ||
+            isAiProjectAssignmentModalOpen ||
+            isAutoOrganizeOpen,
+        }
+      : undefined,
+    setIsKeyboardShortcutsOpen,
+    setIsTerminalOpen,
   });
 
   const handleApplyView = (id: string) => {
@@ -1265,10 +1345,52 @@ const App: React.FC = () => {
 
   const boardQuickAddPrefill = useCallback(() => {
     const activeProject = projects.find(project => project.id === activeProjectId);
+    const focusedColumn =
+      boardFocusedColumnIndex >= 0 && boardFocusedColumnIndex < columns.length
+        ? columns[boardFocusedColumnIndex]
+        : undefined;
     const backlogColumn =
       columns.find(column => column.id === getBacklogColumnId(columns)) ?? columns[0];
-    return buildBoardContextQuickAddPrefill(activeProject?.name, backlogColumn?.title);
-  }, [activeProjectId, columns, projects]);
+    return buildBoardContextQuickAddPrefill(
+      activeProject?.name,
+      focusedColumn?.title ?? backlogColumn?.title,
+    );
+  }, [activeProjectId, boardFocusedColumnIndex, columns, projects]);
+
+  const openQuickAddModal = useCallback(
+    (prefill?: string) => {
+      setEditingTask(null);
+      setTaskModalAiPrefill(prefill ?? boardQuickAddPrefill());
+      setTaskModalFocusAi(true);
+      setIsTaskModalOpen(true);
+    },
+    [boardQuickAddPrefill],
+  );
+
+  const handleQuickAddFromTask = useCallback(
+    (task: Task) => {
+      const project = projects.find(p => p.id === task.projectId);
+      const column = columns.find(c => c.id === task.status);
+      const priorityDef = priorities.find(p => p.id === task.priority);
+      const syntax = taskToQuickAddSyntax(task, {
+        projectName: project?.name,
+        columnTitle: column?.title,
+        priorityLevel: priorityDef?.level,
+        priorityLabel: priorityDef?.label,
+      });
+      openQuickAddModal(syntax);
+      addToast('Task loaded as quick-add template', 'info');
+    },
+    [addToast, columns, openQuickAddModal, priorities, projects],
+  );
+
+  const handleQuickAddFromDeadLetter = useCallback(
+    (title: string, detail: string) => {
+      openQuickAddModal(buildDeadLetterQuickAddPrefill(title, detail));
+      addToast('Failed action loaded into quick-add', 'info');
+    },
+    [addToast, openQuickAddModal],
+  );
 
   const commandActions = useMemo(() => {
     const baseActions: CommandAction[] = [
@@ -1337,7 +1459,7 @@ const App: React.FC = () => {
         aliases: ['reverse', 'go back'],
         action: handleUndo,
       },
-      ...(isAiAssistantSidebarEnabled
+      ...(aiFeaturesEnabled && isAiAssistantSidebarEnabled
         ? ([
             {
               id: 'action:toggle-assistant',
@@ -1377,7 +1499,7 @@ const App: React.FC = () => {
         aliases: ['search filter', 'advanced filter'],
         action: () => setIsFilterOpen(prev => !prev),
       },
-      ...(isTauri()
+      ...(aiFeaturesEnabled && isTauri()
         ? ([
             {
               id: 'action:open-agent-team',
@@ -1389,6 +1511,10 @@ const App: React.FC = () => {
               aliases: ['agent team', 'team run', 'agents'],
               action: () => setIsAgentTeamOpen(prev => !prev),
             } as CommandAction,
+          ] as CommandAction[])
+        : []),
+      ...(isTauri()
+        ? ([
             {
               id: 'action:toggle-terminal',
               label: isTerminalOpen ? 'Close Terminal' : 'Open Terminal',
@@ -1464,6 +1590,8 @@ const App: React.FC = () => {
           addToast('Exported time report JSON', 'success');
         },
       },
+      ...(aiFeaturesEnabled
+        ? ([
       {
         id: 'action:bulk-ai-operations',
         label: 'Bulk AI Operations',
@@ -1592,17 +1720,34 @@ const App: React.FC = () => {
           }
         },
       },
+          ] as CommandAction[])
+        : []),
       ...(FEATURE_FLAGS.V3_SHELL_ENABLED
         ? ([
-            {
-              id: 'surface:inbox',
-              label: 'Go to Inbox',
-              category: 'view',
-              description: 'Switch to the Inbox surface — approvals, finished runs, blocked agents',
-              keywords: ['inbox', 'surface', 'triage', 'approvals'],
-              aliases: ['inbox', 'triage'],
-              action: () => setActiveSurface('inbox'),
-            },
+            ...(aiFeaturesEnabled
+              ? ([
+                  {
+                    id: 'surface:inbox',
+                    label: 'Go to Inbox',
+                    category: 'view',
+                    description:
+                      'Switch to the Inbox surface — approvals, finished runs, blocked agents',
+                    keywords: ['inbox', 'surface', 'triage', 'approvals'],
+                    aliases: ['inbox', 'triage'],
+                    action: () => setActiveSurface('inbox'),
+                  },
+                  {
+                    id: 'surface:agents',
+                    label: 'Go to Agents',
+                    category: 'view',
+                    description:
+                      'Switch to the Agents surface — roster, presence, runtime health',
+                    keywords: ['agents', 'surface', 'roster'],
+                    aliases: ['agents', 'roster'],
+                    action: () => setActiveSurface('agents'),
+                  },
+                ] as CommandAction[])
+              : []),
             {
               id: 'surface:board',
               label: 'Go to Board',
@@ -1611,15 +1756,6 @@ const App: React.FC = () => {
               keywords: ['board', 'surface', 'kanban'],
               aliases: ['board', 'kanban'],
               action: () => setActiveSurface('board'),
-            },
-            {
-              id: 'surface:agents',
-              label: 'Go to Agents',
-              category: 'view',
-              description: 'Switch to the Agents surface — roster, presence, runtime health',
-              keywords: ['agents', 'surface', 'roster'],
-              aliases: ['agents', 'roster'],
-              action: () => setActiveSurface('agents'),
             },
           ] as CommandAction[])
         : []),
@@ -1750,6 +1886,7 @@ const App: React.FC = () => {
     isSidebarCollapsed,
     isTerminalOpen,
     isAgentTeamOpen,
+    aiFeaturesEnabled,
     projects,
     setAiAssistantOpen,
     tasks,
@@ -1781,10 +1918,6 @@ const App: React.FC = () => {
       ),
     [persistWithToast]
   );
-  const debouncedSaveTasks = useMemo(
-    () => debounce((tsks: Task[]) => persistWithToast(STORAGE_KEYS.TASKS, tsks, 'tasks'), 500),
-    [persistWithToast]
-  );
 
   useEffect(() => {
     if (isLoaded) debouncedSaveColumns(columns);
@@ -1793,20 +1926,16 @@ const App: React.FC = () => {
     if (isLoaded) debouncedSaveProjects(projects);
   }, [projects, debouncedSaveProjects, isLoaded]);
   useEffect(() => {
-    if (isLoaded) debouncedSaveTasks(tasks);
-  }, [tasks, debouncedSaveTasks, isLoaded]);
-  useEffect(() => {
     const flushPending = () => {
       debouncedSaveColumns.flush();
       debouncedSaveProjects.flush();
-      debouncedSaveTasks.flush();
     };
     window.addEventListener('beforeunload', flushPending);
     return () => {
       window.removeEventListener('beforeunload', flushPending);
       flushPending();
     };
-  }, [debouncedSaveColumns, debouncedSaveProjects, debouncedSaveTasks]);
+  }, [debouncedSaveColumns, debouncedSaveProjects]);
   useEffect(() => {
     if (isLoaded) {
       persistWithToast(STORAGE_KEYS.ACTIVE_PROJECT, activeProjectId, 'active project');
@@ -1866,6 +1995,39 @@ const App: React.FC = () => {
       );
     }
   }, [showSubWorkspaceTasks, isLoaded, persistWithToast]);
+
+  useEffect(() => {
+    if (isLoaded) {
+      persistWithToast(
+        STORAGE_KEYS.AI_FEATURES_ENABLED,
+        aiFeaturesEnabled,
+        'AI features preference',
+      );
+    }
+  }, [aiFeaturesEnabled, isLoaded, persistWithToast]);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    writeNotificationPreferences(notificationPreferences);
+    void import('./src/services/notificationService').then(({ notificationService }) => {
+      notificationService.setPreferences(notificationPreferences);
+    });
+  }, [notificationPreferences, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    writeRemotePushConfig(remotePushConfig);
+    void import('./src/services/remotePushNotificationService').then(({ syncRemotePushConfigToDaemon }) =>
+      syncRemotePushConfigToDaemon(remotePushConfig).catch(() => undefined),
+    );
+  }, [remotePushConfig, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (!aiFeaturesEnabled) {
+      setActiveSurface(prev => (prev === 'inbox' || prev === 'agents' ? 'board' : prev));
+    }
+  }, [isLoaded, aiFeaturesEnabled]);
 
   useEffect(() => {
     if (isLoaded) {
@@ -1943,10 +2105,12 @@ const App: React.FC = () => {
   const runtimeState = getRuntimeState();
   const sidebarOffset = isSidebarCollapsed ? 0 : SIDEBAR_OFFSET_DELTA;
 
-  // v3 shell: the run currently open in the RunView drawer, if any.
-  const selectedRun = selectedRunId ? (agentRuns.find(r => r.id === selectedRunId) ?? null) : null;
-  const selectedRunAgent = selectedRun ? agents.find(a => a.id === selectedRun.agentId) : undefined;
-  const selectedRunTask = selectedRun ? tasks.find(t => t.id === selectedRun.taskId) : undefined;
+  const { selectedRun, selectedRunAgent, selectedRunTask } = useSelectedRunContext(
+    selectedRunId,
+    agentRuns,
+    agents,
+    tasks,
+  );
 
   // The existing view/viewMode lens content (Archive/Dashboard/Gantt/Kanban board), shared
   // verbatim between the legacy shell and the v3 shell's "Board" surface — nothing about
@@ -2013,8 +2177,8 @@ const App: React.FC = () => {
         }}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
-        onSuggestNextTask={handleSuggestNextTask}
-        nextTaskSuggestion={nextTaskSuggestion}
+        onSuggestNextTask={aiFeaturesEnabled ? handleSuggestNextTask : undefined}
+        nextTaskSuggestion={aiFeaturesEnabled ? nextTaskSuggestion : null}
         addToast={addToast}
       />
     ) : viewMode === 'gantt' ? (
@@ -2053,10 +2217,18 @@ const App: React.FC = () => {
         onMoveBlocked={msg => addToast(msg, 'error')}
         onMoveToWorkspace={handleMoveTaskToWorkspace}
         canMoveTask={canMoveTask}
-        agents={agents}
-        onAssignTaskToAgent={(task, agentId) => void assignTaskToAgent(task, agentId)}
-        onApproveAgentWork={(task, run) => void approveAgentWork(task, run)}
-        onRejectAgentWork={(task, run, feedback) => void rejectAgentWork(task, run, feedback)}
+        {...(aiFeaturesEnabled
+          ? {
+              agents,
+              onAssignTaskToAgent: (task, agentId) => void assignTaskToAgent(task, agentId),
+              onApproveAgentWork: (task, run) => void approveAgentWork(task, run),
+              onRejectAgentWork: (task, run, feedback) => void rejectAgentWork(task, run, feedback),
+            }
+          : {})}
+        onFocusedColumnChange={setBoardFocusedColumnIndex}
+        onQuickAddFromTask={handleQuickAddFromTask}
+        onDuplicateAsQuickAdd={handleQuickAddFromTask}
+        onQuickAddDropHoverChange={setQuickAddDropHover}
       />
     );
 
@@ -2099,6 +2271,10 @@ const App: React.FC = () => {
         </div>
       </div>
     );
+  }
+
+  if (showExperienceChoice) {
+    return <ExperienceChoiceGate onChoose={handleExperienceChoice} />;
   }
 
   return (
@@ -2201,6 +2377,7 @@ const App: React.FC = () => {
                   setTaskModalFocusAi(false);
                   setIsTaskModalOpen(true);
                 }}
+                quickAddDropHover={quickAddDropHover && activeSurface === 'board'}
                 onSearchQueryChange={setSearchQuery}
                 onSearchFocusChange={setIsSearchFocused}
                 onApplyView={handleApplyView}
@@ -2218,37 +2395,21 @@ const App: React.FC = () => {
                   });
                   setActiveFilterGroup({ id: 'root', operator: 'AND', rules: [] });
                 }}
-                onAiPrioritize={handleAiPrioritize}
-                onAiInsights={handleAiInsights}
-                onNaturalLanguageSearch={handleNaturalLanguageSearch}
-                aiSearchEnabled={aiService.isProviderConfigured()}
+                onAiPrioritize={aiFeaturesEnabled ? handleAiPrioritize : undefined}
+                onAiInsights={aiFeaturesEnabled ? handleAiInsights : undefined}
+                onNaturalLanguageSearch={aiFeaturesEnabled ? handleNaturalLanguageSearch : undefined}
+                aiSearchEnabled={aiFeaturesEnabled && aiService.isProviderConfigured()}
                 onOpenMobileNav={() => setIsMobileNavOpen(true)}
                 onToggleAssistant={
-                  isAiAssistantSidebarEnabled ? () => setAiAssistantOpen(prev => !prev) : undefined
+                  aiFeaturesEnabled && isAiAssistantSidebarEnabled
+                    ? () => setAiAssistantOpen(prev => !prev)
+                    : undefined
                 }
               />
             </Suspense>
           </div>
 
           <div className="px-6 md:px-8 pb-6">
-            {FEATURE_FLAGS.V3_SHELL_ENABLED && (
-              <div className="flex items-center gap-1 mb-4 rounded-xl border border-white/10 bg-black/20 p-1 w-fit">
-                {(['inbox', 'board', 'agents'] as const).map(surface => (
-                  <button
-                    key={surface}
-                    type="button"
-                    onClick={() => setActiveSurface(surface)}
-                    className={`px-3.5 py-1.5 rounded-lg text-xs font-medium capitalize transition-colors ${
-                      activeSurface === surface
-                        ? 'bg-red-500/20 text-red-200'
-                        : 'text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    {surface}
-                  </button>
-                ))}
-              </div>
-            )}
             {isTauri() &&
               !standupDismissed &&
               !FEATURE_FLAGS.V3_SHELL_ENABLED &&
@@ -2258,64 +2419,60 @@ const App: React.FC = () => {
                   onDismiss={() => setStandupDismissed(true)}
                 />
               )}
-            <ViewTransition
-              transitionKey={
-                FEATURE_FLAGS.V3_SHELL_ENABLED
-                  ? `${activeSurface}-${activeProjectId}-${viewMode}`
-                  : `${currentView}-${activeProjectId}-${viewMode}`
-              }
-              type="fade"
-              duration={400}
-              className="h-full"
-            >
-              <Suspense fallback={<ViewLoadingFallback />}>
-                {FEATURE_FLAGS.V3_SHELL_ENABLED ? (
-                  activeSurface === 'inbox' ? (
-                    <PanelBoundary name="Inbox">
-                      <InboxView
-                        agentRuns={agentRuns}
-                        agents={agents}
-                        tasks={tasks}
-                        standupDigest={agentStandup}
-                        onOpenRun={setSelectedRunId}
-                        onApprove={(task, run) => void approveAgentWork(task, run)}
-                        onReject={(task, run, feedback) =>
-                          void rejectAgentWork(task, run, feedback)
-                        }
-                        pendingPlans={pendingPlans}
-                        onApprovePlan={approvePlan}
-                        onRejectPlan={rejectPlan}
-                        onSendRepair={(run, feedback) => void sendRepairRun(run, feedback)}
-                        onDismissStandup={() => setStandupDismissed(true)}
-                        deadLetters={deadLetters}
-                        onRetryDeadLetter={handleRetryDeadLetter}
-                        onDiscardDeadLetter={handleDiscardDeadLetter}
-                        onClearDeadLetters={() => clearDeadLetters()}
-                        onClearFinished={() => clearFinishedRuns()}
-                        onReturnToBoard={runId => void stopAgentRun(runId)}
-                        onDismissRun={dismissRun}
-                        onRestoreRuns={restoreRuns}
-                        onRetryRun={runId => void retryAgentRun(runId)}
-                      />
-                    </PanelBoundary>
-                  ) : activeSurface === 'agents' ? (
-                    <PanelBoundary name="Agents">
-                      <AgentsView
-                        agents={agents}
-                        agentRuns={agentRuns}
-                        runtimeHealth={runtimeHealth}
-                        runtimeHealthLoading={runtimeHealthLoading && !runtimeHealth}
-                        onOpenRun={setSelectedRunId}
-                      />
-                    </PanelBoundary>
-                  ) : (
-                    <PanelBoundary name="Board">{boardLensContent}</PanelBoundary>
-                  )
-                ) : (
-                  <PanelBoundary name="Board">{boardLensContent}</PanelBoundary>
-                )}
-              </Suspense>
-            </ViewTransition>
+            <AppSurfaceRouter
+              v3Enabled={FEATURE_FLAGS.V3_SHELL_ENABLED}
+              aiFeaturesEnabled={aiFeaturesEnabled}
+              activeSurface={activeSurface}
+              onSurfaceChange={setActiveSurface}
+              activeProjectId={activeProjectId}
+              viewMode={viewMode}
+              legacyViewKey={currentView}
+              boardLensContent={boardLensContent}
+              inbox={{
+                agentRuns,
+                agents,
+                tasks,
+                standupDigest: agentStandup,
+                onOpenRun: setSelectedRunId,
+                onApprove: (task, run) => void approveAgentWork(task, run),
+                onReject: (task, run, feedback) => void rejectAgentWork(task, run, feedback),
+                pendingPlans,
+                onApprovePlan: approvePlan,
+                onRejectPlan: rejectPlan,
+                onSendRepair: (run, feedback) => void sendRepairRun(run, feedback),
+                onDismissStandup: () => setStandupDismissed(true),
+                deadLetters,
+                onRetryDeadLetter: handleRetryDeadLetter,
+                onDiscardDeadLetter: handleDiscardDeadLetter,
+                onResolveMergeWithAgent: handleResolveMergeWithAgent,
+                onSendDeadLetterToAgent: handleSendDeadLetterToAgent,
+                onQuickAddFromDeadLetter: handleQuickAddFromDeadLetter,
+                onClearDeadLetters: () => clearDeadLetters(),
+                onClearFinished: () => clearFinishedRuns(),
+                onReturnToBoard: runId => void stopAgentRun(runId),
+                onDismissRun: dismissRun,
+                onRestoreRuns: restoreRuns,
+                onRetryRun: runId => void retryAgentRun(runId),
+                pendingPermissions: shellPendingPermissions,
+                onRespondPermission: (requestId, approved) =>
+                  agentMcpService.respondToPermission(requestId, approved),
+                onRespondAllPermissions: approved => agentMcpService.respondToAllPending(approved),
+                adoptableSessions,
+                onAdoptSession: handleAdoptSession,
+                onDismissSession: handleDismissSession,
+              }}
+              agents={{
+                agents,
+                agentRuns,
+                runtimeHealth,
+                runtimeHealthLoading: runtimeHealthLoading && !runtimeHealth,
+                onOpenRun: setSelectedRunId,
+                onCreateAgent: handleCreateAgent,
+                onEditAgent: handleEditAgent,
+                onDeleteAgent: agentId => void handleDeleteAgent(agentId),
+                onAgentsChanged: refreshAgents,
+              }}
+            />
           </div>
         </div>
       </main>
@@ -2355,6 +2512,8 @@ const App: React.FC = () => {
             globalWorkspacePaths={assistantGlobalPaths}
             initialAiInput={taskModalAiPrefill}
             focusAiInput={taskModalFocusAi}
+            agentNames={aiFeaturesEnabled ? agents.map(agent => agent.name) : []}
+            aiFeaturesEnabled={aiFeaturesEnabled}
             aiSettings={aiSettings}
             addToast={addToast}
           />
@@ -2454,6 +2613,12 @@ const App: React.FC = () => {
             onBulkCreateTasks={handleBulkCreateTasks}
             showSubWorkspaceTasks={showSubWorkspaceTasks}
             onUpdateShowSubWorkspaceTasks={setShowSubWorkspaceTasks}
+            aiFeaturesEnabled={aiFeaturesEnabled}
+            onUpdateAiFeaturesEnabled={handleUpdateAiFeaturesEnabled}
+            notificationPreferences={notificationPreferences}
+            onUpdateNotificationPreferences={setNotificationPreferences}
+            remotePushConfig={remotePushConfig}
+            onUpdateRemotePushConfig={setRemotePushConfig}
             onOpenMergeModal={() => setIsAiMergeModalOpen(true)}
             onOpenReorganizeModal={() => setIsAiReorganizeModalOpen(true)}
             onOpenSubtaskModal={() => setIsAiSubtaskModalOpen(true)}
@@ -2482,7 +2647,7 @@ const App: React.FC = () => {
         </Suspense>
       )}
 
-      {isTauri() && (
+      {aiFeaturesEnabled && isTauri() && (
         <AgentRunsDock
           tasks={tasks}
           columns={columns}
@@ -2521,7 +2686,7 @@ const App: React.FC = () => {
         />
       )}
 
-      {isTauri() && FEATURE_FLAGS.V3_SHELL_ENABLED && (
+      {aiFeaturesEnabled && isTauri() && FEATURE_FLAGS.V3_SHELL_ENABLED && (
         <Suspense fallback={null}>
           <RunView
             run={selectedRun}
@@ -2544,7 +2709,30 @@ const App: React.FC = () => {
               dismissRun(runId);
               setSelectedRunId(null);
             }}
+            onForkSession={runId => void forkAgentSession(runId)}
+            onCreateCheckpoint={runId => void saveRunCheckpoint(runId)}
+            onRewindCheckpoint={(runId, checkpointId) => void rewindRunCheckpoint(runId, checkpointId)}
+            onRevertTraceStep={(runId, stepId) => void revertTraceStep(runId, stepId)}
+            onForkTraceStep={(runId, stepId) => void forkTraceStep(runId, stepId)}
             permissionRequests={shellPendingPermissions}
+          />
+        </Suspense>
+      )}
+
+      {isAgentFormOpen && (
+        <Suspense fallback={<ModalLoadingFallback />}>
+          <AgentFormModal
+            key={editingAgentId ?? 'new'}
+            isOpen={isAgentFormOpen}
+            onClose={() => {
+              setIsAgentFormOpen(false);
+              setEditingAgentId(null);
+            }}
+            agent={editingAgentId ? agents.find(a => a.id === editingAgentId) : null}
+            workspacePaths={projects.find(p => p.id === activeProjectId)?.workspacePaths ?? []}
+            projects={projects}
+            addToast={addToast}
+            onAgentsChanged={refreshAgents}
           />
         </Suspense>
       )}
@@ -2577,11 +2765,12 @@ const App: React.FC = () => {
           <KeyboardShortcutsModal
             isOpen={isKeyboardShortcutsOpen}
             onClose={() => setIsKeyboardShortcutsOpen(false)}
+            aiFeaturesEnabled={aiFeaturesEnabled}
           />
         </Suspense>
       )}
 
-      {isAiMergeModalOpen && (
+      {aiFeaturesEnabled && isAiMergeModalOpen && (
         <Suspense fallback={<ModalLoadingFallback />}>
           <AIMergeDuplicatesModal
             isOpen={isAiMergeModalOpen}
@@ -2594,7 +2783,7 @@ const App: React.FC = () => {
         </Suspense>
       )}
 
-      {isAiReorganizeModalOpen && (
+      {aiFeaturesEnabled && isAiReorganizeModalOpen && (
         <Suspense fallback={<ModalLoadingFallback />}>
           <AIReorganizeModal
             isOpen={isAiReorganizeModalOpen}
@@ -2607,7 +2796,7 @@ const App: React.FC = () => {
         </Suspense>
       )}
 
-      {isAiSubtaskModalOpen && (
+      {aiFeaturesEnabled && isAiSubtaskModalOpen && (
         <Suspense fallback={<ModalLoadingFallback />}>
           <AISubtaskSuggestionsModal
             isOpen={isAiSubtaskModalOpen}
@@ -2620,7 +2809,7 @@ const App: React.FC = () => {
         </Suspense>
       )}
 
-      {isAiProjectAssignmentModalOpen && (
+      {aiFeaturesEnabled && isAiProjectAssignmentModalOpen && (
         <Suspense fallback={<ModalLoadingFallback />}>
           <AIProjectAssignmentModal
             isOpen={isAiProjectAssignmentModalOpen}
@@ -2633,7 +2822,7 @@ const App: React.FC = () => {
         </Suspense>
       )}
 
-      {isAiHealthDashboardOpen && (
+      {aiFeaturesEnabled && isAiHealthDashboardOpen && (
         <Suspense fallback={<ModalLoadingFallback />}>
           <AIHealthDashboard
             isOpen={isAiHealthDashboardOpen}
@@ -2645,7 +2834,7 @@ const App: React.FC = () => {
         </Suspense>
       )}
 
-      {isAiInsightsOpen && (
+      {aiFeaturesEnabled && isAiInsightsOpen && (
         <Suspense fallback={<ModalLoadingFallback />}>
           <AIInsightsPanel
             allTasks={currentProjectTasks}
@@ -2655,7 +2844,7 @@ const App: React.FC = () => {
         </Suspense>
       )}
 
-      {isAiPrioritizing && (
+      {aiFeaturesEnabled && isAiPrioritizing && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in">
           <div className="flex flex-col items-center gap-4 rounded-2xl border border-white/10 bg-slate-900/90 px-8 py-6 shadow-2xl">
             <Sparkles size={32} className="text-cyan-400 animate-pulse" />
@@ -2665,7 +2854,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {isBulkAIOperationsOpen && (
+      {aiFeaturesEnabled && isBulkAIOperationsOpen && (
         <Suspense fallback={<ModalLoadingFallback />}>
           <BulkAIOperationsModal
             isOpen={isBulkAIOperationsOpen}
@@ -2678,7 +2867,7 @@ const App: React.FC = () => {
         </Suspense>
       )}
 
-      {isAutoOrganizeOpen && (
+      {aiFeaturesEnabled && isAutoOrganizeOpen && (
         <Suspense fallback={<ModalLoadingFallback />}>
           <AutoOrganizePanel
             isOpen={isAutoOrganizeOpen}
@@ -2692,7 +2881,7 @@ const App: React.FC = () => {
         </Suspense>
       )}
 
-      {isAiAssistantSidebarEnabled && (
+      {aiFeaturesEnabled && isAiAssistantSidebarEnabled && (
         <Suspense fallback={null}>
           <AIRightRail
             isOpen={isAssistantOpen}

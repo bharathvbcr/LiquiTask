@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, type Mock } from "vitest";
 import type { AgentProfile, Task } from "../../../../types";
+import { STORAGE_KEYS } from "../../../constants";
 
 vi.mock("../../../runtime/runtimeEnvironment", () => ({ isTauri: () => true }));
 const invokeMock = vi.fn(async (cmd: string) => {
@@ -38,7 +39,10 @@ async function boot(stallMinutes: number) {
   vi.resetModules();
   invokeMock.mockClear();
   const storageService = (await import("../../storageService")).default as { get: Mock };
-  storageService.get.mockReturnValue([seedRun]);
+  storageService.get.mockImplementation((key: string, fallback: unknown) => {
+    if (key === STORAGE_KEYS.AGENT_RUNS) return [seedRun];
+    return fallback ?? [];
+  });
   const { agentRunService } = await import("../agentRunService");
   await agentRunService.initialize();
   agentRunService.rehydrateActiveRuns(() => ({

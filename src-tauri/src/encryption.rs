@@ -158,6 +158,13 @@ pub fn encrypt_to_envelope(plaintext: &[u8]) -> Result<String, String> {
     Ok(format!("LTENC1:{}", BASE64.encode(encrypted)))
 }
 
+/// Encrypt a value for at-rest storage of sensitive keys without requiring the
+/// user to opt into full-file encryption first. Auto-creates the keychain key.
+pub fn encrypt_to_envelope_auto(plaintext: &[u8]) -> Result<String, String> {
+    let encrypted = encrypt_bytes_with_auto_key(plaintext)?;
+    Ok(format!("LTENC1:{}", BASE64.encode(encrypted)))
+}
+
 pub fn decrypt_from_envelope(envelope: &str) -> Result<Vec<u8>, String> {
     let encoded = envelope
         .strip_prefix("LTENC1:")
@@ -166,6 +173,56 @@ pub fn decrypt_from_envelope(envelope: &str) -> Result<Vec<u8>, String> {
         .decode(encoded.trim())
         .map_err(|e| format!("Invalid encrypted envelope: {e}"))?;
     decrypt_bytes(&bytes)
+}
+
+/// Decrypt a per-key sensitive storage envelope, auto-unlocking the keychain key.
+pub fn decrypt_from_envelope_auto(envelope: &str) -> Result<Vec<u8>, String> {
+    let encoded = envelope
+        .strip_prefix("LTENC1:")
+        .ok_or_else(|| "Value is not an encrypted envelope".to_string())?;
+    let bytes = BASE64
+        .decode(encoded.trim())
+        .map_err(|e| format!("Invalid encrypted envelope: {e}"))?;
+    decrypt_bytes_with_auto_key(&bytes)
+}
+
+fn encrypt_bytes_with_auto_key(plaintext: &[u8]) -> Result<Vec<u8>, String> {
+    let key = get_or_create_data_key()?;
+    let cipher = Aes256Gcm::new_from_slice(&key).map_err(|e| format!("Invalid key: {e}"))?;
+
+    let mut nonce_bytes = [0u8; NONCE_LEN];
+    rand::thread_rng().fill_bytes(&mut nonce_bytes);
+    let nonce = Nonce::from_slice(&nonce_bytes);
+
+    let ciphertext = cipher
+        .encrypt(nonce, plaintext)
+        .map_err(|e| format!("Encryption failed: {e}"))?;
+
+    let mut out = Vec::with_capacity(ENCRYPTION_MAGIC.len() + NONCE_LEN + ciphertext.len());
+    out.extend_from_slice(ENCRYPTION_MAGIC);
+    out.extend_from_slice(&nonce_bytes);
+    out.extend_from_slice(&ciphertext);
+    Ok(out)
+}
+
+fn decrypt_bytes_with_auto_key(payload: &[u8]) -> Result<Vec<u8>, String> {
+    if !payload.starts_with(ENCRYPTION_MAGIC) {
+        return Err("Payload is not encrypted".to_string());
+    }
+
+    let rest = &payload[ENCRYPTION_MAGIC.len()..];
+    if rest.len() < NONCE_LEN + 16 {
+        return Err("Encrypted payload is too short".to_string());
+    }
+
+    let (nonce_bytes, ciphertext) = rest.split_at(NONCE_LEN);
+    let key = get_or_create_data_key()?;
+    let cipher = Aes256Gcm::new_from_slice(&key).map_err(|e| format!("Invalid key: {e}"))?;
+    let nonce = Nonce::from_slice(nonce_bytes);
+
+    cipher
+        .decrypt(nonce, ciphertext)
+        .map_err(|e| format!("Decryption failed: {e}"))
 }
 
 pub fn storage_opaque_key(store_name: &str, logical_id: &str) -> Result<String, String> {

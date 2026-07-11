@@ -351,48 +351,33 @@ export async function nativeProcessAutomationActions(options: {
   matchedRuleIds: string[];
 }): Promise<NativeAutomationResult> {
   const matchedRules = options.rules.filter((r) => options.matchedRuleIds.includes(r.id));
-  try {
-    const result = await invoke<{
-      updates: Record<string, unknown>;
-      notifications: string[];
-      assignToAgentIds: string[];
-    }>("automation_apply_actions", {
-      rules: serializeAutomationRules(matchedRules),
-      task: {
-        id: options.task.id,
-        tags: options.task.tags ?? [],
-        status: options.task.status,
-        priority: options.task.priority,
-      },
-    });
-    return {
-      updates: result.updates,
-      tagsToAdd: [],
-      tagsToRemove: [],
-      notifications: result.notifications,
-      assignToAgentIds: result.assignToAgentIds,
-    };
-  } catch {
-    return invoke<NativeAutomationResult>("automation_process_actions", {
-      request: {
-        event: options.event,
-        task: {
-          id: options.task.id,
-          tags: options.task.tags ?? [],
-          status: options.task.status,
-          priority: options.task.priority,
-        },
-        rules: serializeAutomationRules(options.rules),
-        matchedRuleIds: options.matchedRuleIds,
-      },
-    });
-  }
+  const result = await invoke<{
+    updates: Record<string, unknown>;
+    notifications: string[];
+    assignToAgentIds: string[];
+  }>("automation_apply_actions", {
+    rules: serializeAutomationRules(matchedRules),
+    task: {
+      id: options.task.id,
+      tags: options.task.tags ?? [],
+      status: options.task.status,
+      priority: options.task.priority,
+    },
+  });
+  return {
+    updates: result.updates,
+    tagsToAdd: [],
+    tagsToRemove: [],
+    notifications: result.notifications,
+    assignToAgentIds: result.assignToAgentIds,
+  };
 }
 
 export async function nativeIsRuleDue(rule: AutomationRule, now: Date): Promise<boolean> {
   return invoke<boolean>("automation_is_rule_due", {
     rule,
     nowMs: now.getTime(),
+    timezoneOffsetMinutes: now.getTimezoneOffset(),
   });
 }
 
@@ -649,4 +634,31 @@ export async function nativeOllamaHealth(baseUrl?: string): Promise<boolean> {
     request: { baseUrl },
   });
   return response.ok;
+}
+
+export async function nativeClaudeChat(options: {
+  system?: string;
+  prompt: string;
+  model?: string;
+  maxTurns?: number;
+}): Promise<{ content: string; latencyMs: number }> {
+  return invoke("ai_claude_chat", {
+    request: {
+      system: options.system,
+      prompt: options.prompt,
+      model: options.model,
+      maxTurns: options.maxTurns ?? 1,
+    },
+  });
+}
+
+export async function nativeClaudeHealth(): Promise<{ ok: boolean; version?: string }> {
+  return invoke("ai_claude_health");
+}
+
+export async function nativeClaudeModels(): Promise<{
+  models: Array<{ id: string; label: string; default?: boolean }>;
+  source: "help" | "static";
+}> {
+  return invoke("ai_claude_models");
 }

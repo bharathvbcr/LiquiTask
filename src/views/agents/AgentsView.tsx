@@ -1,19 +1,27 @@
 /**
- * Agents — roster view.
+ * Agents — the visual agent manager.
  *
- * A read-only surface listing every configured agent teammate with live
- * presence (derived from agentRuns), provider/model, and a compact summary
- * of whatever it's currently doing. Mirrors the visual language already used
- * by AgentTeamPanel / AgentRunsDock (glass rows, PresenceRing, StatusPill) so this
- * feels like the same product, not a competing design.
+ * The primary place to create, edit, organize, and skill-assign agent
+ * teammates. Lists every configured agent with live presence (derived from
+ * agentRuns), provider/model, and a compact summary of whatever it's currently
+ * doing — plus a New Agent action, search/filter, per-row edit/delete, and
+ * squad grouping (agents sharing a working directory). Mirrors the visual
+ * language of AgentTeamPanel / AgentRunsDock (glass rows, PresenceRing,
+ * StatusPill) so this feels like the same product.
  */
-import { Bot } from 'lucide-react';
+import { Bot, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 
+import { deriveSquads } from '../../core/squads/deriveSquads';
 import type { AgentProfile, AgentRun } from '../../../types';
 import { FlatCard, PresenceRing, StatusPill } from '../../ui';
 import type { PresenceStatus } from '../../ui';
+import {
+  deriveAgentSessionCost,
+  formatCostUsd,
+  formatTokenCount,
+} from '../../utils/runUsage';
 
 /** Health of a single detected runtime binary (agentd sidecar, when enabled). */
 export interface RuntimeHealthInfo {
@@ -35,6 +43,14 @@ export interface AgentsViewProps {
   onSelectAgent?: (agentId: string) => void;
   /** Jump to a specific active/awaiting run for an agent. */
   onOpenRun?: (runId: string) => void;
+  /** Open the create-agent modal. */
+  onCreateAgent?: () => void;
+  /** Open the edit-agent modal for a specific agent. */
+  onEditAgent?: (agentId: string) => void;
+  /** Delete an agent (App confirms + persists + refreshes). */
+  onDeleteAgent?: (agentId: string) => void;
+  /** Called by parent after roster mutations; part of the manager contract. */
+  onAgentsChanged?: () => void;
 }
 
 const ACTIVE_RUN_STATUSES = new Set<AgentRun['status']>(['running', 'verifying', 'queued']);
@@ -148,17 +164,24 @@ const RuntimeHealthStrip: React.FC<{ runtimes: RuntimeHealthInfo[] }> = ({ runti
 interface AgentRosterRowProps {
   agent: AgentProfile;
   presenceInfo: AgentPresenceInfo;
+  sessionCost: ReturnType<typeof deriveAgentSessionCost>;
   onSelectAgent?: (agentId: string) => void;
   onOpenRun?: (runId: string) => void;
+  onEditAgent?: (agentId: string) => void;
+  onDeleteAgent?: (agentId: string) => void;
 }
 
 const AgentRosterRow: React.FC<AgentRosterRowProps> = ({
   agent,
   presenceInfo,
+  sessionCost,
   onSelectAgent,
   onOpenRun,
+  onEditAgent,
+  onDeleteAgent,
 }) => {
   const { presence, featuredRun } = presenceInfo;
+  const handleSelect = onEditAgent ?? onSelectAgent;
 
   return (
     <FlatCard>
@@ -169,8 +192,8 @@ const AgentRosterRow: React.FC<AgentRosterRowProps> = ({
 
         <button
           type="button"
-          onClick={() => onSelectAgent?.(agent.id)}
-          disabled={!onSelectAgent}
+          onClick={() => handleSelect?.(agent.id)}
+          disabled={!handleSelect}
           className="min-w-0 flex-1 text-left disabled:cursor-default"
         >
           <div className="flex items-center gap-2">
@@ -180,10 +203,30 @@ const AgentRosterRow: React.FC<AgentRosterRowProps> = ({
                 planner
               </span>
             )}
+            {(agent.skills?.length ?? 0) > 0 && (
+              <span className="shrink-0 rounded-full border border-red-500/20 bg-red-500/10 px-1.5 py-0.5 text-[10px] font-medium text-red-300">
+                {agent.skills?.length} skills
+              </span>
+            )}
           </div>
           <p className="truncate text-[11px] text-slate-500">
             {agent.provider}
             {agent.model ? ` · ${agent.model}` : ''}
+            {sessionCost ? (
+              <span
+                className="ml-1 font-mono text-slate-600"
+                title={
+                  sessionCost.estimated
+                    ? 'Session total estimated from token usage'
+                    : 'Session total reported cost'
+                }
+              >
+                · {formatCostUsd(sessionCost.costUsd, sessionCost.estimated)}
+                {sessionCost.totalTokens > 0
+                  ? ` · ${formatTokenCount(sessionCost.totalTokens)} tok`
+                  : ''}
+              </span>
+            ) : null}
           </p>
 
           {featuredRun && (
@@ -198,23 +241,45 @@ const AgentRosterRow: React.FC<AgentRosterRowProps> = ({
           )}
         </button>
 
-        {featuredRun &&
-          onOpenRun &&
-          (presence === 'working' || presence === 'awaiting-approval') && (
+        <div className="flex shrink-0 items-center gap-1">
+          {featuredRun &&
+            onOpenRun &&
+            (presence === 'working' || presence === 'awaiting-approval') && (
+              <button
+                type="button"
+                onClick={() => onOpenRun(featuredRun.id)}
+                className="rounded-lg border border-red-500/20 bg-red-500/10 px-2.5 py-1 text-[11px] font-medium text-red-300 transition-colors hover:bg-red-500/20"
+              >
+                Open
+              </button>
+            )}
+          {onEditAgent && (
             <button
               type="button"
-              onClick={() => onOpenRun(featuredRun.id)}
-              className="shrink-0 rounded-lg border border-red-500/20 bg-red-500/10 px-2.5 py-1 text-[11px] font-medium text-red-300 transition-colors hover:bg-red-500/20"
+              onClick={() => onEditAgent(agent.id)}
+              className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-white/5 hover:text-white"
+              aria-label={`Edit ${agent.name}`}
             >
-              Open
+              <Pencil size={14} />
             </button>
           )}
+          {onDeleteAgent && (
+            <button
+              type="button"
+              onClick={() => onDeleteAgent(agent.id)}
+              className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-red-500/10 hover:text-red-400"
+              aria-label={`Delete ${agent.name}`}
+            >
+              <Trash2 size={14} />
+            </button>
+          )}
+        </div>
       </div>
     </FlatCard>
   );
 };
 
-/** Roster view — every configured agent with presence, provider/model, and current run summary. */
+/** The visual agent manager — roster, search, squads, and create/edit/delete actions. */
 export const AgentsView: React.FC<AgentsViewProps> = ({
   agents,
   agentRuns,
@@ -222,39 +287,141 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
   runtimeHealthLoading = false,
   onSelectAgent,
   onOpenRun,
+  onCreateAgent,
+  onEditAgent,
+  onDeleteAgent,
+  onAgentsChanged: _onAgentsChanged,
 }) => {
+  const [query, setQuery] = useState('');
+
   const presenceByAgentId = useMemo(() => {
     const map = new Map<string, AgentPresenceInfo>();
     for (const agent of agents) map.set(agent.id, derivePresence(agent.id, agentRuns));
     return map;
   }, [agents, agentRuns]);
 
+  const sessionCostByAgentId = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof deriveAgentSessionCost>>();
+    for (const agent of agents) {
+      map.set(agent.id, deriveAgentSessionCost(agent.id, agentRuns));
+    }
+    return map;
+  }, [agents, agentRuns]);
+
+  const filteredAgents = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return agents;
+    return agents.filter(a =>
+      [a.name, a.provider, a.model ?? '', a.workingDir].some(field =>
+        field.toLowerCase().includes(needle),
+      ),
+    );
+  }, [agents, query]);
+
+  // Group by squad (agents sharing a working dir, ≥2 members); the rest are Solo.
+  const { squadSections, soloAgents } = useMemo(() => {
+    const byId = new Map(filteredAgents.map(a => [a.id, a]));
+    const squads = deriveSquads(filteredAgents, agentRuns);
+    const grouped = new Set<string>();
+    const sections = squads.map(squad => {
+      const members = squad.memberAgentIds
+        .map(id => byId.get(id))
+        .filter((a): a is AgentProfile => Boolean(a));
+      for (const m of members) grouped.add(m.id);
+      return { name: squad.name, members };
+    });
+    const solo = filteredAgents.filter(a => !grouped.has(a.id));
+    return { squadSections: sections, soloAgents: solo };
+  }, [filteredAgents, agentRuns]);
+
+  const renderRow = (agent: AgentProfile) => (
+    <AgentRosterRow
+      key={agent.id}
+      agent={agent}
+      presenceInfo={presenceByAgentId.get(agent.id) ?? { presence: 'idle' as PresenceStatus }}
+      sessionCost={sessionCostByAgentId.get(agent.id) ?? null}
+      onSelectAgent={onSelectAgent}
+      onOpenRun={onOpenRun}
+      onEditAgent={onEditAgent}
+      onDeleteAgent={onDeleteAgent}
+    />
+  );
+
+  const hasAgents = agents.length > 0;
+  const hasResults = filteredAgents.length > 0;
+
   return (
     <div className="flex h-full flex-col gap-3 overflow-y-auto p-4">
+      {/* Header: title, search, New Agent */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative min-w-0 flex-1">
+          <Search
+            size={14}
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
+            aria-hidden
+          />
+          <input
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Search agents by name, runtime, or folder"
+            className="w-full liquid-input rounded-lg py-2 pl-9 pr-3 text-sm"
+            aria-label="Search agents"
+          />
+        </div>
+        {onCreateAgent && (
+          <button
+            type="button"
+            onClick={onCreateAgent}
+            className="flex shrink-0 items-center justify-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-300 transition-all hover:bg-red-500/20"
+          >
+            <Plus size={16} /> New Agent
+          </button>
+        )}
+      </div>
+
       {runtimeHealthLoading && !runtimeHealth ? (
         <RuntimeHealthSkeleton />
       ) : (
         runtimeHealth && runtimeHealth.length > 0 && <RuntimeHealthStrip runtimes={runtimeHealth} />
       )}
 
-      {agents.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 py-16 text-center">
+      {!hasAgents ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 py-16 text-center">
           <Bot className="h-8 w-8 text-slate-600" aria-hidden />
           <p className="text-sm text-slate-500">No agents configured yet</p>
+          {onCreateAgent && (
+            <button
+              type="button"
+              onClick={onCreateAgent}
+              className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-300 transition-all hover:bg-red-500/20"
+            >
+              <Plus size={16} /> New Agent
+            </button>
+          )}
+        </div>
+      ) : !hasResults ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 py-16 text-center">
+          <Search className="h-6 w-6 text-slate-600" aria-hidden />
+          <p className="text-sm text-slate-500">No agents match “{query}”</p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {agents.map(agent => (
-            <AgentRosterRow
-              key={agent.id}
-              agent={agent}
-              presenceInfo={
-                presenceByAgentId.get(agent.id) ?? { presence: 'idle' as PresenceStatus }
-              }
-              onSelectAgent={onSelectAgent}
-              onOpenRun={onOpenRun}
-            />
+        <div className="space-y-5">
+          {squadSections.map(section => (
+            <section key={section.name} className="space-y-2">
+              <h3 className="px-1 text-[10px] uppercase tracking-widest text-slate-500">
+                {section.name}
+              </h3>
+              <div className="space-y-2">{section.members.map(renderRow)}</div>
+            </section>
           ))}
+          {soloAgents.length > 0 && (
+            <section className="space-y-2">
+              {squadSections.length > 0 && (
+                <h3 className="px-1 text-[10px] uppercase tracking-widest text-slate-500">Solo</h3>
+              )}
+              <div className="space-y-2">{soloAgents.map(renderRow)}</div>
+            </section>
+          )}
         </div>
       )}
     </div>

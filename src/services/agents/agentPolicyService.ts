@@ -79,6 +79,52 @@ export function checkAgentBudget(
   return null;
 }
 
+export type AutoRepairKind = "ci" | "review" | "merge";
+
+/** Whether the agent profile opts into automatic repair for this failure kind. */
+export function isAutoRepairEnabled(agent: AgentProfile, kind: AutoRepairKind): boolean {
+  const policy = agent.autoRepair;
+  if (!policy) return false;
+  switch (kind) {
+    case "ci":
+      return policy.ciFailures === true;
+    case "review":
+      return policy.reviewComments === true;
+    case "merge":
+      return policy.mergeConflicts === true;
+    default:
+      return false;
+  }
+}
+
+/** Max auto-repair attempts per failure kind (default 2). */
+export function autoRepairMaxAttempts(agent: AgentProfile): number {
+  const max = agent.autoRepair?.maxAttempts;
+  if (max == null || max <= 0) return 2;
+  return max;
+}
+
+/**
+ * Returns an error when auto-repair would exceed budget caps, or null when
+ * a bounded follow-up run is allowed.
+ */
+export function checkAutoRepairAllowed(
+  agent: AgentProfile,
+  kind: AutoRepairKind,
+  attempt: number,
+  runs: AgentRun[],
+): string | null {
+  if (!isAutoRepairEnabled(agent, kind)) {
+    return "Auto-repair is disabled for this agent.";
+  }
+  if (attempt >= autoRepairMaxAttempts(agent)) {
+    return `Auto-repair max attempts (${autoRepairMaxAttempts(agent)}) reached.`;
+  }
+  const budgetErr = checkAgentBudget(agent, getAgentDailyStats(agent.id, runs));
+  if (budgetErr) return budgetErr;
+  return null;
+}
+
 /** Resolve the model string for a new agent run. */
 export function resolveAgentModel(agent: AgentProfile, task: Task): string | undefined {
   const routing = agent.modelRouting ?? "fixed";

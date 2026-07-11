@@ -28,7 +28,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-src 'none'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost ws://localhost:4000 http://localhost:4000 http://localhost:* http://127.0.0.1:* http://[::1]:* https://generativelanguage.googleapis.com"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-src 'none'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost ws://localhost:4000 http://localhost:4000 http://127.0.0.1:11434 http://localhost:11434 http://127.0.0.1:8765 http://localhost:8765 https://generativelanguage.googleapis.com"
     }
   },
   "bundle": {
@@ -38,7 +38,8 @@
     ],
     "externalBin": [
       "binaries/semantic-layer",
-      "binaries/liquitask-agentd"
+      "binaries/liquitask-agentd",
+      "binaries/liquitask-cli"
     ],
     "resources": {
       "../scripts/liquitask-mcp-bridge.mjs": "scripts/liquitask-mcp-bridge.mjs"

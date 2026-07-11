@@ -20,6 +20,7 @@ impl OllamaBackend {
             base_url: base_url.into().trim_end_matches('/').to_string(),
             client: reqwest::Client::builder()
                 .timeout(std::time::Duration::from_secs(120))
+                .redirect(reqwest::redirect::Policy::none())
                 .build()
                 .unwrap_or_else(|_| reqwest::Client::new()),
         }

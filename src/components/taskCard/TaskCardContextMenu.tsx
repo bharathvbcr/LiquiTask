@@ -1,4 +1,4 @@
-import { Bot, ChevronRight, Copy, FileText, Folder, Trash2 } from "lucide-react";
+import { Archive, Bot, ChevronRight, Copy, FileText, Folder, Sparkles, Trash2 } from "lucide-react";
 import type React from "react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -16,8 +16,10 @@ interface TaskCardContextMenuProps {
   onWorkspaceSubmenuEnter: () => void;
   onWorkspaceSubmenuLeave: () => void;
   onCopyAsJson: () => void;
+  onDuplicateAsQuickAdd?: () => void;
   onMoveToWorkspaceSelect: (projectId: string) => void;
   onDeleteTask?: () => void;
+  onArchiveTask?: () => void;
   /** Agents available for a one-action handoff; empty hides the entry. */
   dispatchAgents?: AgentProfile[];
   showAgentSubmenu?: boolean;
@@ -42,8 +44,10 @@ export const TaskCardContextMenu: React.FC<TaskCardContextMenuProps> = ({
   onWorkspaceSubmenuEnter,
   onWorkspaceSubmenuLeave,
   onCopyAsJson,
+  onDuplicateAsQuickAdd,
   onMoveToWorkspaceSelect,
   onDeleteTask,
+  onArchiveTask,
   dispatchAgents = [],
   showAgentSubmenu = false,
   onAgentSubmenuEnter,
@@ -210,6 +214,16 @@ export const TaskCardContextMenu: React.FC<TaskCardContextMenuProps> = ({
         <Copy size={14} className="text-red-400" />
         <span>Copy as JSON</span>
       </button>
+      {onDuplicateAsQuickAdd && (
+        <button
+          role="menuitem"
+          onClick={onDuplicateAsQuickAdd}
+          className="w-full px-4 py-2.5 text-left text-sm hover:bg-red-500/20 flex items-center gap-2 focus:outline-none focus-visible:bg-red-500/20"
+        >
+          <Sparkles size={14} className="text-red-400" />
+          <span>Duplicate as Quick-Add</span>
+        </button>
+      )}
       <button
         role="menuitem"
         onClick={async () => {
@@ -228,6 +242,16 @@ export const TaskCardContextMenu: React.FC<TaskCardContextMenuProps> = ({
         <FileText size={14} className="text-red-400" />
         <span>Save as Template</span>
       </button>
+      {onArchiveTask && (
+        <button
+          role="menuitem"
+          onClick={onArchiveTask}
+          className="w-full px-4 py-2.5 text-left text-sm hover:bg-red-500/20 flex items-center gap-2 focus:outline-none focus-visible:bg-red-500/20"
+        >
+          <Archive size={14} className="text-amber-400" />
+          <span>Archive Task</span>
+        </button>
+      )}
       {onDeleteTask && (
         <>
           <div className="my-1 border-t border-white/10" aria-hidden="true" />

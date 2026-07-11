@@ -2,6 +2,8 @@ import type { BoardColumn, Task } from "../../types";
 import type { FilterGroup } from "../types/queryTypes";
 import { executeAdvancedFilter } from "../utils/queryEngine";
 import { callNative, isTauri } from "../runtime/runtimeEnvironment";
+import { readAiFeaturesEnabled } from "../utils/aiFeatures";
+import deadLetterService from "./deadLetterService";
 import { toCoreTask } from "../runtime/coreDto";
 
 export type AutomationTrigger = "onCreate" | "onUpdate" | "onMove" | "onComplete" | "onSchedule";
@@ -31,6 +33,8 @@ export interface AutomationRule {
     dayOfWeek?: number; // 0-6, optional for weekly rules
     dayOfMonth?: number; // 1-31, optional for monthly rules
   };
+  /** Minute slot (YYYY-MM-DDTHH:mm) when this scheduled rule last fired. */
+  lastFiredAt?: string;
 }
 
 export interface TaskContext {
@@ -152,14 +156,60 @@ function applyMatchedRules(matchingRules: AutomationRule[], task: Task): ApplyRe
   };
 }
 
+/** Build a minute-resolution slot key for idempotent scheduled firing. */
+export function scheduleFireSlot(now: Date): string {
+  const y = now.getFullYear();
+  const mo = (now.getMonth() + 1).toString().padStart(2, "0");
+  const d = now.getDate().toString().padStart(2, "0");
+  const h = now.getHours().toString().padStart(2, "0");
+  const mi = now.getMinutes().toString().padStart(2, "0");
+  return `${y}-${mo}-${d}T${h}:${mi}`;
+}
+
+const ASSIGN_TO_AGENT_DEBOUNCE_MS = 60_000;
+
 export class AutomationService {
   private rules: AutomationRule[] = [];
   private scheduleInterval: NodeJS.Timeout | null = null;
+  private schedulerGeneration = 0;
+  private schedulerTickInFlight = false;
+  private recentAssignToAgent = new Map<string, number>();
+
+  constructor() {
+    deadLetterService.registerRetryHandler("automation", async (letter) => {
+      const payload = letter.payload as {
+        taskId?: string;
+        trigger?: AutomationTrigger;
+        updates?: Partial<Task>;
+      };
+      if (!payload.taskId) throw new Error("Dead letter is missing task id.");
+      const apply = this.schedulerContext?.applyTaskUpdates;
+      if (!apply) throw new Error("Automation scheduler is not active.");
+      if (payload.updates) {
+        apply(payload.taskId, payload.updates);
+        return;
+      }
+      if (!payload.trigger) throw new Error("Dead letter is missing automation trigger.");
+      const tasks = this.schedulerContext?.getAllTasks?.() ?? [];
+      const task = tasks.find((t) => t.id === payload.taskId);
+      if (!task) throw new Error("Task no longer exists.");
+      const updates = await this.processTaskEventNative(
+        payload.trigger,
+        { newTask: task },
+        tasks,
+        { columns: this.schedulerContext?.getColumns?.(), recordFailures: false },
+      );
+      if (!updates) throw new Error("Automation produced no updates on retry.");
+      apply(payload.taskId, updates);
+    });
+  }
+
   private schedulerContext: {
     getAllTasks: () => Task[];
     applyTaskUpdates: (taskId: string, updates: Partial<Task>) => void;
     notify?: (message: string) => void;
     getColumns?: () => BoardColumn[];
+    onRulesPersist?: (rules: AutomationRule[]) => void;
   } | null = null;
 
   /**
@@ -212,6 +262,7 @@ export class AutomationService {
     applyTaskUpdates: (taskId: string, updates: Partial<Task>) => void;
     notify?: (message: string) => void;
     getColumns?: () => BoardColumn[];
+    onRulesPersist?: (rules: AutomationRule[]) => void;
   }): void {
     this.schedulerContext = context;
     this.startScheduler();
@@ -256,9 +307,12 @@ export class AutomationService {
       onNotify?: (message: string) => void;
       onAssignToAgent?: (taskId: string, agentId: string) => void;
       columns?: BoardColumn[];
+      /** When set, apply only these rules (scheduler passes the due rule). */
+      matchedRules?: AutomationRule[];
     },
   ): Partial<Task> | null {
-    const matchingRules = this.matchRules(event, context.newTask, allTasks);
+    const matchingRules =
+      options?.matchedRules ?? this.matchRules(event, context.newTask, allTasks);
     if (matchingRules.length === 0) return null;
 
     const result = applyMatchedRules(matchingRules, context.newTask);
@@ -286,20 +340,63 @@ export class AutomationService {
       onNotify?: (message: string) => void;
       onAssignToAgent?: (taskId: string, agentId: string) => void;
       columns?: BoardColumn[];
+      // Defaults to true. The dead-letter retry handler sets this false so a
+      // failing replay does not spawn a duplicate letter (the DLQ already tracks
+      // the retry attempt against the original letter).
+      recordFailures?: boolean;
+      /** When set, apply only these rules (scheduler passes the due rule). */
+      matchedRules?: AutomationRule[];
     },
   ): Promise<Partial<Task> | null> {
-    const matchingRules = this.matchRules(event, context.newTask, allTasks);
+    const matchingRules =
+      options?.matchedRules ?? this.matchRules(event, context.newTask, allTasks);
     if (matchingRules.length === 0) return null;
 
-    const result = await callNative<ApplyResult>(
-      "automation_apply_actions",
-      { rules: matchingRules, task: toCoreTask(context.newTask) },
-      () => applyMatchedRules(matchingRules, context.newTask),
-    );
+    let result: ApplyResult;
+    try {
+      result = await callNative<ApplyResult>(
+        "automation_apply_actions",
+        { rules: matchingRules, task: toCoreTask(context.newTask) },
+        () => applyMatchedRules(matchingRules, context.newTask),
+      );
+    } catch (err) {
+      // `callNative` only throws here when the native `automation_apply_actions`
+      // command threw AND the synchronous JS reducer fallback threw too, i.e. the
+      // automation could not be computed at all. Dead-letter it so the failure
+      // surfaces in the Inbox and can be replayed, then re-throw so the caller
+      // (scheduler sweep) can skip this task without applying partial updates.
+      if (options?.recordFailures !== false) {
+        this.recordAutomationDeadLetter(event, context.newTask, err);
+      }
+      throw err;
+    }
 
     this.dispatchSideEffects(result, context.newTask, options);
 
     return result.hasUpdates ? (result.updates as Partial<Task>) : null;
+  }
+
+  /**
+   * Record an automation failure as a dead letter so it lands in the Inbox and
+   * can be replayed by the retry handler registered in the constructor. The
+   * payload shape (`{ taskId, trigger, updates? }`) is exactly what that handler
+   * expects: with `updates` it re-applies them directly, otherwise it recomputes
+   * the automation from the trigger.
+   */
+  private recordAutomationDeadLetter(
+    trigger: AutomationTrigger,
+    task: Task,
+    err: unknown,
+    updates?: Partial<Task>,
+  ): void {
+    const message = err instanceof Error ? err.message : String(err);
+    deadLetterService.record({
+      kind: "automation",
+      title: `Automation "${trigger}" failed for "${task.title || task.id}"`,
+      detail: message,
+      taskId: task.id,
+      payload: updates ? { taskId: task.id, trigger, updates } : { taskId: task.id, trigger },
+    });
   }
 
   /**
@@ -325,8 +422,13 @@ export class AutomationService {
       });
     }
 
-    if (result.assignToAgentIds.length > 0 && onAssignToAgent) {
+    if (result.assignToAgentIds.length > 0 && onAssignToAgent && readAiFeaturesEnabled()) {
+      const now = Date.now();
       result.assignToAgentIds.forEach((agentId) => {
+        const key = `${task.id}:${agentId}`;
+        const last = this.recentAssignToAgent.get(key) ?? 0;
+        if (now - last < ASSIGN_TO_AGENT_DEBOUNCE_MS) return;
+        this.recentAssignToAgent.set(key, now);
         onAssignToAgent(task.id, agentId);
       });
     }
@@ -370,9 +472,86 @@ export class AutomationService {
    * web fallback.
    */
   private async isRuleDueNative(rule: AutomationRule, now: Date): Promise<boolean> {
-    return callNative<boolean>("automation_is_rule_due", { rule, nowMs: now.getTime() }, () =>
-      this.isRuleDue(rule, now),
+    return callNative<boolean>(
+      "automation_is_rule_due",
+      {
+        rule,
+        nowMs: now.getTime(),
+        timezoneOffsetMinutes: now.getTimezoneOffset(),
+      },
+      () => this.isRuleDue(rule, now),
     );
+  }
+
+  private shouldFireScheduledRule(rule: AutomationRule, now: Date): boolean {
+    const slot = scheduleFireSlot(now);
+    if (rule.lastFiredAt === slot) return false;
+    return this.isRuleDue(rule, now);
+  }
+
+  private async shouldFireScheduledRuleNative(
+    rule: AutomationRule,
+    now: Date,
+  ): Promise<boolean> {
+    const slot = scheduleFireSlot(now);
+    if (rule.lastFiredAt === slot) return false;
+    return this.isRuleDueNative(rule, now);
+  }
+
+  private markRuleFired(ruleId: string, slot: string): void {
+    const index = this.rules.findIndex((r) => r.id === ruleId);
+    if (index === -1) return;
+    this.rules[index] = { ...this.rules[index], lastFiredAt: slot };
+    this.schedulerContext?.onRulesPersist?.(this.getRules());
+  }
+
+  private async runScheduledRule(
+    rule: AutomationRule,
+    tasks: Task[],
+    now: Date,
+    columns: BoardColumn[] | undefined,
+  ): Promise<void> {
+    const slot = scheduleFireSlot(now);
+    let fired = false;
+
+    for (const task of tasks) {
+      if (!this.evaluateConditions(rule, task, tasks)) continue;
+
+      let updates: Partial<Task> | null;
+      try {
+        if (isTauri()) {
+          updates = await this.processTaskEventNative(
+            "onSchedule",
+            { newTask: task },
+            tasks,
+            {
+              onNotify: this.schedulerContext?.notify,
+              columns,
+              matchedRules: [rule],
+            },
+          );
+        } else {
+          updates = this.processTaskEvent("onSchedule", { newTask: task }, tasks, {
+            onNotify: this.schedulerContext?.notify,
+            columns,
+            matchedRules: [rule],
+          });
+        }
+      } catch {
+        continue;
+      }
+      if (!updates) continue;
+      fired = true;
+      try {
+        this.schedulerContext?.applyTaskUpdates(task.id, updates);
+      } catch (err) {
+        this.recordAutomationDeadLetter("onSchedule", task, err, updates);
+      }
+    }
+
+    if (fired) {
+      this.markRuleFired(rule.id, slot);
+    }
   }
 
   /**
@@ -383,61 +562,43 @@ export class AutomationService {
       clearInterval(this.scheduleInterval);
     }
 
+    this.schedulerGeneration += 1;
+    const generation = this.schedulerGeneration;
+
     const rules = Array.isArray(this.rules) ? this.rules : [];
     const hasScheduledRules = rules.some((r) => r.enabled && r.trigger === "onSchedule");
     if (!hasScheduledRules || !this.schedulerContext) return;
 
     // Check every minute for scheduled rules
     this.scheduleInterval = setInterval(() => {
-      const now = new Date();
-      const tasks = this.schedulerContext?.getAllTasks?.() || [];
-      const columns = this.schedulerContext?.getColumns?.();
+      if (generation !== this.schedulerGeneration) return;
+      if (this.schedulerTickInFlight) return;
 
-      const scheduledRules = rules.filter(
-        (r) => r.enabled && r.trigger === "onSchedule" && r.schedule,
-      );
+      this.schedulerTickInFlight = true;
+      void (async () => {
+        try {
+          if (generation !== this.schedulerGeneration) return;
 
-      // On the desktop build, run the whole tick through the Rust-backed
-      // `automation_is_rule_due` + `automation_apply_actions` path; on the
-      // web/PWA build stay fully synchronous with the identical JS logic. Both
-      // apply updates through the same `applyTaskUpdates` callback.
-      if (isTauri()) {
-        void (async () => {
+          const now = new Date();
+          const tasks = this.schedulerContext?.getAllTasks?.() || [];
+          const columns = this.schedulerContext?.getColumns?.();
+
+          const scheduledRules = this.rules.filter(
+            (r) => r.enabled && r.trigger === "onSchedule" && r.schedule,
+          );
+
           for (const rule of scheduledRules) {
-            if (!(await this.isRuleDueNative(rule, now))) {
-              continue;
-            }
-            for (const task of tasks) {
-              const updates = await this.processTaskEventNative(
-                "onSchedule",
-                { newTask: task },
-                tasks,
-                { onNotify: this.schedulerContext?.notify, columns },
-              );
-              if (updates) {
-                this.schedulerContext?.applyTaskUpdates(task.id, updates);
-              }
-            }
+            if (generation !== this.schedulerGeneration) return;
+            const due = isTauri()
+              ? await this.shouldFireScheduledRuleNative(rule, now)
+              : this.shouldFireScheduledRule(rule, now);
+            if (!due) continue;
+            await this.runScheduledRule(rule, tasks, now, columns);
           }
-        })();
-        return;
-      }
-
-      scheduledRules.forEach((rule) => {
-        if (!this.isRuleDue(rule, now)) {
-          return;
+        } finally {
+          this.schedulerTickInFlight = false;
         }
-
-        tasks.forEach((task) => {
-          const updates = this.processTaskEvent("onSchedule", { newTask: task }, tasks, {
-            onNotify: this.schedulerContext?.notify,
-            columns,
-          });
-          if (updates) {
-            this.schedulerContext?.applyTaskUpdates(task.id, updates);
-          }
-        });
-      });
+      })();
     }, 60000); // Check every minute
   }
 

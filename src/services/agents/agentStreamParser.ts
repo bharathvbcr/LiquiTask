@@ -1,4 +1,6 @@
 import type { AgentRunEventKind } from "../../../types";
+import type { DevVerifyResult } from "../nativeBridge";
+import { evaluateVerifyGate } from "./mergePipelineService";
 
 export interface ParsedStreamEvent {
   kind: AgentRunEventKind;
@@ -87,39 +89,78 @@ export interface CouncilVerdict {
   raw: string;
 }
 
+/** Parse DevCouncil verify JSON from stdout, tolerating leading log noise. */
+export function parseCouncilVerifyResult(raw: string): DevVerifyResult | null {
+  const bounded = raw.slice(0, 200_000);
+  const jsonStart = bounded.indexOf("{");
+  if (jsonStart < 0) return null;
+  try {
+    const parsed = JSON.parse(bounded.slice(jsonStart)) as DevVerifyResult & {
+      blocking_gaps?: unknown[];
+      passed?: boolean;
+    };
+    const legacyGaps = (parsed.blocking_gaps ?? []).map((g) =>
+      typeof g === "string" ? g : JSON.stringify(g),
+    );
+    if (legacyGaps.length > 0 && (!parsed.tasks || parsed.tasks.length === 0)) {
+      return {
+        ok: parsed.ok === false || parsed.passed === false || legacyGaps.length > 0,
+        cli_available: true,
+        verified_tasks: 0,
+        blocked_tasks: legacyGaps.length,
+        total_gaps: legacyGaps.length,
+        tasks: legacyGaps.map((description, index) => ({
+          task_id: `legacy-${index}`,
+          status: "blocked",
+          gap_count: 1,
+          blocking_gap_count: 1,
+          gaps: [
+            {
+              id: `legacy-gap-${index}`,
+              severity: "critical",
+              gap_type: "legacy",
+              description,
+              evidence: [],
+              recommended_fix: "",
+              blocking: true,
+            },
+          ],
+          next_actions: [],
+          advisory_actions: [],
+        })),
+        error: typeof parsed.error === "string" ? parsed.error : undefined,
+      };
+    }
+    return { ...parsed, cli_available: true };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Parse the JSON report emitted by DevCouncil (`dev e2e --json` /
- * `dev check --verify --json`). Tolerant of leading log noise before the JSON.
+ * `dev check --verify --json`). Fail closed when output is missing or
+ * unparseable; uses the same nested gap schema as the merge-path verify gate.
  */
 export const parseCouncilReport = (raw: string): CouncilVerdict => {
   const bounded = raw.slice(0, 200_000);
-  const jsonStart = bounded.indexOf("{");
-  const fallback: CouncilVerdict = {
-    passed: true,
-    blockingGaps: [],
-    raw: bounded.slice(0, 4000),
-  };
-  if (jsonStart < 0) return fallback;
-
-  try {
-    const parsed = JSON.parse(bounded.slice(jsonStart)) as {
-      ok?: boolean;
-      passed?: boolean;
-      blocking_gaps?: unknown[];
-      next_actions?: unknown[];
-      diff_summary?: unknown;
-    };
-    const gaps = (parsed.blocking_gaps ?? []).map((g) =>
-      typeof g === "string" ? g : JSON.stringify(g),
-    );
-    const passed = (parsed.passed ?? parsed.ok ?? gaps.length === 0) && gaps.length === 0;
+  const verify = parseCouncilVerifyResult(bounded);
+  if (!verify) {
     return {
-      passed,
-      blockingGaps: gaps,
-      summary: typeof parsed.diff_summary === "string" ? parsed.diff_summary : undefined,
+      passed: false,
+      blockingGaps: ["DevCouncil verify output missing or unparseable"],
       raw: bounded.slice(0, 4000),
     };
-  } catch {
-    return fallback;
   }
+  const gate = evaluateVerifyGate(verify);
+  const summary =
+    typeof (verify as { diff_summary?: unknown }).diff_summary === "string"
+      ? ((verify as { diff_summary?: string }).diff_summary ?? undefined)
+      : verify.error;
+  return {
+    passed: gate.passed && verify.ok !== false,
+    blockingGaps: gate.blockingGaps,
+    summary,
+    raw: bounded.slice(0, 4000),
+  };
 };

@@ -80,4 +80,25 @@ describe("agentRunService repo-dir binding", () => {
       expect.objectContaining({ repoDir: "/repos/legacy" }),
     );
   });
+
+  it("openPullRequest uses run.repoDir instead of the agent profile folder", async () => {
+    const { svc, invoke } = await bootWith([
+      persisted("pr-run", {
+        repoDir: "/repos/portfolio",
+        gitBranch: "agent/pr-run",
+      }),
+    ]);
+    invoke.mockImplementation(async (cmd: string) => {
+      if (cmd === "agent_git_create_pr") return { url: "https://github.com/pr/1" };
+      return undefined;
+    });
+
+    const run = svc.getRuns().find((r) => r.id === "pr-run") as AgentRun;
+    await svc.openPullRequest(run, "Ship it");
+
+    expect(invoke).toHaveBeenCalledWith(
+      "agent_git_create_pr",
+      expect.objectContaining({ workingDir: "/repos/portfolio" }),
+    );
+  });
 });

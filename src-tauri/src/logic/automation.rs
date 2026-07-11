@@ -24,11 +24,15 @@ pub fn automation_apply_actions(rules: Vec<Value>, task: Task) -> ApplyResult {
     automation::apply_actions(&rules, &task)
 }
 
-/// Whether a scheduled rule is due at `now_ms` (epoch millis). Mirrors the
-/// private `isRuleDue`; used by the scheduler's per-minute tick.
+/// Whether a scheduled rule is due at `now_ms` (epoch millis) in local wall-clock
+/// time. `timezone_offset_minutes` mirrors JS `Date.getTimezoneOffset()`.
 #[tauri::command]
-pub fn automation_is_rule_due(rule: Value, now_ms: i64) -> bool {
-    automation::is_rule_due(&rule, now_ms)
+pub fn automation_is_rule_due(
+    rule: Value,
+    now_ms: i64,
+    timezone_offset_minutes: i64,
+) -> bool {
+    automation::is_rule_due(&rule, now_ms, timezone_offset_minutes)
 }
 
 #[cfg(test)]
@@ -58,10 +62,10 @@ mod tests {
 
     #[test]
     fn is_rule_due_command_matches_time() {
-        // 1970-01-01T00:00:00Z -> "00:00", Thursday (getDay() == 4).
+        // 1970-01-01T00:00:00Z -> "00:00", Thursday (getDay() == 4) at offset 0.
         let rule = json!({ "schedule": { "frequency": "daily", "time": "00:00" } });
-        assert!(automation_is_rule_due(rule, 0));
+        assert!(automation_is_rule_due(rule, 0, 0));
         let rule2 = json!({ "schedule": { "frequency": "daily", "time": "00:01" } });
-        assert!(!automation_is_rule_due(rule2, 0));
+        assert!(!automation_is_rule_due(rule2, 0, 0));
     }
 }

@@ -11,6 +11,7 @@ import {
   encryptPayload,
   decryptPayload,
 } from "./encryptionService";
+import { isSqliteTaskStoreActive } from "./sqliteTaskStore";
 
 const DATE_FIELDS = new Set([
   "createdAt",
@@ -192,27 +193,33 @@ export class IndexedDBService {
   }
 
   /**
-   * Save task
+   * Save task.
+   *
+   * Retired when the SQLite task store is active (Phase 5 cutover): SQLite is
+   * the authoritative task mirror on desktop, so this becomes a no-op and the
+   * IndexedDB `tasks` store is a frozen read-only fallback. Still writes on the
+   * web/PWA build, which has no SQLite backend.
    */
   async saveTask(task: Task): Promise<void> {
-    if (!this.db) return;
+    if (!this.db || isSqliteTaskStoreActive()) return;
     await this.put("tasks", task);
   }
 
   /**
    * Save multiple tasks — full sync: upserts supplied tasks and removes any
-   * stored records whose ids are no longer present.
+   * stored records whose ids are no longer present. Retired when the SQLite
+   * task store is active (see `saveTask`).
    */
   async saveTasks(tasks: Task[]): Promise<void> {
-    if (!this.db) return;
+    if (!this.db || isSqliteTaskStoreActive()) return;
     await this.syncAll("tasks", tasks as unknown as Array<Record<string, unknown>>, "id");
   }
 
   /**
-   * Delete task
+   * Delete task. Retired when the SQLite task store is active (see `saveTask`).
    */
   async deleteTask(taskId: string): Promise<void> {
-    if (!this.db) return;
+    if (!this.db || isSqliteTaskStoreActive()) return;
     await this.delete("tasks", taskId);
   }
 
@@ -268,10 +275,12 @@ export class IndexedDBService {
   }
 
   /**
-   * Save project
+   * Save project. Retired when the SQLite task store is active (see
+   * `saveTask`): SQLite owns the project mirror on desktop; IndexedDB stays a
+   * read-only fallback. Still writes on the web/PWA build.
    */
   async saveProject(project: Project): Promise<void> {
-    if (!this.db) return;
+    if (!this.db || isSqliteTaskStoreActive()) return;
     await this.put("projects", project);
   }
 

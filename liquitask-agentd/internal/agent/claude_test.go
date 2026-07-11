@@ -136,7 +136,7 @@ func TestClaudeHandleControlRequestAutoApproves(t *testing.T) {
 		}),
 	}
 
-	b.handleControlRequest(msg, &written)
+	b.handleControlRequest(context.Background(), msg, &written, ExecOptions{AutoApprove: true})
 
 	var resp map[string]any
 	if err := json.Unmarshal(bytes.TrimSpace(written.Bytes()), &resp); err != nil {
@@ -184,7 +184,7 @@ func TestClaudeHandleControlRequestForcesBackgroundToolsForeground(t *testing.T)
 				}),
 			}
 
-			b.handleControlRequest(msg, &written)
+			b.handleControlRequest(context.Background(), msg, &written, ExecOptions{AutoApprove: true})
 
 			var resp map[string]any
 			if err := json.Unmarshal(bytes.TrimSpace(written.Bytes()), &resp); err != nil {
@@ -310,7 +310,7 @@ func TestTrySendDropsWhenFull(t *testing.T) {
 func TestBuildClaudeArgsIncludesStrictMCPConfig(t *testing.T) {
 	t.Parallel()
 
-	args := buildClaudeArgs(ExecOptions{}, slog.Default())
+	args := buildClaudeArgs(ExecOptions{AutoApprove: true}, slog.Default())
 	expected := []string{
 		"-p",
 		"--output-format", "stream-json",
@@ -559,8 +559,11 @@ func TestMergeEnvFiltersClaudeCodeVars(t *testing.T) {
 	if !found["PATH=/usr/bin"] {
 		t.Fatalf("expected PATH to be preserved, got %v", env)
 	}
-	if !found["CLAUDECODEX=keep-me"] {
-		t.Fatalf("expected unrelated env vars to be preserved, got %v", env)
+	// Unrelated host secrets must not leak through the allowlist.
+	for _, entry := range env {
+		if strings.HasPrefix(entry, "AWS_SECRET_ACCESS_KEY=") || strings.HasPrefix(entry, "GH_TOKEN=") {
+			t.Fatalf("expected host secret to be blocked, got %v", env)
+		}
 	}
 	// User-facing CLAUDE_CODE_* config must reach the child — stripping
 	// CLAUDE_CODE_GIT_BASH_PATH is what broke Claude Code on Windows (#3671).

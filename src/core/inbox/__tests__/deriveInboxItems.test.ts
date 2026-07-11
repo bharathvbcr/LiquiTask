@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { COLUMN_STATUS } from "../../../constants";
 import {
   deriveInboxCounts,
+  derivePermissionInboxItems,
   formatRepairFeedback,
   isAwaitingReview,
   isBlockedRun,
@@ -112,6 +113,8 @@ describe("deriveInboxCounts", () => {
       blocked: 1,
       plans: 0,
       deadLetters: 0,
+      permissions: 0,
+      adoptableSessions: 0,
       actionable: 2,
     });
   });
@@ -122,6 +125,8 @@ describe("deriveInboxCounts", () => {
       blocked: 0,
       plans: 0,
       deadLetters: 0,
+      permissions: 0,
+      adoptableSessions: 0,
       actionable: 0,
     });
   });
@@ -134,6 +139,8 @@ describe("deriveInboxCounts", () => {
       blocked: 0,
       plans: 2,
       deadLetters: 0,
+      permissions: 0,
+      adoptableSessions: 0,
       actionable: 3,
     });
   });
@@ -144,8 +151,59 @@ describe("deriveInboxCounts", () => {
       blocked: 0,
       plans: 0,
       deadLetters: 2,
+      permissions: 0,
+      adoptableSessions: 0,
       actionable: 2,
     });
+  });
+
+  it("counts pending permissions as actionable", () => {
+    expect(deriveInboxCounts([], [], 0, 0, 3)).toEqual({
+      approvals: 0,
+      blocked: 0,
+      plans: 0,
+      deadLetters: 0,
+      permissions: 3,
+      adoptableSessions: 0,
+      actionable: 3,
+    });
+  });
+
+  it("counts adoptable external sessions as actionable", () => {
+    expect(deriveInboxCounts([], [], 0, 0, 0, 2)).toEqual({
+      approvals: 0,
+      blocked: 0,
+      plans: 0,
+      deadLetters: 0,
+      permissions: 0,
+      adoptableSessions: 2,
+      actionable: 2,
+    });
+  });
+});
+
+describe("derivePermissionInboxItems", () => {
+  it("sorts permission prompts newest-first", () => {
+    const older = {
+      requestId: "r-old",
+      runId: "run-1",
+      taskId: "task-1",
+      toolUseId: "r-old",
+      toolName: "Bash",
+      input: {},
+      receivedAt: new Date("2026-07-06T10:00:00Z"),
+    };
+    const newer = {
+      requestId: "r-new",
+      runId: "run-2",
+      taskId: "task-2",
+      toolUseId: "r-new",
+      toolName: "Write",
+      input: {},
+      receivedAt: new Date("2026-07-06T12:00:00Z"),
+    };
+    const items = derivePermissionInboxItems([older, newer]);
+    expect(items.map((item) => item.request.requestId)).toEqual(["r-new", "r-old"]);
   });
 });
 

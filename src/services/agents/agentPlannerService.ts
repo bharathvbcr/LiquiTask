@@ -9,6 +9,8 @@
  */
 
 import type { AgentProfile, Task, TaskLink } from "../../../types";
+import { STORAGE_KEYS } from "../../constants";
+import storageService from "../storageService";
 import { getBacklogColumnId } from "../../utils/taskUtils";
 import { generateTaskId } from "../../utils/taskUtils";
 import type { BoardColumn } from "../../../types";
@@ -160,11 +162,39 @@ const MAX_STORED_PLANS = 50;
 let plans: PendingPlan[] = [];
 const planListeners = new Set<PendingPlanListener>();
 
+function revivePlan(raw: PendingPlan & { createdAt: string | Date }): PendingPlan {
+  return {
+    ...raw,
+    createdAt: raw.createdAt instanceof Date ? raw.createdAt : new Date(raw.createdAt),
+  };
+}
+
+function loadPlansFromStorage(): void {
+  const stored = storageService.get<Array<PendingPlan & { createdAt: string }>>(
+    STORAGE_KEYS.AGENT_PENDING_PLANS,
+    [],
+  );
+  plans = (stored ?? []).map(revivePlan);
+}
+
+function persistPlans(): void {
+  void storageService.set(
+    STORAGE_KEYS.AGENT_PENDING_PLANS,
+    plans.map((plan) => ({
+      ...plan,
+      createdAt: plan.createdAt.toISOString(),
+    })),
+  );
+}
+
+loadPlansFromStorage();
+
 function notifyPlanListeners(): void {
   const snapshot = getPendingPlans();
   planListeners.forEach((l) => {
     l(snapshot);
   });
+  persistPlans();
 }
 
 export function getPendingPlans(): PendingPlan[] {

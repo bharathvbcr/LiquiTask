@@ -124,8 +124,11 @@ describe("App Integration", () => {
     version: "2.1.0",
   };
 
+  const storedValues = new Map<string, unknown>();
+
   beforeEach(() => {
     vi.clearAllMocks();
+    storedValues.clear();
     localStorage.clear();
     sessionStorage.clear();
     window.desktopAPI = undefined;
@@ -134,10 +137,15 @@ describe("App Integration", () => {
     mockInitialize.mockResolvedValue(undefined);
     mockGetAllData.mockReturnValue(mockData);
     mockGet.mockImplementation((key: string, def: any) => {
+      if (storedValues.has(key)) return storedValues.get(key);
       if (key.includes("activeProjectId")) return "p1";
       if (key.includes("projects")) return mockData.projects;
       if (key.includes("aiConfig")) return { provider: "gemini" };
+      if (key.includes("ai-features-enabled")) return def;
       return def;
+    });
+    mockSet.mockImplementation((key: string, value: unknown) => {
+      storedValues.set(key, value);
     });
   });
 
@@ -226,5 +234,87 @@ describe("App Integration", () => {
       expect(screen.queryByText("AI Assistant")).toBeNull();
       expect(screen.queryByLabelText(/AI Assistant/i)).toBeNull();
     });
+  }, 15000);
+
+  it("hides AI and agent surfaces when AI features are disabled in storage", async () => {
+    mockGet.mockImplementation((key: string, def: any) => {
+      if (key === "liquitask-ai-features-enabled") return false;
+      if (key.includes("activeProjectId")) return "p1";
+      if (key.includes("projects")) return mockData.projects;
+      if (key.includes("aiConfig")) return { provider: "gemini" };
+      return def;
+    });
+
+    await renderApp();
+    await waitFor(() => expect(screen.queryByText(/Loading/i)).not.toBeInTheDocument());
+
+    expect(screen.queryByText("AI Assistant")).toBeNull();
+    expect(screen.queryByRole("button", { name: /^inbox$/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^agents$/i })).toBeNull();
+    expect(screen.getByRole("button", { name: /^board$/i })).toBeInTheDocument();
+  }, 15000);
+
+  it("shows the experience choice gate on a fresh install", async () => {
+    const freshData = {
+      ...mockData,
+      projects: [],
+      tasks: [],
+      activeProjectId: "",
+    };
+    mockGetAllData.mockReturnValue(freshData);
+    mockGet.mockImplementation((key: string, def: any) => {
+      if (storedValues.has(key)) return storedValues.get(key);
+      if (key.includes("projects")) return freshData.projects;
+      if (key.includes("tasks")) return freshData.tasks;
+      if (key.includes("activeProjectId")) return "";
+      return def;
+    });
+
+    await renderApp();
+    await waitFor(() => {
+      expect(screen.getByText("Choose Your Experience")).toBeInTheDocument();
+    });
+    expect(screen.queryByLabelText(/Settings/i)).not.toBeInTheDocument();
+  }, 15000);
+
+  it("persists simple mode when chosen on fresh install", async () => {
+    const freshData = {
+      ...mockData,
+      projects: [],
+      tasks: [],
+      activeProjectId: "",
+    };
+    mockGetAllData.mockReturnValue(freshData);
+    mockGet.mockImplementation((key: string, def: any) => {
+      if (storedValues.has(key)) return storedValues.get(key);
+      if (key.includes("projects")) return freshData.projects;
+      if (key.includes("tasks")) return freshData.tasks;
+      if (key.includes("activeProjectId")) return "";
+      return def;
+    });
+
+    await renderApp();
+    await waitFor(() => {
+      expect(screen.getByText("Use Simple Mode")).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Use Simple Mode"));
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText("Choose Your Experience")).not.toBeInTheDocument();
+    });
+
+    expect(storedValues.get("liquitask-ai-features-enabled")).toBe(false);
+    expect(storedValues.get("liquitask-onboarding-experience-chosen")).toBe(true);
+  }, 15000);
+
+  it("skips the experience choice gate for existing installs with projects", async () => {
+    await renderApp();
+    await waitFor(() => expect(screen.queryByText(/Loading/i)).not.toBeInTheDocument());
+
+    expect(screen.queryByText("Choose Your Experience")).not.toBeInTheDocument();
+    expect(storedValues.get("liquitask-onboarding-experience-chosen")).toBe(true);
   }, 15000);
 });

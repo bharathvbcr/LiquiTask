@@ -58,6 +58,10 @@ func (b *kimiBackend) Execute(ctx context.Context, prompt string, opts ExecOptio
 	kimiArgs := append([]string{"acp"}, filterCustomArgs(opts.CustomArgs, kimiBlockedArgs, b.cfg.Logger)...)
 	cmd := exec.CommandContext(runCtx, execPath, kimiArgs...)
 	hideAgentWindow(cmd)
+	if err := PrepareManagedCommand(cmd, opts, 10*time.Second); err != nil {
+		cancel()
+		return nil, err
+	}
 	b.cfg.Logger.Info("agent command", "exec", execPath, "args", kimiArgs)
 	if opts.Cwd != "" {
 		cmd.Dir = opts.Cwd
@@ -121,6 +125,7 @@ func (b *kimiBackend) Execute(ctx context.Context, prompt string, opts ExecOptio
 		stdin:        stdin,
 		pending:      make(map[int]*pendingRPC),
 		pendingTools: make(map[string]*pendingToolCall),
+		permOpts:     opts,
 		onMessage: func(msg Message) {
 			// hermesClient.handleToolCallStart has already mapped
 			// the raw ACP title via hermesToolNameFromTitle — which

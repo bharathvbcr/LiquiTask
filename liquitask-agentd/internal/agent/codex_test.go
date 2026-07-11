@@ -26,6 +26,7 @@ func newTestCodexClient(t *testing.T) (*codexClient, *fakeStdin, []Message) {
 	c := &codexClient{
 		cfg:         Config{Logger: slog.Default()},
 		stdin:       fs,
+		permOpts:    ExecOptions{AutoApprove: true},
 		pending:     make(map[int]*pendingRPC),
 		processDone: make(chan struct{}),
 		onMessage: func(msg Message) {

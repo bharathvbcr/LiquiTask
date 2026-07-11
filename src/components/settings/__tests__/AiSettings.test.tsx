@@ -17,18 +17,27 @@ vi.mock("../../../services/storageService", () => ({
   },
 }));
 
-vi.mock("../../../services/aiService", () => ({
-  aiService: {
-    testProviderConnection: vi.fn(),
-    listModels: vi.fn().mockResolvedValue([]),
-    pullModel: vi.fn(),
-    getAutoOrganizeConfig: vi.fn().mockReturnValue({
-      enabled: false,
-      operations: { clustering: true },
-    }),
-    saveAutoOrganizeConfig: vi.fn(),
-  },
+vi.mock("../../../services/nativeBridge", () => ({
+  nativeClaudeHealth: vi.fn().mockResolvedValue({ ok: false }),
+  nativeClaudeModels: vi.fn().mockResolvedValue({ models: [], source: "static" }),
 }));
+
+vi.mock("../../../services/aiService", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../../services/aiService")>();
+  return {
+    ...actual,
+    aiService: {
+      testProviderConnection: vi.fn(),
+      listModels: vi.fn().mockResolvedValue([]),
+      pullModel: vi.fn(),
+      getAutoOrganizeConfig: vi.fn().mockReturnValue({
+        enabled: false,
+        operations: { clustering: true },
+      }),
+      saveAutoOrganizeConfig: vi.fn(),
+    },
+  };
+});
 
 // Mock electronAPI
 (global as any).window.electronAPI = {
@@ -56,6 +65,7 @@ describe("AiSettings Component", () => {
     await renderAiSettings();
     expect(screen.getByText("Google Gemini")).toBeDefined();
     expect(screen.getByText("Ollama")).toBeDefined();
+    expect(screen.getByText("Claude Code")).toBeDefined();
   });
 
   it("shows Gemini fields by default and saves config", async () => {
@@ -184,5 +194,16 @@ describe("AiSettings Component", () => {
       expect(screen.getByText("/test/path")).toBeDefined();
       expect(screen.getByText("Add Workspace Folder")).toBeDefined();
     });
+  });
+
+  it("shows Claude Code model picker with friendly labels when selected", async () => {
+    await renderAiSettings();
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Claude Code"));
+    });
+
+    expect(await screen.findByRole("option", { name: "Claude Sonnet 4.6" })).toBeDefined();
+    expect(screen.getByText(/Same runtime as agent teammates/)).toBeDefined();
   });
 });

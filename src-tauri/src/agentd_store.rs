@@ -1,7 +1,7 @@
 //! SQLite index for agentd runs/events/agents (Rework Plan §3.3).
 //!
 //! Deliberately separate from `run_store.rs`, which stays a file-based journal
-//! for the legacy claude-only `agent_runner.rs` path. This module is the
+//! for the DevCouncil council-runner path. This module is the
 //! queryable local store the new agentd-routed runs write into as events
 //! stream in over the JSON-RPC bridge (`agentd.rs`), so later phases (Inbox,
 //! Agents surface, DevCouncil evidence graph) have one place to query run
@@ -39,6 +39,12 @@ pub struct StoredRun {
     pub started_at_ms: i64,
     pub finished_at_ms: Option<i64>,
     pub session_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cost_usd: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub input_tokens: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub output_tokens: Option<i64>,
 }
 
 #[derive(Serialize, Clone)]
@@ -108,7 +114,13 @@ fn db_path(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(dir.join(DB_FILE))
 }
 
+fn configure_sqlite(conn: &Connection) -> Result<(), String> {
+    conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;")
+        .map_err(|e| format!("Failed to configure SQLite: {e}"))
+}
+
 fn init_schema(conn: &Connection) -> Result<(), String> {
+    configure_sqlite(conn)?;
     conn.execute_batch(
         "
         CREATE TABLE IF NOT EXISTS runs (
@@ -122,7 +134,12 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
             finished_at_ms  INTEGER,
             exit_code       INTEGER,
             session_id      TEXT,
-            duration_ms     INTEGER
+            duration_ms     INTEGER,
+            cost_usd        REAL,
+            input_tokens    INTEGER,
+            output_tokens   INTEGER,
+            cache_read_tokens INTEGER,
+            cache_write_tokens INTEGER
         );
         CREATE INDEX IF NOT EXISTS idx_runs_task_id ON runs(task_id);
         CREATE INDEX IF NOT EXISTS idx_runs_status ON runs(status);
@@ -173,7 +190,87 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
         );
         ",
     )
-    .map_err(|e| format!("Failed to init agentd store schema: {e}"))
+    .map_err(|e| format!("Failed to init agentd store schema: {e}"))?;
+    migrate_schema(conn)
+}
+
+/// Additive columns for existing databases (ignore duplicate-column errors).
+fn migrate_schema(conn: &Connection) -> Result<(), String> {
+    for ddl in [
+        "ALTER TABLE runs ADD COLUMN cost_usd REAL",
+        "ALTER TABLE runs ADD COLUMN input_tokens INTEGER",
+        "ALTER TABLE runs ADD COLUMN output_tokens INTEGER",
+        "ALTER TABLE runs ADD COLUMN cache_read_tokens INTEGER",
+        "ALTER TABLE runs ADD COLUMN cache_write_tokens INTEGER",
+    ] {
+        let _ = conn.execute(ddl, []);
+    }
+    Ok(())
+}
+
+#[derive(Default, Debug, Clone)]
+struct TokenTotals {
+    input_tokens: i64,
+    output_tokens: i64,
+    cache_read_tokens: i64,
+    cache_write_tokens: i64,
+}
+
+/// Per-million-token USD rates (Claude family — approximate list prices).
+fn model_rates(model: &str) -> (f64, f64, f64, f64) {
+    let m = model.to_ascii_lowercase();
+    if m.contains("opus") {
+        (15.0, 75.0, 1.5, 18.75)
+    } else if m.contains("haiku") {
+        (0.25, 1.25, 0.03, 0.30)
+    } else {
+        // sonnet / default
+        (3.0, 15.0, 0.3, 3.75)
+    }
+}
+
+fn parse_usage(payload: &Value) -> TokenTotals {
+    let mut totals = TokenTotals::default();
+    let Some(usage) = payload.get("usage").and_then(Value::as_object) else {
+        return totals;
+    };
+    for (_model, entry) in usage {
+        let Some(obj) = entry.as_object() else {
+            continue;
+        };
+        totals.input_tokens += obj.get("inputTokens").and_then(Value::as_i64).unwrap_or(0);
+        totals.output_tokens += obj.get("outputTokens").and_then(Value::as_i64).unwrap_or(0);
+        totals.cache_read_tokens += obj.get("cacheReadTokens").and_then(Value::as_i64).unwrap_or(0);
+        totals.cache_write_tokens += obj.get("cacheWriteTokens").and_then(Value::as_i64).unwrap_or(0);
+    }
+    totals
+}
+
+fn estimate_cost_usd(payload: &Value, totals: &TokenTotals) -> Option<f64> {
+    if totals.input_tokens == 0
+        && totals.output_tokens == 0
+        && totals.cache_read_tokens == 0
+        && totals.cache_write_tokens == 0
+    {
+        return None;
+    }
+    let usage = payload.get("usage").and_then(Value::as_object)?;
+    let mut cost = 0.0f64;
+    for (model, entry) in usage {
+        let Some(obj) = entry.as_object() else {
+            continue;
+        };
+        let input = obj.get("inputTokens").and_then(Value::as_i64).unwrap_or(0);
+        let output = obj.get("outputTokens").and_then(Value::as_i64).unwrap_or(0);
+        let cache_read = obj.get("cacheReadTokens").and_then(Value::as_i64).unwrap_or(0);
+        let cache_write = obj.get("cacheWriteTokens").and_then(Value::as_i64).unwrap_or(0);
+        let (in_rate, out_rate, cache_read_rate, cache_write_rate) = model_rates(model);
+        cost += (input as f64 / 1_000_000.0) * in_rate;
+        cost += (output as f64 / 1_000_000.0) * out_rate;
+        cost += (cache_read as f64 / 1_000_000.0) * cache_read_rate;
+        cost += (cache_write as f64 / 1_000_000.0) * cache_write_rate;
+    }
+    Some(cost)
 }
 
 fn now_ms() -> i64 {
@@ -237,10 +334,25 @@ impl AgentdStore {
                     .to_string();
                 let session_id = payload.get("sessionId").and_then(Value::as_str);
                 let duration_ms = payload.get("durationMs").and_then(Value::as_i64);
+                let totals = parse_usage(payload);
+                let cost_usd = estimate_cost_usd(payload, &totals);
                 conn.execute(
-                    "UPDATE runs SET status = ?1, finished_at_ms = ?2, session_id = COALESCE(?3, session_id), duration_ms = ?4
+                    "UPDATE runs SET status = ?1, finished_at_ms = ?2, session_id = COALESCE(?3, session_id), duration_ms = ?4,
+                     cost_usd = COALESCE(?6, cost_usd), input_tokens = ?7, output_tokens = ?8,
+                     cache_read_tokens = ?9, cache_write_tokens = ?10
                      WHERE run_id = ?5",
-                    rusqlite::params![status, now_ms(), session_id, duration_ms, run_id],
+                    rusqlite::params![
+                        status,
+                        now_ms(),
+                        session_id,
+                        duration_ms,
+                        run_id,
+                        cost_usd,
+                        totals.input_tokens,
+                        totals.output_tokens,
+                        totals.cache_read_tokens,
+                        totals.cache_write_tokens,
+                    ],
                 )
                 .map_err(|e| format!("Failed to finalize run: {e}"))?;
             }
@@ -277,7 +389,8 @@ impl AgentdStore {
         self.with_conn(app, |conn| {
             let mut stmt = conn
                 .prepare(
-                    "SELECT run_id, task_id, runtime, model, cwd, status, started_at_ms, finished_at_ms, session_id
+                    "SELECT run_id, task_id, runtime, model, cwd, status, started_at_ms, finished_at_ms, session_id,
+                            cost_usd, input_tokens, output_tokens
                      FROM runs ORDER BY started_at_ms DESC LIMIT ?1",
                 )
                 .map_err(|e| e.to_string())?;
@@ -293,6 +406,9 @@ impl AgentdStore {
                         started_at_ms: row.get(6)?,
                         finished_at_ms: row.get(7)?,
                         session_id: row.get(8)?,
+                        cost_usd: row.get(9)?,
+                        input_tokens: row.get(10)?,
+                        output_tokens: row.get(11)?,
                     })
                 })
                 .map_err(|e| e.to_string())?;
@@ -538,6 +654,34 @@ mod tests {
         let conn = Connection::open_in_memory().expect("open in-memory db");
         init_schema(&conn).expect("init schema");
         conn
+    }
+
+    #[test]
+    fn estimate_cost_from_usage_payload() {
+        let payload = serde_json::json!({
+            "status": "completed",
+            "usage": {
+                "claude-sonnet-4": {
+                    "inputTokens": 1_000_000,
+                    "outputTokens": 500_000,
+                    "cacheReadTokens": 0,
+                    "cacheWriteTokens": 0
+                }
+            }
+        });
+        let totals = parse_usage(&payload);
+        assert_eq!(totals.input_tokens, 1_000_000);
+        assert_eq!(totals.output_tokens, 500_000);
+        let cost = estimate_cost_usd(&payload, &totals).expect("cost");
+        // 1M input @ $3 + 0.5M output @ $15 = 3 + 7.5 = 10.5
+        assert!((cost - 10.5).abs() < 0.001);
+    }
+
+    #[test]
+    fn parse_usage_empty_when_missing() {
+        let totals = parse_usage(&serde_json::json!({}));
+        assert_eq!(totals.input_tokens, 0);
+        assert!(estimate_cost_usd(&serde_json::json!({}), &totals).is_none());
     }
 
     #[test]

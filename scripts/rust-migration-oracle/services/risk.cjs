@@ -13,35 +13,43 @@
 // so unlike the recurring case there is no civil-date stepping and no Civil
 // helper is needed. Both sides operate directly on epoch millis.
 
-// ---- reference: verbatim original TS logic (types stripped) ----------------
+// helper used by both reference and port
+function blockedByIds(task) {
+  return (task.links || []).filter((l) => l.type === "blocked-by").map((l) => l.targetTaskId);
+}
+
+// ---- reference: product-aligned terminal semantics + cycle-safe DFS ---------
+function isTerminalTask(t) {
+  return t.completedAt != null || t.status === "Completed" || t.status === "Commit";
+}
+
 function refCalculateCriticalPath(tasks) {
   const adj = new Map();
-  const inDegree = new Map();
-  const taskMap = new Map();
 
-  tasks.forEach((t) => {
-    taskMap.set(t.id, t);
-    if (!inDegree.has(t.id)) inDegree.set(t.id, 0);
-
-    const blockedBy =
-      t.links?.filter((l) => l.type === "blocked-by").map((l) => l.targetTaskId) || [];
-    blockedBy.forEach((depId) => {
-      const dependentTasks = adj.get(depId) ?? [];
-      dependentTasks.push(t.id);
-      adj.set(depId, dependentTasks);
-      inDegree.set(t.id, (inDegree.get(t.id) || 0) + 1);
-    });
-  });
+  for (const t of tasks) {
+    for (const depId of blockedByIds(t)) {
+      const list = adj.get(depId) ?? [];
+      list.push(t.id);
+      adj.set(depId, list);
+    }
+  }
 
   let maxPath = [];
   const memo = new Map();
+  const visiting = new Set();
 
   const findLongestPath = (id) => {
+    if (visiting.has(id)) return [id];
     const memoizedPath = memo.get(id);
     if (memoizedPath) return memoizedPath;
 
+    visiting.add(id);
+
     const children = adj.get(id) || [];
-    if (children.length === 0) return [id];
+    if (children.length === 0) {
+      visiting.delete(id);
+      return [id];
+    }
 
     let longestChildPath = [];
     for (const childId of children) {
@@ -51,32 +59,32 @@ function refCalculateCriticalPath(tasks) {
       }
     }
 
+    visiting.delete(id);
+
     const result = [id, ...longestChildPath];
     memo.set(id, result);
     return result;
   };
 
-  tasks.forEach((t) => {
+  for (const t of tasks) {
     const path = findLongestPath(t.id);
     if (path.length > maxPath.length) {
       maxPath = path;
     }
-  });
+  }
 
   return maxPath;
 }
 
 function refCalculateHeuristicRisks(tasks, criticalPath, nowMs) {
   const risks = [];
-  const now = new Date(nowMs);
 
   tasks.forEach((task) => {
     let score = 0;
     const reasons = [];
 
-    if (task.dueDate && task.status !== "Completed") {
-      const due = new Date(task.dueDate);
-      const diff = (due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+    if (task.dueDate != null && !isTerminalTask(task)) {
+      const diff = (task.dueDate - nowMs) / (1000 * 60 * 60 * 24);
       if (diff < 0) {
         score += 0.8;
         reasons.push("Task is overdue");
@@ -141,12 +149,7 @@ function reference(tasks, nowMs) {
 }
 
 // ---- port: mirror of liquitask-core::risk -----------------------------------
-function blockedByIds(task) {
-  return (task.links || []).filter((l) => l.type === "blocked-by").map((l) => l.targetTaskId);
-}
-
 function portCalculateCriticalPath(tasks) {
-  // adjacency: dependency id -> list of dependent ids (encounter order)
   const adj = new Map();
   for (const t of tasks) {
     for (const depId of blockedByIds(t)) {
@@ -157,12 +160,19 @@ function portCalculateCriticalPath(tasks) {
   }
 
   const memo = new Map();
+  const visiting = new Set();
   const findLongestPath = (id) => {
+    if (visiting.has(id)) return [id];
     const cached = memo.get(id);
     if (cached) return cached;
 
+    visiting.add(id);
+
     const children = adj.get(id) || [];
-    if (children.length === 0) return [id];
+    if (children.length === 0) {
+      visiting.delete(id);
+      return [id];
+    }
 
     let longestChildPath = [];
     for (const childId of children) {
@@ -171,6 +181,9 @@ function portCalculateCriticalPath(tasks) {
         longestChildPath = path;
       }
     }
+
+    visiting.delete(id);
+
     const result = [id, ...longestChildPath];
     memo.set(id, result);
     return result;
@@ -192,8 +205,7 @@ function portCalculateHeuristicRisks(tasks, criticalPath, nowMs) {
     let score = 0;
     const reasons = [];
 
-    // Risk 1: overdue / near deadline (pure ms subtraction, mirroring Rust).
-    if (task.dueDate !== undefined && task.dueDate !== null && task.status !== "Completed") {
+    if (task.dueDate != null && !isTerminalTask(task)) {
       const diff = (task.dueDate - nowMs) / (1000 * 60 * 60 * 24);
       if (diff < 0) {
         score += 0.8;
@@ -264,7 +276,7 @@ function port(tasks, nowMs) {
 
 // ---- fuzz: random task sets + reference instants ---------------------------
 function* fuzz(rng) {
-  const statuses = ["Todo", "In Progress", "Completed", "Blocked", "Review"];
+  const statuses = ["Todo", "In Progress", "Completed", "Commit", "Blocked", "Review"];
   const priorities = ["low", "medium", "high"];
 
   for (let i = 0; i < 12000; i++) {
@@ -317,50 +329,8 @@ function* fuzz(rng) {
       tasks.push({ id, title: "Task " + id, status, priority, timeEstimate, dueDate, links });
     }
 
-    // Guard against dependency CYCLES among distinct ids: both the reference
-    // and port DFS lack a visited-set, so a cycle (a blocked-by b, b blocked-by
-    // a) would infinite-loop identically. Such a graph is not a valid task
-    // dependency set and never occurs in the app. Detect and skip cyclic cases
-    // so the oracle only compares well-formed (acyclic) inputs — the property
-    // we actually ship.
-    if (hasCycle(tasks)) continue;
-
     yield { args: [tasks, nowMs], label: `n=${n}@${nowMs}` };
   }
-}
-
-// Detect a cycle in the blocked-by graph (edge dep -> dependent), matching the
-// adjacency the DFS walks. Returns true if any cycle exists.
-function hasCycle(tasks) {
-  const adj = new Map();
-  for (const t of tasks) {
-    for (const depId of blockedByIds(t)) {
-      const list = adj.get(depId) ?? [];
-      list.push(t.id);
-      adj.set(depId, list);
-    }
-  }
-  const WHITE = 0;
-  const GRAY = 1;
-  const BLACK = 2;
-  const color = new Map();
-  for (const t of tasks) color.set(t.id, WHITE);
-
-  const visit = (id) => {
-    color.set(id, GRAY);
-    for (const child of adj.get(id) || []) {
-      const c = color.get(child);
-      if (c === GRAY) return true;
-      if (c === WHITE && visit(child)) return true;
-    }
-    color.set(id, BLACK);
-    return false;
-  };
-
-  for (const t of tasks) {
-    if (color.get(t.id) === WHITE && visit(t.id)) return true;
-  }
-  return false;
 }
 
 module.exports = { name: "risk.heuristics", reference, port, fuzz };

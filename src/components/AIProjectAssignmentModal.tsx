@@ -1,11 +1,13 @@
 import { ArrowRight, Brain, CheckCircle2, Globe, Loader2 } from "lucide-react";
 import type React from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ModalWrapper } from "./ModalWrapper";
 import type { AIContext, PriorityDefinition, Project, Task } from "../../types";
 import { STORAGE_KEYS } from "../constants";
+import { useConfirmation } from "../contexts/ConfirmationContext";
 import { aiService } from "../services/aiService";
 import storageService from "../services/storageService";
+import { filterProjectAssignments } from "../utils/aiModalTrust";
 
 interface AIProjectAssignmentModalProps {
   isOpen: boolean;
@@ -32,9 +34,27 @@ export const AIProjectAssignmentModal: React.FC<AIProjectAssignmentModalProps> =
   onUpdateTask,
   addToast,
 }) => {
+  const { confirm } = useConfirmation();
   const [suggestions, setSuggestions] = useState<AssignmentSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [applying, setApplying] = useState(false);
+  const isMountedRef = useRef(true);
+  const onCloseRef = useRef(onClose);
+  const addToastRef = useRef(addToast);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+  useEffect(() => {
+    addToastRef.current = addToast;
+  }, [addToast]);
 
   const loadSuggestions = useCallback(async () => {
     setLoading(true);
@@ -49,26 +69,28 @@ export const AIProjectAssignmentModal: React.FC<AIProjectAssignmentModalProps> =
       };
 
       const assignmentSuggestions = await aiService.suggestProjectReassignment(allTasks, context);
+      const trusted = filterProjectAssignments(assignmentSuggestions, allTasks, projects);
 
-      const formattedSuggestions: AssignmentSuggestion[] = assignmentSuggestions.map(
-        (suggestion) => ({
-          taskId: suggestion.taskId,
-          suggestedProjectId: suggestion.suggestedProjectId,
-          confidence: suggestion.confidence,
-          reasoning: suggestion.reasoning,
-          approved: false,
-        }),
-      );
+      if (!isMountedRef.current) return;
+
+      const formattedSuggestions: AssignmentSuggestion[] = trusted.map((suggestion) => ({
+        taskId: suggestion.taskId,
+        suggestedProjectId: suggestion.suggestedProjectId,
+        confidence: suggestion.confidence,
+        reasoning: suggestion.reasoning,
+        approved: false,
+      }));
 
       setSuggestions(formattedSuggestions);
     } catch (error) {
+      if (!isMountedRef.current) return;
       console.error("Failed to generate project assignment suggestions:", error);
-      addToast("Failed to generate project suggestions", "error");
-      onClose();
+      addToastRef.current("Failed to generate project suggestions", "error");
+      onCloseRef.current();
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) setLoading(false);
     }
-  }, [allTasks, projects, addToast, onClose]);
+  }, [allTasks, projects]);
 
   useEffect(() => {
     if (isOpen) {
@@ -92,11 +114,26 @@ export const AIProjectAssignmentModal: React.FC<AIProjectAssignmentModalProps> =
       return;
     }
 
+    const confirmed = await confirm({
+      title: "Apply project assignments?",
+      message: `This will reassign ${approvedSuggestions.length} task${
+        approvedSuggestions.length > 1 ? "s" : ""
+      } to new projects.`,
+      confirmText: "Apply Assignments",
+      variant: "warning",
+    });
+    if (!confirmed) return;
+
     setApplying(true);
     try {
       let successCount = 0;
+      const knownTaskIds = new Set(allTasks.map((t) => t.id));
+      const knownProjectIds = new Set(projects.map((p) => p.id));
 
       for (const suggestion of approvedSuggestions) {
+        if (!knownTaskIds.has(suggestion.taskId)) continue;
+        if (!knownProjectIds.has(suggestion.suggestedProjectId)) continue;
+
         try {
           onUpdateTask(suggestion.taskId, { projectId: suggestion.suggestedProjectId });
           successCount++;
@@ -110,13 +147,13 @@ export const AIProjectAssignmentModal: React.FC<AIProjectAssignmentModalProps> =
           `Successfully reassigned ${successCount} task${successCount > 1 ? "s" : ""} to new projects`,
           "success",
         );
-        loadSuggestions(); // Refresh to show remaining suggestions
+        if (isMountedRef.current) loadSuggestions();
       }
     } catch (error) {
       console.error("Failed to apply assignments:", error);
       addToast("Failed to apply some assignments", "error");
     } finally {
-      setApplying(false);
+      if (isMountedRef.current) setApplying(false);
     }
   };
 
@@ -172,7 +209,7 @@ export const AIProjectAssignmentModal: React.FC<AIProjectAssignmentModalProps> =
               <div className="flex gap-2">
                 <button
                   onClick={approveAll}
-                  className="px-3 py-1.5 text-xs font-medium text-white bg-green-500/20 hover:bg-green-500/30 rounded-lg transition-colors"
+                  className="px-3 py-1.5 text-xs font-medium text-slate-300 bg-white/5 border border-white/10 hover:bg-white/10 rounded-lg transition-colors"
                 >
                   Approve All (Confidence ≥ 70%)
                 </button>
@@ -211,7 +248,7 @@ export const AIProjectAssignmentModal: React.FC<AIProjectAssignmentModalProps> =
                 <button
                   onClick={applyApprovedAssignments}
                   disabled={applying || !suggestions.some((s) => s.approved)}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-slate-950 rounded-lg text-sm font-bold shadow-lg shadow-blue-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="liquid-button flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {applying ? (
                     <Loader2 size={16} className="animate-spin" />
@@ -250,12 +287,12 @@ const AssignmentSuggestionCard: React.FC<AssignmentSuggestionCardProps> = ({
   return (
     <div
       className={`relative bg-white/5 border rounded-xl p-4 transition-all ${
-        suggestion.approved ? "border-blue-500/50 bg-blue-500/5" : "border-white/10"
+        suggestion.approved ? "border-red-500/50 bg-red-500/5" : "border-white/10"
       }`}
     >
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
-          <Brain size={16} className="text-blue-500" />
+          <Brain size={16} className="text-red-400" />
           <span className="text-sm font-medium text-white">Reassign Task</span>
           <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded">
             {Math.round(suggestion.confidence * 100)}% confidence
@@ -265,7 +302,7 @@ const AssignmentSuggestionCard: React.FC<AssignmentSuggestionCardProps> = ({
           onClick={onToggleApproval}
           className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
             suggestion.approved
-              ? "bg-blue-500 text-slate-950"
+              ? "bg-red-500 text-slate-950"
               : "bg-white/5 text-slate-400 hover:text-white hover:bg-white/10"
           }`}
         >
@@ -283,12 +320,12 @@ const AssignmentSuggestionCard: React.FC<AssignmentSuggestionCardProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
-          <ArrowRight size={16} className="text-blue-500" />
+          <ArrowRight size={16} className="text-slate-400" />
           <span className="text-xs text-slate-400">should be moved to</span>
         </div>
 
         <div className="flex items-center gap-3 p-2 bg-slate-800/50 rounded-lg">
-          <div className="w-2 h-2 rounded-full bg-blue-500" />
+          <div className="w-2 h-2 rounded-full bg-white/40" />
           <div className="flex-1">
             <p className="text-sm text-white font-medium">{suggestedProject.name}</p>
             <p className="text-xs text-slate-400">Suggested project</p>
@@ -299,9 +336,9 @@ const AssignmentSuggestionCard: React.FC<AssignmentSuggestionCardProps> = ({
       {suggestion.reasoning && (
         <div className="mt-3 p-3 bg-slate-800/30 border border-slate-700 rounded-lg">
           <div className="flex items-start gap-2">
-            <Brain size={14} className="text-blue-400 mt-0.5 flex-shrink-0" />
+            <Brain size={14} className="text-red-400 mt-0.5 flex-shrink-0" />
             <div>
-              <p className="text-xs font-medium text-blue-400 mb-1">AI Analysis</p>
+              <p className="text-xs font-medium text-red-400 mb-1">AI Analysis</p>
               <p className="text-xs text-slate-300">{suggestion.reasoning}</p>
             </div>
           </div>

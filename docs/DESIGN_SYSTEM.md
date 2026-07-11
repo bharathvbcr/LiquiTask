@@ -87,7 +87,9 @@ Lucide glyph. **No emoji, ever** — meaning is carried by icons and color.
 Confident, technical, product-precise. The UI speaks in imperative to the user ("Add task or
 paste an image…", "Requires attention"), rarely first-person. Copy is dense and
 keyboard-forward: surface shortcuts inline ("Command Palette (Cmd+K)"), and treat the quick-add
-syntax (`!high #project +tag ~2h @today >agent`) as its own little language.
+syntax (`!high #project +tag ~2h @today >agent`) as its own little language. Quick Add lives
+in the **New Task** form (`TaskFormModal` + `QuickAddPreview`), opened with `C` or
+`Cmd/Ctrl + Shift + N`.
 
 ## Floating layers (docks, popovers, palettes)
 
@@ -102,3 +104,6 @@ Before shipping a component, check: surfaces use a `.liquid-*` tier or white-alp
 slate/solid backgrounds); the only saturated accent is red, applied to at most the primary
 action; labels follow the eyebrow/Title Case rules; inputs use `.liquid-input`; icons are
 Lucide with no emoji; hover states lighten and lift; and anything floating collapses politely.
+
+**Onboarding:** `ExperienceChoiceGate` is the reference for first-run full-screen gates — two
+`.liquid-card` choices on a warm canvas, no dismiss, Title Case headings, uppercase eyebrows.

@@ -8,7 +8,7 @@ import {
   type TransitionContext,
 } from "../boardStateMachine";
 
-const { TASK, IN_PROGRESS, COMPLETED, COMMIT } = COLUMN_STATUS;
+const { TASK, IN_PROGRESS, COMPLETED, IN_REVIEW, COMMIT } = COLUMN_STATUS;
 
 const user = (extra: Partial<TransitionContext> = {}): TransitionContext => ({
   actor: "user",
@@ -18,10 +18,15 @@ const agent = (extra: Partial<TransitionContext> = {}): TransitionContext => ({
   actor: "agent",
   ...extra,
 });
+const system = (extra: Partial<TransitionContext> = {}): TransitionContext => ({
+  actor: "system",
+  ...extra,
+});
 
 describe("boardStateMachine", () => {
-  it("recognises the four canonical statuses", () => {
+  it("recognises the five canonical statuses", () => {
     expect(isCanonicalStatus(TASK)).toBe(true);
+    expect(isCanonicalStatus(IN_REVIEW)).toBe(true);
     expect(isCanonicalStatus(COMMIT)).toBe(true);
     expect(isCanonicalStatus("col-123456")).toBe(false);
   });
@@ -30,11 +35,56 @@ describe("boardStateMachine", () => {
     expect(ALLOWED_TRANSITIONS[COMMIT]).toEqual([]);
   });
 
+  it("allows Completed → InReview for users and system with an open PR", () => {
+    expect(validateTransition(COMPLETED, IN_REVIEW, user()).allowed).toBe(true);
+    expect(validateTransition(COMPLETED, IN_REVIEW, system({ hasPrOpen: true })).allowed).toBe(
+      true,
+    );
+    expect(validateTransition(COMPLETED, IN_REVIEW, system({ hasPrOpen: false })).allowed).toBe(
+      false,
+    );
+    expect(
+      validateTransition(COMPLETED, IN_REVIEW, system({ hasPrOpen: false, localReviewerGate: true }))
+        .allowed,
+    ).toBe(true);
+  });
+
+  it("blocks agents from In Review and Commit", () => {
+    expect(validateTransition(COMPLETED, IN_REVIEW, agent()).allowed).toBe(false);
+    expect(validateTransition(IN_REVIEW, COMMIT, agent()).allowed).toBe(false);
+  });
+
+  it("requires PR merge before InReview → Commit unless via merge pipeline", () => {
+    expect(
+      validateTransition(IN_REVIEW, COMMIT, user({ hasPrOpen: true, prMerged: false })).allowed,
+    ).toBe(false);
+    expect(
+      validateTransition(IN_REVIEW, COMMIT, user({ hasPrOpen: true, prMerged: true })).allowed,
+    ).toBe(true);
+    expect(
+      validateTransition(
+        IN_REVIEW,
+        COMMIT,
+        user({ hasPrOpen: true, prMerged: false, viaMergePipeline: true }),
+      ).allowed,
+    ).toBe(true);
+  });
+
   describe("forward flow", () => {
     it("allows Task → InProgress and flags the agent-run side effect", () => {
       const verdict = validateTransition(TASK, IN_PROGRESS, user());
       expect(verdict.allowed).toBe(true);
       expect(verdict.requires).toBe("agent-run");
+    });
+
+    it("requires scope-release when overlapping scope is held", () => {
+      const verdict = validateTransition(
+        TASK,
+        IN_PROGRESS,
+        user({ scopeReservationHeld: true, scopeHeldByLabel: "run on task abc" }),
+      );
+      expect(verdict.allowed).toBe(true);
+      expect(verdict.requires).toBe("scope-release");
     });
 
     it("allows InProgress → Completed", () => {
@@ -50,6 +100,11 @@ describe("boardStateMachine", () => {
     it("rejects Task → Commit and InProgress → Commit", () => {
       expect(validateTransition(TASK, COMMIT, user()).allowed).toBe(false);
       expect(validateTransition(IN_PROGRESS, COMMIT, user()).allowed).toBe(false);
+    });
+
+    it("rejects skipping straight to In Review", () => {
+      expect(validateTransition(TASK, IN_REVIEW, user()).allowed).toBe(false);
+      expect(validateTransition(IN_PROGRESS, IN_REVIEW, user()).allowed).toBe(false);
     });
   });
 
@@ -144,8 +199,9 @@ describe("boardStateMachine", () => {
   });
 
   describe("reverse + custom lanes", () => {
-    it("allows rework (Completed → InProgress) and abort (InProgress → Task)", () => {
+    it("allows rework (Completed/InReview → InProgress) and abort (InProgress → Task)", () => {
       expect(validateTransition(COMPLETED, IN_PROGRESS, user()).allowed).toBe(true);
+      expect(validateTransition(IN_REVIEW, IN_PROGRESS, user()).allowed).toBe(true);
       expect(validateTransition(IN_PROGRESS, TASK, user()).allowed).toBe(true);
     });
 

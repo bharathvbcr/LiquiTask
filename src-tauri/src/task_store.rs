@@ -11,29 +11,31 @@
 //! updated, and the board is rebuilt from this log on boot. Appends are
 //! transactional: a batch lands entirely or not at all.
 //!
-//! ## Snapshot export (additive groundwork)
+//! ## Snapshot store (live read model — Phase 5 SQLite cutover)
 //!
-//! The snapshot half of this module is deliberately **not** a live store. It mirrors the shape of
-//! `Task` / `Project` / `BoardColumn` from `types.ts` (as currently persisted
-//! by `src/services/indexedDBService.ts`) into a brand-new SQLite file
-//! (`tasks_export.sqlite3`) that nothing else reads from yet. It exists so a
-//! future cutover session has a tested schema + a one-way export function to
-//! build the real Phase 5 migration on top of, per the safety requirement
-//! that "task migration is a single cutover in Phase 5 with migrationService
-//! backup" (see `src/services/migrationService.ts` for the existing
-//! backup/restore pattern this mirrors on the TS side).
+//! The snapshot half of this module mirrors the shape of
+//! `Task` / `Project` / `BoardColumn` from `types.ts` into a dedicated SQLite
+//! file (`tasks_export.sqlite3`). As of the Phase 5 cutover it is a **live
+//! read model** behind the TS `FEATURE_FLAGS.TASKS_SQLITE_ENABLED` flag:
+//!
+//! - `task_store_write_snapshot` is the dual-write entry point — the TS
+//!   storage service (`src/services/sqliteTaskStore.ts` via
+//!   `storageService.set`) calls it on every task/project/column mutation,
+//!   fully replacing the affected table(s) transactionally.
+//! - `task_store_read_snapshot` is the boot read path — when the flag is on,
+//!   the renderer hydrates tasks/projects/columns from here (with the native
+//!   key-value store / IndexedDB kept as a read-only fallback for one
+//!   release).
+//! - `task_store_export_snapshot` is the additive upsert used for the
+//!   one-time IndexedDB→SQLite import seed and manual verification.
 //!
 //! Nested/array fields (subtasks, attachments, tags, custom field values,
 //! links, error logs, activity, recurring config, github issue) are
 //! JSON-encoded into TEXT columns, following the same precedent as
 //! `agentd_store.rs` (`payload_json`) and `run_store.rs` (journal entries
-//! serialized as JSON blobs).
-//!
-//! Nothing in this module is wired into `App.tsx`, any hook, or the live
-//! IndexedDB read/write path. The two Tauri commands it exposes
-//! (`task_store_export_snapshot`, `task_store_read_snapshot`) are registered
-//! in `main.rs` purely so they are reachable for manual/integration testing
-//! by a future session.
+//! serialized as JSON blobs). This mirrors the migrationService
+//! backup/restore safety pattern on the TS side
+//! (`src/services/migrationService.ts`).
 
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -176,7 +178,7 @@ pub struct TaskRecord {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub activity: Option<Vec<ActivityItemRecord>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub order: Option<i64>,
+    pub order: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub github_issue: Option<GithubIssueRecord>,
 }
@@ -231,6 +233,15 @@ pub struct SnapshotResult {
     pub columns: Vec<ColumnRecord>,
 }
 
+/// Result of an atomic event-log append + task projection write.
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskCommitResult {
+    pub seqs: Vec<i64>,
+    pub tasks_written: i64,
+    pub tasks_deleted: i64,
+}
+
 fn db_path(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = app
         .path()
@@ -240,7 +251,13 @@ fn db_path(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(dir.join(DB_FILE))
 }
 
+fn configure_sqlite(conn: &Connection) -> Result<(), String> {
+    conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;")
+        .map_err(|e| format!("Failed to configure SQLite: {e}"))
+}
+
 fn init_schema(conn: &Connection) -> Result<(), String> {
+    configure_sqlite(conn)?;
     conn.execute_batch(
         "
         CREATE TABLE IF NOT EXISTS tasks (
@@ -306,6 +323,14 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
         );
         CREATE INDEX IF NOT EXISTS idx_task_events_stream ON task_events(stream_id, seq);
         CREATE INDEX IF NOT EXISTS idx_task_events_type ON task_events(event_type, seq);
+
+        CREATE TABLE IF NOT EXISTS task_event_boot_snapshots (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            upto_seq     INTEGER NOT NULL,
+            tasks_json   TEXT NOT NULL,
+            created_at   TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_task_event_snapshots_seq ON task_event_boot_snapshots(upto_seq DESC);
         ",
     )
     .map_err(|e| format!("Failed to init task store schema: {e}"))
@@ -398,7 +423,62 @@ fn append_events(conn: &mut Connection, events: &[TaskEventIn]) -> Result<Vec<i6
     }
     tx.commit()
         .map_err(|e| format!("Failed to commit event batch: {e}"))?;
+    let _ = maybe_compact_event_log(conn);
     Ok(seqs)
+}
+
+fn delete_task(conn: &Connection, task_id: &str) -> Result<(), String> {
+    conn.execute("DELETE FROM tasks WHERE id = ?1", [task_id])
+        .map_err(|e| format!("Failed to delete task {task_id}: {e}"))?;
+    Ok(())
+}
+
+/// Append events and upsert/delete task projection rows in one SQLite
+/// transaction. Either the whole mutation lands or none of it does.
+fn commit_mutation(
+    conn: &mut Connection,
+    events: &[TaskEventIn],
+    upsert_tasks: &[TaskRecord],
+    delete_task_ids: &[String],
+) -> Result<TaskCommitResult, String> {
+    for event in events {
+        validate_event(event)?;
+    }
+    let tx = conn
+        .transaction()
+        .map_err(|e| format!("Failed to open commit transaction: {e}"))?;
+    let mut seqs = Vec::with_capacity(events.len());
+    for event in events {
+        tx.execute(
+            "INSERT INTO task_events (id, stream_id, event_type, payload, actor, run_id, ts, v)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            rusqlite::params![
+                event.id,
+                event.stream_id,
+                event.event_type,
+                event.payload,
+                event.actor,
+                event.run_id,
+                event.ts,
+                event.v,
+            ],
+        )
+        .map_err(|e| format!("Failed to append event {}: {e}", event.id))?;
+        seqs.push(tx.last_insert_rowid());
+    }
+    for task in upsert_tasks {
+        insert_task(&tx, task)?;
+    }
+    for task_id in delete_task_ids {
+        delete_task(&tx, task_id)?;
+    }
+    tx.commit()
+        .map_err(|e| format!("Failed to commit task mutation: {e}"))?;
+    Ok(TaskCommitResult {
+        seqs,
+        tasks_written: upsert_tasks.len() as i64,
+        tasks_deleted: delete_task_ids.len() as i64,
+    })
 }
 
 fn read_events(
@@ -440,6 +520,90 @@ fn read_events(
 fn count_events(conn: &Connection) -> Result<i64, String> {
     conn.query_row("SELECT COUNT(*) FROM task_events", [], |row| row.get(0))
         .map_err(|e| e.to_string())
+}
+
+/// When the log exceeds this many events, a boot snapshot is written so replay
+/// can start from `upto_seq` instead of seq 0 (EVT-9 / hardening compaction).
+const EVENT_COMPACTION_THRESHOLD: i64 = 5000;
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskEventBootSnapshot {
+    pub upto_seq: i64,
+    pub tasks: Vec<TaskRecord>,
+    pub created_at: String,
+}
+
+fn read_latest_event_snapshot(conn: &Connection) -> Result<Option<TaskEventBootSnapshot>, String> {
+    let row = conn.query_row(
+        "SELECT upto_seq, tasks_json, created_at FROM task_event_boot_snapshots ORDER BY upto_seq DESC LIMIT 1",
+        [],
+        |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+            ))
+        },
+    );
+    match row {
+        Ok((upto_seq, tasks_json, created_at)) => {
+            let tasks: Vec<TaskRecord> =
+                serde_json::from_str(&tasks_json).map_err(|e| format!("Parse snapshot tasks: {e}"))?;
+            Ok(Some(TaskEventBootSnapshot {
+                upto_seq,
+                tasks,
+                created_at,
+            }))
+        }
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+fn write_event_snapshot(conn: &Connection, upto_seq: i64, tasks: &[TaskRecord]) -> Result<(), String> {
+    let tasks_json =
+        serde_json::to_string(tasks).map_err(|e| format!("Serialize snapshot tasks: {e}"))?;
+    let created_at = chrono::Utc::now().to_rfc3339();
+    conn.execute(
+        "INSERT INTO task_event_boot_snapshots (upto_seq, tasks_json, created_at) VALUES (?1, ?2, ?3)",
+        rusqlite::params![upto_seq, tasks_json, created_at],
+    )
+    .map_err(|e| format!("Write event snapshot: {e}"))?;
+    Ok(())
+}
+
+fn maybe_compact_event_log(conn: &Connection) -> Result<(), String> {
+    let total = count_events(conn)?;
+    if total < EVENT_COMPACTION_THRESHOLD {
+        return Ok(());
+    }
+    let events = read_events(conn, None, None)?;
+    if events.is_empty() {
+        return Ok(());
+    }
+    // Replay into task projection for snapshot base.
+    let mut tasks: std::collections::HashMap<String, TaskRecord> = std::collections::HashMap::new();
+    for event in &events {
+        match event.event_type.as_str() {
+            "task.created" | "task.imported" | "task.updated" | "task.moved" => {
+                if let Ok(payload) = serde_json::from_str::<serde_json::Value>(&event.payload) {
+                    if let Some(raw) = payload.get("task") {
+                        if let Ok(task) = serde_json::from_value::<TaskRecord>(raw.clone()) {
+                            tasks.insert(task.id.clone(), task);
+                        }
+                    }
+                }
+            }
+            "task.deleted" => {
+                tasks.remove(&event.stream_id);
+            }
+            _ => {}
+        }
+    }
+    let upto_seq = events.last().map(|e| e.seq).unwrap_or(0);
+    let task_list: Vec<TaskRecord> = tasks.into_values().collect();
+    write_event_snapshot(conn, upto_seq, &task_list)
 }
 
 /// Serialize an `Option<T>` to a JSON string, or `None` when absent — used
@@ -528,6 +692,82 @@ impl TaskStore {
                 projects: read_projects(conn)?,
                 columns: read_columns(conn)?,
             })
+        })
+    }
+
+    /// Full-replacement write used by the live dual-write path
+    /// (`storageService.set` on the TS side). Each entity list is optional; a
+    /// `Some(list)` fully replaces that table (delete-all + insert) inside a
+    /// single transaction, while `None` leaves the table untouched. Passing
+    /// only the entity that changed avoids clobbering the other tables when a
+    /// mutation touches a single domain (e.g. a task edit must not wipe
+    /// projects/columns). The whole write lands atomically or not at all.
+    /// Atomic event append + task projection upsert/delete. Used by the
+    /// event-sourced board mutation path so the log and SQLite read model
+    /// cannot diverge.
+    pub fn commit_mutation(
+        &self,
+        app: &AppHandle,
+        events: &[TaskEventIn],
+        upsert_tasks: &[TaskRecord],
+        delete_task_ids: &[String],
+    ) -> Result<TaskCommitResult, String> {
+        self.with_conn_mut(app, |conn| {
+            commit_mutation(conn, events, upsert_tasks, delete_task_ids)
+        })
+    }
+
+    pub fn write_snapshot(
+        &self,
+        app: &AppHandle,
+        tasks: Option<&[TaskRecord]>,
+        projects: Option<&[ProjectRecord]>,
+        columns: Option<&[ColumnRecord]>,
+    ) -> Result<ExportSummary, String> {
+        let path = db_path(app)?;
+        let (tasks_written, projects_written, columns_written) = self.with_conn_mut(app, |conn| {
+            let tx = conn
+                .transaction()
+                .map_err(|e| format!("Failed to open snapshot transaction: {e}"))?;
+            let mut tasks_written = 0i64;
+            let mut projects_written = 0i64;
+            let mut columns_written = 0i64;
+
+            if let Some(tasks) = tasks {
+                tx.execute("DELETE FROM tasks", [])
+                    .map_err(|e| format!("Failed to clear tasks: {e}"))?;
+                for task in tasks {
+                    insert_task(&tx, task)?;
+                }
+                tasks_written = tasks.len() as i64;
+            }
+            if let Some(projects) = projects {
+                tx.execute("DELETE FROM projects", [])
+                    .map_err(|e| format!("Failed to clear projects: {e}"))?;
+                for project in projects {
+                    insert_project(&tx, project)?;
+                }
+                projects_written = projects.len() as i64;
+            }
+            if let Some(columns) = columns {
+                tx.execute("DELETE FROM board_columns", [])
+                    .map_err(|e| format!("Failed to clear board columns: {e}"))?;
+                for column in columns {
+                    insert_column(&tx, column)?;
+                }
+                columns_written = columns.len() as i64;
+            }
+
+            tx.commit()
+                .map_err(|e| format!("Failed to commit snapshot: {e}"))?;
+            Ok((tasks_written, projects_written, columns_written))
+        })?;
+
+        Ok(ExportSummary {
+            tasks_written,
+            projects_written,
+            columns_written,
+            db_path: path.to_string_lossy().to_string(),
         })
     }
 }
@@ -699,7 +939,7 @@ fn read_tasks(conn: &Connection) -> Result<Vec<TaskRecord>, String> {
                 row.get::<_, Option<String>>(20)?,
                 row.get::<_, Option<String>>(21)?,
                 row.get::<_, Option<String>>(22)?,
-                row.get::<_, Option<i64>>(23)?,
+                row.get::<_, Option<f64>>(23)?,
                 row.get::<_, Option<String>>(24)?,
             ))
         })
@@ -842,11 +1082,11 @@ fn read_columns(conn: &Connection) -> Result<Vec<ColumnRecord>, String> {
 // Tauri commands
 // ---------------------------------------------------------------------------
 
-/// Writes the given in-memory task/project/column lists into the additive
-/// `tasks_export.sqlite3` store. Purely additive: never touches IndexedDB,
-/// never touches any other SQLite file, and is not called from any live app
-/// flow — it exists so a future cutover session can validate the schema
-/// against real app data shapes.
+/// Upserts the given in-memory task/project/column lists into the
+/// `tasks_export.sqlite3` store without deleting rows absent from the input
+/// (additive). Used for the one-time IndexedDB→SQLite import seed and for
+/// manual schema verification; the live full-replacement path is
+/// `task_store_write_snapshot`.
 #[tauri::command(rename_all = "camelCase")]
 pub fn task_store_export_snapshot(
     app: AppHandle,
@@ -863,6 +1103,27 @@ pub fn task_store_export_snapshot(
 #[tauri::command(rename_all = "camelCase")]
 pub fn task_store_read_snapshot(app: AppHandle, store: tauri::State<'_, TaskStore>) -> Result<SnapshotResult, String> {
     store.read_snapshot(&app)
+}
+
+/// Live dual-write entry point (Phase 5 SQLite cutover). Fully replaces each
+/// provided entity table (`tasks` / `projects` / `board_columns`) atomically;
+/// omitted lists are left untouched. This is the write half of the SQLite
+/// read model behind `FEATURE_FLAGS.TASKS_SQLITE_ENABLED` — the TS storage
+/// service calls it on every task/project/column mutation.
+#[tauri::command(rename_all = "camelCase")]
+pub fn task_store_write_snapshot(
+    app: AppHandle,
+    store: tauri::State<'_, TaskStore>,
+    tasks: Option<Vec<TaskRecord>>,
+    projects: Option<Vec<ProjectRecord>>,
+    columns: Option<Vec<ColumnRecord>>,
+) -> Result<ExportSummary, String> {
+    store.write_snapshot(
+        &app,
+        tasks.as_deref(),
+        projects.as_deref(),
+        columns.as_deref(),
+    )
 }
 
 /// Append a batch of task events atomically. Returns the assigned sequence
@@ -896,6 +1157,27 @@ pub fn task_events_count(
     store.with_conn(&app, count_events)
 }
 
+/// Latest boot accelerator snapshot (tasks projected up to `uptoSeq`).
+#[tauri::command(rename_all = "camelCase")]
+pub fn task_events_latest_snapshot(
+    app: AppHandle,
+    store: tauri::State<'_, TaskStore>,
+) -> Result<Option<TaskEventBootSnapshot>, String> {
+    store.with_conn(&app, read_latest_event_snapshot)
+}
+
+/// Append task events and upsert/delete the SQLite task projection atomically.
+#[tauri::command(rename_all = "camelCase")]
+pub fn task_store_commit(
+    app: AppHandle,
+    store: tauri::State<'_, TaskStore>,
+    events: Vec<TaskEventIn>,
+    upsert_tasks: Vec<TaskRecord>,
+    delete_task_ids: Vec<String>,
+) -> Result<TaskCommitResult, String> {
+    store.commit_mutation(&app, &events, &upsert_tasks, &delete_task_ids)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -919,6 +1201,32 @@ mod tests {
             ts: "2026-07-06T00:00:00.000Z".to_string(),
             v: 1,
         }
+    }
+
+    #[test]
+    fn event_append_accepts_pr_lifecycle_subtypes() {
+        let mut conn = memory_conn();
+        for (id, event_type) in [
+            ("e-pr", "task.pr_opened"),
+            ("e-ci", "task.ci_state"),
+            ("e-rv", "task.review_state"),
+        ] {
+            append_events(
+                &mut conn,
+                &[TaskEventIn {
+                    id: id.to_string(),
+                    stream_id: "t1".to_string(),
+                    event_type: event_type.to_string(),
+                    payload: r#"{"prState":{"state":"open"}}"#.to_string(),
+                    actor: "system".to_string(),
+                    run_id: None,
+                    ts: "2026-07-06T00:00:00.000Z".to_string(),
+                    v: 1,
+                }],
+            )
+            .expect("append");
+        }
+        assert_eq!(count_events(&conn).expect("count"), 3);
     }
 
     #[test]
@@ -951,6 +1259,31 @@ mod tests {
     }
 
     #[test]
+    fn event_compaction_writes_snapshot_when_threshold_exceeded() {
+        let mut conn = memory_conn();
+        for i in 0..EVENT_COMPACTION_THRESHOLD {
+            append_events(
+                &mut conn,
+                &[TaskEventIn {
+                    id: format!("e-{i}"),
+                    stream_id: "t1".to_string(),
+                    event_type: "task.updated".to_string(),
+                    payload: r#"{"task":{"id":"t1","jobId":"J1","projectId":"p1","title":"T","summary":"","assignee":"","priority":"medium","status":"task","createdAt":"2026-01-01T00:00:00.000Z","timeEstimate":0,"timeSpent":0}}"#.to_string(),
+                    actor: "user".to_string(),
+                    run_id: None,
+                    ts: "2026-07-06T00:00:00.000Z".to_string(),
+                    v: 1,
+                }],
+            )
+            .expect("append");
+        }
+        maybe_compact_event_log(&conn).expect("compact");
+        let snap = read_latest_event_snapshot(&conn).expect("read snap");
+        assert!(snap.is_some());
+        assert!(snap.unwrap().upto_seq >= EVENT_COMPACTION_THRESHOLD);
+    }
+
+    #[test]
     fn event_read_since_seq_is_exclusive() {
         let mut conn = memory_conn();
         append_events(
@@ -975,6 +1308,65 @@ mod tests {
         bad = sample_event("e1", "");
         assert!(append_events(&mut conn, &[bad]).is_err());
         assert_eq!(count_events(&conn).expect("count"), 0);
+    }
+
+    #[test]
+    fn commit_mutation_is_atomic_on_duplicate_event() {
+        let mut conn = memory_conn();
+        append_events(&mut conn, &[sample_event("e1", "t1")]).expect("seed");
+        let result = commit_mutation(
+            &mut conn,
+            &[sample_event("e2", "t1"), sample_event("e1", "t1")],
+            &[sample_task_minimal()],
+            &[],
+        );
+        assert!(result.is_err());
+        assert_eq!(count_events(&conn).expect("count"), 1);
+        assert_eq!(read_tasks(&conn).expect("read").len(), 0);
+    }
+
+    #[test]
+    fn commit_mutation_appends_events_and_upserts_tasks() {
+        let mut conn = memory_conn();
+        let task = sample_task_minimal();
+        let result = commit_mutation(
+            &mut conn,
+            &[sample_event("e1", task.id.as_str())],
+            &[task.clone()],
+            &[],
+        )
+        .expect("commit");
+        assert_eq!(result.seqs, vec![1]);
+        assert_eq!(result.tasks_written, 1);
+        assert_eq!(count_events(&conn).expect("count"), 1);
+        let tasks = read_tasks(&conn).expect("read");
+        assert_eq!(tasks.len(), 1);
+        assert_eq!(tasks[0].id, task.id);
+    }
+
+    #[test]
+    fn commit_mutation_deletes_tasks() {
+        let mut conn = memory_conn();
+        let task = sample_task_minimal();
+        insert_task(&conn, &task).expect("seed");
+        commit_mutation(
+            &mut conn,
+            &[TaskEventIn {
+                id: "del-1".to_string(),
+                stream_id: task.id.clone(),
+                event_type: "task.deleted".to_string(),
+                payload: "{}".to_string(),
+                actor: "user".to_string(),
+                run_id: None,
+                ts: "2026-07-06T00:00:00.000Z".to_string(),
+                v: 1,
+            }],
+            &[],
+            &[task.id.clone()],
+        )
+        .expect("commit");
+        assert!(read_tasks(&conn).expect("read").is_empty());
+        assert_eq!(count_events(&conn).expect("count"), 1);
     }
 
     fn sample_task_minimal() -> TaskRecord {
@@ -1071,7 +1463,7 @@ mod tests {
                 old_value: Some(serde_json::json!("low")),
                 new_value: Some(serde_json::json!("high")),
             }]),
-            order: Some(3),
+            order: Some(3.0),
             github_issue: Some(GithubIssueRecord {
                 owner: "acme".to_string(),
                 repo: "widgets".to_string(),
@@ -1280,5 +1672,103 @@ mod tests {
         assert_eq!(read_tasks(&conn).unwrap().len(), 0);
         assert_eq!(read_projects(&conn).unwrap().len(), 0);
         assert_eq!(read_columns(&conn).unwrap().len(), 0);
+    }
+
+    /// Replicates `write_snapshot`'s per-table full-replacement transaction
+    /// against an in-memory connection (AppHandle-free) so the delete+insert
+    /// semantics are covered without a Tauri harness.
+    fn write_snapshot_conn(
+        conn: &mut Connection,
+        tasks: Option<&[TaskRecord]>,
+        projects: Option<&[ProjectRecord]>,
+        columns: Option<&[ColumnRecord]>,
+    ) {
+        let tx = conn.transaction().unwrap();
+        if let Some(tasks) = tasks {
+            tx.execute("DELETE FROM tasks", []).unwrap();
+            for task in tasks {
+                insert_task(&tx, task).unwrap();
+            }
+        }
+        if let Some(projects) = projects {
+            tx.execute("DELETE FROM projects", []).unwrap();
+            for project in projects {
+                insert_project(&tx, project).unwrap();
+            }
+        }
+        if let Some(columns) = columns {
+            tx.execute("DELETE FROM board_columns", []).unwrap();
+            for column in columns {
+                insert_column(&tx, column).unwrap();
+            }
+        }
+        tx.commit().unwrap();
+    }
+
+    #[test]
+    fn write_snapshot_replaces_tasks_and_drops_removed_rows() {
+        let mut conn = memory_conn();
+        write_snapshot_conn(
+            &mut conn,
+            Some(&[sample_task_minimal(), sample_task_full()]),
+            None,
+            None,
+        );
+        assert_eq!(read_tasks(&conn).unwrap().len(), 2);
+
+        // A second write with only one task must delete the other (full
+        // replacement), unlike the additive export upsert.
+        write_snapshot_conn(&mut conn, Some(&[sample_task_full()]), None, None);
+        let tasks = read_tasks(&conn).unwrap();
+        assert_eq!(tasks.len(), 1);
+        assert_eq!(tasks[0].id, "task-2");
+    }
+
+    #[test]
+    fn write_snapshot_leaves_untouched_tables_when_list_is_none() {
+        let mut conn = memory_conn();
+        write_snapshot_conn(
+            &mut conn,
+            Some(&[sample_task_minimal()]),
+            Some(&[sample_project()]),
+            Some(&[sample_column()]),
+        );
+        assert_eq!(read_tasks(&conn).unwrap().len(), 1);
+        assert_eq!(read_projects(&conn).unwrap().len(), 1);
+        assert_eq!(read_columns(&conn).unwrap().len(), 1);
+
+        // Writing only tasks must not wipe projects/columns.
+        write_snapshot_conn(&mut conn, Some(&[]), None, None);
+        assert_eq!(read_tasks(&conn).unwrap().len(), 0);
+        assert_eq!(read_projects(&conn).unwrap().len(), 1);
+        assert_eq!(read_columns(&conn).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn write_snapshot_via_store_round_trips() {
+        let store = TaskStore::default();
+        {
+            let conn = memory_conn();
+            *store.conn.lock().unwrap() = Some(conn);
+        }
+
+        // Exercise the transactional replace body directly against the stashed
+        // connection (write_snapshot itself derives db_path from an AppHandle).
+        {
+            let mut guard = store.conn.lock().unwrap();
+            let conn = guard.as_mut().unwrap();
+            write_snapshot_conn(
+                conn,
+                Some(&[sample_task_full()]),
+                Some(&[sample_project(), sample_project_minimal()]),
+                Some(&[sample_column()]),
+            );
+        }
+
+        let guard = store.conn.lock().unwrap();
+        let conn = guard.as_ref().unwrap();
+        assert_eq!(read_tasks(conn).unwrap().len(), 1);
+        assert_eq!(read_projects(conn).unwrap().len(), 2);
+        assert_eq!(read_columns(conn).unwrap().len(), 1);
     }
 }

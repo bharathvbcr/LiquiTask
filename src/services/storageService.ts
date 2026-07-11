@@ -28,6 +28,12 @@ import {
 } from "./encryptionService";
 import { indexedDBService } from "./indexedDBService";
 import { CURRENT_DATA_VERSION, migrationService } from "./migrationService";
+import {
+  isSqliteTaskStoreActive,
+  readSqliteSnapshot,
+  seedSqliteSnapshot,
+  writeSqliteSnapshot,
+} from "./sqliteTaskStore";
 
 // Type for all storable data
 export interface AppData {
@@ -330,8 +336,117 @@ class StorageService {
       }
     }
 
+    // Phase 5 cutover: seed SQLite on first boot, then make it the source of
+    // truth for tasks/projects/columns (the key-value store loaded above stays
+    // as the read-only fallback). Runs before migrations so schema migrations
+    // operate on — and persist back through — the SQLite-sourced data.
+    await this.hydrateFromSqlite();
+
     // Run data schema migrations after loading all data
     await this.runDataMigrations();
+  }
+
+  /**
+   * One-time IndexedDB/key-value → SQLite import plus the flagged read path.
+   *
+   * On the first boot with `TASKS_SQLITE_ENABLED`, the tasks/projects/columns
+   * already loaded from the key-value store (or IndexedDB) are seeded into
+   * SQLite. Thereafter the SQLite snapshot is authoritative and overrides the
+   * in-memory cache. If SQLite is unavailable/empty we silently keep the
+   * key-value values, so a read failure degrades to the previous behaviour.
+   */
+  private async hydrateFromSqlite(): Promise<void> {
+    if (!isSqliteTaskStoreActive()) return;
+
+    try {
+      let snapshot = await readSqliteSnapshot();
+      const alreadyImported = this.get<boolean>(STORAGE_KEYS.TASKS_SQLITE_IMPORTED, false);
+      const isEmpty = (s: typeof snapshot): boolean =>
+        !s || (s.tasks.length === 0 && s.projects.length === 0 && s.columns.length === 0);
+
+      if (!alreadyImported && isEmpty(snapshot)) {
+        const seed = await this.collectSqliteImportSeed();
+        if (seed.tasks.length > 0 || seed.projects.length > 0 || seed.columns.length > 0) {
+          await seedSqliteSnapshot(seed);
+          snapshot = await readSqliteSnapshot();
+          console.info(
+            `[Storage] Imported ${seed.tasks.length} task(s), ${seed.projects.length} project(s), ` +
+              `${seed.columns.length} column(s) into SQLite (one-time cutover).`,
+          );
+        }
+        await this.set(STORAGE_KEYS.TASKS_SQLITE_IMPORTED, true);
+      }
+
+      if (!isEmpty(snapshot) && snapshot) {
+        this.compareSqliteParity(snapshot);
+        // SQLite is authoritative now — override the key-value-sourced cache.
+        this.cache.set(STORAGE_KEYS.TASKS, snapshot.tasks);
+        this.cache.set(STORAGE_KEYS.PROJECTS, snapshot.projects);
+        this.cache.set(STORAGE_KEYS.COLUMNS, snapshot.columns);
+      }
+    } catch (error) {
+      console.warn("[Storage] SQLite hydration failed; using key-value fallback:", error);
+    }
+  }
+
+  /**
+   * Assemble the one-time import seed, preferring the key-value cache (already
+   * loaded) and falling back to the IndexedDB mirror when the cache is empty
+   * (e.g. an install that only ever wrote to IndexedDB).
+   */
+  private async collectSqliteImportSeed(): Promise<{
+    tasks: Task[];
+    projects: Project[];
+    columns: BoardColumn[];
+  }> {
+    let tasks = (this.cache.get(STORAGE_KEYS.TASKS) as Task[] | undefined) ?? [];
+    let projects = (this.cache.get(STORAGE_KEYS.PROJECTS) as Project[] | undefined) ?? [];
+    let columns = (this.cache.get(STORAGE_KEYS.COLUMNS) as BoardColumn[] | undefined) ?? [];
+
+    if (
+      indexedDBService.isAvailable() &&
+      tasks.length === 0 &&
+      projects.length === 0 &&
+      columns.length === 0
+    ) {
+      try {
+        [tasks, projects, columns] = await Promise.all([
+          indexedDBService.getAllTasks(),
+          indexedDBService.getAllProjects(),
+          indexedDBService.getAllColumns(),
+        ]);
+      } catch (error) {
+        console.warn("[Storage] IndexedDB seed read failed during SQLite import:", error);
+      }
+    }
+
+    return { tasks, projects, columns };
+  }
+
+  /**
+   * Dev-only parity check: warn when the SQLite snapshot diverges in size from
+   * the key-value/IndexedDB fallback still held in the cache. Proves the
+   * dual-write stays converged before IndexedDB is fully retired.
+   */
+  private compareSqliteParity(snapshot: {
+    tasks: Task[];
+    projects: Project[];
+    columns: BoardColumn[];
+  }): void {
+    if (process.env.NODE_ENV === "production") return;
+    const cacheTasks = (this.cache.get(STORAGE_KEYS.TASKS) as Task[] | undefined) ?? [];
+    const cacheProjects = (this.cache.get(STORAGE_KEYS.PROJECTS) as Project[] | undefined) ?? [];
+    const cacheColumns = (this.cache.get(STORAGE_KEYS.COLUMNS) as BoardColumn[] | undefined) ?? [];
+    const mismatches: string[] = [];
+    if (cacheTasks.length && snapshot.tasks.length !== cacheTasks.length)
+      mismatches.push(`tasks ${snapshot.tasks.length} vs ${cacheTasks.length}`);
+    if (cacheProjects.length && snapshot.projects.length !== cacheProjects.length)
+      mismatches.push(`projects ${snapshot.projects.length} vs ${cacheProjects.length}`);
+    if (cacheColumns.length && snapshot.columns.length !== cacheColumns.length)
+      mismatches.push(`columns ${snapshot.columns.length} vs ${cacheColumns.length}`);
+    if (mismatches.length > 0) {
+      console.warn(`[Storage] SQLite parity mismatch (sqlite vs fallback): ${mismatches.join("; ")}`);
+    }
   }
 
   /**
@@ -402,6 +517,7 @@ class StorageService {
     STORAGE_KEYS.AUTO_ORGANIZE_HISTORY,
     STORAGE_KEYS.AI_ORGANIZE_CACHE,
     STORAGE_KEYS.BACKUPS,
+    STORAGE_KEYS.REMOTE_PUSH_CONFIG,
   ]);
 
   async set<T>(key: string, value: T): Promise<void> {
@@ -432,14 +548,24 @@ class StorageService {
       }
     }
 
+    // SQLite dual-write (Phase 5 cutover): mirror the affected entity to the
+    // Rust task store. Only the changed list is sent so a task edit never
+    // clobbers projects/columns (full replacement is per-table). No-op unless
+    // SQLite is the active store (desktop + flag on).
+    if (isSqliteTaskStoreActive()) {
+      if (key === STORAGE_KEYS.TASKS) {
+        asyncWrites.push(writeSqliteSnapshot({ tasks: value as Task[] }));
+      } else if (key === STORAGE_KEYS.PROJECTS) {
+        asyncWrites.push(writeSqliteSnapshot({ projects: value as Project[] }));
+      } else if (key === STORAGE_KEYS.COLUMNS) {
+        asyncWrites.push(writeSqliteSnapshot({ columns: value as BoardColumn[] }));
+      }
+    }
+
     const nativeStorage = getNativeStorageApi();
     if (nativeStorage) {
-      // Native Save (backup).
-      // IMPORTANT: For keys in SENSITIVE_KEYS (AI_CONFIG, GEMINI_API_KEY) the
-      // native storage backend MUST use an encrypted store (e.g. Electron
-      // safeStorage) so that credentials are not persisted in plaintext on
-      // disk. Verify that getNativeStorageApi() returns an encrypted
-      // implementation before shipping to production.
+      // Native Save (backup). Sensitive keys are encrypted at rest by the Tauri
+      // storage backend (keychain-backed AES-GCM envelopes).
       if (key === STORAGE_KEYS.TASKS && isNativeBackend()) {
         asyncWrites.push(
           (async () => {

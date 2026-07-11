@@ -6,6 +6,8 @@ use tauri::{
     AppHandle, Emitter, Manager, RunEvent,
 };
 
+use crate::dock_badge;
+
 const TRAY_ID: &str = "main";
 
 pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
@@ -82,6 +84,16 @@ pub fn tray_update_active_runs(app: AppHandle, count: u32) -> Result<(), String>
     };
     tray.set_tooltip(Some(label))
         .map_err(|e| format!("Failed to update tray tooltip: {e}"))
+}
+
+fn update_dock_badge(count: u32) {
+    dock_badge::set_dock_badge(count);
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn tray_update_dock_badge(_app: AppHandle, count: u32) -> Result<(), String> {
+    update_dock_badge(count);
+    Ok(())
 }
 
 /// v3 shell: reflects the Inbox's actionable count (approvals awaiting review +

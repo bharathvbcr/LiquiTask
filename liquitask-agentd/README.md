@@ -1,7 +1,7 @@
 # liquitask-agentd
 
 `liquitask-agentd` is LiquiTask's **local agent-execution sidecar**: a standalone
-Go binary that drives 14 coding-agent runtimes (Claude Code, Codex, Cursor,
+Go binary that drives 15 coding-agent runtimes (Claude Code, Codex, Cursor, Grok,
 Antigravity, …) on the user's machine. It is shipped as a
 [Tauri sidecar](https://v2.tauri.app/develop/sidecar/) and speaks
 newline-delimited **JSON-RPC 2.0 over stdio** to the LiquiTask Rust core
@@ -14,8 +14,9 @@ attribution and [`../docs/AGENT_TEAMMATES.md`](../docs/AGENT_TEAMMATES.md) for h
 runs flow through the app.
 
 > **Status:** Phase 1 of the v3 rework (`docs/REWORK_PLAN_MULTICA.md`). Enabled by
-> default via `AGENTD_SIDECAR_ENABLED`; the Rust `agent_runner.rs` path remains as
-> the Claude fallback during migration.
+> default via `AGENTD_SIDECAR_ENABLED`. All 15 direct runs route through the Go
+> sidecar via `src-tauri/src/agentd.rs`; DevCouncil council-mode subprocesses
+> use `agent_council_runner.rs`. The legacy `agent_runner.rs` module has been retired.
 
 ## What it does
 
@@ -31,19 +32,20 @@ runs flow through the app.
 - **Discovers local skills** for prompt compounding.
 
 The binary owns no UI and no cloud calls. Durable run state, board sync, and the
-DevCouncil gate live on the Rust/TypeScript side.
+DevCouncil gate live on the Rust/TypeScript side. Agent runs are only dispatched
+when **AI features** are enabled in the renderer (`src/utils/aiFeatures.ts`).
 
-## Supported runtimes (14)
+## Supported runtimes (15)
 
 Each backend implements the shared `Backend` interface in `internal/agent/agent.go`
 and has its own test suite:
 
 | | | | |
 | --- | --- | --- | --- |
-| Claude Code (`claude`) | Codex (`codex`) | Cursor (`cursor`) | Antigravity (`antigravity`) |
-| GitHub Copilot (`copilot`) | OpenCode (`opencode`) | Kimi (`kimi`) | Kiro (`kiro`) |
-| Qoder (`qoder`) | CodeBuddy (`codebuddy`) | Hermes / ACP (`hermes`) | Pi (`pi`) |
-| Trae (`traecli`) | OpenClaw (`openclaw`) | | |
+| Claude Code (`claude`) | Codex (`codex`) | Cursor (`cursor`) | Grok Build (`grok`) |
+| Antigravity (`antigravity`) | GitHub Copilot (`copilot`) | OpenCode (`opencode`) | Kimi (`kimi`) |
+| Kiro (`kiro`) | Qoder (`qoder`) | CodeBuddy (`codebuddy`) | Hermes / ACP (`hermes`) |
+| Pi (`pi`) | Trae (`traecli`) | OpenClaw (`openclaw`) | |
 
 ## JSON-RPC surface
 
@@ -55,11 +57,11 @@ notifications on stdout (one message per line). Request methods registered in
 | ------ | ------- |
 | `detect` | Installed runtimes + versions |
 | `skills.list` | Local skill discovery for prompt compounding |
-| `run.start` | Start a run: `{ taskId, runtime, model, cwd, prompt, scope?, mcpConfig?, thinkingLevel?, resumeSessionId? }` → `runId` |
+| `run.start` | Start a run: `{ taskId, runtime, model, cwd, prompt, scope?, mcpConfig?, thinkingLevel?, resumeSessionId?, permissionMode? }` → `runId` |
 | `run.cancel` | Cancel a run (kills the whole process subtree) |
 | `run.pause` / `run.resume` | Suspend / resume a run |
-| `run.inject` | Inject mid-run guidance |
-| `run.reattach` | Re-adopt runs orphaned by an app restart |
+| `run.inject` | Writes `guidance.txt` under the run data dir — **not polled by any adapter today**. Mid-run guidance the agent sees goes through the LiquiTask MCP bridge (`guidance.jsonl` via `agent_mcp_append_guidance`). |
+| `run.reattach` | Re-adopt journal/in-memory runs after an app restart (reconciles dead PIDs from the event log) |
 | `permission.respond` | Answer a permission request (`allow` / `deny` / `always`) |
 
 While a run is active the sidecar emits **run-event notifications** (the
@@ -78,12 +80,13 @@ liquitask-agentd/
 └── internal/
     ├── rpc/         JSON-RPC 2.0 stdio framing (Register + Run)
     ├── runner/      Run manager: handlers for every RPC method, lifecycle
-    ├── agent/       The 14 Backend implementations + shared interface,
+    ├── agent/       The 15 Backend implementations + shared interface,
     │                browser MCP config, thinking levels, per-OS invocation
     │                (copilot/cursor/pi have _windows variants)
     ├── detect/      CLI detection (installed / version)
-    ├── execenv/     Per-run execution-environment prep (Codex home isolation,
-    │                memory, sandbox, skill strip, user skills, multi-agent)
+    ├── execenv/     Per-runtime MCP config helpers (Cursor, Grok call these
+    │                directly). The general `execenv.Prepare` sandbox/skill-injection
+    │                path is **not wired** through `runner.HandleStart` today.
     ├── daemon/      Portable daemon plumbing: health, reconcile, GC,
     │                disk usage, poisoned-run handling, local skills API
     ├── skill/       Skill frontmatter parsing + reserved names

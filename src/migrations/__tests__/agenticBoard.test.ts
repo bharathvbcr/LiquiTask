@@ -31,24 +31,32 @@ function makeTask(status: string, id = `t-${status}`): Task {
 }
 
 describe("migrateColumnsToAgenticBoard", () => {
-  it("replaces the legacy five-column layout with the agentic four", () => {
+  it("replaces the legacy five-column layout with the agentic five", () => {
     const next = migrateColumnsToAgenticBoard(LEGACY_COLUMNS)!;
-    expect(next.map((c) => c.id)).toEqual(["Task", "InProgress", "Completed", "Commit"]);
+    expect(next.map((c) => c.id)).toEqual([
+      "Task",
+      "InProgress",
+      "Completed",
+      "InReview",
+      "Commit",
+    ]);
     expect(next.find((c) => c.id === "Commit")?.isCompleted).toBe(true);
+    expect(next.find((c) => c.id === "InReview")?.hidden).toBe(true);
     expect(next.filter((c) => c.isCompleted)).toHaveLength(1);
   });
 
-  it("preserves custom columns after the canonical four", () => {
+  it("preserves custom columns after the canonical five", () => {
     const custom: BoardColumn = { id: "col-123", title: "Blocked", color: "#f00" };
     const next = migrateColumnsToAgenticBoard([...LEGACY_COLUMNS, custom])!;
     expect(next.map((c) => c.id)).toEqual([
       "Task",
       "InProgress",
       "Completed",
+      "InReview",
       "Commit",
       "col-123",
     ]);
-    expect(next[4]).toEqual(custom);
+    expect(next[5]).toEqual(custom);
   });
 
   it("passes through empty/undefined columns", () => {

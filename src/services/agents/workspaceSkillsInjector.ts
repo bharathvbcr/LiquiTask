@@ -1,10 +1,13 @@
 /**
  * Inject LiquiTask's skill knowledge into a workspace as real, on-disk skill
- * files under `<workspace>/.claude/skills/liquitask/`.
+ * files under runtime-native discovery paths:
+ *   - `<workspace>/.claude/skills/liquitask/` (Claude-compat; Grok reads this too)
+ *   - `<workspace>/.cursor/skills/liquitask/` (Cursor native discovery)
+ *   - `<workspace>/.grok/skills/liquitask/` (Grok native discovery)
  *
  * Why files (not just prompt injection): LiquiTask already threads relevant
  * skills into its own agent prompts (see `skillSelection.ts`). But a repo handed
- * to *any* runtime — Claude Code, Codex, Cursor, … — only discovers skills that
+ * to *any* runtime — Claude Code, Codex, Cursor, Grok, … — only discovers skills that
  * live on disk in the conventional `<name>/SKILL.md` layout. Materializing the
  * team's compounded knowledge there makes it portable across every agent that
  * opens the repo, which is what "inject skills into the workspace" means.
@@ -19,8 +22,15 @@ import { mergeSkillCatalog, type SkillCatalogEntry } from "../../core/skills/mer
 import { getDesktopApi, isTauri } from "../../runtime/runtimeEnvironment";
 import agentSkillsService from "./agentSkillsService";
 
-/** Base folder (relative to the workspace) all injected skills live under. */
+/** Base folder (relative to the workspace) all injected skills live under — Claude-compat primary. */
 export const INJECTED_SKILLS_SUBDIR = ".claude/skills/liquitask";
+
+/** Every runtime-native path that receives the same injected skill bundle. */
+export const INJECTED_SKILLS_SUBDIRS = [
+  ".claude/skills/liquitask",
+  ".cursor/skills/liquitask",
+  ".grok/skills/liquitask",
+] as const;
 
 /** Hard cap so a large library can't flood the repo; captured skills win. */
 const MAX_INJECTED_SKILLS = 40;
@@ -143,8 +153,9 @@ function selectForInjection(catalog: SkillCatalogEntry[]): SkillCatalogEntry[] {
 export function planSkillInjection(
   catalog: SkillCatalogEntry[],
   workingDir: string,
+  subdir: string = INJECTED_SKILLS_SUBDIR,
 ): SkillInjectionPlan {
-  const baseDir = `${normalizeDir(workingDir)}/${INJECTED_SKILLS_SUBDIR}`;
+  const baseDir = `${normalizeDir(workingDir)}/${subdir}`;
   const entries = selectForInjection(catalog);
 
   const usedSlugs = new Set<string>();
@@ -195,23 +206,29 @@ export async function injectSkillsIntoWorkspace(
   const catalog = await buildInjectionCatalog(workingDir);
   if (catalog.length === 0) return { injected: 0, baseDir: null, skipped: "empty" };
 
-  const plan = planSkillInjection(catalog, workingDir);
   const scope = [workingDir];
   let injected = 0;
   const ensured = new Set<string>();
+  let primaryBaseDir: string | null = null;
 
-  for (const file of plan.files) {
-    try {
-      if (!ensured.has(file.parentDir)) {
-        await api.workspace.ensureDir(file.parentDir, scope);
-        ensured.add(file.parentDir);
+  for (const subdir of INJECTED_SKILLS_SUBDIRS) {
+    const plan = planSkillInjection(catalog, workingDir, subdir);
+    if (primaryBaseDir === null) {
+      primaryBaseDir = plan.baseDir;
+    }
+    for (const file of plan.files) {
+      try {
+        if (!ensured.has(file.parentDir)) {
+          await api.workspace.ensureDir(file.parentDir, scope);
+          ensured.add(file.parentDir);
+        }
+        await api.workspace.writeFile(file.path, file.content, scope);
+        injected += 1;
+      } catch (err) {
+        console.warn(`[skills-inject] failed to write ${file.path}:`, err);
       }
-      await api.workspace.writeFile(file.path, file.content, scope);
-      injected += 1;
-    } catch (err) {
-      console.warn(`[skills-inject] failed to write ${file.path}:`, err);
     }
   }
 
-  return { injected, baseDir: plan.baseDir };
+  return { injected, baseDir: primaryBaseDir };
 }

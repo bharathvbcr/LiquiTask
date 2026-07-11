@@ -1,9 +1,14 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { ReactElement } from "react";
 import type { Mock } from "vitest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ConfirmationProvider } from "../../contexts/ConfirmationContext";
 import storageService from "../../services/storageService";
 import { aiService } from "../../services/aiService";
 import { TaskFormModal } from "../TaskFormModal";
+
+const renderWithConfirmation = (ui: ReactElement) =>
+  render(<ConfirmationProvider>{ui}</ConfirmationProvider>);
 
 // Mock aiService
 vi.mock("../../services/aiService", () => ({
@@ -58,7 +63,7 @@ describe("TaskFormModal AI Integration", () => {
   });
 
   it("renders AI Action section", () => {
-    render(<TaskFormModal {...mockProps} />);
+    renderWithConfirmation(<TaskFormModal {...mockProps} />);
     expect(screen.getByText("AI Assistant")).toBeDefined();
     expect(
       screen.getByPlaceholderText(/Quick-add:/),
@@ -71,7 +76,7 @@ describe("TaskFormModal AI Integration", () => {
       summary: "AI Refined Summary",
     });
 
-    render(<TaskFormModal {...mockProps} />);
+    renderWithConfirmation(<TaskFormModal {...mockProps} />);
 
     const titleInput = screen.getByPlaceholderText("e.g., Update Q3 Financials");
     fireEvent.change(titleInput, { target: { value: "Old Title" } });
@@ -95,7 +100,7 @@ describe("TaskFormModal AI Integration", () => {
       { title: "Task 2", summary: "Summary 2", priority: "high", tags: [] },
     ]);
 
-    render(<TaskFormModal {...mockProps} />);
+    renderWithConfirmation(<TaskFormModal {...mockProps} />);
 
     const aiInput = screen.getByPlaceholderText(/Quick-add:/);
     fireEvent.change(aiInput, {
@@ -126,7 +131,7 @@ describe("TaskFormModal AI Integration", () => {
   it("handles AI Breakdown for subtasks", async () => {
     (aiService.generateSubtasks as Mock).mockResolvedValue(["Subtask A", "Subtask B"]);
 
-    render(<TaskFormModal {...mockProps} />);
+    renderWithConfirmation(<TaskFormModal {...mockProps} />);
 
     const titleInput = screen.getByPlaceholderText("e.g., Update Q3 Financials");
     fireEvent.change(titleInput, { target: { value: "Main Task" } });
@@ -146,7 +151,7 @@ describe("TaskFormModal AI Integration", () => {
       summary: "Polished description",
     });
 
-    render(<TaskFormModal {...mockProps} />);
+    renderWithConfirmation(<TaskFormModal {...mockProps} />);
 
     const summaryArea = screen.getByPlaceholderText(/Describe the task details/);
     fireEvent.change(summaryArea, { target: { value: "rough draft" } });
@@ -160,7 +165,7 @@ describe("TaskFormModal AI Integration", () => {
   });
 
   it("applies quick-add syntax to the task form", async () => {
-    render(<TaskFormModal {...mockProps} />);
+    renderWithConfirmation(<TaskFormModal {...mockProps} />);
 
     const aiInput = screen.getByPlaceholderText(/Quick-add:/);
     fireEvent.change(aiInput, {
@@ -176,7 +181,7 @@ describe("TaskFormModal AI Integration", () => {
   });
 
   it("creates a task directly from quick-add syntax", async () => {
-    render(<TaskFormModal {...mockProps} />);
+    renderWithConfirmation(<TaskFormModal {...mockProps} />);
 
     const aiInput = screen.getByPlaceholderText(/Quick-add:/);
     fireEvent.change(aiInput, {
@@ -202,7 +207,7 @@ describe("TaskFormModal AI Integration", () => {
 
   it("offers Create All for newline-separated quick-add lines", async () => {
     const mockBulkCreate = vi.fn();
-    render(<TaskFormModal {...mockProps} onBulkCreateTasks={mockBulkCreate} />);
+    renderWithConfirmation(<TaskFormModal {...mockProps} onBulkCreateTasks={mockBulkCreate} />);
 
     const aiInput = screen.getByPlaceholderText(/Quick-add:/);
     fireEvent.change(aiInput, {
@@ -224,7 +229,7 @@ describe("TaskFormModal AI Integration", () => {
   });
 
   it("shows mode hint and undo after Fill Form", async () => {
-    render(<TaskFormModal {...mockProps} />);
+    renderWithConfirmation(<TaskFormModal {...mockProps} />);
 
     const aiInput = screen.getByPlaceholderText(/Quick-add:/);
     fireEvent.change(aiInput, {
@@ -248,7 +253,7 @@ describe("TaskFormModal AI Integration", () => {
   });
 
   it("warns when parsed title matches an existing task", () => {
-    render(
+    renderWithConfirmation(
       <TaskFormModal
         {...mockProps}
         availableTasks={[
@@ -282,7 +287,7 @@ describe("TaskFormModal AI Integration", () => {
   });
 
   it("warns about similar titles with fuzzy matching", async () => {
-    render(
+    renderWithConfirmation(
       <TaskFormModal
         {...mockProps}
         availableTasks={[
@@ -318,7 +323,7 @@ describe("TaskFormModal AI Integration", () => {
   });
 
   it("hides and restores recent quick-add chips", () => {
-    render(<TaskFormModal {...mockProps} />);
+    renderWithConfirmation(<TaskFormModal {...mockProps} />);
 
     expect(screen.getByText("Recent")).toBeDefined();
     fireEvent.click(screen.getByLabelText("Hide recent quick-add templates"));
@@ -331,7 +336,7 @@ describe("TaskFormModal AI Integration", () => {
   });
 
   it("shows batch preview for multi-line quick-add input", () => {
-    render(<TaskFormModal {...mockProps} />);
+    renderWithConfirmation(<TaskFormModal {...mockProps} />);
 
     const aiInput = screen.getByPlaceholderText(/Quick-add:/);
     fireEvent.change(aiInput, {
@@ -345,7 +350,7 @@ describe("TaskFormModal AI Integration", () => {
   });
 
   it("suggests metadata from recent quick-add history", () => {
-    render(<TaskFormModal {...mockProps} />);
+    renderWithConfirmation(<TaskFormModal {...mockProps} />);
     expect(screen.getByText("Suggested")).toBeDefined();
     expect(
       screen.getByText((content) => content.includes("$Title") && content.includes("#work")),
@@ -353,7 +358,7 @@ describe("TaskFormModal AI Integration", () => {
   });
 
   it("focuses AI input when focusAiInput is set", async () => {
-    render(<TaskFormModal {...mockProps} focusAiInput initialAiInput="$Title !h" />);
+    renderWithConfirmation(<TaskFormModal {...mockProps} focusAiInput initialAiInput="$Title !h" />);
 
     const aiInput = screen.getByPlaceholderText(/Quick-add:/) as HTMLTextAreaElement;
     await waitFor(
@@ -366,7 +371,7 @@ describe("TaskFormModal AI Integration", () => {
   });
 
   it("prefills AI input from command palette query via initialAiInput", () => {
-    render(
+    renderWithConfirmation(
       <TaskFormModal
         {...mockProps}
         focusAiInput
@@ -380,7 +385,7 @@ describe("TaskFormModal AI Integration", () => {
   });
 
   it("toggles the collapsible Quick Add Guide", () => {
-    render(<TaskFormModal {...mockProps} />);
+    renderWithConfirmation(<TaskFormModal {...mockProps} />);
 
     expect(screen.queryByText("Syntax Examples")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Quick Add Guide/ }));
@@ -390,14 +395,14 @@ describe("TaskFormModal AI Integration", () => {
   });
 
   it("persists Quick Add Guide open state", () => {
-    render(<TaskFormModal {...mockProps} />);
+    renderWithConfirmation(<TaskFormModal {...mockProps} />);
 
     fireEvent.click(screen.getByRole("button", { name: /Quick Add Guide/ }));
     expect(storageService.set).toHaveBeenCalledWith("liquitask-quick-add-guide-open", true);
   });
 
   it("clears AI input on Escape without closing modal", () => {
-    render(<TaskFormModal {...mockProps} />);
+    renderWithConfirmation(<TaskFormModal {...mockProps} />);
 
     const aiInput = screen.getByPlaceholderText(/Quick-add:/) as HTMLTextAreaElement;
     fireEvent.change(aiInput, { target: { value: "$Task !h" } });
@@ -408,7 +413,7 @@ describe("TaskFormModal AI Integration", () => {
   });
 
   it("blocks Create All when a batch line has an empty explicit title", () => {
-    render(<TaskFormModal {...mockProps} />);
+    renderWithConfirmation(<TaskFormModal {...mockProps} />);
 
     const aiInput = screen.getByPlaceholderText(/Quick-add:/);
     fireEvent.change(aiInput, {
@@ -420,7 +425,7 @@ describe("TaskFormModal AI Integration", () => {
   });
 
   it("shows batch line status in expanded preview", () => {
-    render(<TaskFormModal {...mockProps} />);
+    renderWithConfirmation(<TaskFormModal {...mockProps} />);
 
     const aiInput = screen.getByPlaceholderText(/Quick-add:/);
     fireEvent.change(aiInput, {
@@ -432,7 +437,7 @@ describe("TaskFormModal AI Integration", () => {
   });
 
   it("shows create-all progress when bulk path falls back to onSubmit", async () => {
-    render(<TaskFormModal {...mockProps} />);
+    renderWithConfirmation(<TaskFormModal {...mockProps} />);
 
     const aiInput = screen.getByPlaceholderText(/Quick-add:/);
     fireEvent.change(aiInput, {
@@ -457,7 +462,7 @@ describe("TaskFormModal AI Integration", () => {
       configurable: true,
     });
 
-    render(
+    renderWithConfirmation(
       <TaskFormModal
         {...mockProps}
         globalWorkspacePaths={["/workspace/project"]}

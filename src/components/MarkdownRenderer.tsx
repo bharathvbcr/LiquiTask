@@ -1,6 +1,7 @@
 import type React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { SafeMarkdownLink } from "./SafeMarkdownLink";
 
 interface MarkdownRendererProps {
   content: string;
@@ -11,13 +12,10 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) => {
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       components={{
-        a: (props) => (
-          <a
-            {...props}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-red-400 hover:underline"
-          />
+        a: ({ href, children, className, ...rest }) => (
+          <SafeMarkdownLink href={href} className={className ?? "text-red-400 hover:underline"} {...rest}>
+            {children}
+          </SafeMarkdownLink>
         ),
       }}
     >

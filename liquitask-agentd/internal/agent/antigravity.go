@@ -82,8 +82,11 @@ func (b *antigravityBackend) Execute(ctx context.Context, prompt string, opts Ex
 
 	cmd := exec.CommandContext(runCtx, execPath, args...)
 	hideAgentWindow(cmd)
+	if err := PrepareManagedCommand(cmd, opts, 10*time.Second); err != nil {
+		cancel()
+		return nil, err
+	}
 	b.cfg.Logger.Info("agent command", "exec", execPath, "args", args)
-	cmd.WaitDelay = 10 * time.Second
 	if opts.Cwd != "" {
 		cmd.Dir = opts.Cwd
 	}
@@ -447,7 +450,9 @@ var antigravityBlockedArgs = map[string]blockedArgMode{
 func buildAntigravityArgs(prompt, logPath string, timeout time.Duration, opts ExecOptions, logger *slog.Logger) []string {
 	args := []string{
 		"-p", prompt,
-		"--dangerously-skip-permissions",
+	}
+	if ShouldBypassPermissions(opts) {
+		args = append(args, "--dangerously-skip-permissions")
 	}
 	if opts.Model != "" {
 		args = append(args, "--model", opts.Model)

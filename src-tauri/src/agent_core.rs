@@ -1,5 +1,6 @@
 //! Agent prompt construction and stream-json parsing (ported from TS agent services).
 
+use crate::agent_devcouncil::parse_verify_output;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -76,13 +77,32 @@ pub struct AgentSkillInput {
     pub summary: String,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug)]
 pub struct SubtaskInput {
-    #[serde(deserialize_with = "de_lenient_string")]
     pub title: String,
-    #[serde(default)]
     pub completed: bool,
+}
+
+/// Accept a subtask as either a bare string (`"Rework styles"`) or an object
+/// of any shape (`{ "title": ... }`, `{ "step": ... }`, …). Coerces the title
+/// via `lenient_string` so models returning object-shaped subtasks no longer
+/// fail deserialization of the whole payload with
+/// `invalid type: map, expected struct SubtaskInput`.
+impl<'de> Deserialize<'de> for SubtaskInput {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = Value::deserialize(deserializer)?;
+        let completed = value
+            .get("completed")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        Ok(SubtaskInput {
+            title: lenient_string(&value),
+            completed,
+        })
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -367,52 +387,32 @@ pub fn parse_claude_stream_line(line: &str) -> ParsedStreamLine {
 
 pub fn parse_council_report(raw: &str) -> CouncilVerdict {
     let bounded: String = raw.chars().take(200_000).collect();
-    let json_start = bounded.find('{');
     let fallback = CouncilVerdict {
-        passed: true,
-        blocking_gaps: Vec::new(),
+        passed: false,
+        blocking_gaps: vec!["DevCouncil verify output missing or unparseable".to_string()],
         summary: None,
         raw: bounded.chars().take(4000).collect(),
     };
-    let Some(start) = json_start else {
-        return fallback;
-    };
 
-    let parsed: Value = match serde_json::from_str(&bounded[start..]) {
-        Ok(v) => v,
+    let result = match parse_verify_output(&bounded) {
+        Ok(result) => result,
         Err(_) => return fallback,
     };
 
-    let gaps: Vec<String> = parsed
-        .get("blocking_gaps")
-        .and_then(Value::as_array)
-        .map(|arr| {
-            arr.iter()
-                .map(|g| {
-                    if let Some(s) = g.as_str() {
-                        s.to_string()
-                    } else {
-                        g.to_string()
-                    }
-                })
-                .collect()
-        })
-        .unwrap_or_default();
-
-    let passed_flag = parsed
-        .get("passed")
-        .or_else(|| parsed.get("ok"))
-        .and_then(Value::as_bool)
-        .unwrap_or(gaps.is_empty());
-    let passed = passed_flag && gaps.is_empty();
+    let blocking_gaps: Vec<String> = result
+        .tasks
+        .iter()
+        .flat_map(|task| task.gaps.iter())
+        .filter(|gap| gap.blocking)
+        .map(|gap| gap.description.clone())
+        .collect();
+    let block_count = blocking_gaps.len().max(result.blocked_tasks);
+    let passed = result.ok && block_count == 0;
 
     CouncilVerdict {
         passed,
-        blocking_gaps: gaps,
-        summary: parsed
-            .get("diff_summary")
-            .and_then(Value::as_str)
-            .map(str::to_string),
+        blocking_gaps,
+        summary: result.error,
         raw: bounded.chars().take(4000).collect(),
     }
 }

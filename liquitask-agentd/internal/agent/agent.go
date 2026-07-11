@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"sync/atomic"
 	"time"
@@ -58,6 +59,40 @@ type ExecOptions struct {
 	// ignore this field, mirroring ThinkingLevel's renderer-side fall-through
 	// pattern. See issue #3260.
 	OpenclawMode string
+	// PermissionMode is the agent profile's permission mode (default, plan,
+	// acceptEdits, bypassPermissions). Backends map it to runtime-native
+	// flags where supported; others ignore unknown values.
+	PermissionMode string
+	// AutoApprove opts the run into bypass/yolo/auto-approve launch flags.
+	// When false (default), interactive permission prompts are brokered via
+	// PermissionPrompt when configured.
+	AutoApprove bool
+	// ToolPolicy maps tool names (or "*") to allow|ask|deny policy actions.
+	ToolPolicy map[string]ToolPolicyAction
+	// PermissionPrompt blocks until the runner resolves a tool permission.
+	PermissionPrompt PermissionPromptFunc
+	// SandboxMode selects OS-level sandbox wrapping: "" or "none" (default) or "os".
+	SandboxMode string
+	// ContainerImage runs the agent CLI inside apple/container (macOS 26+).
+	ContainerImage string
+	// WorkspacePaths are authorised workspace roots forwarded from the Rust bridge.
+	WorkspacePaths []string
+	// ScopePaths is the DevCouncil PlannedFile whitelist (repo-relative). When
+	// non-empty and OS sandbox is on, writable roots are restricted to these paths
+	// plus essentials (MCP dir, tmp, ephemeral HOME).
+	ScopePaths []string
+	// ExecutablePath is the resolved agent CLI binary used for sandbox profile building.
+	ExecutablePath string
+	// PtyEnabled runs the subprocess under a PTY when the runtime supports it.
+	PtyEnabled bool
+	// OnPtyOutput receives a tee of raw PTY bytes for terminal streaming.
+	OnPtyOutput OnPtyOutput
+	// SSH enables remote execution via OpenSSH (unix hosts only).
+	SSH *SSHConfig
+	// RemoteCwd is the resolved working directory on the remote host.
+	RemoteCwd string
+	// EphemeralHome is a per-run temp HOME directory used when OS sandbox is on.
+	EphemeralHome string
 }
 
 // runContext derives the execution context for an agent subprocess from the
@@ -89,6 +124,10 @@ type Session struct {
 	// send OS signals (e.g. SIGSTOP/SIGCONT for run.pause/run.resume)
 	// without the agent package exposing the *exec.Cmd itself.
 	pid atomic.Int32
+
+	// PtyMaster is the PTY master fd when the backend ran under a PTY.
+	// Non-nil enables run.pty.write takeover from the runner.
+	PtyMaster io.ReadWriteCloser
 }
 
 // PID returns the OS process ID of the session's primary subprocess, or 0
@@ -172,6 +211,7 @@ var SupportedTypes = []string{
 	"hermes",
 	"pi",
 	"cursor",
+	"grok",
 	"kimi",
 	"kiro",
 	"antigravity",
@@ -215,6 +255,8 @@ func New(agentType string, cfg Config) (Backend, error) {
 		return &piBackend{cfg: cfg}, nil
 	case "cursor":
 		return &cursorBackend{cfg: cfg}, nil
+	case "grok":
+		return &grokBackend{cfg: cfg}, nil
 	case "kimi":
 		return &kimiBackend{cfg: cfg}, nil
 	case "kiro":
@@ -226,7 +268,7 @@ func New(agentType string, cfg Config) (Backend, error) {
 	case "traecli":
 		return &traecliBackend{cfg: cfg}, nil
 	default:
-		return nil, fmt.Errorf("unknown agent type: %q (supported: claude, codebuddy, codex, copilot, opencode, openclaw, hermes, pi, cursor, kimi, kiro, antigravity, qoder, traecli)", agentType)
+		return nil, fmt.Errorf("unknown agent type: %q (supported: claude, codebuddy, codex, copilot, opencode, openclaw, hermes, pi, cursor, grok, kimi, kiro, antigravity, qoder, traecli)", agentType)
 	}
 }
 
@@ -247,7 +289,8 @@ var launchHeaders = map[string]string{
 	"codebuddy":   "codebuddy (stream-json)",
 	"codex":       "codex app-server",
 	"copilot":     "copilot (json)",
-	"cursor":      "cursor-agent (stream-json)",
+	"cursor":      "agent -p (stream-json)",
+	"grok":        "grok -p (streaming-json)",
 	"hermes":      "hermes acp",
 	"kimi":        "kimi acp",
 	"kiro":        "kiro-cli acp",

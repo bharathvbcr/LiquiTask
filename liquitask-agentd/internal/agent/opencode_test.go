@@ -1097,8 +1097,9 @@ func TestOpencodeBackendQuestionDenySurvivesUserConfig(t *testing.T) {
 	defer cancel()
 
 	session, err := backend.Execute(ctx, "prompt-ignored", ExecOptions{
-		Cwd:     workDir,
-		Timeout: 5 * time.Second,
+		Cwd:         workDir,
+		Timeout:     5 * time.Second,
+		AutoApprove: true,
 	})
 	if err != nil {
 		t.Fatalf("execute: %v", err)

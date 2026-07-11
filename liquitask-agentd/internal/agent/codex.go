@@ -616,6 +616,10 @@ func (b *codexBackend) Execute(ctx context.Context, prompt string, opts ExecOpti
 	codexArgs := buildCodexArgs(opts, b.cfg.Logger)
 	cmd := exec.CommandContext(runCtx, execPath, codexArgs...)
 	hideAgentWindow(cmd)
+	if err := ApplyOSSandbox(cmd, opts); err != nil {
+		cancel()
+		return nil, err
+	}
 	// Run codex in its own process group so a cancel-on-stuck cleanup
 	// reaches the whole tree — the codex Node wrapper plus the native
 	// Rust app-server it spawns — not just the direct child. Without
@@ -646,22 +650,23 @@ func (b *codexBackend) Execute(ctx context.Context, prompt string, opts ExecOpti
 	}
 	cmd.Env = buildEnv(b.cfg.Env)
 
-	stdout, err := cmd.StdoutPipe()
+	pio, err := AttachProcessIO(cmd, "codex", opts)
 	if err != nil {
 		cancel()
-		return nil, fmt.Errorf("codex stdout pipe: %w", err)
+		return nil, fmt.Errorf("codex process io: %w", err)
 	}
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		cancel()
-		return nil, fmt.Errorf("codex stdin pipe: %w", err)
-	}
+	stdout := pio.Stdout
+	stdin := pio.Stdin
 	stderrBuf := newStderrTail(newLogWriter(b.cfg.Logger, "[codex:stderr] "), codexStderrTailBytes)
-	cmd.Stderr = stderrBuf
+	if pio.PtyMaster == nil {
+		cmd.Stderr = stderrBuf
+	}
 
-	if err := cmd.Start(); err != nil {
-		cancel()
-		return nil, fmt.Errorf("start codex: %w", err)
+	if !pio.ProcessStarted {
+		if err := cmd.Start(); err != nil {
+			cancel()
+			return nil, fmt.Errorf("start codex: %w", err)
+		}
 	}
 
 	b.cfg.Logger.Info("codex started app-server", "pid", cmd.Process.Pid, "cwd", opts.Cwd)
@@ -680,6 +685,7 @@ func (b *codexBackend) Execute(ctx context.Context, prompt string, opts ExecOpti
 	c := &codexClient{
 		cfg:                  b.cfg,
 		stdin:                stdin,
+		permOpts:             opts,
 		pending:              make(map[int]*pendingRPC),
 		processDone:          make(chan struct{}),
 		notificationProtocol: "unknown",
@@ -1080,7 +1086,7 @@ func (b *codexBackend) Execute(ctx context.Context, prompt string, opts ExecOpti
 		}
 	}()
 
-	sess := &Session{Messages: msgCh, Result: resCh}
+	sess := &Session{Messages: msgCh, Result: resCh, PtyMaster: pio.PtyMaster}
 	sess.pid.Store(int32(cmd.Process.Pid))
 	return sess, nil
 }
@@ -1315,9 +1321,12 @@ func detectCodexVersionForDiagnostics(ctx context.Context, execPath string, env 
 }
 
 func trySendString(ch chan<- string, value string) {
+	timer := time.NewTimer(5 * time.Second)
+	defer timer.Stop()
 	select {
 	case ch <- value:
-	default:
+	case <-timer.C:
+		slog.Warn("agent: string channel blocked; event dropped after timeout")
 	}
 }
 
@@ -1358,6 +1367,7 @@ func describeCodexSemanticActivity(msg Message) string {
 type codexClient struct {
 	cfg                Config
 	stdin              interface{ Write([]byte) (int, error) }
+	permOpts           ExecOptions
 	mu                 sync.Mutex
 	nextID             int
 	pending            map[int]*pendingRPC
@@ -1626,22 +1636,43 @@ func (c *codexClient) handleServerRequest(raw map[string]json.RawMessage) {
 	var method string
 	_ = json.Unmarshal(raw["method"], &method)
 
-	// Auto-approve all exec/patch requests in daemon mode
+	ctx := context.Background()
 	switch method {
 	case "item/commandExecution/requestApproval", "execCommandApproval":
-		c.respond(id, map[string]any{"decision": "accept"})
+		if c.codexApprovalAllowed(ctx, "exec_command", nil) {
+			c.respond(id, map[string]any{"decision": "accept"})
+		} else {
+			c.respond(id, map[string]any{"decision": "reject"})
+		}
 	case "item/fileChange/requestApproval", "applyPatchApproval":
-		c.respond(id, map[string]any{"decision": "accept"})
+		if c.codexApprovalAllowed(ctx, "apply_patch", nil) {
+			c.respond(id, map[string]any{"decision": "accept"})
+		} else {
+			c.respond(id, map[string]any{"decision": "reject"})
+		}
 	case "item/permissions/requestApproval":
-		c.respond(id, codexPermissionsApprovalResponse(raw["params"], c.cfg.Logger))
+		if c.codexApprovalAllowed(ctx, "permissions", nil) {
+			c.respond(id, codexPermissionsApprovalResponse(raw["params"], c.cfg.Logger))
+		} else {
+			c.respond(id, map[string]any{"decision": "reject"})
+		}
 	case "mcpServer/elicitation/request":
-		c.respond(id, map[string]any{"action": "accept", "content": nil, "_meta": nil})
+		if c.codexApprovalAllowed(ctx, "mcp_elicitation", nil) {
+			c.respond(id, map[string]any{"action": "accept", "content": nil, "_meta": nil})
+		} else {
+			c.respond(id, map[string]any{"action": "decline", "content": nil, "_meta": nil})
+		}
 	default:
 		msg := fmt.Sprintf("unsupported codex app-server request: %s", method)
 		c.cfg.Logger.Warn("codex: unhandled server request", "method", method, "id", id)
 		c.setTurnError(msg)
 		c.respondError(id, -32601, msg)
 	}
+}
+
+func (c *codexClient) codexApprovalAllowed(ctx context.Context, tool string, input map[string]any) bool {
+	decision, _ := ResolveToolPermission(ctx, tool, input, c.permOpts)
+	return decision.Allowed
 }
 
 // codexPermissionsApprovalResponse builds the auto-grant reply for a Codex

@@ -19,6 +19,13 @@ type cursorMcpConfigFile struct {
 	McpServers map[string]json.RawMessage `json:"mcpServers"`
 }
 
+// PrepareCursorMcpConfig writes Cursor-native MCP sidecars for agents that have
+// an explicit managed mcp_config saved. Exported for the slim runner path in
+// internal/agent (which does not call execenv.Prepare).
+func PrepareCursorMcpConfig(envRoot, workDir string, mcpConfig json.RawMessage) (string, error) {
+	return prepareCursorMcpConfig(envRoot, workDir, mcpConfig, nil)
+}
+
 // prepareCursorMcpConfig writes the Cursor-native MCP sidecars for agents that
 // have an explicit managed mcp_config saved. A nil/null mcp_config means "let
 // Cursor behave normally", so no .cursor/mcp.json or CURSOR_DATA_DIR is created.

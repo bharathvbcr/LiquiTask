@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AgentProfile, AgentRun } from "../../../../types";
 import {
+  agentdStartTimeoutMs,
   evaluateRunLimits,
   exceededCostCap,
   resolveRunLimits,
@@ -38,6 +39,13 @@ describe("resolveRunLimits", () => {
   });
 });
 
+describe("agentdStartTimeoutMs", () => {
+  it("forwards the resolved wall-clock cap to agentd", () => {
+    expect(agentdStartTimeoutMs(agent({ runTimeoutMinutes: 45 }))).toBe(45 * 60_000);
+    expect(agentdStartTimeoutMs(agent({ runTimeoutMinutes: 0 }), { timeoutMinutes: 10 })).toBe(0);
+  });
+});
+
 const LIMITS: RunLimits = { timeoutMs: 60_000, stallMs: 30_000, perRunCostCapUsd: 0 };
 
 describe("evaluateRunLimits", () => {
@@ -49,6 +57,19 @@ describe("evaluateRunLimits", () => {
     const v = evaluateRunLimits(run(), LIMITS, 1_000_000 + 61_000);
     expect(v?.reason).toBe("timeout");
     expect(v?.message).toMatch(/time limit/);
+  });
+
+  it("excludes paused time from the timeout (no false abort after a long pause)", () => {
+    // 61s elapsed but 40s of it was paused → 21s active < 60s timeout. The
+    // recent event mirrors the "Run resumed" event, so stall doesn't fire either.
+    expect(
+      evaluateRunLimits(run({ pausedMs: 40_000, events: [ev(1_056_000)] }), LIMITS, 1_000_000 + 61_000),
+    ).toBeNull();
+    // Still fires once *active* time (elapsed − paused) exceeds the cap.
+    expect(
+      evaluateRunLimits(run({ pausedMs: 40_000, events: [ev(1_100_000)] }), LIMITS, 1_000_000 + 101_000)
+        ?.reason,
+    ).toBe("timeout");
   });
 
   it("fires stall when no output for longer than stallMs", () => {

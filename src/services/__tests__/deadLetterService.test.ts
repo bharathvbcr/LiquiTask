@@ -78,6 +78,18 @@ describe("deadLetterService", () => {
 
   it("fails retry gracefully when no handler is registered", async () => {
     const letter = deadLetterService.record({
+      kind: "event-log",
+      title: "Log write failed",
+      detail: "boom",
+      payload: {},
+    });
+    const outcome = await deadLetterService.retry(letter.id);
+    expect(outcome.ok).toBe(false);
+    expect(outcome.error).toMatch(/No retry handler/);
+  });
+
+  it("fails automation retry when no handler is registered", async () => {
+    const letter = deadLetterService.record({
       kind: "automation",
       title: "Rule failed",
       detail: "boom",

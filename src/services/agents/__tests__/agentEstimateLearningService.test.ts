@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { AgentRun, Task } from "../../../../types";
 import {
   computeEstimateCalibration,
+  runDurationMinutes,
   suggestCalibratedEstimate,
 } from "../agentEstimateLearningService";
 
@@ -27,6 +28,22 @@ const run = (overrides: Partial<AgentRun> = {}): AgentRun => ({
   finishedAt: new Date("2026-07-01T11:30:00"),
   events: [],
   ...overrides,
+});
+
+describe("runDurationMinutes", () => {
+  it("returns active minutes for a straightforward run", () => {
+    expect(runDurationMinutes(run())).toBe(90); // 10:00 → 11:30
+  });
+
+  it("excludes paused time so the estimator isn't skewed", () => {
+    // 90 min wall-clock, 30 min paused → 60 min active.
+    expect(runDurationMinutes(run({ pausedMs: 30 * 60_000 }))).toBe(60);
+  });
+
+  it("returns null when there's no positive active runtime", () => {
+    expect(runDurationMinutes(run({ pausedMs: 999 * 60_000 }))).toBeNull();
+    expect(runDurationMinutes(run({ finishedAt: undefined }))).toBeNull();
+  });
 });
 
 describe("agentEstimateLearningService", () => {

@@ -125,17 +125,3 @@ export function useKeyboardNav({
     },
   };
 }
-
-// Deprecated: Use KeybindingContext to get current shortcuts
-export const KEYBOARD_SHORTCUTS = [
-  { key: "J / ↓", description: "Move down" },
-  { key: "K / ↑", description: "Move up" },
-  { key: "Enter", description: "Open task" },
-  { key: "X", description: "Select task" },
-  { key: "Shift+Delete", description: "Delete task" },
-  { key: "Esc", description: "Clear focus" },
-  { key: "C", description: "Create new task" },
-  { key: "Cmd/Ctrl+K", description: "Focus search" },
-  { key: "Cmd/Ctrl+B", description: "Toggle sidebar" },
-  { key: "?", description: "Show shortcuts" },
-] as const;

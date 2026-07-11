@@ -1,5 +1,6 @@
 import agentRunService from "./agentRunService";
 import agentService from "./agentService";
+import agentReservationService from "./agentReservationService";
 import { checkAgentBudget, getAgentDailyStats } from "./agentPolicyService";
 import type { AgentProfile, Task, ToastType } from "../../../types";
 
@@ -29,6 +30,7 @@ export interface DispatchResult {
   ok: boolean;
   agentName?: string;
   queued?: boolean;
+  scopeQueued?: boolean;
   reason?: string;
 }
 
@@ -205,12 +207,26 @@ class AgentDispatchService {
     // Acknowledge instantly: the card shows "sending" until the run exists.
     this.markInFlight(task.id, true);
     try {
+      const scopeConflict = agentReservationService.wouldTaskConflict(task);
+      if (scopeConflict && !options?.silent) {
+        this.notifyFn?.(
+          `Scope overlap with another run — "${task.title}" will queue for file scope.`,
+          "info",
+        );
+      }
       await this.assignFn(task, agent.id, { ...options, via });
     } finally {
       this.markInFlight(task.id, false);
     }
-    const queued = agentRunService.getActiveRunForTask(task.id)?.status === "queued";
-    return { taskId: task.id, ok: true, agentName: agent.name, queued };
+    const activeRun = agentRunService.getActiveRunForTask(task.id);
+    const queued = activeRun?.status === "queued";
+    return {
+      taskId: task.id,
+      ok: true,
+      agentName: agent.name,
+      queued,
+      scopeQueued: Boolean(activeRun?.scopeBlocked),
+    };
   }
 
   /**

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { BoardColumn, Task } from "../../types";
 import { useKeybinding } from "../context/KeybindingContext";
 import agentDispatchService from "../services/agents/agentDispatchService";
+import { shouldBlockAppShortcut } from "../utils/keyboardTarget";
 
 interface UseBoardKeyboardNavOptions {
   columns: BoardColumn[];
@@ -22,6 +23,7 @@ interface UseBoardKeyboardNavOptions {
   boardGrouping: "none" | "priority";
   onMoveBlocked?: (message: string) => void;
   isEnabled?: boolean;
+  onFocusedColumnChange?: (index: number) => void;
 }
 
 interface UseBoardKeyboardNavReturn {
@@ -45,6 +47,7 @@ export function useBoardKeyboardNav({
   boardGrouping: _boardGrouping,
   onMoveBlocked,
   isEnabled = true,
+  onFocusedColumnChange,
 }: UseBoardKeyboardNavOptions): UseBoardKeyboardNavReturn {
   const [focusedColumnIndex, setFocusedColumnIndex] = useState(-1);
   const [focusedTaskId, setFocusedTaskId] = useState<string | null>(null);
@@ -148,6 +151,7 @@ export function useBoardKeyboardNav({
   const handleKeyDown = useCallback(
     (e: KeyboardEvent | React.KeyboardEvent) => {
       if (!isEnabled) return;
+      if (shouldBlockAppShortcut(e as KeyboardEvent)) return;
 
       // Don't handle if user is typing in an input
       const target = e.target as HTMLElement;
@@ -258,6 +262,10 @@ export function useBoardKeyboardNav({
       setFocusedColumnIndex(Math.max(0, columns.length - 1));
     }
   }, [focusedColumnIndex, columns.length]);
+
+  useEffect(() => {
+    onFocusedColumnChange?.(focusedColumnIndex);
+  }, [focusedColumnIndex, onFocusedColumnChange]);
 
   // Reset task focus when tasks change
   useEffect(() => {

@@ -18,7 +18,7 @@ type Runtime struct {
 }
 
 // known lists every runtime the detect RPC will scan for on PATH. It is a
-// superset of agent.SupportedTypes: the 14 supported types are startable via
+// superset of agent.SupportedTypes: the 15 supported types are startable via
 // run.start (agent.New/Backend.Execute), plus two detect-only extras —
 // "gemini" and "aider" — for CLIs the daemon can report as installed but
 // cannot yet start through the agent.Backend abstraction (no ported backend
@@ -27,7 +27,7 @@ type Runtime struct {
 // disappearing entirely; HandleStart rejects them with a clear "unsupported
 // runtime" error via agent.IsSupportedType.
 //
-// The 14 supported entries' IDs and default binary names are kept in lockstep
+// The 15 supported entries' IDs and default binary names are kept in lockstep
 // with agent.SupportedTypes and each backend's own execPath default (see the
 // `if execPath == ""` fallback in each backend file).
 var known = []struct {
@@ -43,7 +43,8 @@ var known = []struct {
 	{"openclaw", "OpenClaw", []string{"openclaw"}, []string{"--version"}},
 	{"hermes", "Hermes", []string{"hermes"}, []string{"--version"}},
 	{"pi", "Pi", []string{"pi"}, []string{"--version"}},
-	{"cursor", "Cursor Agent", []string{"cursor-agent", "cursor"}, []string{"--version"}},
+	{"cursor", "Cursor Agent", []string{"agent", "cursor-agent", "cursor"}, []string{"--version"}},
+	{"grok", "Grok Build", []string{"grok"}, []string{"--version"}},
 	{"kimi", "Kimi", []string{"kimi"}, []string{"--version"}},
 	{"kiro", "Kiro", []string{"kiro-cli", "kiro"}, []string{"--version"}},
 	{"antigravity", "Antigravity", []string{"agy"}, []string{"--version"}},

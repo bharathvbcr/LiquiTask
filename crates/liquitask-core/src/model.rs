@@ -88,9 +88,14 @@ where
     })
 }
 
+/// Board columns where work is done or merged — no longer active for heuristics.
+pub fn is_terminal_status(status: &str) -> bool {
+    status == "Completed" || status == "Commit"
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Subtask {
-    #[serde(default)]
+    #[serde(default, deserialize_with = "de_lenient_string")]
     pub id: String,
     #[serde(default, deserialize_with = "de_lenient_string")]
     pub title: String,
@@ -100,10 +105,10 @@ pub struct Subtask {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TaskLink {
-    #[serde(default, rename = "targetTaskId")]
+    #[serde(default, rename = "targetTaskId", deserialize_with = "de_lenient_string")]
     pub target_task_id: String,
     /// "blocks" | "blocked-by" | "relates-to" | "duplicates"
-    #[serde(default, rename = "type")]
+    #[serde(default, rename = "type", deserialize_with = "de_lenient_string")]
     pub link_type: String,
 }
 
@@ -114,7 +119,7 @@ pub struct RecurringConfig {
     #[serde(default)]
     pub enabled: bool,
     /// "daily" | "weekly" | "monthly" | "custom"
-    #[serde(default)]
+    #[serde(default, deserialize_with = "de_lenient_string")]
     pub frequency: String,
     #[serde(default)]
     pub interval: i64,
@@ -133,8 +138,11 @@ pub struct RecurringConfig {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Task {
+    #[serde(deserialize_with = "de_lenient_string")]
     pub id: String,
+    #[serde(deserialize_with = "de_lenient_string")]
     pub job_id: String,
+    #[serde(deserialize_with = "de_lenient_string")]
     pub project_id: String,
     #[serde(deserialize_with = "de_lenient_string")]
     pub title: String,
@@ -142,8 +150,11 @@ pub struct Task {
     pub subtitle: Option<String>,
     #[serde(deserialize_with = "de_lenient_string")]
     pub summary: String,
+    #[serde(default, deserialize_with = "de_lenient_string")]
     pub assignee: String,
+    #[serde(default, deserialize_with = "de_lenient_string")]
     pub priority: String,
+    #[serde(default, deserialize_with = "de_lenient_string")]
     pub status: String,
     pub created_at: i64,
     pub updated_at: Option<i64>,
@@ -161,6 +172,11 @@ pub struct Task {
 }
 
 impl Task {
+    /// True when the task is in a terminal column or has a completion timestamp.
+    pub fn is_terminal(&self) -> bool {
+        self.completed_at.is_some() || is_terminal_status(&self.status)
+    }
+
     /// IDs of tasks this task is "blocked-by".
     pub fn blocked_by_ids(&self) -> Vec<String> {
         self.links
@@ -207,6 +223,25 @@ mod tests {
         assert_eq!(task.subtasks.len(), 2);
         assert_eq!(task.subtasks[0].title, "Locate component");
         assert_eq!(task.subtasks[1].title, "Rework styles");
+    }
+
+    #[test]
+    fn task_deserializes_lenient_assignee_and_status() {
+        let value = serde_json::json!({
+            "id": { "value": "t4" },
+            "assignee": { "name": "Alice" },
+            "status": { "label": "Commit" },
+            "priority": { "text": "high" },
+            "projectId": { "title": "p1" },
+            "jobId": { "name": "LT-1" }
+        });
+        let task: Task = serde_json::from_value(value).unwrap();
+        assert_eq!(task.id, "t4");
+        assert_eq!(task.assignee, "Alice");
+        assert_eq!(task.status, "Commit");
+        assert_eq!(task.priority, "high");
+        assert_eq!(task.project_id, "p1");
+        assert_eq!(task.job_id, "LT-1");
     }
 
     #[test]

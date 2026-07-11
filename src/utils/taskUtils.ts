@@ -1,6 +1,11 @@
 import type { BoardColumn } from "../../types";
 import { COLUMN_STATUS } from "../constants";
 
+/** Completed (review) or Commit (merged) — terminal for heuristics. */
+export function isTerminalTaskStatus(status: string | undefined): boolean {
+  return status === COLUMN_STATUS.COMPLETED || status === COLUMN_STATUS.COMMIT;
+}
+
 /** First non-completed column, or the first column, or the default Task status. */
 export function getBacklogColumnId(columns: BoardColumn[]): string {
   const backlog = columns.find((c) => !c.isCompleted);

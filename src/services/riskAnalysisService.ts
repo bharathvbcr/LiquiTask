@@ -2,6 +2,7 @@ import type { AIContext, Task } from "../../types";
 import { aiService } from "./aiService";
 import { callNative } from "../runtime/runtimeEnvironment";
 import { toCoreTask } from "../runtime/coreDto";
+import { isTerminalTaskStatus } from "../utils/taskUtils";
 
 export interface RiskAssessment {
   taskId: string;
@@ -114,13 +115,20 @@ class RiskAnalysisService {
     // Here we find the deepest dependency chain
     let maxPath: string[] = [];
     const memo = new Map<string, string[]>();
+    const visiting = new Set<string>();
 
     const findLongestPath = (id: string): string[] => {
+      if (visiting.has(id)) return [id];
       const memoizedPath = memo.get(id);
       if (memoizedPath) return memoizedPath;
 
+      visiting.add(id);
+
       const children = adj.get(id) || [];
-      if (children.length === 0) return [id];
+      if (children.length === 0) {
+        visiting.delete(id);
+        return [id];
+      }
 
       let longestChildPath: string[] = [];
       for (const childId of children) {
@@ -129,6 +137,8 @@ class RiskAnalysisService {
           longestChildPath = path;
         }
       }
+
+      visiting.delete(id);
 
       const result = [id, ...longestChildPath];
       memo.set(id, result);
@@ -154,7 +164,7 @@ class RiskAnalysisService {
       const reasons: string[] = [];
 
       // Risk 1: Overdue or near deadline
-      if (task.dueDate && task.status !== "Completed") {
+      if (task.dueDate && !isTerminalTaskStatus(task.status) && !task.completedAt) {
         const due = new Date(task.dueDate);
         const diff = (due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
         if (diff < 0) {

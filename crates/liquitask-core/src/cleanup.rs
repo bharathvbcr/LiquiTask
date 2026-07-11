@@ -283,7 +283,11 @@ pub struct MergeSuggestion {
 /// then activity length (desc). `Array.prototype.sort` is stable in modern V8,
 /// so ties keep their original relative order — we replicate that with a
 /// **stable** sort so the chosen keep-task and archive order match JS exactly.
-pub fn heuristic_merge_suggestion(group_tasks: &[Task]) -> MergeSuggestion {
+pub fn heuristic_merge_suggestion(group_tasks: &[Task]) -> Result<MergeSuggestion, String> {
+    if group_tasks.is_empty() {
+        return Err("merge group must contain at least one task".to_string());
+    }
+
     // Stable sort by the same comparator the TS uses.
     let mut sorted: Vec<&Task> = group_tasks.iter().collect();
     sorted.sort_by(|a, b| {
@@ -367,7 +371,7 @@ pub fn heuristic_merge_suggestion(group_tasks: &[Task]) -> MergeSuggestion {
         archive_tasks.len()
     );
 
-    MergeSuggestion {
+    Ok(MergeSuggestion {
         keep_task_id: keep_task.id.clone(),
         archive_task_ids: archive_tasks.iter().map(|t| t.id.clone()).collect(),
         merged_fields: MergedFields {
@@ -378,7 +382,7 @@ pub fn heuristic_merge_suggestion(group_tasks: &[Task]) -> MergeSuggestion {
             time_spent,
         },
         reasoning,
-    }
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -429,15 +433,14 @@ fn is_task_stale(task: &Task, now_ms: i64) -> bool {
 pub fn analyze_redundancy(all_tasks: &[Task], now_ms: i64) -> Vec<RedundancyAnalysis> {
     let mut analyses: Vec<RedundancyAnalysis> = Vec::new();
 
-    // completedTasks = status === "Completed" || completedAt truthy.
+    // Terminal tasks: Completed (review) or Commit (merged), or completedAt set.
     let completed_tasks: Vec<&Task> = all_tasks
         .iter()
-        .filter(|t| t.status == "Completed" || t.completed_at.is_some())
+        .filter(|t| t.is_terminal())
         .collect();
-    // activeTasks = status !== "Completed" && !completedAt.
     let active_tasks: Vec<&Task> = all_tasks
         .iter()
-        .filter(|t| t.status != "Completed" && t.completed_at.is_none())
+        .filter(|t| !t.is_terminal())
         .collect();
 
     for task in &active_tasks {
@@ -877,7 +880,7 @@ mod tests {
 
         // `other` has subtasks and `keep` has subtasks -> both has_sub=1, tie ->
         // activity length both 0 -> stable: keep stays first.
-        let sug = heuristic_merge_suggestion(&[keep, other]);
+        let sug = heuristic_merge_suggestion(&[keep, other]).expect("non-empty group");
         assert_eq!(sug.keep_task_id, "keep");
         assert_eq!(sug.archive_task_ids, vec!["other"]);
         // "do x" already present (case-insensitively vs "DO X"); "do y" added.
@@ -887,6 +890,27 @@ mod tests {
         assert!((sug.merged_fields.time_spent - 8.0).abs() < 1e-12);
         assert!(sug.reasoning.contains("Kept \"Task A\""));
         assert!(sug.merged_fields.summary.starts_with("primary\n\n---\nMerged"));
+    }
+
+    #[test]
+    fn merge_rejects_empty_group() {
+        assert!(heuristic_merge_suggestion(&[]).is_err());
+    }
+
+    #[test]
+    fn redundancy_treats_commit_and_completed_as_terminal() {
+        let now = 1_700_000_000_000i64;
+        let active1 = task("act1", "write the docs");
+        let mut commit = task("commit", "write the docs");
+        commit.status = "Commit".to_string();
+        let out_commit = analyze_redundancy(&[active1, commit], now);
+        assert!(out_commit.iter().any(|a| a.analysis_type == "completed-overlap"));
+
+        let active2 = task("act2", "write the docs");
+        let mut completed = task("done", "write the docs");
+        completed.status = "Completed".to_string();
+        let out_completed = analyze_redundancy(&[active2, completed], now);
+        assert!(out_completed.iter().any(|a| a.analysis_type == "completed-overlap"));
     }
 
     #[test]

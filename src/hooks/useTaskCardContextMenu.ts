@@ -8,16 +8,20 @@ interface UseTaskCardContextMenuProps {
   task: Task;
   projectName?: string;
   onCopyTask?: (message: string) => void;
+  onDuplicateAsQuickAdd?: (task: Task) => void;
   onMoveToWorkspace?: (taskId: string, projectId: string) => void;
   onDeleteTask?: (taskId: string) => void;
+  agentsEnabled?: boolean;
 }
 
 export const useTaskCardContextMenu = ({
   task,
   projectName,
   onCopyTask,
+  onDuplicateAsQuickAdd,
   onMoveToWorkspace,
   onDeleteTask,
+  agentsEnabled = true,
 }: UseTaskCardContextMenuProps) => {
   const [contextMenuVisible, setContextMenuVisible] = useState(false);
   const [contextMenuPosition, setContextMenuPosition] = useState({
@@ -38,6 +42,12 @@ export const useTaskCardContextMenu = ({
     // Raw cursor coords — TaskCard measures the rendered menu and clamps
     // it to the viewport, so no size guessing is needed here.
     setContextMenuPosition({ x: e.clientX, y: e.clientY });
+    if (!agentsEnabled) {
+      setDispatchAgents([]);
+      setOfferAgentSetup(false);
+      setContextMenuVisible(true);
+      return;
+    }
     // Snapshot dispatchable agents at open time (cheap storage read).
     setDispatchAgents(
       agentDispatchService.canDispatch()
@@ -47,7 +57,7 @@ export const useTaskCardContextMenu = ({
     // First run: no agents yet — the menu offers guided setup instead.
     setOfferAgentSetup(agentDispatchService.canOfferSetup());
     setContextMenuVisible(true);
-  }, []);
+  }, [agentsEnabled]);
 
   const handleAgentSetup = useCallback(() => {
     setContextMenuVisible(false);
@@ -86,6 +96,11 @@ export const useTaskCardContextMenu = ({
       onCopyTask?.("Failed to copy task details");
     }
   }, [task, projectName, onCopyTask]);
+
+  const handleDuplicateAsQuickAdd = useCallback(() => {
+    setContextMenuVisible(false);
+    onDuplicateAsQuickAdd?.(task);
+  }, [onDuplicateAsQuickAdd, task]);
 
   const handleMoveToWorkspace = useCallback(
     (projectId: string) => {
@@ -155,6 +170,7 @@ export const useTaskCardContextMenu = ({
     offerAgentSetup,
     handleContextMenu,
     handleCopyAsJson,
+    handleDuplicateAsQuickAdd,
     handleMoveToWorkspace,
     handleDeleteTask,
     handleSendToAgent,

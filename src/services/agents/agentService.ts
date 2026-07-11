@@ -13,9 +13,12 @@ class AgentService {
     return {
       ...agent,
       runsOnRecurrence: agent.runsOnRecurrence ?? true,
+      autoApprove: agent.autoApprove ?? false,
+      sandboxMode: agent.sandboxMode ?? "none",
       // Worktree-per-assignment is the default: profiles saved before the
       // agentic board (no explicit flag) get isolated worktrees from now on.
       gitWorktree: agent.gitWorktree ?? true,
+      host: agent.host ?? 'local',
       createdAt: agent.createdAt instanceof Date ? agent.createdAt : new Date(agent.createdAt),
     };
   }
@@ -66,7 +69,9 @@ class AgentService {
       provider: "claude-code",
       workingDir: "",
       permissionMode: "acceptEdits",
+      autoApprove: false,
       sandbox: "host",
+      sandboxMode: "none",
       autoPickup: false,
       runsOnRecurrence: true,
       devCouncilVerify: false,
@@ -74,9 +79,15 @@ class AgentService {
       gitWorktree: true,
       role: "default",
       modelRouting: "fixed",
+      host: "local",
       createdAt: new Date(),
       ...partial,
     };
+  }
+
+  /** Empty or whitespace working dirs resolve to the workspace folder. */
+  resolveWorkingDir(workingDir: string | undefined, fallback: string): string {
+    return workingDir?.trim() || fallback;
   }
 }
 

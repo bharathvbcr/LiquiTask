@@ -18,6 +18,7 @@ interface AutomationRuleEditorProps {
   availablePriorities: Array<{ id: string; label: string }>;
   availableColumns: Array<{ id: string; title: string }>;
   availableAgents?: Array<{ id: string; name: string }>;
+  aiFeaturesEnabled?: boolean;
 }
 
 export const AutomationRuleEditor: React.FC<AutomationRuleEditorProps> = ({
@@ -27,6 +28,7 @@ export const AutomationRuleEditor: React.FC<AutomationRuleEditorProps> = ({
   availablePriorities,
   availableColumns,
   availableAgents = [],
+  aiFeaturesEnabled = true,
 }) => {
   const [name, setName] = useState(rule?.name || "");
   const [enabled, setEnabled] = useState(rule?.enabled ?? true);
@@ -138,7 +140,7 @@ export const AutomationRuleEditor: React.FC<AutomationRuleEditorProps> = ({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* AI Generation Box */}
+          {aiFeaturesEnabled && (
           <div className="bg-red-900/10 border border-red-500/20 rounded-xl p-4">
             <div className="flex items-start gap-3">
               <Brain className="text-red-400 mt-1" size={20} />
@@ -178,6 +180,7 @@ export const AutomationRuleEditor: React.FC<AutomationRuleEditorProps> = ({
               </div>
             </div>
           </div>
+          )}
 
           {/* Basic Info */}
           <div className="space-y-4">

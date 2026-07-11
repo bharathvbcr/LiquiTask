@@ -33,20 +33,36 @@ if [[ "$TRIPLE" == *"-pc-windows-msvc" ]]; then
 fi
 OUTPUT="$BIN_DIR/$OUTPUT_NAME"
 
+CLI_OUTPUT_NAME="liquitask-cli-${TRIPLE}"
+if [[ "$TRIPLE" == *"-pc-windows-msvc" ]]; then
+  CLI_OUTPUT_NAME="${CLI_OUTPUT_NAME}.exe"
+fi
+CLI_OUTPUT="$BIN_DIR/$CLI_OUTPUT_NAME"
+
 echo "+ building liquitask-agentd for $TRIPLE"
 (
   cd "$ROOT/liquitask-agentd"
   GOOS="${AGENTD_GOOS:-}"
   GOARCH="${AGENTD_GOARCH:-}"
-  if [[ -n "$GOOS" || -n "$GOARCH" ]]; then
-    env ${GOOS:+GOOS="$GOOS"} ${GOARCH:+GOARCH="$GOARCH"} go build -o "$OUTPUT" ./cmd/liquitask-agentd
-  else
-    go build -o "$OUTPUT" ./cmd/liquitask-agentd
-  fi
+  build_go() {
+    local out="$1"
+    local pkg="$2"
+    if [[ -n "$GOOS" || -n "$GOARCH" ]]; then
+      env ${GOOS:+GOOS="$GOOS"} ${GOARCH:+GOARCH="$GOARCH"} go build -o "$out" "$pkg"
+    else
+      go build -o "$out" "$pkg"
+    fi
+  }
+  build_go "$OUTPUT" ./cmd/liquitask-agentd
+  build_go "$CLI_OUTPUT" ./cmd/liquitask
 )
 
 if [[ "$OUTPUT" != *.exe ]]; then
   chmod +x "$OUTPUT"
 fi
+if [[ "$CLI_OUTPUT" != *.exe ]]; then
+  chmod +x "$CLI_OUTPUT"
+fi
 
 echo "Built agentd sidecar: $OUTPUT"
+echo "Built liquitask CLI: $CLI_OUTPUT"

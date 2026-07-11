@@ -27,6 +27,34 @@ func writeFile(t *testing.T, path, body string) {
 	}
 }
 
+// TestPlatformCursorInvocation_RewritesAgentCmdLauncher verifies the modern
+// `agent.cmd` → PowerShell -File agent.ps1 rewrite path.
+func TestPlatformCursorInvocation_RewritesAgentCmdLauncher(t *testing.T) {
+	dir := t.TempDir()
+	cmdPath := filepath.Join(dir, "agent.cmd")
+	ps1Path := filepath.Join(dir, "agent.ps1")
+	writeFile(t, cmdPath, "@echo off\r\npowershell -NoProfile -ExecutionPolicy Bypass -File \"%~dp0agent.ps1\" %*\r\n")
+	writeFile(t, ps1Path, "# fake agent.ps1\r\n")
+
+	fakePS := filepath.Join(dir, "powershell.exe")
+	writeFile(t, fakePS, "")
+	stubPowerShell(t, fakePS, true)
+
+	args := []string{"-p", "line1\nline2", "--output-format", "stream-json", "--yolo"}
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	gotExec, gotArgs, ok := platformCursorInvocation(cmdPath, args, logger)
+	if !ok {
+		t.Fatalf("expected platform rewrite to be applied, got ok=false")
+	}
+	if gotExec != fakePS {
+		t.Errorf("argv0: got %q want %q", gotExec, fakePS)
+	}
+	if len(gotArgs) < 6 || gotArgs[4] != "-File" || gotArgs[5] != ps1Path {
+		t.Fatalf("expected powershell -File %q, got %#v", ps1Path, gotArgs)
+	}
+}
+
 // TestPlatformCursorInvocation_RewritesCmdLauncherToPowerShellFile is the core
 // Windows test: when LookPath resolves cursor-agent to the official .cmd
 // launcher and a sibling cursor-agent.ps1 exists, we should invoke

@@ -60,6 +60,10 @@ func (b *kiroBackend) Execute(ctx context.Context, prompt string, opts ExecOptio
 	kiroArgs := append([]string{"acp", "--trust-all-tools"}, filterCustomArgs(opts.CustomArgs, kiroBlockedArgs, b.cfg.Logger)...)
 	cmd := exec.CommandContext(runCtx, execPath, kiroArgs...)
 	hideAgentWindow(cmd)
+	if err := PrepareManagedCommand(cmd, opts, 10*time.Second); err != nil {
+		cancel()
+		return nil, err
+	}
 	b.cfg.Logger.Info("agent command", "exec", execPath, "args", kiroArgs)
 	if opts.Cwd != "" {
 		cmd.Dir = opts.Cwd
@@ -119,6 +123,7 @@ func (b *kiroBackend) Execute(ctx context.Context, prompt string, opts ExecOptio
 		stdin:        stdin,
 		pending:      make(map[int]*pendingRPC),
 		pendingTools: make(map[string]*pendingToolCall),
+		permOpts:     opts,
 		acceptNotification: func(string) bool {
 			return streamingCurrentTurn.Load()
 		},

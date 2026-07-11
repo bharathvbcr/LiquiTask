@@ -23,7 +23,9 @@ export type DeadLetterKind =
   | "mcp-action"
   | "run"
   | "automation"
-  | "event-log";
+  | "event-log"
+  | "ci"
+  | "review";
 
 export type DeadLetterStatus = "open" | "resolved" | "discarded";
 
@@ -38,6 +40,8 @@ export interface DeadLetter {
   detail: string;
   /** Everything a retry handler needs to re-execute the action. */
   payload: Record<string, unknown>;
+  /** Set when an auto-repair follow-up was spawned (audit trail). */
+  autoHandled?: boolean;
   createdAt: Date;
   attempts: number;
   lastAttemptAt?: Date;
@@ -47,6 +51,26 @@ export interface DeadLetter {
 export type RetryHandler = (letter: DeadLetter) => Promise<void>;
 type Listener = (open: DeadLetter[]) => void;
 
+const MAX_DLQ_RETRY_ATTEMPTS = 5;
+
+function stableDeadLetterId(input: {
+  kind: DeadLetterKind;
+  taskId?: string;
+  runId?: string;
+  payload?: Record<string, unknown>;
+}): string {
+  const fingerprint = JSON.stringify({
+    kind: input.kind,
+    taskId: input.taskId ?? "",
+    runId: input.runId ?? "",
+    payload: input.payload ?? {},
+  });
+  let hash = 0;
+  for (let i = 0; i < fingerprint.length; i += 1) {
+    hash = (hash * 31 + fingerprint.charCodeAt(i)) >>> 0;
+  }
+  return `dlq-${input.kind}-${hash.toString(36)}`;
+}
 const MAX_LETTERS = 200;
 const MAX_DETAIL_CHARS = 4000;
 
@@ -80,16 +104,27 @@ class DeadLetterService {
     payload?: Record<string, unknown>;
     taskId?: string;
     runId?: string;
+    autoHandled?: boolean;
   }): DeadLetter {
     this.ensureLoaded();
+    const id = stableDeadLetterId(input);
+    const existing = this.letters.find((l) => l.id === id && l.status === "open");
+    if (existing) {
+      existing.detail = `${existing.detail}\n— ${input.detail}`.slice(0, MAX_DETAIL_CHARS);
+      existing.lastAttemptAt = new Date();
+      this.persist();
+      this.notify();
+      return existing;
+    }
     const letter: DeadLetter = {
-      id: `dlq-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+      id,
       kind: input.kind,
       taskId: input.taskId,
       runId: input.runId,
       title: input.title.slice(0, 200),
       detail: input.detail.slice(0, MAX_DETAIL_CHARS),
       payload: input.payload ?? {},
+      autoHandled: input.autoHandled,
       createdAt: new Date(),
       attempts: 0,
       status: "open",
@@ -137,6 +172,12 @@ class DeadLetterService {
     this.ensureLoaded();
     const letter = this.letters.find((l) => l.id === id && l.status === "open");
     if (!letter) return { ok: false, error: "Dead letter not found or already closed." };
+    if (letter.attempts >= MAX_DLQ_RETRY_ATTEMPTS) {
+      return {
+        ok: false,
+        error: `Dead letter retry cap (${MAX_DLQ_RETRY_ATTEMPTS}) reached.`,
+      };
+    }
     const handler = this.retryHandlers.get(letter.kind);
     if (!handler) {
       return { ok: false, error: `No retry handler registered for "${letter.kind}".` };

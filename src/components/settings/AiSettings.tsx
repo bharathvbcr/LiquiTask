@@ -15,6 +15,7 @@ import {
   Settings2,
   Sparkles,
   Tags,
+  Terminal,
   Trash2,
   X,
   Zap,
@@ -22,14 +23,39 @@ import {
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { STORAGE_KEYS } from "../../constants";
-import { getDesktopApi } from "../../runtime/runtimeEnvironment";
-import { aiService } from "../../services/aiService";
+import { getDesktopApi, isTauri } from "../../runtime/runtimeEnvironment";
+import { nativeClaudeHealth, nativeClaudeModels } from "../../services/nativeBridge";
+import { aiService, CLAUDE_CODE_MODEL_OPTIONS } from "../../services/aiService";
 import { DEFAULT_SEMANTIC_LAYER_SETTINGS, semanticLayerService, type SemanticLayerRuntimeStatus } from "../../services/semanticLayerService";
 import { persistStorageQuiet } from "../../utils/persistStorage";
 import storageService from "../../services/storageService";
 import { sanitizeUrl } from "../../utils/validation";
 import type { AIConfig, AutoOrganizeConfig, SemanticLayerSettings, ToastType } from "../../../types";
 import { Tooltip } from "../Tooltip";
+
+interface ClaudeModelOption {
+  id: string;
+  label: string;
+  default?: boolean;
+}
+
+const CLAUDE_FALLBACK_LABELS: Record<string, string> = {
+  "claude-sonnet-5": "Claude Sonnet 5",
+  "claude-sonnet-4-6": "Claude Sonnet 4.6",
+  "claude-fable-5": "Claude Fable 5",
+  "claude-opus-4-8": "Claude Opus 4.8",
+  "claude-opus-4-7": "Claude Opus 4.7",
+  "claude-haiku-4-5-20251001": "Claude Haiku 4.5",
+  "claude-opus-4-6": "Claude Opus 4.6",
+  "claude-sonnet-4-5": "Claude Sonnet 4.5",
+};
+
+const buildClaudeFallbackModels = (): ClaudeModelOption[] =>
+  CLAUDE_CODE_MODEL_OPTIONS.map((id) => ({
+    id,
+    label: CLAUDE_FALLBACK_LABELS[id] ?? id,
+    default: id === "claude-sonnet-4-6",
+  }));
 
 interface AiSettingsProps {
   addToast: (msg: string, type: ToastType) => void;
@@ -47,6 +73,7 @@ const DEFAULT_AI_CONFIG: AIConfig = {
   provider: "gemini",
   geminiApiKey: "",
   geminiModel: "gemini-3.1-flash-lite",
+  claudeCodeModel: "claude-sonnet-4-6",
   // Default to 127.0.0.1 (not "localhost"): under Tauri the request is made
   // from the Rust process, where "localhost" can resolve to IPv6 ::1 while a
   // default Ollama install only listens on IPv4 127.0.0.1, yielding a spurious
@@ -79,6 +106,8 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
   onOpenInsights,
 }) => {
   const [config, setConfig] = useState<AIConfig>(DEFAULT_AI_CONFIG);
+  const [claudeModels, setClaudeModels] = useState<ClaudeModelOption[]>([]);
+  const [claudeCliReady, setClaudeCliReady] = useState<boolean | null>(null);
 
   const [aiManagement, setAiManagement] = useState({
     autoDetectDuplicates: false,
@@ -195,6 +224,50 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
     }
   }, [persistAiConfig]);
 
+  const fetchClaudeModels = useCallback(async () => {
+    const fallback = buildClaudeFallbackModels();
+    if (!isTauri()) {
+      setClaudeModels(fallback);
+      setClaudeCliReady(false);
+      return;
+    }
+
+    setIsLoadingModels(true);
+    setModelFetchError(null);
+    try {
+      const [health, catalog] = await Promise.all([nativeClaudeHealth(), nativeClaudeModels()]);
+      setClaudeCliReady(health.ok);
+      const models =
+        catalog.models.length > 0
+          ? catalog.models.map((m) => ({
+              id: m.id,
+              label: m.label || m.id,
+              default: m.default,
+            }))
+          : fallback;
+      setClaudeModels(models);
+      setConfig((prev) => {
+        const ids = models.map((m) => m.id);
+        const preferred =
+          prev.claudeCodeModel && ids.includes(prev.claudeCodeModel)
+            ? prev.claudeCodeModel
+            : (models.find((m) => m.default)?.id ?? models[0]?.id);
+        return preferred && preferred !== prev.claudeCodeModel
+          ? { ...prev, claudeCodeModel: preferred }
+          : prev;
+      });
+    } catch (e: unknown) {
+      console.warn("Could not fetch Claude Code models:", e);
+      setClaudeModels(fallback);
+      setClaudeCliReady(false);
+      setModelFetchError(
+        e instanceof Error ? e.message : "Could not load Claude Code model catalog",
+      );
+    } finally {
+      setIsLoadingModels(false);
+    }
+  }, []);
+
   useEffect(() => {
     const savedConfig = storageService.get<AIConfig | null>(STORAGE_KEYS.AI_CONFIG, null);
     if (savedConfig) {
@@ -213,6 +286,9 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
       if (savedConfig.provider === "ollama" && savedConfig.ollamaBaseUrl) {
         fetchModels(savedConfig.ollamaBaseUrl);
       }
+      if (savedConfig.provider === "claude-code") {
+        void fetchClaudeModels();
+      }
     } else {
       const oldKey = storageService.get<string>(STORAGE_KEYS.GEMINI_API_KEY, "");
       if (oldKey) {
@@ -222,9 +298,23 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
           return migrated;
         });
         storageService.remove(STORAGE_KEYS.GEMINI_API_KEY);
+      } else if (isTauri()) {
+        void nativeClaudeHealth().then((health) => {
+          if (!health.ok) return;
+          setConfig((prev) => {
+            if (prev.provider !== "gemini") return prev;
+            const next = {
+              ...prev,
+              provider: "claude-code" as const,
+              claudeCodeModel: prev.claudeCodeModel || "claude-sonnet-4-6",
+            };
+            persistAiConfig(next);
+            return next;
+          });
+        });
       }
     }
-  }, [fetchModels, persistAiConfig]);
+  }, [fetchModels, fetchClaudeModels, persistAiConfig]);
 
   useEffect(() => {
     getDesktopApi()?.workspace.getPaths().then(setWorkspacePaths);
@@ -243,6 +333,12 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
       fetchModels(config.ollamaBaseUrl || "http://127.0.0.1:11434");
     }
   }, [config.provider, config.ollamaBaseUrl, fetchModels]);
+
+  useEffect(() => {
+    if (config.provider === "claude-code") {
+      void fetchClaudeModels();
+    }
+  }, [config.provider, fetchClaudeModels]);
 
   const updateSemanticLayer = (patch: Partial<SemanticLayerSettings>) => {
     setConfig((prev) => ({
@@ -292,6 +388,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
       if (result.ok) {
         addToast(result.message, "success");
         if (config.provider === "ollama") fetchModels(sanitizedConfig.ollamaBaseUrl);
+        if (config.provider === "claude-code") void fetchClaudeModels();
       } else {
         addToast(result.message, "error");
       }
@@ -418,7 +515,7 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
       <div className="space-y-4">
         <div className="bg-white/5 border border-white/10 rounded-xl p-4">
           <label className="text-sm font-medium text-slate-300 mb-3 block">Active Provider</label>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <button
               type="button"
               onClick={() => setConfig({ ...config, provider: "gemini" })}
@@ -441,6 +538,24 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
               <div className="text-left">
                 <div className="text-sm font-bold">Ollama</div>
                 <div className="text-[10px] opacity-60">Local, private</div>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                setConfig({
+                  ...config,
+                  provider: "claude-code",
+                  claudeCodeModel: config.claudeCodeModel || "claude-sonnet-4-6",
+                })
+              }
+              aria-pressed={config.provider === "claude-code"}
+              className={`flex items-center gap-3 p-3 rounded-lg border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${config.provider === "claude-code" ? "bg-emerald-500/20 border-emerald-500 text-emerald-300" : "bg-black/20 border-white/10 text-slate-400 hover:border-white/20"}`}
+            >
+              <Terminal size={18} />
+              <div className="text-left">
+                <div className="text-sm font-bold">Claude Code</div>
+                <div className="text-[10px] opacity-60">Desktop CLI, same runtime as agents</div>
               </div>
             </button>
           </div>
@@ -754,6 +869,72 @@ export const AiSettings: React.FC<AiSettingsProps> = ({
                 </>
               )}
             </div>
+          </div>
+        )}
+
+        {config.provider === "claude-code" && (
+          <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-4 animate-in fade-in slide-in-from-top-2">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="flex items-center gap-2 text-sm font-medium text-slate-300">
+                  <Terminal size={16} /> Model
+                </label>
+                <Tooltip content="Refresh models" position="top">
+                  <button
+                    type="button"
+                    onClick={() => void fetchClaudeModels()}
+                    disabled={isLoadingModels || !isTauri()}
+                    className="text-slate-400 hover:text-white transition-colors disabled:opacity-50"
+                  >
+                    <RefreshCw size={14} className={isLoadingModels ? "animate-spin" : ""} />
+                  </button>
+                </Tooltip>
+              </div>
+              <select
+                value={config.claudeCodeModel || "claude-sonnet-4-6"}
+                onChange={(e) => setConfig({ ...config, claudeCodeModel: e.target.value })}
+                disabled={isLoadingModels && claudeModels.length === 0}
+                className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 appearance-none disabled:opacity-60"
+              >
+                {(claudeModels.length > 0 ? claudeModels : buildClaudeFallbackModels()).map(
+                  (model) => (
+                    <option key={model.id} value={model.id}>
+                      {model.label}
+                    </option>
+                  ),
+                )}
+                {config.claudeCodeModel &&
+                  !(claudeModels.length > 0 ? claudeModels : buildClaudeFallbackModels()).some(
+                    (m) => m.id === config.claudeCodeModel,
+                  ) && (
+                    <option value={config.claudeCodeModel}>{config.claudeCodeModel}</option>
+                  )}
+              </select>
+              {isLoadingModels && claudeModels.length === 0 && (
+                <p className="mt-2 text-xs text-slate-500">Loading models from Claude Code…</p>
+              )}
+              {modelFetchError && (
+                <p className="mt-2 text-xs text-red-400/80 break-words">
+                  Last error: {modelFetchError}
+                </p>
+              )}
+            </div>
+            <p className="text-xs text-slate-500">
+              Uses your installed Claude Code CLI for task extraction, refinement, subtasks, and the
+              AI assistant. Same runtime as agent teammates on the board.
+            </p>
+            {!isTauri() && (
+              <p className="text-xs text-amber-400/90">
+                Claude Code AI requires the LiquiTask desktop app.
+              </p>
+            )}
+            {isTauri() && claudeCliReady === false && (
+              <p className="text-xs text-amber-400/90">
+                Claude Code CLI not found. Install it with{" "}
+                <code className="text-emerald-300">npm install -g @anthropic-ai/claude-code</code>{" "}
+                and restart the app.
+              </p>
+            )}
           </div>
         )}
 

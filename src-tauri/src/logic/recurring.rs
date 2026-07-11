@@ -19,3 +19,54 @@ pub fn recurring_next_occurrence(config: RecurringConfig, from_ms: i64) -> i64 {
 pub fn recurring_advance(config: RecurringConfig, now_ms: i64) -> RecurringAdvance {
     recurring::advance(&config, now_ms)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use liquitask_core::dateutil::Civil;
+
+    fn ms(y: i64, mo: i64, d: i64) -> i64 {
+        Civil {
+            year: y,
+            month: mo,
+            day: d,
+            hour: 12,
+            minute: 0,
+            second: 0,
+            milli: 0,
+        }
+        .to_millis()
+    }
+
+    fn cfg(freq: &str, interval: i64) -> RecurringConfig {
+        RecurringConfig {
+            enabled: true,
+            frequency: freq.to_string(),
+            interval,
+            days_of_week: None,
+            day_of_month: None,
+            end_date: None,
+            next_occurrence: None,
+        }
+    }
+
+    #[test]
+    fn recurring_wrappers_roundtrip() {
+        let config = cfg("daily", 2);
+        let from = ms(2024, 1, 10);
+        assert_eq!(recurring_next_occurrence(config.clone(), from), ms(2024, 1, 12));
+
+        let adv = recurring_advance(config, from);
+        assert_eq!(adv.next_occurrence, Some(ms(2024, 1, 12)));
+        assert!(adv.enabled);
+    }
+
+    #[test]
+    fn recurring_advance_disables_past_end() {
+        let mut config = cfg("daily", 5);
+        config.end_date = Some(ms(2024, 1, 12));
+        let adv = recurring_advance(config, ms(2024, 1, 10));
+        assert_eq!(adv.next_occurrence, None);
+        assert!(!adv.enabled);
+    }
+}

@@ -59,37 +59,39 @@ func (b *claudeBackend) Execute(ctx context.Context, prompt string, opts ExecOpt
 
 	cmd := exec.CommandContext(runCtx, execPath, args...)
 	hideAgentWindow(cmd)
+	if err := PrepareManagedCommand(cmd, opts, 10*time.Second); err != nil {
+		cancel()
+		return nil, err
+	}
 	b.cfg.Logger.Info("agent command", "exec", execPath, "args", args)
-	cmd.WaitDelay = 10 * time.Second
 	if opts.Cwd != "" {
 		cmd.Dir = opts.Cwd
 	}
 	cmd.Env = buildEnv(b.cfg.Env)
 
-	stdout, err := cmd.StdoutPipe()
+	pio, err := AttachProcessIO(cmd, "claude", opts)
 	if err != nil {
 		cancel()
-		return nil, fmt.Errorf("claude stdout pipe: %w", err)
+		return nil, fmt.Errorf("claude process io: %w", err)
 	}
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		cancel()
-		return nil, fmt.Errorf("claude stdin pipe: %w", err)
-	}
+	stdout := pio.Stdout
+	stdin := pio.Stdin
 	var closeStdinOnce sync.Once
 	closeStdin := func() { closeStdinOnce.Do(func() { _ = stdin.Close() }) }
 	// Capture stderr into both the daemon log (as before) and a bounded tail
 	// buffer so we can include the last few KB in Result.Error when claude
-	// exits unexpectedly. Without the tail, an exit-code-only failure looks
-	// like "claude exited with error: exit status 3" — which is useless for
-	// root-causing V8 aborts, Bun panics, or any other CLI-side crash.
+	// exits unexpectedly. Under PTY mode stderr is merged into stdout.
 	stderrBuf := newStderrTail(newLogWriter(b.cfg.Logger, "[claude:stderr] "), agentStderrTailBytes)
-	cmd.Stderr = stderrBuf
+	if pio.PtyMaster == nil {
+		cmd.Stderr = stderrBuf
+	}
 
-	if err := cmd.Start(); err != nil {
-		closeStdin()
-		cancel()
-		return nil, fmt.Errorf("start claude: %w", err)
+	if !pio.ProcessStarted {
+		if err := cmd.Start(); err != nil {
+			closeStdin()
+			cancel()
+			return nil, fmt.Errorf("start claude: %w", err)
+		}
 	}
 
 	b.cfg.Logger.Info("claude started", "pid", cmd.Process.Pid, "cwd", opts.Cwd, "model", opts.Model)
@@ -195,7 +197,7 @@ func (b *claudeBackend) Execute(ctx context.Context, prompt string, opts ExecOpt
 					})
 				}
 			case "control_request":
-				b.handleControlRequest(msg, stdin)
+				b.handleControlRequest(runCtx, msg, stdin, opts)
 			}
 		}
 
@@ -260,7 +262,7 @@ func (b *claudeBackend) Execute(ctx context.Context, prompt string, opts ExecOpt
 		}
 	}()
 
-	sess := &Session{Messages: msgCh, Result: resCh}
+	sess := &Session{Messages: msgCh, Result: resCh, PtyMaster: pio.PtyMaster}
 	sess.pid.Store(int32(cmd.Process.Pid))
 	return sess, nil
 }
@@ -333,8 +335,7 @@ func (b *claudeBackend) handleUser(msg claudeSDKMessage, ch chan<- Message) bool
 	return sawAsyncLaunch
 }
 
-func (b *claudeBackend) handleControlRequest(msg claudeSDKMessage, stdin interface{ Write([]byte) (int, error) }) {
-	// Auto-approve all tool uses in autonomous/daemon mode.
+func (b *claudeBackend) handleControlRequest(ctx context.Context, msg claudeSDKMessage, stdin interface{ Write([]byte) (int, error) }, opts ExecOptions) {
 	var req claudeControlRequestPayload
 	if err := json.Unmarshal(msg.Request, &req); err != nil {
 		return
@@ -354,13 +355,23 @@ func (b *claudeBackend) handleControlRequest(msg claudeSDKMessage, stdin interfa
 		)
 	}
 
+	tool := strings.TrimSpace(req.ToolName)
+	if tool == "" {
+		tool = "tool"
+	}
+	decision, _ := ResolveToolPermission(ctx, tool, inputMap, opts)
+	behavior := "deny"
+	if decision.Allowed {
+		behavior = "allow"
+	}
+
 	response := map[string]any{
 		"type": "control_response",
 		"response": map[string]any{
 			"subtype":    "success",
 			"request_id": msg.RequestID,
 			"response": map[string]any{
-				"behavior":     "allow",
+				"behavior":     behavior,
 				"updatedInput": inputMap,
 			},
 		},
@@ -536,11 +547,12 @@ type claudeControlRequestPayload struct {
 // ── Shared helpers ──
 
 func trySend(ch chan<- Message, msg Message) {
+	timer := time.NewTimer(5 * time.Second)
+	defer timer.Stop()
 	select {
 	case ch <- msg:
-	default:
-		// Channel full — drop message. Final output is accumulated separately
-		// in Result.Output, so only streaming consumers are affected.
+	case <-timer.C:
+		slog.Warn("agent: message channel blocked; event dropped after timeout", "type", msg.Type, "tool", msg.Tool)
 	}
 }
 
@@ -569,7 +581,7 @@ func buildClaudeArgs(opts ExecOptions, logger *slog.Logger) []string {
 		"--input-format", "stream-json",
 		"--verbose",
 		"--strict-mcp-config",
-		"--permission-mode", "bypassPermissions",
+		"--permission-mode", resolveClaudePermissionMode(opts),
 		// AskUserQuestion is Claude Code's built-in interactive question tool.
 		// The daemon runs Claude in non-interactive stream-json mode and has
 		// no UI for the prompt to render in, so a call returns an empty
@@ -648,7 +660,7 @@ func resolveSessionID(requestedResume, emitted string, failed bool) string {
 }
 
 func buildEnv(extra map[string]string) []string {
-	return mergeEnv(os.Environ(), extra)
+	return mergeEnv(allowedHostEnviron(), extra)
 }
 
 func mergeEnv(base []string, extra map[string]string) []string {
@@ -795,7 +807,11 @@ func writeMcpConfigToTemp(raw json.RawMessage) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("create mcp config temp dir: %w", err)
 	}
-	data, err := hardenBrowserMcpConfig(raw, dir)
+	scrubbed, err := ScrubMcpConfigSecrets(raw)
+	if err != nil {
+		return "", fmt.Errorf("scrub mcp config secrets: %w", err)
+	}
+	data, err := hardenBrowserMcpConfig(scrubbed, dir)
 	if err != nil {
 		cleanupMcpConfigTemp(filepath.Join(dir, "mcp-config.json"))
 		return "", err

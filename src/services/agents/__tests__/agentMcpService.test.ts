@@ -5,6 +5,7 @@ import {
   describePermissionInput,
   extractFilePath,
   isMutatingToolCall,
+  isShellTool,
 } from "../agentMcpService";
 
 describe("buildPermissionResponse", () => {
@@ -74,8 +75,17 @@ describe("isMutatingToolCall", () => {
     expect(isMutatingToolCall("EDIT", undefined)).toBe(true);
   });
 
-  it("is false for non-mutating tools with no path", () => {
-    expect(isMutatingToolCall("Bash", undefined)).toBe(false);
+  it("treats bash and shell commands as mutating even without a file path", () => {
+    expect(isMutatingToolCall("Bash", undefined)).toBe(true);
+    expect(isMutatingToolCall("Run", undefined, { command: "npm test" })).toBe(true);
+  });
+});
+
+describe("isShellTool", () => {
+  it("detects bash tools and command payloads", () => {
+    expect(isShellTool("Bash", { command: "ls" })).toBe(true);
+    expect(isShellTool("Run", { cmd: "npm test" })).toBe(true);
+    expect(isShellTool("Write", { file_path: "src/foo.ts" })).toBe(false);
   });
 });
 
@@ -87,7 +97,7 @@ describe("prepareMcpConfig", () => {
     const invokeMock = vi.fn(async (cmd: string, args?: Record<string, unknown>) => {
       switch (cmd) {
         case "agent_mcp_init":
-          return "/tmp/mcp-dir";
+          return { mcpDir: "/tmp/mcp-dir" };
         case "agent_mcp_resolve_bridge":
           return "/app/scripts/liquitask-mcp-bridge.mjs";
         case "agent_mcp_write_config":
@@ -169,5 +179,49 @@ describe("prepareMcpConfig", () => {
     await service.prepareMcpConfig("run-2", "task-2", "/repo");
 
     expect(nativeBridge.nativeDevCliAvailable).toHaveBeenCalledTimes(1);
+  });
+
+  it("merges user-defined MCP servers from settings", async () => {
+    vi.resetModules();
+    vi.doMock("../../../runtime/runtimeEnvironment", () => ({ isTauri: () => true }));
+    vi.doMock("../userMcpConfigService", () => ({
+      default: {
+        getEnabledUserMcpServers: () => [
+          {
+            id: "u1",
+            name: "custom",
+            transport: "stdio",
+            command: "my-mcp",
+            args: ["serve"],
+            enabled: true,
+          },
+        ],
+        userMcpServerToConfigEntry: (s: { command?: string; args?: string[] }) => ({
+          command: s.command,
+          args: s.args ?? [],
+        }),
+      },
+    }));
+
+    const invokeMock = vi.fn(async (cmd: string) => {
+      if (cmd === "agent_mcp_init") {
+        return { mcpDir: "/tmp/mcp-dir" };
+      }
+      if (cmd === "agent_mcp_resolve_bridge") return "/app/scripts/liquitask-mcp-bridge.mjs";
+      return undefined;
+    });
+    vi.doMock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
+    vi.doMock("../../nativeBridge", () => ({
+      nativeDevCliAvailable: vi.fn().mockResolvedValue(false),
+    }));
+
+    const { default: service } = await import("../agentMcpService");
+    await service.prepareMcpConfig("run-1", "task-1", "/repo");
+    const call = invokeMock.mock.calls.find(([cmd]) => cmd === "agent_mcp_write_config");
+    const configJson = (call?.[1] as { configJson: string }).configJson;
+    const config = JSON.parse(configJson) as {
+      mcpServers: Record<string, { command: string; args: string[] }>;
+    };
+    expect(config.mcpServers.custom).toEqual({ command: "my-mcp", args: ["serve"] });
   });
 });

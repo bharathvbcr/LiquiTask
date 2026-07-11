@@ -49,10 +49,12 @@ interface StandardBoardViewProps {
   onEditTask: (task: Task) => void;
   onUpdateTask: (task: Task) => void;
   onDeleteTask: (taskId: string) => void;
+  onArchiveTask?: (taskId: string) => void;
   selectedTaskIds?: Set<string>;
   onToggleTaskSelection?: (taskId: string, shiftKey?: boolean) => void;
   getTasksByContext: (statusId: string, priorityId?: string) => Task[];
   onCopyTask?: (message: string) => void;
+  onDuplicateAsQuickAdd?: (task: Task) => void;
   projectName?: string;
   projects?: Project[];
   onMoveToWorkspace?: (taskId: string, projectId: string) => void;
@@ -60,6 +62,7 @@ interface StandardBoardViewProps {
   agentTray?: React.ReactNode;
   onApproveAgentWork?: (task: Task, run: AgentRun) => void;
   onRejectAgentWork?: (task: Task, run: AgentRun, feedback: string) => void;
+  agentDispatchEnabled?: boolean;
 }
 
 const StandardBoardView: React.FC<StandardBoardViewProps> = ({
@@ -88,16 +91,19 @@ const StandardBoardView: React.FC<StandardBoardViewProps> = ({
   onEditTask,
   onUpdateTask,
   onDeleteTask,
+  onArchiveTask,
   selectedTaskIds,
   onToggleTaskSelection,
   getTasksByContext,
   onCopyTask,
+  onDuplicateAsQuickAdd,
   projectName,
   projects = [],
   onMoveToWorkspace,
   agentTray,
   onApproveAgentWork,
   onRejectAgentWork,
+  agentDispatchEnabled = true,
 }) => {
   return (
     <DndContext
@@ -129,8 +135,10 @@ const StandardBoardView: React.FC<StandardBoardViewProps> = ({
                   onEditTask={onEditTask}
                   onUpdateTask={onUpdateTask}
                   onDeleteTask={onDeleteTask}
+                  onArchiveTask={onArchiveTask}
                   isCompact={isCompact}
                   onCopyTask={onCopyTask}
+                  onDuplicateAsQuickAdd={onDuplicateAsQuickAdd}
                   projectName={projectName}
                   projects={projects}
                   onMoveToWorkspace={onMoveToWorkspace}
@@ -141,6 +149,7 @@ const StandardBoardView: React.FC<StandardBoardViewProps> = ({
                   onToggleTaskSelection={onToggleTaskSelection}
                   onApproveAgentWork={onApproveAgentWork}
                   onRejectAgentWork={onRejectAgentWork}
+                  agentDispatchEnabled={agentDispatchEnabled}
                 />
               );
             })}
@@ -162,7 +171,6 @@ const StandardBoardView: React.FC<StandardBoardViewProps> = ({
               <TaskCard
                 task={activeTask}
                 priorities={priorities}
-                isCompletedColumn={false}
                 onMoveTask={() => {}}
                 onEditTask={() => {}}
                 onUpdateTask={() => {}}

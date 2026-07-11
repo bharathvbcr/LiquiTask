@@ -1,7 +1,8 @@
-//! Agent execution engine (Multica-inspired).
+//! DevCouncil pipeline runner (slimmed legacy executor).
 //!
-//! Spawns coding-agent CLI processes (Claude Code, DevCouncil, apple/container)
-//! on behalf of the renderer and streams their output back as Tauri events.
+//! Spawns `dev e2e` / `dev check --verify` subprocesses for council-mode runs
+//! and the post-run verification gate. Direct Claude Code runs route through
+//! liquitask-agentd instead.
 //!
 //! Security model:
 //! * The renderer never supplies a raw command line. It picks a `mode` and the
@@ -26,14 +27,12 @@ use std::time::{Duration, Instant};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 
+use crate::agent_cli_util::{augmented_path, find_executable, resolve_dev_cli};
 use crate::agent_policy;
 use crate::run_store;
 use crate::{is_path_authorized, read_storage, safe_workspace_paths};
 
 pub const AGENT_RUN_EVENT: &str = "agent-run-event";
-
-/// User injected mid-run guidance via MCP `get_user_guidance`.
-pub const AGENT_GUIDANCE_EVENT: &str = "agent-guidance-injected";
 
 /// A tracked agent process. `child` is present for runs we spawned this session
 /// (owned handle for reaping); it is `None` for runs re-adopted from the durable
@@ -45,6 +44,9 @@ pub struct TrackedRun {
     pub pgid: u32,
     pub child: Option<Child>,
     pub signals: Option<Arc<RunSignals>>,
+    /// macOS sandbox-exec profile temp dir; kept until the child exits.
+    #[allow(dead_code)]
+    pub(crate) sandbox_profile_dir: Option<tempfile::TempDir>,
 }
 
 /// Cross-thread coordination for one durable run: the reaper flips `finished`
@@ -302,211 +304,160 @@ fn is_pid_alive(_pid: u32) -> bool {
 fn kill_process_group(_pgid: u32) {}
 
 // ---------------------------------------------------------------------------
-// Executable resolution
+// PID identity (detect PID reuse on reattach)
 // ---------------------------------------------------------------------------
 
-/// GUI apps on macOS inherit a minimal PATH, so augment it with the common
-/// install locations for Homebrew, npm globals and per-user bins.
-pub(crate) fn augmented_path() -> String {
-    let base = std::env::var("PATH").unwrap_or_default();
-    let home = std::env::var("HOME").unwrap_or_default();
-    let extras = [
-        "/opt/homebrew/bin".to_string(),
-        "/usr/local/bin".to_string(),
-        format!("{home}/.local/bin"),
-        format!("{home}/.claude/local"),
-        format!("{home}/.npm-global/bin"),
-        format!("{home}/bin"),
-    ];
-    let mut parts: Vec<String> = base.split(':').map(str::to_string).collect();
-    for extra in extras {
-        if !extra.is_empty() && !parts.iter().any(|p| p == &extra) {
-            parts.push(extra);
-        }
+/// Best-effort process start time in epoch milliseconds. Used to verify that a
+/// re-adopted PID is the same process we originally spawned, not a reused id.
+fn process_start_time_ms(pid: u32) -> Option<u64> {
+    if pid == 0 {
+        return None;
     }
-    parts.join(":")
+    process_start_time_ms_impl(pid)
 }
 
-pub(crate) fn find_executable(name: &str) -> Option<PathBuf> {
-    for dir in augmented_path().split(':') {
-        if dir.is_empty() {
-            continue;
-        }
-        let candidate = Path::new(dir).join(name);
-        if candidate.is_file() {
-            return Some(candidate);
+#[cfg(target_os = "linux")]
+fn process_start_time_ms_impl(pid: u32) -> Option<u64> {
+    let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
+    // Field 22 (1-indexed) is starttime; comm (field 2) may contain spaces.
+    let rparen = stat.rfind(')')?;
+    let rest = stat[rparen + 2..].split_whitespace().collect::<Vec<_>>();
+    let start_ticks: u64 = rest.get(19)?.parse().ok()?;
+    let clk_tck = unsafe { libc::sysconf(libc::_SC_CLK_TCK) };
+    if clk_tck <= 0 {
+        return None;
+    }
+    let boot = linux_boot_time_ms()?;
+    Some(boot + (start_ticks * 1000) / clk_tck as u64)
+}
+
+#[cfg(target_os = "linux")]
+fn linux_boot_time_ms() -> Option<u64> {
+    let raw = std::fs::read_to_string("/proc/stat").ok()?;
+    for line in raw.lines() {
+        if let Some(rest) = line.strip_prefix("btime ") {
+            let secs: u64 = rest.trim().parse().ok()?;
+            return Some(secs * 1000);
         }
     }
     None
 }
 
-// ---------------------------------------------------------------------------
-// Command assembly
-// ---------------------------------------------------------------------------
-
-const ALLOWED_PERMISSION_MODES: &[&str] = &["default", "plan", "acceptEdits", "bypassPermissions"];
-
-fn validate_flag_value(label: &str, value: &str) -> Result<(), String> {
-    if value.is_empty() || value.len() > 200 || value.starts_with('-') {
-        return Err(format!("Invalid {label}: {value}"));
+#[cfg(target_os = "macos")]
+fn process_start_time_ms_impl(pid: u32) -> Option<u64> {
+    use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
+    let output = Command::new("ps")
+        .args(["-p", &pid.to_string(), "-o", "lstart="])
+        .stdin(Stdio::null())
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
     }
-    Ok(())
+    let s = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if s.is_empty() {
+        return None;
+    }
+    // ps lstart: "Day Mon DD HH:MM:SS YYYY" (day may be space-padded).
+    let parts: Vec<&str> = s.split_whitespace().collect();
+    if parts.len() < 5 {
+        return None;
+    }
+    let day: u32 = parts[2].parse().ok()?;
+    let time = NaiveTime::parse_from_str(parts[3], "%H:%M:%S").ok()?;
+    let year: i32 = parts[4].parse().ok()?;
+    let month = match parts[1] {
+        "Jan" => 1,
+        "Feb" => 2,
+        "Mar" => 3,
+        "Apr" => 4,
+        "May" => 5,
+        "Jun" => 6,
+        "Jul" => 7,
+        "Aug" => 8,
+        "Sep" => 9,
+        "Oct" => 10,
+        "Nov" => 11,
+        "Dec" => 12,
+        _ => return None,
+    };
+    let date = NaiveDate::from_ymd_opt(year, month, day)?;
+    let dt = NaiveDateTime::new(date, time);
+    Some(dt.and_utc().timestamp_millis() as u64)
 }
 
-fn validate_mcp_config_path(path: &str) -> Result<(), String> {
-    if path.is_empty() || path.len() > 512 || path.starts_with('-') {
-        return Err(format!("Invalid mcp config path: {path}"));
+#[cfg(windows)]
+fn process_start_time_ms_impl(pid: u32) -> Option<u64> {
+    use windows::Win32::Foundation::CloseHandle;
+    use windows::Win32::System::Threading::{GetProcessTimes, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
+
+    unsafe {
+        let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
+        let mut created = Default::default();
+        let mut exited = Default::default();
+        let mut kernel = Default::default();
+        let mut user = Default::default();
+        if GetProcessTimes(handle, &mut created, &mut exited, &mut kernel, &mut user).is_err() {
+            let _ = CloseHandle(handle);
+            return None;
+        }
+        let _ = CloseHandle(handle);
+        filetime_to_epoch_ms(created)
     }
-    let p = Path::new(path);
-    if !p.is_absolute() {
-        return Err("MCP config path must be absolute".to_string());
-    }
-    Ok(())
 }
+
+#[cfg(windows)]
+fn filetime_to_epoch_ms(ft: windows::Win32::Foundation::FILETIME) -> Option<u64> {
+    let low = ft.dwLowDateTime as u64;
+    let high = ft.dwHighDateTime as u64;
+    let ticks = (high << 32) | low;
+    // FILETIME is 100-ns intervals since 1601-01-01; Unix epoch offset in same units.
+    const EPOCH_DIFF: u64 = 11_644_473_600_000_000_000;
+    if ticks < EPOCH_DIFF {
+        return None;
+    }
+    Some((ticks - EPOCH_DIFF) / 10_000)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
+fn process_start_time_ms_impl(_pid: u32) -> Option<u64> {
+    None
+}
+
+fn pid_identity_matches(pid: u32, expected_start_ms: u64) -> bool {
+    match process_start_time_ms(pid) {
+        Some(actual) => actual == expected_start_ms,
+        None => false,
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Command assembly (DevCouncil modes only)
+// ---------------------------------------------------------------------------
 
 struct AssembledCommand {
     program: PathBuf,
     args: Vec<String>,
-}
-
-fn append_permission_prompt(args: &mut Vec<String>, permission_prompt_tool: &Option<String>) -> Result<(), String> {
-    if let Some(tool) = permission_prompt_tool {
-        validate_flag_value("permission prompt tool", tool)?;
-        args.push("--permission-prompt-tool".to_string());
-        args.push(tool.clone());
-    }
-    Ok(())
+    sandbox_profile_dir: Option<tempfile::TempDir>,
 }
 
 #[allow(clippy::too_many_arguments)]
 fn assemble_command(
     mode: &str,
     prompt: &str,
-    working_dir: &str,
-    model: &Option<String>,
-    permission_mode: &Option<String>,
-    max_turns: &Option<u32>,
-    container_image: &Option<String>,
-    session_id: &Option<String>,
-    mcp_config_path: &Option<String>,
-    permission_prompt_tool: &Option<String>,
+    _working_dir: &str,
+    _model: &Option<String>,
+    _permission_mode: &Option<String>,
+    _max_turns: &Option<u32>,
+    _container_image: &Option<String>,
+    _session_id: &Option<String>,
+    _mcp_config_path: &Option<String>,
+    _permission_prompt_tool: &Option<String>,
 ) -> Result<AssembledCommand, String> {
     match mode {
-        // Resume an existing Claude Code session with a follow-up prompt.
-        "claude-resume" => {
-            let program = find_executable("claude")
-                .ok_or_else(|| "Claude Code CLI not found. Install it and try again.".to_string())?;
-            let sid = session_id
-                .as_ref()
-                .ok_or_else(|| "session id required for claude-resume mode".to_string())?;
-            validate_flag_value("session id", sid)?;
-            let mut args = vec![
-                "--resume".to_string(),
-                sid.clone(),
-                "-p".to_string(),
-                prompt.to_string(),
-                "--output-format".to_string(),
-                "stream-json".to_string(),
-                "--verbose".to_string(),
-            ];
-            if let Some(m) = model {
-                validate_flag_value("model", m)?;
-                args.push("--model".to_string());
-                args.push(m.clone());
-            }
-            if let Some(pm) = permission_mode {
-                if !ALLOWED_PERMISSION_MODES.contains(&pm.as_str()) {
-                    return Err(format!("Invalid permission mode: {pm}"));
-                }
-                args.push("--permission-mode".to_string());
-                args.push(pm.clone());
-            }
-            if let Some(cfg) = mcp_config_path {
-                validate_mcp_config_path(cfg)?;
-                args.push("--mcp-config".to_string());
-                args.push(cfg.clone());
-            }
-            append_permission_prompt(&mut args, permission_prompt_tool)?;
-            Ok(AssembledCommand { program, args })
-        }
-        // Claude Code directly on the host, streaming NDJSON.
-        "claude" => {
-            let program = find_executable("claude")
-                .ok_or_else(|| "Claude Code CLI not found. Install it and try again.".to_string())?;
-            let mut args = vec![
-                "-p".to_string(),
-                prompt.to_string(),
-                "--output-format".to_string(),
-                "stream-json".to_string(),
-                "--verbose".to_string(),
-            ];
-            if let Some(m) = model {
-                validate_flag_value("model", m)?;
-                args.push("--model".to_string());
-                args.push(m.clone());
-            }
-            if let Some(pm) = permission_mode {
-                if !ALLOWED_PERMISSION_MODES.contains(&pm.as_str()) {
-                    return Err(format!("Invalid permission mode: {pm}"));
-                }
-                args.push("--permission-mode".to_string());
-                args.push(pm.clone());
-            }
-            if let Some(turns) = max_turns {
-                args.push("--max-turns".to_string());
-                args.push(turns.to_string());
-            }
-            if let Some(sid) = session_id {
-                validate_flag_value("session id", sid)?;
-                args.push("--session-id".to_string());
-                args.push(sid.clone());
-            }
-            if let Some(cfg) = mcp_config_path {
-                validate_mcp_config_path(cfg)?;
-                args.push("--mcp-config".to_string());
-                args.push(cfg.clone());
-            }
-            append_permission_prompt(&mut args, permission_prompt_tool)?;
-            Ok(AssembledCommand { program, args })
-        }
-        // Claude Code inside an apple/container Linux VM (opt-in sandbox).
-        "claude-container" => {
-            let program = find_executable("container").ok_or_else(|| {
-                "apple/container CLI not found. Requires macOS 26 on Apple silicon.".to_string()
-            })?;
-            let image = container_image
-                .clone()
-                .unwrap_or_else(|| "liquitask-agent:latest".to_string());
-            validate_flag_value("container image", &image)?;
-            let mut args = vec![
-                "run".to_string(),
-                "--rm".to_string(),
-                "--volume".to_string(),
-                format!("{working_dir}:/work"),
-                "--workdir".to_string(),
-                "/work".to_string(),
-            ];
-            if std::env::var("ANTHROPIC_API_KEY").is_ok() {
-                args.push("--env".to_string());
-                args.push("ANTHROPIC_API_KEY".to_string());
-            }
-            args.push(image);
-            args.extend([
-                "claude".to_string(),
-                "-p".to_string(),
-                prompt.to_string(),
-                "--output-format".to_string(),
-                "stream-json".to_string(),
-                "--verbose".to_string(),
-                // The VM is the sandbox; skip interactive permission prompts.
-                "--dangerously-skip-permissions".to_string(),
-            ]);
-            Ok(AssembledCommand { program, args })
-        }
         // DevCouncil deterministic verification gate (`dev check --verify --json`).
         "devcouncil-verify" => {
-            let program = find_executable("dev")
-                .or_else(|| find_executable("devcouncil"))
+            let program = resolve_dev_cli()
                 .ok_or_else(|| "DevCouncil CLI (`dev`) not found on PATH.".to_string())?;
             Ok(AssembledCommand {
                 program,
@@ -515,12 +466,12 @@ fn assemble_command(
                     "--verify".to_string(),
                     "--json".to_string(),
                 ],
+                sandbox_profile_dir: None,
             })
         }
         // Full DevCouncil pipeline: council planning + Claude Code execution + gates.
         "devcouncil-e2e" => {
-            let program = find_executable("dev")
-                .or_else(|| find_executable("devcouncil"))
+            let program = resolve_dev_cli()
                 .ok_or_else(|| "DevCouncil CLI (`dev`) not found on PATH.".to_string())?;
             Ok(AssembledCommand {
                 program,
@@ -531,6 +482,7 @@ fn assemble_command(
                     "claude".to_string(),
                     "--json".to_string(),
                 ],
+                sandbox_profile_dir: None,
             })
         }
         other => Err(format!("Unknown agent run mode: {other}")),
@@ -543,7 +495,7 @@ fn assemble_command(
 
 #[tauri::command(rename_all = "camelCase")]
 pub fn agent_detect_clis() -> Vec<AgentCliStatus> {
-    ["claude", "dev", "container"]
+    ["dev", "container"]
         .iter()
         .map(|name| {
             let path = find_executable(name);
@@ -572,6 +524,7 @@ pub fn agent_run_start(
     session_id: Option<String>,
     mcp_config_path: Option<String>,
     permission_prompt_tool: Option<String>,
+    sandbox_mode: Option<String>,
     daily_cost_cap_usd: Option<f64>,
     max_runs_per_day: Option<u32>,
     today_spend_usd: Option<f64>,
@@ -639,6 +592,29 @@ pub fn agent_run_start(
         &permission_prompt_tool,
     )?;
 
+    let mut extra_roots: Vec<String> = safe_workspace_paths(&data);
+    if let Some(ref mcp_path) = mcp_config_path {
+        let parent = std::path::Path::new(mcp_path)
+            .parent()
+            .map(|p| p.to_string_lossy().to_string());
+        if let Some(p) = parent {
+            extra_roots.push(p);
+        }
+    }
+
+    let wrapped = crate::agent_sandbox::maybe_wrap_os_sandbox(
+        assembled.program,
+        assembled.args,
+        &cwd,
+        sandbox_mode.as_deref(),
+        &extra_roots,
+    )?;
+    let assembled = AssembledCommand {
+        program: wrapped.program,
+        args: wrapped.args,
+        sandbox_profile_dir: wrapped.profile_dir,
+    };
+
     launch_run(&app, &registry, &run_id, &mode, assembled, &cwd)
 }
 
@@ -677,7 +653,7 @@ fn launch_run(
         .map_err(|e| format!("Failed to spawn {}: {e}", assembled.program.display()))?;
 
     // process_group(0) makes the child its own group leader, so pgid == pid.
-    track_and_stream(app, registry, run_id, mode, cwd, child, paths)
+    track_and_stream(app, registry, run_id, mode, cwd, child, paths, assembled.sandbox_profile_dir)
 }
 
 /// Durable launch (windows): detach with `DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP`
@@ -712,7 +688,7 @@ fn launch_run(
         .spawn()
         .map_err(|e| format!("Failed to spawn {}: {e}", assembled.program.display()))?;
 
-    track_and_stream(app, registry, run_id, mode, cwd, child, paths)
+    track_and_stream(app, registry, run_id, mode, cwd, child, paths, assembled.sandbox_profile_dir)
 }
 
 /// Record the journal entry, register the tracked process, and start the reaper
@@ -727,6 +703,7 @@ fn track_and_stream(
     cwd: &Path,
     child: Child,
     paths: run_store::RunPaths,
+    sandbox_profile_dir: Option<tempfile::TempDir>,
 ) -> Result<(), String> {
     let pid = child.id();
     let pgid = pid;
@@ -746,6 +723,7 @@ fn track_and_stream(
             stdout_offset: 0,
             session_id: None,
             paused: false,
+            process_start_time_ms: process_start_time_ms(pid),
         },
     )?;
 
@@ -759,6 +737,7 @@ fn track_and_stream(
                 pgid,
                 child: Some(child),
                 signals: Some(signals.clone()),
+                sandbox_profile_dir,
             },
         );
     }
@@ -800,7 +779,13 @@ fn launch_run(
         let mut guard = registry.0.lock().map_err(|_| "Registry lock poisoned".to_string())?;
         guard.insert(
             run_id.to_string(),
-            TrackedRun { pid, pgid: 0, child: Some(child), signals: Some(signals) },
+            TrackedRun {
+                pid,
+                pgid: 0,
+                child: Some(child),
+                signals: Some(signals),
+                sandbox_profile_dir: assembled.sandbox_profile_dir,
+            },
         );
     }
 
@@ -991,6 +976,15 @@ fn spawn_stdout_tailer(
             }
         }
 
+        // Emit a trailing partial line (no trailing newline) at EOF.
+        if !pending.is_empty() {
+            emitted += pending.as_bytes().len() as u64;
+            let line = pending.trim_end_matches(['\n', '\r']).to_string();
+            if !line.is_empty() {
+                emit_run_event(&app, &run_id, "stdout", Some(line), None);
+            }
+            pending.clear();
+        }
         let _ = run_store::set_offset(&app, &run_id, emitted);
         finalize_run(&app, &run_id, &signals);
     });
@@ -1047,16 +1041,20 @@ fn finalize_run(app: &AppHandle, run_id: &str, signals: &Arc<RunSignals>) {
     let cancelled = signals.cancelled.load(Ordering::Acquire);
     let rec = run_store::reconcile_from_stdout(app, run_id);
     let status = if cancelled {
-        "cancelled"
+        "cancelled".to_string()
+    } else if rec.status == "completed" || rec.status == "failed" {
+        // Prefer the durable stream's terminal result over a bare exit code —
+        // agents can exit 0 after reporting an error result line.
+        rec.status
     } else {
         match code {
-            Some(0) => "completed",
-            Some(_) => "failed",
-            // Re-adopted run (no waited code): trust the log's result line.
-            None => rec.status.as_str(),
+            Some(0) => "completed".to_string(),
+            Some(_) => "failed".to_string(),
+            None => rec.status,
         }
     };
-    let _ = run_store::finalize(app, run_id, status, code, rec.session_id);
+    let session_id = rec.session_id.or_else(|| run_store::read_meta(app, run_id).and_then(|m| m.session_id));
+    let _ = run_store::finalize(app, run_id, &status, code, session_id);
     emit_run_event(app, run_id, "exit", None, Some(code.unwrap_or(-1)));
 }
 
@@ -1101,7 +1099,11 @@ pub fn reattach_runs(app: &AppHandle) -> Vec<RunReattachInfo> {
         }
 
         let pid = meta.pid.unwrap_or(0);
-        if is_pid_alive(pid) {
+        let identity_ok = meta
+            .process_start_time_ms
+            .map(|start| pid_identity_matches(pid, start))
+            .unwrap_or(false);
+        if is_pid_alive(pid) && identity_ok {
             let pgid = meta.pgid.unwrap_or(pid);
             let Ok(paths) = run_store::run_paths(app, &run_id) else {
                 continue;
@@ -1111,7 +1113,13 @@ pub fn reattach_runs(app: &AppHandle) -> Vec<RunReattachInfo> {
                 if let Ok(mut guard) = registry.0.lock() {
                     guard.insert(
                         run_id.clone(),
-                        TrackedRun { pid, pgid, child: None, signals: Some(signals.clone()) },
+                        TrackedRun {
+                            pid,
+                            pgid,
+                            child: None,
+                            signals: Some(signals.clone()),
+                            sandbox_profile_dir: None,
+                        },
                     );
                 }
             }
@@ -1139,15 +1147,25 @@ pub fn reattach_runs(app: &AppHandle) -> Vec<RunReattachInfo> {
                 paused: meta.paused,
             });
         } else {
-            // Finished while the app was away — reconcile from the durable log.
+            // Finished while the app was away — or PID was reused — reconcile from the durable log.
             let rec = run_store::reconcile_from_stdout(app, &run_id);
-            let _ = run_store::finalize(app, &run_id, &rec.status, meta.exit_code, rec.session_id.clone());
+            let status = if is_pid_alive(pid) && !identity_ok {
+                "failed".to_string()
+            } else {
+                rec.status
+            };
+            let summary = if status == "failed" && is_pid_alive(pid) && !identity_ok {
+                Some("Process identity mismatch on reattach (possible PID reuse)".to_string())
+            } else {
+                rec.summary
+            };
+            let _ = run_store::finalize(app, &run_id, &status, meta.exit_code, rec.session_id.clone());
             out.push(RunReattachInfo {
                 run_id: run_id.clone(),
                 alive: false,
-                status: rec.status,
+                status,
                 session_id: rec.session_id,
-                summary: rec.summary,
+                summary,
                 exit_code: meta.exit_code,
                 paused: false,
             });
@@ -1196,15 +1214,8 @@ fn control_target(tracked: &TrackedRun) -> u32 {
     }
 }
 
-#[derive(Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct AgentGuidancePayload {
-    pub run_id: String,
-    pub message: String,
-}
-
 #[tauri::command(rename_all = "camelCase")]
-pub fn agent_runner_pause(
+pub fn agent_council_pause(
     app: AppHandle,
     registry: State<'_, AgentProcessRegistry>,
     run_id: String,
@@ -1264,7 +1275,7 @@ fn do_resume(
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub fn agent_runner_resume(
+pub fn agent_council_resume(
     app: AppHandle,
     registry: State<'_, AgentProcessRegistry>,
     run_id: String,
@@ -1273,50 +1284,9 @@ pub fn agent_runner_resume(
     Ok(true)
 }
 
-/// Queue mid-run user guidance for Claude Code to fetch via MCP `get_user_guidance`.
-/// Optionally auto-resumes a paused run so the agent can act on the message.
-#[tauri::command(rename_all = "camelCase")]
-pub fn agent_runner_inject_guidance(
-    app: AppHandle,
-    registry: State<'_, AgentProcessRegistry>,
-    run_id: String,
-    message: String,
-    resume_if_paused: Option<bool>,
-) -> Result<bool, String> {
-    {
-        let guard = registry.0.lock().map_err(|_| "Registry lock poisoned".to_string())?;
-        if !guard.contains_key(&run_id) {
-            return Err(format!("Run {run_id} is not active"));
-        }
-    }
-
-    crate::agent_mcp::append_guidance(&run_id, &message)?;
-
-    let _ = app.emit(
-        AGENT_GUIDANCE_EVENT,
-        AgentGuidancePayload {
-            run_id: run_id.clone(),
-            message: message.trim().to_string(),
-        },
-    );
-
-    if resume_if_paused.unwrap_or(true) {
-        let paused = registry
-            .0
-            .lock()
-            .ok()
-            .and_then(|g| g.get(&run_id).and_then(|t| t.signals.clone()))
-            .is_some_and(|s| s.paused.load(Ordering::Acquire));
-        if paused {
-            let _ = do_resume(&app, &registry, &run_id);
-        }
-    }
-    Ok(true)
-}
-
-/// Reattach to durable runs on relaunch (Runtime v2 headless runs). Returns one
-/// entry per previously-active run: alive ones keep streaming; finished-while-
-/// away ones are reconciled from their durable log.
+/// Reattach to durable council runs on relaunch. Returns one entry per
+/// previously-active run: alive ones keep streaming; finished-while-away ones
+/// are reconciled from their durable log.
 #[tauri::command(rename_all = "camelCase")]
 pub fn agent_runs_reattach(app: AppHandle) -> Vec<RunReattachInfo> {
     reattach_runs(&app)
@@ -1710,76 +1680,9 @@ mod tests {
     }
 
     #[test]
-    fn augmented_path_includes_homebrew() {
-        assert!(augmented_path().contains("/opt/homebrew/bin"));
-    }
-
-    #[test]
     fn rejects_unknown_mode() {
         let err = assemble_command("rm-rf", "hi", "/tmp", &None, &None, &None, &None, &None, &None, &None);
         assert!(err.is_err());
-    }
-
-    #[test]
-    fn adds_permission_prompt_tool_flag() {
-        if find_executable("claude").is_none() {
-            return;
-        }
-        let cmd = assemble_command(
-            "claude",
-            "hi",
-            "/tmp",
-            &None,
-            &None,
-            &None,
-            &None,
-            &None,
-            &None,
-            &Some("mcp__liquitask__permission_prompt".to_string()),
-        )
-        .expect("assemble");
-        assert!(cmd.args.contains(&"--permission-prompt-tool".to_string()));
-        assert!(cmd
-            .args
-            .contains(&"mcp__liquitask__permission_prompt".to_string()));
-    }
-
-    #[test]
-    fn rejects_flag_injection_in_model() {
-        let err = assemble_command(
-            "claude",
-            "hi",
-            "/tmp",
-            &Some("--dangerously-skip-permissions".to_string()),
-            &None,
-            &None,
-            &None,
-            &None,
-            &None,
-            &None,
-        );
-        // Either claude is missing (Err) or the model flag is rejected (Err) —
-        // both must fail; a flag-shaped model can never produce Ok.
-        assert!(err.is_err());
-    }
-
-    #[test]
-    fn rejects_invalid_permission_mode() {
-        if find_executable("claude").is_some() {
-            let err = assemble_command(
-                "claude",
-                "hi",
-                "/tmp",
-                &None,
-                &Some("yolo".to_string()),
-                &None,
-                &None,
-                &None,
-                &None,
-                &None,
-            );
-            assert!(err.is_err());
-        }
     }
 
     #[test]
@@ -1789,6 +1692,7 @@ mod tests {
             pgid: 200,
             child: None,
             signals: None,
+            sandbox_profile_dir: None,
         };
         assert_eq!(control_target(&tracked), 200);
     }
@@ -1800,6 +1704,7 @@ mod tests {
             pgid: 0,
             child: None,
             signals: None,
+            sandbox_profile_dir: None,
         };
         assert_eq!(control_target(&tracked), 100);
     }

@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
-# Tauri's devUrl (src-tauri/tauri.conf.json) is a static "http://localhost:4000",
-# so Vite can't be allowed to auto-increment to another port when 4000 is busy
-# (see vite.config.ts). Instead, free port 4000 before `tauri dev` starts so the
-# fixed port is always available, e.g. after a previous `npm run dev` was killed
-# without releasing the socket.
+# Legacy helper: force-free port 4000 before a dev server starts.
+# `npm run dev` uses scripts/dev-autoport.mjs instead (picks the next free port).
 set -euo pipefail
 
 PORT="${1:-4000}"

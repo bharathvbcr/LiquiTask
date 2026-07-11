@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildDeadLetterQuickAddPrefill,
   collectParseWarnings,
   extractFilePathsFromPaste,
   exportQuickAddTemplates,
   findDuplicateTaskTitles,
   findSimilarTaskTitles,
+  formatDueDateForForm,
   formatParsedTaskSummary,
   fuzzyCompletionScore,
   getBatchLineStatus,
@@ -13,6 +15,11 @@ import {
   hasQuickAddSyntax,
   importQuickAddTemplates,
   buildBoardContextQuickAddPrefill,
+  parseFormDueDate,
+  parseTimeAtToken,
+  recordCompletionRecency,
+  removeQuickAddTemplate,
+  taskToQuickAddSyntax,
   normalizeTaskTitle,
   parseMultipleQuickTasks,
   parseQuickTask,
@@ -23,6 +30,8 @@ import {
   SIMILAR_TITLE_THRESHOLD,
   suggestQuickAddMetadata,
   titleSimilarityScore,
+  upsertQuickAddTemplate,
+  validateQuickAddParsed,
 } from "../taskParser";
 
 const emptyExtras = { filePaths: [], usedExplicitTitle: false, warnings: [] as const };
@@ -98,6 +107,118 @@ describe("taskParser", () => {
       "$Title #MyWork >InProgress",
     );
     expect(buildBoardContextQuickAddPrefill()).toBe("");
+  });
+
+  it("parses subtask, link, and recurring quick-add tokens", () => {
+    const parsed = parseQuickTask(
+      "$Ship release !h *weekly2 >>Write tests >>Update docs &https://example.com",
+    );
+    expect(parsed.title).toBe("Ship release");
+    expect(parsed.priority).toBe("high");
+    expect(parsed.recurringFrequency).toBe("weekly");
+    expect(parsed.recurringInterval).toBe(2);
+    expect(parsed.subtaskTitles).toEqual(["Write tests", "Update docs"]);
+    expect(parsed.links).toContain("https://example.com");
+  });
+
+  it("parses @eod at 5pm local and @5pm time tokens", () => {
+    const eod = parseQuickTask("$Wrap up @eod");
+    expect(eod.dueDate).toBeDefined();
+    expect(eod.dueDate?.getHours()).toBe(17);
+    expect(eod.dueDate?.getMinutes()).toBe(0);
+
+    const atFive = parseQuickTask("$Call @5pm");
+    expect(atFive.dueDate?.getHours()).toBe(17);
+
+    expect(parseTimeAtToken("5pm")).toEqual({ hours: 17, minutes: 0 });
+    expect(parseTimeAtToken("9:30am")).toEqual({ hours: 9, minutes: 30 });
+  });
+
+  it("parses natural language dates @tomorrow and @in 3 days", () => {
+    const now = new Date();
+    const tomorrow = parseQuickTask("$Task @tomorrow");
+    const expectedTom = new Date();
+    expectedTom.setDate(now.getDate() + 1);
+    expect(tomorrow.dueDate?.getDate()).toBe(expectedTom.getDate());
+
+    const inThree = parseQuickTask("$Task @in 3 days");
+    const expectedThree = new Date();
+    expectedThree.setDate(now.getDate() + 3);
+    expect(inThree.dueDate?.getDate()).toBe(expectedThree.getDate());
+  });
+
+  it("parses %agent, #project:Name, and :: description syntax", () => {
+    const parsed = parseQuickTask(
+      "$Fix merge %claude #project:OtherWork !h :: Investigate the failed merge pipeline",
+    );
+    expect(parsed.title).toBe("Fix merge");
+    expect(parsed.assignee).toBe("claude");
+    expect(parsed.projectName).toBe("OtherWork");
+    expect(parsed.priority).toBe("high");
+    expect(parsed.description).toContain("failed merge");
+  });
+
+  it("round-trips due dates with time through form helpers", () => {
+    const due = new Date();
+    due.setHours(17, 30, 0, 0);
+    const formatted = formatDueDateForForm(due);
+    expect(formatted).toContain("T17:30");
+    const parsed = parseFormDueDate(formatted);
+    expect(parsed?.getHours()).toBe(17);
+    expect(parsed?.getMinutes()).toBe(30);
+  });
+
+  it("validates quick-add before create", () => {
+    expect(validateQuickAddParsed(parseQuickTask("$Valid task"))).toBeNull();
+    expect(validateQuickAddParsed(parseQuickTask('$""'))).toMatch(/title/i);
+  });
+
+  it("manages named template library", () => {
+    const first = upsertQuickAddTemplate([], "Sprint", "$Plan sprint !h");
+    expect(first).toHaveLength(1);
+    const updated = upsertQuickAddTemplate(first, "Sprint", "$Plan sprint !m");
+    expect(updated[0].content).toContain("!m");
+    expect(removeQuickAddTemplate(updated, updated[0].id)).toHaveLength(0);
+  });
+
+  it("builds dead-letter quick-add prefill", () => {
+    const prefill = buildDeadLetterQuickAddPrefill("Merge failed", "git push rejected");
+    expect(prefill).toContain("$Merge failed");
+    expect(prefill).toContain("::");
+    expect(prefill).toContain("git push rejected");
+  });
+
+  it("parses @next week date tokens", () => {
+    const nextWeek = parseQuickTask("$Plan sprint @next week");
+    expect(nextWeek.dueDate).toBeDefined();
+  });
+
+  it("serializes a task into quick-add syntax", () => {
+    const syntax = taskToQuickAddSyntax(
+      {
+        title: "Fix login",
+        priority: "high",
+        assignee: "devin",
+        tags: ["urgent"],
+        timeEstimate: 90,
+        subtasks: [{ title: "Add test" }],
+        recurring: { enabled: true, frequency: "daily", interval: 1 },
+      },
+      { projectName: "Work", columnTitle: "In Progress", priorityLabel: "high" },
+    );
+    expect(syntax).toContain("$Fix login");
+    expect(syntax).toContain("!h");
+    expect(syntax).toContain("#Work");
+    expect(syntax).toContain("+urgent");
+    expect(syntax).toContain("*daily");
+    expect(syntax).toContain(">>Add test");
+    expect(syntax).toContain(">InProgress");
+  });
+
+  it("boosts recently used completions in recency map", () => {
+    const next = recordCompletionRecency({ "@src/foo.ts": 0, ">devin": 1 }, ">devin");
+    expect(next[">devin"]).toBe(0);
+    expect(next["@src/foo.ts"]).toBe(1);
   });
 
   it("reports batch line status and blocking errors", () => {
@@ -332,7 +453,10 @@ describe("taskParser", () => {
   });
 
   it("segments quick-add syntax tokens for highlighting", () => {
-    const segments = segmentQuickAddInput("$Title !h @tom +tag");
+    const segments = segmentQuickAddInput("$Title !h @tom +tag >>step &https://x.com *daily");
+    expect(segments.some((s) => s.kind === "subtask")).toBe(true);
+    expect(segments.some((s) => s.kind === "link")).toBe(true);
+    expect(segments.some((s) => s.kind === "recurring")).toBe(true);
     expect(segments.some((s) => s.kind === "title" && s.text.startsWith("$"))).toBe(true);
     expect(segments.some((s) => s.kind === "priority")).toBe(true);
   });

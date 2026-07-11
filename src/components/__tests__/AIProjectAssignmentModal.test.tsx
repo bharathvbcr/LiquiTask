@@ -1,7 +1,12 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ConfirmationProvider } from "../../contexts/ConfirmationContext";
 import { aiService } from "../../services/aiService";
 import { AIProjectAssignmentModal } from "../AIProjectAssignmentModal";
+
+const renderWithConfirmation = (ui: ReactElement) =>
+  render(<ConfirmationProvider>{ui}</ConfirmationProvider>);
 
 // Mock services
 vi.mock("../../services/aiService", () => ({
@@ -42,7 +47,7 @@ describe("AIProjectAssignmentModal", () => {
     ]);
 
     await act(async () => {
-      render(
+      renderWithConfirmation(
         <AIProjectAssignmentModal
           isOpen={true}
           onClose={vi.fn()}
@@ -78,7 +83,7 @@ describe("AIProjectAssignmentModal", () => {
     ]);
 
     await act(async () => {
-      render(
+      renderWithConfirmation(
         <AIProjectAssignmentModal
           isOpen={true}
           onClose={vi.fn()}
@@ -100,6 +105,14 @@ describe("AIProjectAssignmentModal", () => {
     const applyBtn = screen.getByRole("button", { name: /Apply Assignments/i });
     await act(async () => {
       fireEvent.click(applyBtn);
+    });
+
+    expect(mockOnUpdateTask).not.toHaveBeenCalled();
+
+    expect(await screen.findByText("Apply project assignments?")).toBeInTheDocument();
+    const confirmButtons = screen.getAllByRole("button", { name: "Apply Assignments" });
+    await act(async () => {
+      fireEvent.click(confirmButtons[confirmButtons.length - 1]);
     });
 
     expect(mockOnUpdateTask).toHaveBeenCalledWith(

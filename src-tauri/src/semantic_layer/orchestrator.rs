@@ -304,6 +304,7 @@ impl SemanticOrchestrator {
             return Ok(());
         };
         fs::create_dir_all(path).map_err(|e| e.to_string())?;
+        super::url_allowlist::secure_cache_dir(path)?;
         self.cache.save(path)?;
         let ood_file = path.join("ood.json");
         let state = self.ood.state();

@@ -4,11 +4,7 @@ import agentScopeService, { type PlannedFile } from "../agentScopeService";
 
 describe("agentScopeService", () => {
   beforeEach(() => {
-    // Ensure no leakage between tests via shared singleton state.
-    agentScopeService.clearScopeForRun("run-1");
-    agentScopeService.clearScopeForRun("run-2");
-    agentScopeService.setScopeForTask("task-1", []);
-    agentScopeService.setScopeForTask("task-2", []);
+    agentScopeService.resetForTests();
   });
 
   it("treats a run with no registered scope as always in-scope", () => {
@@ -153,5 +149,27 @@ describe("agentScopeService", () => {
   it("bindTaskScopeToRun is a no-op restriction when the task has no scope registered", () => {
     agentScopeService.bindTaskScopeToRun("run-1", "task-never-planned");
     expect(agentScopeService.checkPath("run-1", "src/whatever.ts")).toEqual({ inScope: true });
+  });
+
+  it("rejects path traversal via .. segments", () => {
+    agentScopeService.setScopeForTask("task-1", [
+      { path: "src/services/foo.ts", reason: "impl", allowedChange: "modify" },
+    ]);
+    agentScopeService.bindTaskScopeToRun("run-1", "task-1");
+    agentScopeService.setRunRoot("run-1", "/repo");
+
+    expect(agentScopeService.checkPath("run-1", "src/services/../other.ts").inScope).toBe(false);
+    expect(agentScopeService.checkPath("run-1", "../../etc/passwd").inScope).toBe(false);
+  });
+
+  it("resolves absolute paths under the run root", () => {
+    agentScopeService.setScopeForTask("task-1", [
+      { path: "src/foo.ts", reason: "impl", allowedChange: "modify" },
+    ]);
+    agentScopeService.bindTaskScopeToRun("run-1", "task-1");
+    agentScopeService.setRunRoot("run-1", "/repo/project");
+
+    expect(agentScopeService.checkPath("run-1", "/repo/project/src/foo.ts").inScope).toBe(true);
+    expect(agentScopeService.checkPath("run-1", "/other/src/foo.ts").inScope).toBe(false);
   });
 });

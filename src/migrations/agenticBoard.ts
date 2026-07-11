@@ -1,10 +1,10 @@
 /**
- * Migration v1.0.0 → v1.1.0 — the agentic four-stage board.
+ * Migration v1.0.0 → v1.1.0 — the agentic five-stage board.
  *
  * Reframes the default kanban columns from
  *   Pending / In Progress / Completed / Review / Delivered
  * to the agent-native lifecycle
- *   Task / In Progress / Completed / Commit
+ *   Task / In Progress / Completed / In Review / Commit
  *
  * Mapping (applied to stored columns, task statuses, and saved-view filters):
  *   Pending    → Task        (backlog)
@@ -13,8 +13,9 @@
  *   Completed  → Commit      (old terminal column → new terminal column)
  *   Delivered  → Commit      (merged into the terminal column)
  *
- * User-created custom columns are preserved (appended after the four
- * canonical columns in their original relative order).
+ * User-created custom columns are preserved (appended after the canonical
+ * columns in their original relative order). In Review is injected hidden
+ * for existing boards via ensureAgenticColumns on boot.
  */
 
 import type { BoardColumn, MigratableAppData, SavedView, Task } from "../../types";

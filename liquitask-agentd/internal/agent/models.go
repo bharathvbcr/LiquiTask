@@ -119,6 +119,10 @@ func ListModels(ctx context.Context, providerType, executablePath string) ([]Mod
 		return cachedDiscovery(providerType, func() ([]Model, error) {
 			return discoverCursorModels(ctx, executablePath)
 		})
+	case "grok":
+		return cachedDiscovery(providerType, func() ([]Model, error) {
+			return discoverGrokModels(ctx, executablePath)
+		})
 	case "copilot":
 		return cachedDiscovery(providerType, func() ([]Model, error) {
 			return discoverCopilotModels(ctx, executablePath)
@@ -873,7 +877,7 @@ func discoverACPModels(ctx context.Context, executablePath string, p acpDiscover
 	cmd := exec.CommandContext(runCtx, executablePath, cmdArgs...)
 	hideAgentWindow(cmd)
 	if len(p.extraEnv) > 0 {
-		cmd.Env = append(os.Environ(), p.extraEnv...)
+		cmd.Env = mergeEnv(allowedHostEnviron(), envSliceToMap(p.extraEnv))
 	}
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
@@ -1111,38 +1115,120 @@ func parseAntigravityModels(output string) []Model {
 	return models
 }
 
-// discoverCursorModels runs `cursor-agent --list-models` and parses
-// the `id - Label` rows. Cursor's catalog changes often and ships
+// discoverCursorModels runs `agent models` (preferred) or `--list-models`
+// and parses the `id - Label` rows. Cursor's catalog changes often and ships
 // many variants of the same base model (thinking / fast / max
 // suffixes) — static baking would be obsolete within weeks. On any
 // failure we fall back to the minimal static catalog so the UI
-// stays usable when cursor-agent isn't installed on the daemon host.
+// stays usable when the cursor CLI isn't installed on the daemon host.
 func discoverCursorModels(ctx context.Context, executablePath string) ([]Model, error) {
+	candidates := cursorModelDiscoveryBinaries(executablePath)
+	for _, bin := range candidates {
+		if _, err := exec.LookPath(bin); err != nil {
+			continue
+		}
+		runCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+		cmd := exec.CommandContext(runCtx, bin, "models")
+		hideAgentWindow(cmd)
+		out, err := cmd.Output()
+		cancel()
+		if err == nil {
+			if models := parseCursorModels(string(out)); len(models) > 0 {
+				return models, nil
+			}
+		}
+		runCtx, cancel = context.WithTimeout(ctx, 15*time.Second)
+		cmd = exec.CommandContext(runCtx, bin, "--list-models")
+		hideAgentWindow(cmd)
+		out, err = cmd.Output()
+		cancel()
+		if err == nil {
+			if models := parseCursorModels(string(out)); len(models) > 0 {
+				return models, nil
+			}
+		}
+	}
+	return cursorStaticModels(), nil
+}
+
+func cursorModelDiscoveryBinaries(executablePath string) []string {
+	if executablePath != "" {
+		return []string{executablePath}
+	}
+	return []string{"agent", "cursor-agent", "cursor"}
+}
+
+// discoverGrokModels runs `grok models` and parses model IDs. On failure
+// falls back to a minimal static catalog.
+func discoverGrokModels(ctx context.Context, executablePath string) ([]Model, error) {
 	if executablePath == "" {
-		executablePath = "cursor-agent"
+		executablePath = "grok"
 	}
 	if _, err := exec.LookPath(executablePath); err != nil {
-		return cursorStaticModels(), nil
+		return grokStaticModels(), nil
 	}
-	// 15s to match the other network-backed discovery paths (pi/opencode/ACP);
-	// cursor-agent fetches its frequently-changing catalog, so a tight cap can
-	// time out and fall back to the minimal static list. See #3729.
 	runCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(runCtx, executablePath, "--list-models")
+	cmd := exec.CommandContext(runCtx, executablePath, "models")
 	hideAgentWindow(cmd)
 	out, err := cmd.Output()
 	if err != nil && len(out) == 0 {
-		return cursorStaticModels(), nil
+		return grokStaticModels(), nil
 	}
-	models := parseCursorModels(string(out))
+	models := parseGrokModels(string(out))
 	if len(models) == 0 {
-		return cursorStaticModels(), nil
+		return grokStaticModels(), nil
 	}
 	return models, nil
 }
 
-// parseCursorModels extracts model IDs from `cursor-agent --list-models`.
+func grokStaticModels() []Model {
+	return []Model{
+		{ID: "grok-4.5", Label: "Grok 4.5", Provider: "xai", Default: true},
+	}
+}
+
+func parseGrokModels(output string) []Model {
+	scanner := bufio.NewScanner(strings.NewReader(output))
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	var models []Model
+	seen := map[string]bool{}
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		idx := strings.Index(line, " - ")
+		if idx <= 0 {
+			// Plain model id per line fallback.
+			id := line
+			if !isOpenclawIdentifier(id) || seen[id] {
+				continue
+			}
+			seen[id] = true
+			models = append(models, Model{ID: id, Label: id, Provider: "xai"})
+			continue
+		}
+		id := strings.TrimSpace(line[:idx])
+		label := strings.TrimSpace(line[idx+3:])
+		if !isOpenclawIdentifier(id) || seen[id] {
+			continue
+		}
+		seen[id] = true
+		isDefault := strings.Contains(strings.ToLower(label), "(default)")
+		label = strings.TrimSpace(strings.ReplaceAll(label, "(default)", ""))
+		label = strings.TrimSpace(strings.ReplaceAll(label, "(current)", ""))
+		models = append(models, Model{
+			ID:       id,
+			Label:    label,
+			Provider: "xai",
+			Default:  isDefault,
+		})
+	}
+	return models
+}
+
+// parseCursorModels extracts model IDs from `agent models` / `--list-models`.
 // Output format (as of cursor-agent 2026.04):
 //
 //	Available models

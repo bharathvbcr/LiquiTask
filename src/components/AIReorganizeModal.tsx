@@ -1,11 +1,13 @@
 import { Brain, CheckCircle2, FolderOpen, Loader2, Sparkles } from "lucide-react";
 import type React from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ModalWrapper } from "./ModalWrapper";
 import type { PriorityDefinition, Project, Task, TaskCluster } from "../../types";
 import { STORAGE_KEYS } from "../constants";
+import { useConfirmation } from "../contexts/ConfirmationContext";
 import { aiService } from "../services/aiService";
 import storageService from "../services/storageService";
+import { filterClustersToKnownTasks } from "../utils/aiModalTrust";
 
 interface AIReorganizeModalProps {
   isOpen: boolean;
@@ -30,6 +32,7 @@ export const AIReorganizeModal: React.FC<AIReorganizeModalProps> = ({
   onMoveTask,
   addToast,
 }) => {
+  const { confirm } = useConfirmation();
   const [clusters, setClusters] = useState<ClusterGroup[]>([]);
   const [loading, setLoading] = useState(false);
   const [applying, setApplying] = useState(false);
@@ -48,6 +51,8 @@ export const AIReorganizeModal: React.FC<AIReorganizeModalProps> = ({
 
   useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
   useEffect(() => { addToastRef.current = addToast; }, [addToast]);
+
+  const taskById = useMemo(() => new Map(allTasks.map((t) => [t.id, t])), [allTasks]);
 
   const loadClusters = useCallback(async () => {
     setLoading(true);
@@ -69,14 +74,16 @@ export const AIReorganizeModal: React.FC<AIReorganizeModalProps> = ({
 
       if (!isMountedRef.current) return;
 
-      if (taskClusters.length === 0) {
+      const sanitized = filterClustersToKnownTasks(taskClusters, allTasks, 2);
+
+      if (sanitized.length === 0) {
         addToastRef.current("No task clusters found for reorganization", "info");
         onCloseRef.current();
         return;
       }
 
       setClusters(
-        taskClusters.map((cluster) => ({
+        sanitized.map((cluster) => ({
           cluster,
           approved: false,
           projectName: cluster.theme,
@@ -121,6 +128,19 @@ export const AIReorganizeModal: React.FC<AIReorganizeModalProps> = ({
     if (approvedClusters.length === 0) {
       applyingRef.current = false;
       addToast("No clusters approved for reorganization", "warning");
+      return;
+    }
+
+    const confirmed = await confirm({
+      title: "Reorganize tasks into new projects?",
+      message: `This will create ${approvedClusters.length} new project${
+        approvedClusters.length > 1 ? "s" : ""
+      } and move the approved tasks. This cannot be undone.`,
+      confirmText: "Reorganize",
+      variant: "warning",
+    });
+    if (!confirmed) {
+      applyingRef.current = false;
       return;
     }
 
@@ -232,7 +252,7 @@ export const AIReorganizeModal: React.FC<AIReorganizeModalProps> = ({
               <div className="flex gap-2">
                 <button
                   onClick={approveAll}
-                  className="px-3 py-1.5 text-xs font-medium text-white bg-green-500/20 hover:bg-green-500/30 rounded-lg transition-colors"
+                  className="px-3 py-1.5 text-xs font-medium text-slate-300 bg-white/5 border border-white/10 hover:bg-white/10 rounded-lg transition-colors"
                 >
                   Approve All
                 </button>
@@ -250,6 +270,7 @@ export const AIReorganizeModal: React.FC<AIReorganizeModalProps> = ({
                 <ClusterCard
                   key={clusterGroup.cluster.id}
                   clusterGroup={clusterGroup}
+                  taskById={taskById}
                   onToggleApproval={() => toggleApproval(clusterGroup.cluster.id)}
                   onUpdateProjectName={(name) => updateProjectName(clusterGroup.cluster.id, name)}
                 />
@@ -270,7 +291,7 @@ export const AIReorganizeModal: React.FC<AIReorganizeModalProps> = ({
                 <button
                   onClick={applyApprovedClusters}
                   disabled={applying || !clusters.some((c) => c.approved)}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-500 text-slate-950 rounded-lg text-sm font-bold shadow-lg shadow-red-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="liquid-button flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {applying ? (
                     <Loader2 size={16} className="animate-spin" />
@@ -290,12 +311,14 @@ export const AIReorganizeModal: React.FC<AIReorganizeModalProps> = ({
 
 interface ClusterCardProps {
   clusterGroup: ClusterGroup;
+  taskById: Map<string, Task>;
   onToggleApproval: () => void;
   onUpdateProjectName: (name: string) => void;
 }
 
 const ClusterCard: React.FC<ClusterCardProps> = ({
   clusterGroup,
+  taskById,
   onToggleApproval,
   onUpdateProjectName,
 }) => {
@@ -343,16 +366,16 @@ const ClusterCard: React.FC<ClusterCardProps> = ({
       </div>
 
       <div className="mb-3">
-        <label className="text-xs font-medium text-slate-400 mb-2 block">Sample Tasks</label>
-        <div className="space-y-1 max-h-20 overflow-y-auto">
-          {cluster.taskIds.slice(0, 3).map((taskId) => (
-            <div key={taskId} className="text-xs text-slate-400 truncate">
-              • Task {taskId.slice(-8)}
-            </div>
-          ))}
-          {cluster.taskIds.length > 3 && (
-            <div className="text-xs text-slate-500">...and {cluster.taskIds.length - 3} more</div>
-          )}
+        <label className="text-xs font-medium text-slate-400 mb-2 block">Tasks in Cluster</label>
+        <div className="space-y-1 max-h-32 overflow-y-auto">
+          {cluster.taskIds.map((taskId) => {
+            const task = taskById.get(taskId);
+            return (
+              <div key={taskId} className="text-xs text-slate-300 truncate">
+                {task?.title ?? "Unknown task"}
+              </div>
+            );
+          })}
         </div>
       </div>
 

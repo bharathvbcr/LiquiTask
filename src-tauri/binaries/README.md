@@ -15,4 +15,11 @@ Rust target-triple suffix:
 - `liquitask-agentd-x86_64-pc-windows-msvc.exe`
 - `liquitask-agentd-x86_64-unknown-linux-gnu`
 
+The companion `liquitask` CLI (`cmd/liquitask`) is built by the same script as
+`liquitask-cli-{triple}` (Tauri sidecar name; symlinked to `~/.local/bin/liquitask`):
+
+- `liquitask-cli-aarch64-apple-darwin`
+- `liquitask-cli-x86_64-pc-windows-msvc.exe`
+- `liquitask-cli-x86_64-unknown-linux-gnu`
+
 These files are gitignored and must be built before `tauri build`.

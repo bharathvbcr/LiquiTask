@@ -72,10 +72,50 @@ describe("TaskCard Extended", () => {
   });
 
   it("handles 'Mark Committed & Close' button", () => {
-    render(<TaskCard {...defaultProps} isCompletedColumn={true} />);
+    render(
+      <TaskCard
+        {...defaultProps}
+        task={{ ...mockTask, status: "Completed" }}
+      />,
+    );
     const verifyBtn = screen.getByText("Mark Committed & Close");
     fireEvent.click(verifyBtn);
     expect(defaultProps.onMoveTask).toHaveBeenCalledWith("task-1", "Commit");
+  });
+
+  it("does not show 'Mark Committed & Close' in the Commit column", () => {
+    render(
+      <TaskCard
+        {...defaultProps}
+        task={{ ...mockTask, status: "Commit" }}
+      />,
+    );
+    expect(screen.queryByText("Mark Committed & Close")).toBeNull();
+  });
+
+  it("shows and handles 'Archive Task' button in the Commit column", () => {
+    const onArchiveTask = vi.fn();
+    render(
+      <TaskCard
+        {...defaultProps}
+        task={{ ...mockTask, status: "Commit" }}
+        onArchiveTask={onArchiveTask}
+      />,
+    );
+    const archiveBtn = screen.getByText("Archive Task");
+    fireEvent.click(archiveBtn);
+    expect(onArchiveTask).toHaveBeenCalledWith("task-1");
+  });
+
+  it("does not show 'Archive Task' before commit", () => {
+    render(
+      <TaskCard
+        {...defaultProps}
+        task={{ ...mockTask, status: "Completed" }}
+        onArchiveTask={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText("Archive Task")).toBeNull();
   });
 
   it("shows blocked status when task has blocked-by links", () => {

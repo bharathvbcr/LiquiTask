@@ -69,8 +69,10 @@ conductor/
 **/_conductor/
 *AUDIT*.md
 **/*AUDIT*.md
-*RESUME_POINTS.md
-**/*RESUME_POINTS.md
+*RESUME*.md
+**/*RESUME*.md
+*-handoff.zip
+**/*-handoff.zip
 AGENTS.md
 **/AGENTS.md
 CLAUDE.md
@@ -88,6 +90,8 @@ crates/**/target/
 src-tauri/gen/
 src-tauri/binaries/semantic-layer-*
 src-tauri/binaries/liquitask-agentd*
+src-tauri/binaries/liquitask-cli*
+src-tauri/binaries/liquitask-aarch64-*
 src-tauri/.fastembed_cache/
 
 # Vendored reference checkouts — not our source, kept locally for reference only.

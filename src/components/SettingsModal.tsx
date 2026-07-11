@@ -1,4 +1,4 @@
-import { Bot, Database, Flag, Kanban, Keyboard, Settings, Sparkles, Zap } from "lucide-react";
+import { Bot, Database, Flag, Kanban, Keyboard, Layers, Settings, Sparkles, Zap } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 import logo from "../assets/logo.png";
@@ -8,6 +8,8 @@ import type { EncryptionChangeReason } from "../services/encryptionSetup";
 import storageService from "../services/storageService";
 import { generateTemplateBlob, validateBulkTasks } from "../utils/bulkTaskSchema";
 import { validateAndTransformImportedData } from "../utils/validation";
+import type { NotificationPreferences } from "../utils/notificationPreferences";
+import type { RemotePushConfig } from "../utils/pushNotificationConfig";
 import type {
   BoardColumn,
   CustomFieldDefinition,
@@ -27,6 +29,7 @@ import { ArchiveSettings } from "./settings/ArchiveSettings";
 // Sub-components
 import { GeneralSettings } from "./settings/GeneralSettings";
 import { EncryptionAtRestSettings } from "./settings/EncryptionAtRestSettings";
+import { CustomFieldSettings } from "./settings/CustomFieldSettings";
 import { PrioritySettings } from "./settings/PrioritySettings";
 import { ShortcutSettings } from "./settings/ShortcutSettings";
 import { WorkflowSettings } from "./settings/WorkflowSettings";
@@ -73,6 +76,12 @@ interface SettingsModalProps {
   onBulkCreateTasks?: (tasks: Partial<Task>[]) => void;
   showSubWorkspaceTasks: boolean;
   onUpdateShowSubWorkspaceTasks?: (s: boolean) => void;
+  aiFeaturesEnabled?: boolean;
+  onUpdateAiFeaturesEnabled?: (enabled: boolean) => void;
+  notificationPreferences?: NotificationPreferences;
+  onUpdateNotificationPreferences?: (prefs: NotificationPreferences) => void;
+  remotePushConfig?: RemotePushConfig;
+  onUpdateRemotePushConfig?: (config: RemotePushConfig) => void;
   onRunAutoArchive?: (options?: { force?: boolean }) => Promise<number>;
   onEnableEncryption?: () => Promise<void>;
   onDisableEncryption?: () => Promise<void>;
@@ -99,6 +108,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onBulkCreateTasks,
   showSubWorkspaceTasks = false,
   onUpdateShowSubWorkspaceTasks,
+  aiFeaturesEnabled = true,
+  onUpdateAiFeaturesEnabled,
+  notificationPreferences,
+  onUpdateNotificationPreferences,
+  remotePushConfig,
+  onUpdateRemotePushConfig,
   onOpenMergeModal,
   onOpenReorganizeModal,
   onOpenSubtaskModal,
@@ -240,12 +255,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     { id: "general", icon: <Settings size={16} />, label: "General" },
     { id: "workflow", icon: <Kanban size={16} />, label: "Workflow" },
     { id: "priorities", icon: <Flag size={16} />, label: "Priorities" },
+    { id: "custom-fields", icon: <Layers size={16} />, label: "Custom Fields" },
     { id: "data", icon: <Database size={16} />, label: "Data" },
     { id: "shortcuts", icon: <Keyboard size={16} />, label: "Shortcuts" },
     { id: "automation", icon: <Zap size={16} />, label: "Automation" },
     { id: "ai", icon: <Sparkles size={16} />, label: "AI Settings" },
     { id: "agents", icon: <Bot size={16} />, label: "Agents" },
-  ];
+  ].filter((tab) => aiFeaturesEnabled || (tab.id !== "ai" && tab.id !== "agents"));
+
+  useEffect(() => {
+    if (!aiFeaturesEnabled && (activeTab === "ai" || activeTab === "agents")) {
+      setActiveTab("general");
+    }
+  }, [activeTab, aiFeaturesEnabled]);
 
   return (
     <ModalWrapper
@@ -277,6 +299,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 setLocalGrouping={setLocalGrouping}
                 showSubWorkspaceTasks={showSubWorkspaceTasks}
                 onUpdateShowSubWorkspaceTasks={onUpdateShowSubWorkspaceTasks}
+                aiFeaturesEnabled={aiFeaturesEnabled}
+                onUpdateAiFeaturesEnabled={onUpdateAiFeaturesEnabled}
+                notificationPreferences={notificationPreferences}
+                onUpdateNotificationPreferences={onUpdateNotificationPreferences}
+                remotePushConfig={remotePushConfig}
+                onUpdateRemotePushConfig={onUpdateRemotePushConfig}
                 addToast={addToast}
                 onUpdateGrouping={onUpdateGrouping}
               />
@@ -305,6 +333,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               onUpdatePriorities={(p) => {
                 setLocalPriorities(p);
                 onUpdatePriorities(p);
+              }}
+              addToast={addToast}
+            />
+          )}
+          {activeTab === "custom-fields" && (
+            <CustomFieldSettings
+              customFields={localCustomFields}
+              onUpdateCustomFields={(fields) => {
+                setLocalCustomFields(fields);
+                onUpdateCustomFields(fields);
               }}
               addToast={addToast}
             />
@@ -352,6 +390,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               updateKeybinding={updateKeybinding}
               resetKeybindings={resetKeybindings}
               addToast={addToast}
+              aiFeaturesEnabled={aiFeaturesEnabled}
             />
           )}
           {activeTab === "automation" && (
@@ -359,6 +398,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               columns={appData.columns}
               priorities={appData.priorities}
               addToast={addToast}
+              aiFeaturesEnabled={aiFeaturesEnabled}
             />
           )}
           {activeTab === "ai" && (

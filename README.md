@@ -3,7 +3,7 @@
 LiquiTask is a **local-first agentic task workbench**: a desktop app where every
 task on the board can be handed to a coding agent the way you'd hand it to a
 teammate. Assign a card to Claude Code, Codex, Cursor, Antigravity, or any of
-**14 supported agent runtimes**; the run streams into the card's activity trail,
+**15 supported agent runtimes**; the run streams into the card's activity trail,
 the card moves across the board as the work progresses, and — when you want proof
 instead of a claim — the whole run is gated by **DevCouncil**: plan, scope
 enforcement, and a deterministic verification loop.
@@ -13,8 +13,8 @@ Built with React 19, TypeScript, Tauri 2 (Rust), a Go agent sidecar
 graph, agent runs, and evidence entirely on your machine.
 
 > **Direction note.** LiquiTask began as a Kanban task manager with optional
-> AI assistance and is being reworked into the agent workbench described here
-> (see [`docs/REWORK_PLAN_MULTICA.md`](docs/REWORK_PLAN_MULTICA.md)). The task
+> AI assistance and is being reworked into the agent workbench described here.
+> The task
 > board, local-first persistence, automation, search, and AI task features are
 > shipped and stable. The multi-agent execution layer (`liquitask-agentd`),
 > DevCouncil gates, and the four-surface v3 shell are built and enabled by
@@ -38,40 +38,47 @@ graph, agent runs, and evidence entirely on your machine.
 
 ## Maturity At A Glance
 
-| Area | State |
-| ---- | ----- |
-| Kanban board, views, search, automation, recurring tasks, custom fields | **Shipped / stable** |
-| Local-first persistence (IndexedDB + Tauri native storage, encryption at rest) | **Shipped / stable** |
-| AI task features (extraction, refinement, subtasks, dedupe, image-to-task) via Gemini / Ollama | **Shipped / stable** |
-| Agent teammates — assign a card to an agent, streamed run, board lifecycle | **Shipped** |
-| `liquitask-agentd` Go sidecar + all 14 runtime backends | **Built** (`AGENTD_SIDECAR_ENABLED: true`); Rust `agent_runner.rs` retained as the Claude fallback during migration |
-| DevCouncil bridge — plan, scope enforcement, verify gate, evidence-graph mirror, MCP registration | **Built**, deepening |
-| Four-surface shell (Inbox / Board / Agents / Run) + Command Deck | **Enabled** (`V3_SHELL_ENABLED: true`); surfaces still being ported/reskinned |
-| Task / project storage on SQLite | **In progress** — schema groundwork landed; tasks/projects still read/write IndexedDB today |
+| Area                                                                                              | State                                                                                                                                 |
+| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Kanban board, views, search, automation, recurring tasks, custom fields                           | **Shipped / stable**                                                                                                                  |
+| Local-first persistence (IndexedDB + Tauri native storage, encryption at rest)                    | **Shipped / stable**                                                                                                                  |
+| AI task features (extraction, refinement, subtasks, dedupe, image-to-task) via Gemini / Ollama    | **Shipped / stable** (gated by **Enable AI Features**)                                                                                |
+| Agent teammates — assign a card to an agent, streamed run, board lifecycle                        | **Shipped** (gated by **Enable AI Features**)                                                                                         |
+| `liquitask-agentd` Go sidecar + all 15 runtime backends                                           | **Built** (`AGENTD_SIDECAR_ENABLED: true`); direct runs route through `agentd.rs`; council subprocesses via `agent_council_runner.rs` |
+| DevCouncil bridge — plan, scope enforcement, verify gate, evidence-graph mirror, MCP registration | **Built**, deepening                                                                                                                  |
+| Four-surface shell (Inbox / Board / Agents / Run) + Command Deck                                  | **Enabled** (`V3_SHELL_ENABLED: true`); surfaces still being ported/reskinned                                                         |
+| First-run experience choice (Simple vs AI Agent Board)                                            | **Shipped** — `ExperienceChoiceGate` on fresh installs; toggle in Settings → General                                                  |
+| Task / project storage on SQLite                                                                  | **In progress** — schema groundwork landed; tasks/projects still read/write IndexedDB today                                           |
 
 Feature flags live in `src/constants/index.ts`:
 
 ```ts
 export const FEATURE_FLAGS = {
   AI_ASSISTANT_SIDEBAR_ENABLED: false, // legacy AI sidebar, superseded by the Run surface
-  AGENTD_SIDECAR_ENABLED: true,        // route non-Claude agent runs through liquitask-agentd
-  V3_SHELL_ENABLED: true,              // four-surface shell: Inbox / Board / Agents / Run
+  AGENTD_SIDECAR_ENABLED: true, // route non-Claude agent runs through liquitask-agentd
+  V3_SHELL_ENABLED: true, // four-surface shell: Inbox / Board / Agents / Run
+  TOOLTIPS_ENABLED: false, // hover/focus tooltips on controls
 } as const;
 ```
+
+The **AI features** master toggle (`STORAGE_KEYS.AI_FEATURES_ENABLED`, managed by
+`src/utils/aiFeatures.ts`) is separate from feature flags: it hides or shows the
+assistant, insights, quick-add AI, agent surfaces, and semantic sidecar while
+keeping task data and run history intact.
 
 ## Supported Agent Runtimes
 
 Agent execution is handled by `liquitask-agentd`, a Go sidecar ported from
-Multica's battle-tested `pkg/agent` (14 backends, each with its own test suite
+Multica's battle-tested `pkg/agent` (15 backends, each with its own test suite
 and per-OS invocation handling). Drive whichever CLIs you have installed and
 authenticated:
 
-| | | | |
-| --- | --- | --- | --- |
-| Claude Code | Codex | Cursor | Antigravity |
-| GitHub Copilot | OpenCode | Kimi | Kiro |
-| Qoder | CodeBuddy | Hermes (ACP) | Pi |
-| Trae | OpenClaw | | |
+|                |           |              |             |
+| -------------- | --------- | ------------ | ----------- |
+| Claude Code    | Codex     | Cursor       | Antigravity |
+| GitHub Copilot | OpenCode  | Kimi         | Kiro        |
+| Qoder          | CodeBuddy | Hermes (ACP) | Pi          |
+| Trae           | OpenClaw  | Grok         |             |
 
 `Settings → Agents` shows live detection (installed / version) for each runtime,
 plus DevCouncil (`dev`) and container-sandbox availability.
@@ -82,19 +89,19 @@ plus DevCouncil (`dev`) and container-sandbox availability.
 flowchart TD
   Assign["Assign card to an agent\n(roster drop, auto-pickup, or Start)"] --> Run["agentRunService\nqueued -> running -> verifying -> done"]
   Run --> Prompt["buildTaskPrompt(task, compounded skills)"]
-  Run --> Route{Runtime?}
-  Route -->|"claude (fallback)"| Rust["src-tauri agent_runner.rs\nspawns claude -p ... stream-json"]
-  Route -->|"any of 14 (default)"| Agentd["liquitask-agentd sidecar\nrun.start over JSON-RPC"]
+  Run --> Route{Run type?}
+  Route -->|"direct (all 15 runtimes)"| Agentd["liquitask-agentd sidecar\nrun.start via agentd.rs"]
   Agentd --> CLI["Installed coding CLI\nClaude / Codex / Cursor / ..."]
   Run --> Council{"Council mode?"}
   Council -->|yes| DevCouncil["DevCouncil\ndev plan -> scope -> run -> dev verify"]
-  Rust --> Board["Board + card activity trail\n(streamed events)"]
-  Agentd --> Board
+  Council -->|verify / e2e| CouncilRunner["agent_council_runner.rs\ndev subprocesses + durable journal"]
+  Agentd --> Board["Board + card activity trail\n(streamed events)"]
+  CouncilRunner --> Board
   DevCouncil --> Inbox["Inbox\napproval + verdict cards"]
   Board --> Skill["Successful run captured as a\nreusable repo-scoped skill"]
 ```
 
-- **Assignment** — an agent profile's *name* is its assignee label; assigning a
+- **Assignment** — an agent profile's _name_ is its assignee label; assigning a
   task to that name routes it to the agent. Assign by dropping a card on an
   agent chip in the roster tray, via per-agent auto-pickup, or the Start button
   in the Agent Runs dock.
@@ -112,31 +119,43 @@ flowchart TD
   on relaunch. See [`docs/AGENT_TEAMMATES.md`](docs/AGENT_TEAMMATES.md) for the
   full lifecycle, reattach/reconcile model, and terminal-handoff escape hatch.
 
+### Run Guardrails, Diagnostics, and Auto-Recovery
+
+To prevent runaway agent processes and make runs self-healing, the watchdog in `agentRunService` evaluates policy-based limits:
+
+- **Timeouts & Stalls** — Configured per agent (or defaulting to global settings) in `Settings → Agents`.
+  - **Wall-clock timeout** (`runTimeoutMinutes`): Force-stops a run if active execution time (excluding paused duration) exceeds this limit.
+  - **Stall timeout** (`stallTimeoutMinutes`): Automatically terminates a run if it goes silent (produces no new output/events) for the specified period.
+- **Cost Caps** — Configured via `perRunCostCapUsd`, flags runs exceeding the specified budget once completed.
+- **Auto-Recovery** — If an agent run is stopped by a guardrail or crashes unexpectedly, the task is automatically returned to the board (`autoRecover`, defaults to true).
+- **Auto-Retry** — Active runs can be configured to automatically retry once upon crashing or stalling (`autoRetryOnCrash`, defaults to false).
+- **Failure Diagnostics** — Decodes process exit signals (killed, terminated, or aborted) and maps them to clear failure states (`crashed`, `timeout`, or `stall`). The UI displays specific status badges and provides a "Copy Log" action in the Inbox and Runs Dock for quick debugging.
+
 ### The `liquitask-agentd` sidecar
 
 `liquitask-agentd` is a standalone Go binary shipped as a Tauri sidecar. It
 speaks newline-delimited JSON-RPC over stdio to the Rust core and owns CLI
-detection, the 14 `Backend` implementations, per-run execution-environment
+detection, the 15 `Backend` implementations, per-run execution-environment
 preparation (`execenv`), run lifecycle + reconcile, and local skill discovery —
 with the cloud coupling (auth, WebSockets, billing, workspace registration)
 stripped out of the ported Multica code.
 
 JSON-RPC surface (v1), consumed by `src-tauri/src/agentd.rs`:
 
-| Method | Purpose |
-| ------ | ------- |
-| `detect` | Installed runtimes + versions (drives `Settings → Agents` health) |
-| `run.start` | Start a run: `{ taskId, runtime, model, cwd, prompt, scope?, mcpConfig?, thinkingLevel?, resumeSessionId? }` |
-| `run.events` | Stream: `message \| tool_use \| thinking \| permission_request \| result \| error` |
-| `run.cancel` / `run.pause` / `run.resume` / `run.inject` | Run control + mid-run guidance injection |
-| `run.reattach` | Re-adopt orphaned runs after an app restart |
-| `permission.respond` | Answer a permission request (`allow` / `deny` / `always`) |
-| `skills.list` | Installed-skill discovery for prompt compounding |
+| Method                                                   | Purpose                                                                                                                                                                                                                           |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `detect`                                                 | Installed runtimes + versions (drives `Settings → Agents` health)                                                                                                                                                                 |
+| `run.start`                                              | Start a run: `{ taskId, runtime, model, cwd, prompt, scope?, mcpConfig?, thinkingLevel?, resumeSessionId? }`                                                                                                                      |
+| `run.events`                                             | Stream: `message \| tool_use \| thinking \| permission_request \| result \| error`                                                                                                                                                |
+| `run.cancel` / `run.pause` / `run.resume` / `run.inject` | Run control. **`run.inject` writes `guidance.txt` under the run dir but no adapter polls it today** — use the LiquiTask MCP bridge (`agent_mcp_append_guidance` → `guidance.jsonl`) for mid-run guidance the agent actually sees. |
+| `run.reattach`                                           | Re-adopt journal/in-memory runs after an app restart (reconciles dead PIDs from the event log; no PID start-time identity check)                                                                                                  |
+| `permission.respond`                                     | Answer a permission request (`allow` / `deny` / `always`)                                                                                                                                                                         |
+| `skills.list`                                            | Installed-skill discovery for prompt compounding                                                                                                                                                                                  |
 
 ## DevCouncil Integration
 
 [DevCouncil](https://github.com/bharathvbcr/DevCouncil) is a gated AI
-orchestrator: it makes AI-generated work *prove* it satisfied the original
+orchestrator: it makes AI-generated work _prove_ it satisfied the original
 intent. LiquiTask embeds DevCouncil as an opt-in gate around agent runs through
 the Rust bridge in `src-tauri/src/agent_devcouncil.rs` and
 `agent_devcouncil_evidence.rs`.
@@ -161,8 +180,9 @@ What the bridge does:
   (`run_dev_plan` / `agent_dev_plan`).
 - **Scope enforcement** — the whitelist is passed into `run.start`; agents get
   it via their permission mechanism (MCP permission server for Claude Code,
-  config injection for others), and the Rust policy layer (`agent_policy.rs`)
-  blocks out-of-scope writes as a second gate.
+  config injection for others). Out-of-scope mutating tool calls are denied on
+  the MCP permission-prompt path (`agentScopeService.ts`). Spawn-time model
+  routing and daily budget caps live in `agent_policy.rs` (not scope).
 - **Verify gate** — run completion triggers `dev verify` (scope compliance,
   tests, coverage, rigor). The verdict card carries typed `next_actions`;
   "Repair" spawns a follow-up run seeded with the structured repair
@@ -173,6 +193,9 @@ What the bridge does:
   artifact tables so provenance renders on the card.
 - **MCP** — `dev mcp-server` is registered in the MCP config `agentd` passes to
   runs, so agents can self-serve checkout → verify → repair loops.
+- **Workspace Auto-Sync** — Automatically synchronizes the workspace state upon loading or when status changes: regenerates the repo map (`dev map`) if stale, mirrors the evidence database, injects the team's custom skills into `.claude/skills/`, updates `.gitignore` rules, and prewarms project context in the background. A prompt in the UI notifies the user when sync actions are required.
+- **Collaborative Initialization** — If the DevCouncil CLI is installed but not initialized in the active workspace, LiquiTask refrains from running commands implicitly behind the scenes. Instead, it generates a high-priority board task (`Initialize DevCouncil in this workspace`) containing detailed instructions and assigns it to a coding agent for a clean, developer-visible setup.
+- **Run Triage & DLQ** — Provides **Retry**, **Dismiss**, and **Restore** controls in the Inbox and Run surface. This enables granular management of failed, stalled, or dead-letter queue (DLQ) runs, updating the card status and re-triggering execution environments as necessary.
 
 The DevCouncil path shells out to the `dev` CLI; `agent_dev_cli_available()`
 detects it. Enable the full council pipeline in a target repo with
@@ -183,7 +206,8 @@ and hook policies during runs.
 
 With `V3_SHELL_ENABLED` (on by default), the nine-view switcher is replaced by
 four surfaces; classic board views (Calendar, Gantt, Archive, List) become
-lenses inside **Board**.
+lenses inside **Board**. When AI features are off (Simple mode), only **Board**
+is shown in the surface switcher.
 
 - **Inbox (default).** A triage feed: approvals awaiting you, runs finished,
   council verdicts, blocked agents, standup digests. Each card has inline
@@ -217,13 +241,42 @@ Tasks are richer than a title/status card. The active task shape includes:
 - Recurring task configuration and next-occurrence handling.
 - Agent assignment, run history, DevCouncil evidence/provenance, and error logs.
 
+## Experience Modes
+
+On a **fresh install** (no tasks, projects, agents, or runs), the app shows
+`ExperienceChoiceGate` before the shell loads. The user picks one of two modes:
+
+- **Simple Task Management** — Kanban boards, projects, search, automation, and
+  recurring tasks without AI assistants, insights, or agent surfaces. The shell
+  opens on **Board** only.
+- **AI Agent Board** — everything in simple mode plus in-app AI (extraction,
+  refinement, quick-add AI, insights), agent runs, Inbox/Agents surfaces, and
+  the semantic sidecar.
+
+Existing installs are never prompted; the choice is recorded in
+`STORAGE_KEYS.ONBOARDING_EXPERIENCE_CHOSEN`. Either mode can be switched later
+in **Settings → General → Enable AI Features** (`src/utils/aiFeatures.ts`).
+
+When AI features are off, Inbox and Agents surface tabs are hidden, agent
+dispatch entry points are disabled, and the semantic sidecar is not started.
+
 ## Capture And Import
 
-- **Quick Add** parses inline markers such as `!high`, `!medium`, `!low`,
-  `#project`, `+tag`, `~30m`, `~2h`, `@today`, `@tomorrow`, `@next week`, and
-  `@MM/DD`.
-- **Image paste** in Quick Add analyzes a screenshot or visual note into a task
-  draft (title, summary, priority, estimate, tags).
+- **Quick Add** lives in the **New Task** form (`TaskFormModal`) with live syntax
+  highlighting via `QuickAddPreview`. Open it with `C` or `Cmd/Ctrl + Shift + N`.
+  It features an expanded natural language syntax parser:
+  - **Explicit Title Override**: Prefix with `$Title Here` or `$"Quoted Title"` to decouple the main title from other inline tokens.
+  - **Description**: Separate the description body from metadata using `::` or `---` (e.g., `Task Title !high :: The detailed description goes here`).
+  - **Assignees & Agents**: Use `>username` for assignee mapping and `%agentname` to route tasks directly to agent profiles (e.g., `%claude`).
+  - **Priority Levels**: Set levels using standard tags (`!high`/`!h`, `!med`/`!m`, `!low`/`!l`) or numeric levels `!1`–`!9` (or `!p1`–`!p9`) mapping to `level:N` priority.
+  - **Projects & Tags**: Categorize using `#projectname` (or `#project:Name`) and `+tagname`.
+  - **Estimates**: Define estimates using time markers (e.g., `~30m`, `~2h`, `~1.5h`, or combined formats like `~1h30m`).
+  - **Due Dates & Times**: Schedule tasks using absolute dates (`@MM/DD/YYYY`, `@MM/DD`), weekdays (`@monday`, `@mon`), relative offsets (`@+3d`, `@in 5 days`, `@in 2 weeks`), or standard markers (`@today`/`@tod`, `@tomorrow`/`@tom`, `@eod`, `@next week`, `@next monday`). Time of day (e.g., `@5pm`, `@10:30am`) can be appended to refine the resolved date.
+  - **Subtasks**: Parse inline subtasks using `>>Subtask Title` tokens (e.g., `Build CLI >>Add test suite >>Draft docs`).
+  - **Links & Files**: Extract local files with `@src/file.ts` and URLs using `&https://...` or bare `https://...` links.
+    Multi-line input supports **Create All** for batch capture; recent templates, a syntax guide, template export/import, and instant duplicate warnings are fully built-in.
+- **Image paste** in the New Task form analyzes a screenshot or visual note into
+  a task draft (title, summary, priority, estimate, tags) when AI features are on.
 - **Command Deck** creates tasks directly from a typed query with fuzzy ranking.
 - **Manual bulk import** accepts structured task JSON with a downloadable
   template.
@@ -233,20 +286,20 @@ Tasks are richer than a title/status card. The active task shape includes:
 
 ## Stack
 
-| Area | Technology |
-| ---- | ---------- |
-| Renderer | React 19, Vite 7, TypeScript, Tailwind CSS (liquid-glass design system) |
-| Desktop shell | Tauri 2 (Rust backend, system WebView) |
-| Agent execution | `liquitask-agentd` Go sidecar (14 runtime backends, JSON-RPC over stdio) |
-| Gating / verification | DevCouncil (`dev` CLI) via the Rust bridge |
-| Deterministic core | `crates/liquitask-core` Rust library (date math, scoring, aggregation) — see [`docs/RUST_MIGRATION.md`](docs/RUST_MIGRATION.md) |
-| Semantic search | Python semantic sidecar (`semantic_layer/`) |
-| Type checking | TypeScript native preview (`tsgo`) + TypeScript 6 tooling |
-| Persistence | SQLite (runs, events, agents, artifacts), IndexedDB (tasks/projects — migrating to SQLite), Tauri native JSON storage, localStorage fallback |
-| In-app AI | Google Gemini, Ollama |
-| Testing | Vitest, Testing Library, jsdom, fake-indexeddb; `cargo test` (Rust); `go test` (agentd) |
-| Linting | Biome |
-| Packaging | Tauri bundler (macOS `.dmg`, Windows NSIS installer), sidecars bundled |
+| Area                  | Technology                                                                                                                                   |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Renderer              | React 19, Vite 7, TypeScript, Tailwind CSS (liquid-glass design system)                                                                      |
+| Desktop shell         | Tauri 2 (Rust backend, system WebView)                                                                                                       |
+| Agent execution       | `liquitask-agentd` Go sidecar (15 runtime backends, JSON-RPC over stdio)                                                                     |
+| Gating / verification | DevCouncil (`dev` CLI) via the Rust bridge                                                                                                   |
+| Deterministic core    | `crates/liquitask-core` Rust library (date math, scoring, aggregation) — see [`docs/RUST_MIGRATION.md`](docs/RUST_MIGRATION.md)              |
+| Semantic search       | Python semantic sidecar (`semantic_layer/`)                                                                                                  |
+| Type checking         | TypeScript native preview (`tsgo`) + TypeScript 6 tooling                                                                                    |
+| Persistence           | SQLite (runs, events, agents, artifacts), IndexedDB (tasks/projects — migrating to SQLite), Tauri native JSON storage, localStorage fallback |
+| In-app AI             | Google Gemini, Ollama                                                                                                                        |
+| Testing               | Vitest, Testing Library, jsdom, fake-indexeddb; `cargo test` (Rust); `go test` (agentd)                                                      |
+| Linting               | Biome                                                                                                                                        |
+| Packaging             | Tauri bundler (macOS `.dmg`, Windows NSIS installer), sidecars bundled                                                                       |
 
 ## Architecture
 
@@ -272,10 +325,11 @@ flowchart TD
 LiquiTask/
 ├── App.tsx                  Main renderer shell (legacy tree + v3 four-surface shell)
 ├── index.tsx                React entrypoint
-├── components/              Legacy top-level UI wrappers (being folded into src/)
 ├── src/
 │   ├── components/          Feature UI: board, dashboard, agents/, AI, settings
-│   │   └── agents/          Agent roster, runs dock, drop tray, standup card
+│   │   ├── agents/          Agent roster, runs dock, drop tray, AgentFormModal
+│   │   ├── ExperienceChoiceGate.tsx  First-run simple vs AI Agent Board gate
+│   │   └── QuickAddPreview.tsx       Live quick-add syntax highlighting
 │   ├── constants/           Storage keys, defaults, keybindings, FEATURE_FLAGS
 │   ├── hooks/               App init, task/project controllers, useAgentTeammates
 │   ├── migrations/          Versioned local data migrations
@@ -285,6 +339,8 @@ LiquiTask/
 │   │                        policy, scope, skills, campaign orchestration
 │   ├── ui/ · core/ · views/ v3 shell layers (primitives · domain · screens)
 │   └── utils/               Query, validation, search, storage helpers
+│       ├── aiFeatures.ts    Master AI-features toggle (read/write/assert)
+│       └── onboarding.ts    First-run experience choice helpers
 ├── src-tauri/               Tauri Rust backend
 │   ├── src/agentd.rs        JSON-RPC bridge to liquitask-agentd
 │   ├── src/agent_*.rs       Runner (Claude fallback), policy, skills, git, MCP
@@ -314,7 +370,7 @@ Generated output directories (`dist/`, `release/`, `src-tauri/target/`,
 - On Windows: the WebView2 runtime (preinstalled on Windows 11) and MSVC build
   tools.
 
-To *use* agents at runtime you additionally need the relevant CLIs on `PATH`:
+To _use_ agents at runtime you additionally need the relevant CLIs on `PATH`:
 
 - One or more coding-agent CLIs (`claude`, `codex`, `cursor-agent`, etc.),
   installed and authenticated.
@@ -343,7 +399,8 @@ What this does:
 
 1. Prepares the semantic-sidecar stub and builds `liquitask-agentd`.
 2. Tauri runs `beforeDevCommand` (`npm run dev:web`) to start the Vite renderer
-   on `http://localhost:4000` (`devUrl`).
+   on `http://localhost:4000` by default (`devUrl`), or the next free port if
+   4000 is busy.
 3. Compiles and launches the Tauri Rust backend, loading the dev URL and
    supervising the sidecars.
 4. Exposes `window.desktopAPI` (window, storage, workspace, notifications) and
@@ -397,8 +454,10 @@ cd liquitask-agentd && go test ./...       # Go agent sidecar (per-backend suite
 ## AI Configuration
 
 In-app AI (the task-authoring features — extraction, refinement, subtasks,
-dedupe, image-to-task, smart import) is configured in **Settings → AI Settings**;
-credentials and model choices stay local.
+dedupe, image-to-task, smart import) requires **Enable AI Features** to be on
+(Settings → General, or the first-run `ExperienceChoiceGate`). Provider
+credentials and model choices are configured in **Settings → AI Settings**;
+everything stays local.
 
 - **Gemini** uses `@google/generative-ai` with `gemini-3.1-flash-lite` as the
   service fallback.
@@ -408,9 +467,10 @@ This is distinct from **agent runtimes** (Claude Code, Codex, …), which are
 external CLIs driven through `liquitask-agentd` and configured in
 **Settings → Agents**.
 
-AI-specific surfaces include the AI Task Assistant (`Cmd/Ctrl + J`), AI Insights
-Panel, AI Health Dashboard, Bulk AI Operations, AI Merge Duplicates, AI
-Reorganize, AI Project Assignment, AI Subtask Suggestions, and AI Smart Import.
+AI-specific surfaces (when AI features are enabled) include the AI Task Assistant
+(`Cmd/Ctrl + J`), AI Insights Panel, AI Health Dashboard, Bulk AI Operations, AI
+Merge Duplicates, AI Reorganize, AI Project Assignment, AI Subtask Suggestions,
+and AI Smart Import.
 
 ## Automation Rules
 
@@ -457,8 +517,10 @@ Important behavior:
   `devcouncil-verify`, `devcouncil-e2e`, and agentd-routed runtimes). Working
   directories are validated against the workspace allowlist; flag-shaped values
   are rejected; every process is tracked and cancellable.
-- **DevCouncil scope acts as a second gate**: out-of-scope writes are blocked by
-  `agent_policy.rs` even if an agent attempts them.
+- **DevCouncil scope is enforced on the MCP permission path**: out-of-scope
+  mutating tool calls are denied by `agentScopeService.ts` via the LiquiTask MCP
+  bridge. `agent_policy.rs` handles spawn-time model routing and budget caps
+  only — not file-scope enforcement.
 - The `workspace_*` commands validate that file operations remain inside
   user-authorized directories (symlink-canonicalized) and are limited to an
   allowlist of text/source file types. These boundaries are covered by
@@ -466,13 +528,22 @@ Important behavior:
 
 ## Keyboard Shortcuts
 
-- `Cmd/Ctrl + K` opens the Command Deck (command palette).
-- `Cmd/Ctrl + J` toggles the AI Task Assistant.
-- `Cmd/Ctrl + E` exports data.
-- `Cmd/Ctrl + B` toggles the sidebar.
-- `Cmd/Ctrl + Z` undoes the last action.
-- `C` creates a task.
-- `Escape` closes active overlays.
+Defaults live in `src/constants/keybindings.ts` and are rebindable in
+**Settings → Shortcuts**.
+
+- `Cmd/Ctrl + K` — Command Deck (command palette).
+- `Cmd/Ctrl + Shift + N` — New Task form with quick-add focus.
+- `Cmd/Ctrl + J` — AI Task Assistant (when AI features are on).
+- `Cmd/Ctrl + Shift + E` — export data.
+- `Cmd/Ctrl + \` — toggle the sidebar.
+- `Cmd/Ctrl + Z` — undo the last action.
+- `C` — create a task.
+- `/` — focus search.
+- `A` (on a focused card) — send to agent (when AI features are on).
+- `Escape` — close active overlays.
+
+Board navigation: arrow keys or `hjkl`, `Enter` to select, `E` to edit,
+`X` to complete, `1`–`9` to jump to columns.
 
 ## Code Signing And Install Warnings
 
@@ -515,19 +586,32 @@ Before tagging, update `package.json` and `package-lock.json`.
 
 ## Documentation
 
+- [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md) — Liquid Glass UI tokens, surfaces,
+  typography, and component checklist.
+- [`docs/AGENTIC_BOARD_ARCHITECTURE.md`](docs/AGENTIC_BOARD_ARCHITECTURE.md) — git-aligned
+  four-state board, event sourcing, dead-letter queue, and merge pipeline.
 - [`docs/REWORK_PLAN_MULTICA.md`](docs/REWORK_PLAN_MULTICA.md) — the v3 product
   thesis, target architecture, and phased roadmap.
 - [`docs/AGENT_TEAMMATES.md`](docs/AGENT_TEAMMATES.md) — agent-run lifecycle,
   durable/headless runs, DevCouncil verification gate, and the sandbox mode.
 - [`docs/RUST_MIGRATION.md`](docs/RUST_MIGRATION.md) — moving deterministic
   business logic into `crates/liquitask-core`.
+- [`docs/RUST_COMPONENTS_AGENTS.md`](docs/RUST_COMPONENTS_AGENTS.md) — checklist for
+  new `liquitask-core` modules.
 - [`docs/SIGNING.md`](docs/SIGNING.md) — full code-signing / notarization
   playbook.
 - [`docs/THIRD_PARTY.md`](docs/THIRD_PARTY.md) — Multica attribution and license
   terms.
 - GitNexus navigation maps live in `.claude/skills/generated/` — start there
   before high-risk changes to services, hooks, settings, agents, or runtime.
+  Regenerate after structural changes: `gitnexus analyze --skills --skip-agents-md`.
 
 ## License
 
 MIT
+
+---
+
+LiquiTask is actively being reworked into the agent workbench described above;
+see [`docs/REWORK_PLAN_MULTICA.md`](docs/REWORK_PLAN_MULTICA.md) for the product
+thesis, target architecture, and phased roadmap.

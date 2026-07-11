@@ -34,6 +34,7 @@ sha2 = "0.10"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync"] }
 reqwest = { version = "0.12", features = ["json"] }
 regex = "1"
+tempfile = "3"
 fastembed = "4"
 chrono = { version = "0.4", features = ["serde"] }
 # PTY allocation for the in-app terminal drawer (terminal.rs).
@@ -50,13 +51,18 @@ libc = "0.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = "3.2"
+objc2 = "0.6.4"
+objc2-app-kit = { version = "0.3.2", features = ["NSApplication", "NSDockTile"] }
+objc2-foundation = "0.3.2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.58", features = [
   "Foundation",
   "Security_Credentials_UI",
   "Win32_Foundation",
+  "Win32_Storage_FileSystem",
   "Win32_System_Diagnostics_ToolHelp",
+  "Win32_System_Pipes",
   "Win32_System_Threading",
 ] }
 

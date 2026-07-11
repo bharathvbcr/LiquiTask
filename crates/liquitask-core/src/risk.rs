@@ -9,7 +9,7 @@
 //! the original) crosses in as `now_ms` (epoch millis). We NEVER read a clock
 //! here. Task `dueDate` is already epoch millis on the DTO.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use serde::{Deserialize, Serialize};
 
@@ -65,30 +65,37 @@ pub fn calculate_critical_path(tasks: &[Task]) -> Vec<String> {
     let mut memo: HashMap<String, Vec<String>> = HashMap::new();
 
     // Memoized DFS returning the longest downstream chain starting at `id`.
+    // A visiting set breaks cycles (cyclic blocked-by links must not stack-overflow).
     fn find_longest_path(
         id: &str,
         adj: &HashMap<String, Vec<String>>,
         memo: &mut HashMap<String, Vec<String>>,
+        visiting: &mut HashSet<String>,
     ) -> Vec<String> {
+        if visiting.contains(id) {
+            return vec![id.to_string()];
+        }
         if let Some(cached) = memo.get(id) {
             return cached.clone();
         }
 
+        visiting.insert(id.to_string());
+
         let children = adj.get(id).map(|c| c.as_slice()).unwrap_or(&[]);
         if children.is_empty() {
-            // NOTE: the original does NOT memoize the leaf `[id]` case; it only
-            // memoizes when children exist. We mirror that so behaviour is
-            // identical (the result is the same either way, so this is safe).
+            visiting.remove(id);
             return vec![id.to_string()];
         }
 
         let mut longest_child_path: Vec<String> = Vec::new();
         for child_id in children {
-            let path = find_longest_path(child_id, adj, memo);
+            let path = find_longest_path(child_id, adj, memo, visiting);
             if path.len() > longest_child_path.len() {
                 longest_child_path = path;
             }
         }
+
+        visiting.remove(id);
 
         let mut result = Vec::with_capacity(longest_child_path.len() + 1);
         result.push(id.to_string());
@@ -97,9 +104,10 @@ pub fn calculate_critical_path(tasks: &[Task]) -> Vec<String> {
         result
     }
 
+    let mut visiting: HashSet<String> = HashSet::new();
     let mut max_path: Vec<String> = Vec::new();
     for t in tasks {
-        let path = find_longest_path(&t.id, &adj, &mut memo);
+        let path = find_longest_path(&t.id, &adj, &mut memo, &mut visiting);
         if path.len() > max_path.len() {
             max_path = path;
         }
@@ -127,7 +135,7 @@ pub fn calculate_heuristic_risks(
 
         // Risk 1: Overdue or near deadline.
         if let Some(due_ms) = task.due_date {
-            if task.status != "Completed" {
+            if !task.is_terminal() {
                 // (due - now) in days; matches the TS floating-point division.
                 let diff =
                     (due_ms as f64 - now_ms as f64) / (1000.0 * 60.0 * 60.0 * 24.0);
@@ -288,6 +296,28 @@ mod tests {
         assert_eq!(risks[0].level, "high");
         assert!(risks[0].reason.contains("overdue"));
         assert!((risks[0].score - 0.8).abs() < 1e-9);
+    }
+
+    #[test]
+    fn critical_path_survives_cycle() {
+        let mut a = task("a");
+        a.links = Some(vec![blocked_by("b")]);
+        let mut b = task("b");
+        b.links = Some(vec![blocked_by("a")]);
+        let cp = calculate_critical_path(&[a, b]);
+        assert!(!cp.is_empty());
+        assert!(cp.len() <= 3);
+    }
+
+    #[test]
+    fn commit_overdue_task_is_ignored() {
+        let now = 1_700_000_000_000;
+        let mut t = task("done");
+        t.status = "Commit".to_string();
+        t.due_date = Some(now - DAY_MS);
+        let cp: Vec<String> = Vec::new();
+        let risks = calculate_heuristic_risks(&[t], &cp, now);
+        assert!(risks.is_empty());
     }
 
     #[test]

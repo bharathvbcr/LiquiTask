@@ -1,4 +1,4 @@
-import type { Task } from "../../../types";
+import type { Task, TaskPrState } from "../../../types";
 import { deserializeTask, type TaskEvent } from "./taskEvents";
 
 /**
@@ -13,6 +13,30 @@ import { deserializeTask, type TaskEvent } from "./taskEvents";
 
 export type TaskProjection = Map<string, Task>;
 
+function mergePrState(existing: TaskPrState | undefined, patch: TaskPrState): TaskPrState {
+  return {
+    ...existing,
+    ...patch,
+    ci: patch.ci ? { ...existing?.ci, ...patch.ci } : existing?.ci,
+    review: patch.review ? { ...existing?.review, ...patch.review } : existing?.review,
+    updatedAt: patch.updatedAt ?? existing?.updatedAt,
+  };
+}
+
+function applyPrMetadataEvent(state: TaskProjection, event: TaskEvent): TaskProjection {
+  const task = state.get(event.streamId);
+  if (!task) return state;
+  const patch = event.payload.prState as TaskPrState | undefined;
+  if (!patch) return state;
+  const next: Task = {
+    ...task,
+    prState: mergePrState(task.prState, patch),
+    updatedAt: new Date(event.ts),
+  };
+  state.set(task.id, next);
+  return state;
+}
+
 export function applyTaskEvent(state: TaskProjection, event: TaskEvent): TaskProjection {
   switch (event.type) {
     case "task.created":
@@ -26,6 +50,10 @@ export function applyTaskEvent(state: TaskProjection, event: TaskEvent): TaskPro
       state.set(task.id, task);
       return state;
     }
+    case "task.pr_opened":
+    case "task.ci_state":
+    case "task.review_state":
+      return applyPrMetadataEvent(state, event);
     case "task.deleted": {
       state.delete(event.streamId);
       return state;

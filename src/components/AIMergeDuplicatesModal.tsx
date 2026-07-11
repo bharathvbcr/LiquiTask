@@ -1,30 +1,11 @@
 import { AlertTriangle, Brain, CheckCircle2, Loader2, Merge } from "lucide-react";
 import type React from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ModalWrapper } from "./ModalWrapper";
 import type { DuplicateGroup, MergeSuggestion, Task } from "../../types";
 import { useConfirmation } from "../contexts/ConfirmationContext";
 import { taskCleanupService } from "../services/taskCleanupService";
-
-// The merged fields come from the AI provider and are untrusted. Whitelist only
-// the content fields that a merge may legitimately change, so a misbehaving model
-// can never overwrite identity/ownership fields (id, projectId, createdAt, …).
-const sanitizeMergedFields = (fields: Partial<Task>): Partial<Task> => {
-  const out: Partial<Task> = {};
-  if (typeof fields.title === "string") out.title = fields.title;
-  if (typeof fields.summary === "string") out.summary = fields.summary;
-  if (Array.isArray(fields.tags)) {
-    out.tags = fields.tags.filter((t): t is string => typeof t === "string");
-  }
-  if (Array.isArray(fields.subtasks)) out.subtasks = fields.subtasks;
-  if (typeof fields.timeEstimate === "number" && fields.timeEstimate >= 0) {
-    out.timeEstimate = fields.timeEstimate;
-  }
-  if (typeof fields.timeSpent === "number" && fields.timeSpent >= 0) {
-    out.timeSpent = fields.timeSpent;
-  }
-  return out;
-};
+import { candidateTaskIds, sanitizeMergedFields } from "../utils/aiModalTrust";
 
 interface AIMergeDuplicatesModalProps {
   isOpen: boolean;
@@ -55,6 +36,23 @@ export const AIMergeDuplicatesModal: React.FC<AIMergeDuplicatesModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [applying, setApplying] = useState(false);
   const [progress, setProgress] = useState({ processed: 0, total: 0 });
+  const isMountedRef = useRef(true);
+  const onCloseRef = useRef(onClose);
+  const addToastRef = useRef(addToast);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+  useEffect(() => {
+    addToastRef.current = addToast;
+  }, [addToast]);
 
   const loadDuplicates = useCallback(async () => {
     setLoading(true);
@@ -69,36 +67,42 @@ export const AIMergeDuplicatesModal: React.FC<AIMergeDuplicatesModalProps> = ({
       );
 
       if (duplicateGroups.length === 0) {
-        addToast("No duplicate tasks found", "info");
-        onClose();
+        addToastRef.current("No duplicate tasks found", "info");
+        onCloseRef.current();
         return;
       }
 
       // Load merge suggestions for each group
-      setProgress({ processed: 0, total: duplicateGroups.length });
+      if (isMountedRef.current) setProgress({ processed: 0, total: duplicateGroups.length });
       const mergeGroups: MergeGroup[] = await Promise.all(
         duplicateGroups.map(async (group, index) => {
           try {
             const suggestion = await taskCleanupService.suggestMerge(group);
-            setProgress((prev) => ({ ...prev, processed: index + 1 }));
+            if (isMountedRef.current) {
+              setProgress((prev) => ({ ...prev, processed: index + 1 }));
+            }
             return { group, suggestion, loading: false, approved: false };
           } catch (error) {
             console.error("Failed to get merge suggestion:", error);
-            setProgress((prev) => ({ ...prev, processed: index + 1 }));
+            if (isMountedRef.current) {
+              setProgress((prev) => ({ ...prev, processed: index + 1 }));
+            }
             return { group, suggestion: null, loading: false, approved: false };
           }
         }),
       );
 
+      if (!isMountedRef.current) return;
       setGroups(mergeGroups);
     } catch (error) {
+      if (!isMountedRef.current) return;
       console.error("Failed to detect duplicates:", error);
-      addToast("Failed to detect duplicates", "error");
-      onClose();
+      addToastRef.current("Failed to detect duplicates", "error");
+      onCloseRef.current();
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) setLoading(false);
     }
-  }, [allTasks, addToast, onClose]);
+  }, [allTasks]);
 
   useEffect(() => {
     if (isOpen) {
@@ -136,11 +140,15 @@ export const AIMergeDuplicatesModal: React.FC<AIMergeDuplicatesModalProps> = ({
     try {
       let successCount = 0;
 
-      for (const { suggestion } of approvedGroups) {
+      for (const { suggestion, group } of approvedGroups) {
         if (!suggestion) continue;
 
         try {
-          await taskCleanupService.executeMerge(suggestion, onArchiveTask);
+          await taskCleanupService.executeMerge(
+            suggestion,
+            onArchiveTask,
+            candidateTaskIds(group),
+          );
 
           // Update the kept task with the sanitized merged fields
           onUpdateTask(suggestion.keepTaskId, sanitizeMergedFields(suggestion.mergedFields));
@@ -235,7 +243,7 @@ export const AIMergeDuplicatesModal: React.FC<AIMergeDuplicatesModalProps> = ({
               <div className="flex gap-2">
                 <button
                   onClick={approveAll}
-                  className="px-3 py-1.5 text-xs font-medium text-white bg-green-500/20 hover:bg-green-500/30 rounded-lg transition-colors"
+                  className="px-3 py-1.5 text-xs font-medium text-slate-300 bg-white/5 border border-white/10 hover:bg-white/10 rounded-lg transition-colors"
                 >
                   Approve All
                 </button>
@@ -272,7 +280,7 @@ export const AIMergeDuplicatesModal: React.FC<AIMergeDuplicatesModalProps> = ({
                 <button
                   onClick={applyApprovedMerges}
                   disabled={applying || !groups.some((g) => g.approved)}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-500 text-slate-950 rounded-lg text-sm font-bold shadow-lg shadow-red-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="liquid-button flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {applying ? (
                     <Loader2 size={16} className="animate-spin" />

@@ -28,6 +28,14 @@ export interface RunLimitDefaults {
 const minutesToMs = (minutes: number | undefined): number =>
   typeof minutes === "number" && minutes > 0 ? Math.round(minutes * 60_000) : 0;
 
+/** Wall-clock timeout forwarded to agentd `run.start` (0 = unlimited). */
+export function agentdStartTimeoutMs(
+  agent: Pick<AgentProfile, "runTimeoutMinutes">,
+  defaults: RunLimitDefaults = {},
+): number {
+  return resolveRunLimits(agent, defaults).timeoutMs;
+}
+
 /** Resolve effective limits: the agent's own settings win over the defaults. */
 export function resolveRunLimits(
   agent: Pick<AgentProfile, "runTimeoutMinutes" | "stallTimeoutMinutes" | "perRunCostCapUsd">,
@@ -57,7 +65,7 @@ const minutesLabel = (ms: number): string => {
  * verifying, non-paused runs are eligible. Returns `null` when within limits.
  */
 export function evaluateRunLimits(
-  run: Pick<AgentRun, "status" | "isPaused" | "startedAt" | "events">,
+  run: Pick<AgentRun, "status" | "isPaused" | "startedAt" | "events" | "pausedMs">,
   limits: RunLimits,
   nowMs: number,
 ): RunLimitVerdict | null {
@@ -66,11 +74,16 @@ export function evaluateRunLimits(
 
   const startedMs = run.startedAt ? run.startedAt.getTime() : undefined;
 
-  if (limits.timeoutMs > 0 && startedMs !== undefined && nowMs - startedMs > limits.timeoutMs) {
-    return {
-      reason: "timeout",
-      message: `Run exceeded its ${minutesLabel(limits.timeoutMs)} time limit and was stopped.`,
-    };
+  if (limits.timeoutMs > 0 && startedMs !== undefined) {
+    // Exclude time the run spent paused — only *active* runtime counts toward
+    // the timeout, so pausing overnight doesn't trip it on resume.
+    const activeMs = nowMs - startedMs - (run.pausedMs ?? 0);
+    if (activeMs > limits.timeoutMs) {
+      return {
+        reason: "timeout",
+        message: `Run exceeded its ${minutesLabel(limits.timeoutMs)} time limit and was stopped.`,
+      };
+    }
   }
 
   if (limits.stallMs > 0) {

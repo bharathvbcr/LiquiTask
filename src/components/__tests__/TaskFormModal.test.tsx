@@ -1,19 +1,28 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type React from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { BoardColumn, PriorityDefinition, Task } from "../../types";
+import { ConfirmationProvider } from "../../contexts/ConfirmationContext";
 import { TaskFormModal } from "../TaskFormModal";
+
+const renderWithConfirmation = (ui: React.ReactElement) =>
+  render(<ConfirmationProvider>{ui}</ConfirmationProvider>);
 
 // Mock ModalWrapper since it might use portals or complex logic
 vi.mock("../ModalWrapper", () => ({
   ModalWrapper: ({
     children,
     footer,
+    onClose,
   }: {
     children: React.ReactNode;
     footer?: React.ReactNode;
+    onClose?: () => void;
   }) => (
     <div>
+      <button type="button" aria-label="Close modal backdrop" onClick={onClose}>
+        Backdrop
+      </button>
       {children}
       {footer}
     </div>
@@ -68,7 +77,7 @@ describe("TaskFormModal Features", () => {
   } as unknown as Task;
 
   it("should switch between Details and Activity tabs", () => {
-    render(<TaskFormModal {...baseProps} initialData={mockTask} />);
+    renderWithConfirmation(<TaskFormModal {...baseProps} initialData={mockTask} />);
 
     // Initially on Details tab
     expect(screen.getByPlaceholderText(/e\.g\., Update Q3 Financials/i)).toBeInTheDocument();
@@ -80,7 +89,7 @@ describe("TaskFormModal Features", () => {
   });
 
   it("should update fields and submit", () => {
-    render(<TaskFormModal {...baseProps} initialData={mockTask} />);
+    renderWithConfirmation(<TaskFormModal {...baseProps} initialData={mockTask} />);
 
     const titleInput = screen.getByPlaceholderText(/e\.g\., Update Q3 Financials/i);
     fireEvent.change(titleInput, { target: { value: "Updated Title" } });
@@ -99,7 +108,7 @@ describe("TaskFormModal Features", () => {
   });
 
   it("should add a subtask within Details tab", () => {
-    render(<TaskFormModal {...baseProps} initialData={mockTask} />);
+    renderWithConfirmation(<TaskFormModal {...baseProps} initialData={mockTask} />);
 
     const subtaskInput = screen.getByPlaceholderText(/Add a subtask/i);
     fireEvent.change(subtaskInput, { target: { value: "New Subtask" } });
@@ -115,7 +124,7 @@ describe("TaskFormModal Features", () => {
   });
 
   it("should add an attachment link", () => {
-    render(<TaskFormModal {...baseProps} initialData={mockTask} />);
+    renderWithConfirmation(<TaskFormModal {...baseProps} initialData={mockTask} />);
 
     const nameInput = screen.getByPlaceholderText(/Link Name \(Optional\)/i);
     const urlInput = screen.getByPlaceholderText(/https:\/\/.../i);
@@ -140,7 +149,7 @@ describe("TaskFormModal Features", () => {
   });
 
   it("should reject unsafe attachment links", () => {
-    render(<TaskFormModal {...baseProps} initialData={mockTask} />);
+    renderWithConfirmation(<TaskFormModal {...baseProps} initialData={mockTask} />);
 
     const urlInput = screen.getByPlaceholderText(/https:\/\/.../i);
     fireEvent.change(urlInput, { target: { value: "javascript:alert(1)" } });
@@ -157,7 +166,7 @@ describe("TaskFormModal Features", () => {
 
   it("should add a task link", () => {
     const availableTasks: Task[] = [{ id: "2", jobId: "LT-102", title: "Target Task" } as Task];
-    render(<TaskFormModal {...baseProps} initialData={mockTask} availableTasks={availableTasks} />);
+    renderWithConfirmation(<TaskFormModal {...baseProps} initialData={mockTask} availableTasks={availableTasks} />);
 
     fireEvent.change(screen.getByLabelText(/Select task to link/i), {
       target: { value: "2" },
@@ -173,5 +182,41 @@ describe("TaskFormModal Features", () => {
         ]),
       }),
     );
+  });
+
+  it("shows Create Now for plain-text quick add input", () => {
+    renderWithConfirmation(<TaskFormModal {...baseProps} />);
+
+    const quickAdd = screen.getByLabelText("AI assistant and quick-add input");
+    fireEvent.change(quickAdd, { target: { value: "Buy milk" } });
+
+    expect(screen.getByRole("button", { name: /Create Now/i })).toBeInTheDocument();
+  });
+
+  it("confirms before discarding dirty form changes", async () => {
+    renderWithConfirmation(<TaskFormModal {...baseProps} initialData={mockTask} />);
+
+    const titleInput = screen.getByPlaceholderText(/e\.g\., Update Q3 Financials/i);
+    fireEvent.change(titleInput, { target: { value: "Changed Title" } });
+
+    fireEvent.click(screen.getByText("Cancel"));
+    expect(await screen.findByText("Discard Unsaved Changes?")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
+    await waitFor(() => expect(mockOnClose).toHaveBeenCalled());
+  });
+
+  it("blocks unsafe markdown links in summary preview", () => {
+    renderWithConfirmation(<TaskFormModal {...baseProps} initialData={mockTask} />);
+
+    const summaryInput = screen.getByPlaceholderText(/Describe the task details/i);
+    fireEvent.change(summaryInput, {
+      target: { value: "[evil](javascript:alert(1))" },
+    });
+
+    fireEvent.click(screen.getByText("Preview"));
+
+    expect(screen.queryByRole("link")).toBeNull();
+    expect(screen.getByText("evil")).toBeInTheDocument();
   });
 });

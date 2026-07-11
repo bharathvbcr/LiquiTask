@@ -1,8 +1,17 @@
 import type { Mock } from "vitest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { STORAGE_KEYS } from "../../constants";
 import type { AIConfig, AIContext } from "../../../types";
 import { aiService } from "../aiService";
 import storageService from "../storageService";
+
+function mockStorageGet(overrides: Record<string, unknown> = {}) {
+  (storageService.get as Mock).mockImplementation((key: string, fallback: unknown) => {
+    if (Object.hasOwn(overrides, key)) return overrides[key];
+    if (key === STORAGE_KEYS.AI_FEATURES_ENABLED) return true;
+    return fallback;
+  });
+}
 
 // Mock storageService
 vi.mock("../storageService", () => ({
@@ -47,6 +56,20 @@ vi.mock("@google/generative-ai", () => {
 // Mock fetch for Ollama
 global.fetch = vi.fn();
 
+const mockNativeClaudeChat = vi.fn();
+const mockNativeClaudeHealth = vi.fn();
+const mockNativeClaudeModels = vi.fn();
+const mockIsNativeBackend = vi.fn(() => true);
+
+vi.mock("../nativeBridge", () => ({
+  isNativeBackend: () => mockIsNativeBackend(),
+  nativeClaudeChat: (...args: unknown[]) => mockNativeClaudeChat(...args),
+  nativeClaudeHealth: () => mockNativeClaudeHealth(),
+  nativeClaudeModels: () => mockNativeClaudeModels(),
+  nativeOllamaChat: vi.fn(),
+  nativeOllamaHealth: vi.fn(),
+}));
+
 describe("AiService", () => {
   const mockContext: AIContext = {
     activeProjectId: "p1",
@@ -60,12 +83,21 @@ describe("AiService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(console, "error").mockImplementation(() => {});
+    mockIsNativeBackend.mockReturnValue(true);
+    mockNativeClaudeHealth.mockResolvedValue({ ok: true, version: "1.0.0" });
+    mockNativeClaudeModels.mockResolvedValue({
+      source: "help",
+      models: [
+        { id: "sonnet", label: "Sonnet (alias)", default: false },
+        { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", default: true },
+      ],
+    });
     // aiService.listModels = vi.fn().mockResolvedValue([]);
   });
 
   describe("extractTasksFromText", () => {
     it("throws error if provider is not configured", async () => {
-      (storageService.get as Mock).mockReturnValue(null);
+      mockStorageGet({ [STORAGE_KEYS.AI_CONFIG]: null });
       await expect(aiService.extractTasksFromText("test", mockContext)).rejects.toThrow(
         "AI provider is not configured",
       );
@@ -99,6 +131,60 @@ describe("AiService", () => {
       expect(tasks).toHaveLength(1);
       expect(tasks[0].title).toBe("Test Task");
       expect(tasks[0].priority).toBe("high");
+    });
+
+    it("extracts tasks using Claude Code provider", async () => {
+      const config: AIConfig = {
+        provider: "claude-code",
+        claudeCodeModel: "claude-sonnet-4-6",
+      };
+      (storageService.get as Mock).mockReturnValue(config);
+      mockNativeClaudeChat.mockResolvedValueOnce({
+        content: JSON.stringify([
+          {
+            title: "Claude task",
+            summary: "From CLI",
+            priority: "medium",
+            tags: [],
+            timeEstimate: 30,
+          },
+        ]),
+        latencyMs: 12,
+      });
+
+      const tasks = await aiService.extractTasksFromText("do the thing", mockContext);
+      expect(tasks).toHaveLength(1);
+      expect(tasks[0].title).toBe("Claude task");
+      expect(mockNativeClaudeChat).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: "claude-sonnet-4-6",
+          maxTurns: 1,
+        }),
+      );
+    });
+
+    it("reports Claude Code as configured only on desktop", () => {
+      (storageService.get as Mock).mockReturnValue({
+        provider: "claude-code",
+        claudeCodeModel: "claude-sonnet-4-6",
+      } satisfies AIConfig);
+      mockIsNativeBackend.mockReturnValue(true);
+      expect(aiService.isProviderConfigured()).toBe(true);
+
+      mockIsNativeBackend.mockReturnValue(false);
+      expect(aiService.isProviderConfigured()).toBe(false);
+    });
+
+    it("lists Claude Code models from the native catalog", async () => {
+      const config: AIConfig = {
+        provider: "claude-code",
+        claudeCodeModel: "claude-sonnet-4-6",
+      };
+      (storageService.get as Mock).mockReturnValue(config);
+
+      const models = await aiService.listModels();
+      expect(models).toEqual(["sonnet", "claude-sonnet-4-6"]);
+      expect(mockNativeClaudeModels).toHaveBeenCalled();
     });
   });
 

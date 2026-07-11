@@ -13,15 +13,18 @@ Target: **<15 ms p95 semantic overhead** on cache hits (CPU, MiniLM-L6-v2, FAISS
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │  LiquiTask (React + Tauri)                                              │
-│  aiService.ts ──► semanticLayerService.ts ──► HTTP :8765                │
+│  aiService.ts ──► semanticLayerService.ts                               │
+│  (default: Tauri invoke → Rust in-process engine)                       │
+│  (legacy: HTTP :8765 when LIQUITASK_USE_PYTHON=1 or web dev)            │
 └───────────────────────────────────┬─────────────────────────────────────┘
                                     │
-                    Tauri spawn: semantic_layer.rs
+                    Default: semantic_layer Rust commands (mod.rs)
+                    Legacy: Tauri spawn → Python FastAPI sidecar
                     (python -m semantic_layer | bundled PyInstaller binary)
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│  Semantic Layer Sidecar (FastAPI — server.py)                           │
+│  Semantic Layer (Rust in-process OR FastAPI sidecar — server.py)        │
 │                                                                         │
 │   POST /v1/chat  ──► SemanticOrchestrator.run()                         │
 │   POST /v1/config ◄── settings sync from AiSettings                     │

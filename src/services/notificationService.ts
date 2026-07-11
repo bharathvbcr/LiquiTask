@@ -1,5 +1,19 @@
 import { getDesktopApi, getRuntimeKind, isDesktop } from "../runtime/runtimeEnvironment";
 import { isTaskComplete } from "../utils/taskUtils";
+import {
+  type NotificationPreferences,
+  isWithinQuietHours,
+  readNotificationPreferences,
+} from "../utils/notificationPreferences";
+
+/** Collapse rapid agent-attention notifications (kanban-code parity). */
+export const AGENT_ATTENTION_SUPPRESSION_MS = 62_000;
+
+export type AgentAttentionKind =
+  | "permission_request"
+  | "run_waiting"
+  | "run_completed"
+  | "run_failed";
 
 interface NotificationTask {
   id: string;
@@ -30,9 +44,29 @@ interface NotificationOptions {
 
 class NotificationService {
   private hasPermission: boolean = false;
+  private preferences: NotificationPreferences = readNotificationPreferences();
   // Tracks active timeout handles per task so re-scheduling or cancellation
   // can clear stale timers and prevent duplicate / phantom notifications.
   private taskReminderHandles: Map<string, ReturnType<typeof setTimeout>[]> = new Map();
+  /** Last shown timestamp per dedupe key for agent-attention events. */
+  private agentAttentionLastShown: Map<string, number> = new Map();
+
+  /** Refresh preferences from storage (call after settings change). */
+  reloadPreferences(): void {
+    this.preferences = readNotificationPreferences();
+  }
+
+  getPreferences(): NotificationPreferences {
+    return { ...this.preferences };
+  }
+
+  setPreferences(prefs: NotificationPreferences): void {
+    this.preferences = { ...prefs };
+  }
+
+  private isQuietNow(): boolean {
+    return isWithinQuietHours(new Date(), this.preferences);
+  }
 
   async requestPermission(): Promise<boolean> {
     const runtime = getRuntimeKind();
@@ -58,6 +92,10 @@ class NotificationService {
       return;
     }
 
+    if (this.isQuietNow()) {
+      return;
+    }
+
     const desktopApi = getDesktopApi();
     if (isDesktop() && desktopApi?.showNotification) {
       desktopApi.showNotification({
@@ -80,6 +118,82 @@ class NotificationService {
         notification.onclick = options.onClick;
       }
     }
+  }
+
+  /**
+   * Show an agent-attention notification with 62s dedupe suppression per kind+id.
+   * Task titles are omitted from bodies for OS notification privacy (see scheduleTaskReminder).
+   */
+  notifyAgentAttention(
+    kind: AgentAttentionKind,
+    options: {
+      dedupeId?: string;
+      title: string;
+      body: string;
+      tag?: string;
+    },
+  ): void {
+    if (!this.preferences.agentAttentionEnabled) return;
+
+    const dedupeKey = `${kind}:${options.dedupeId ?? kind}`;
+    const now = Date.now();
+    const last = this.agentAttentionLastShown.get(dedupeKey) ?? 0;
+    if (now - last < AGENT_ATTENTION_SUPPRESSION_MS) return;
+    this.agentAttentionLastShown.set(dedupeKey, now);
+
+    this.show({
+      title: options.title,
+      body: options.body,
+      tag: options.tag ?? dedupeKey,
+    });
+  }
+
+  notifyPermissionRequest(requestId: string, toolName?: string): void {
+    const tool = toolName?.trim() || "tool";
+    this.notifyAgentAttention("permission_request", {
+      dedupeId: requestId,
+      title: "Agent Waiting For Permission",
+      body: `Approve or deny ${tool} to let the run continue.`,
+      tag: `agent-permission-${requestId}`,
+    });
+  }
+
+  notifyRunWaiting(agentName?: string, queuePosition?: number): void {
+    const who = agentName?.trim() || "An agent";
+    const position =
+      typeof queuePosition === "number" && queuePosition > 0
+        ? ` (position ${queuePosition} in queue)`
+        : "";
+    this.notifyAgentAttention("run_waiting", {
+      dedupeId: `${agentName ?? "agent"}:${queuePosition ?? 0}`,
+      title: "Agent Run Queued",
+      body: `${who} is waiting to start${position}.`,
+      tag: "agent-run-waiting",
+    });
+  }
+
+  notifyRunCompleted(): void {
+    this.notifyAgentAttention("run_completed", {
+      dedupeId: "latest",
+      title: "Agent Run Complete",
+      body: "An agent finished work on a task — review the diff and commit it.",
+      tag: "agent-run-completed",
+    });
+  }
+
+  notifyRunFailed(reason?: string): void {
+    const detail = reason?.trim();
+    this.notifyAgentAttention("run_failed", {
+      dedupeId: detail ? detail.slice(0, 80) : "latest",
+      title: "Agent Run Failed",
+      body: detail || "An agent run failed — open the runs dock for details.",
+      tag: "agent-run-failed",
+    });
+  }
+
+  /** Test helper — reset agent-attention dedupe state. */
+  resetAgentAttentionDedupe(): void {
+    this.agentAttentionLastShown.clear();
   }
 
   // Cancel any pending reminders for a task (call on delete or completion).
@@ -111,28 +225,33 @@ class NotificationService {
     // Don't schedule if already past due
     if (timeUntilDue <= 0) return;
 
+    const leadMs = this.preferences.dueDateLeadMinutes * 60 * 1000;
     const handles: ReturnType<typeof setTimeout>[] = [];
 
-    // Remind 1 hour before (or immediately if less than 1 hour)
-    const reminderTime = Math.max(timeUntilDue - 60 * 60 * 1000, 0);
-    const reminderBody =
-      timeUntilDue < 60 * 60 * 1000
-        ? `A task is due in ~${Math.max(1, Math.round(timeUntilDue / 60000))} minutes`
-        : "A task is due in 1 hour";
+    if (leadMs > 0) {
+      const reminderTime = Math.max(timeUntilDue - leadMs, 0);
+      const leadMinutes = this.preferences.dueDateLeadMinutes;
+      const reminderBody =
+        timeUntilDue <= leadMs
+          ? `A task is due in ~${Math.max(1, Math.round(timeUntilDue / 60000))} minutes`
+          : leadMinutes >= 60 && leadMinutes % 60 === 0
+            ? `A task is due in ${leadMinutes / 60} hour${leadMinutes === 60 ? "" : "s"}`
+            : `A task is due in ${leadMinutes} minutes`;
 
-    handles.push(
-      setTimeout(() => {
-        this.show({
-          title: "⏰ Task Due Soon",
-          // Task title omitted from body — see privacy note above.
-          body: reminderBody,
-          tag: `task-reminder-${taskId}`,
-        });
-      }, reminderTime),
-    );
+      handles.push(
+        setTimeout(() => {
+          this.show({
+            title: "⏰ Task Due Soon",
+            // Task title omitted from body — see privacy note above.
+            body: reminderBody,
+            tag: `task-reminder-${taskId}`,
+          });
+        }, reminderTime),
+      );
+    }
 
-    // Also remind at due time
-    if (timeUntilDue > 60 * 60 * 1000) {
+    // Also remind at due time when lead is shorter than time until due
+    if (timeUntilDue > leadMs) {
       handles.push(
         setTimeout(() => {
           this.show({
@@ -145,7 +264,9 @@ class NotificationService {
       );
     }
 
-    this.taskReminderHandles.set(taskId, handles);
+    if (handles.length > 0) {
+      this.taskReminderHandles.set(taskId, handles);
+    }
   }
 
   // Check all tasks and schedule reminders
@@ -166,7 +287,8 @@ class NotificationService {
     dueSoon: NotificationTask[];
   } {
     const now = new Date();
-    const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
+    const leadMs = this.preferences.dueDateLeadMinutes * 60 * 1000;
+    const dueSoonCutoff = new Date(now.getTime() + leadMs);
     const completedColumnIds = resolveCompletedColumnIds(options);
 
     const overdue: NotificationTask[] = [];
@@ -179,7 +301,7 @@ class NotificationService {
 
       if (dueDate < now) {
         overdue.push(task);
-      } else if (dueDate <= oneHourFromNow) {
+      } else if (dueDate <= dueSoonCutoff) {
         dueSoon.push(task);
       }
     });
@@ -189,7 +311,7 @@ class NotificationService {
 
   // Show notification for overdue tasks
   notifyOverdue(tasks: Array<{ title: string }>): void {
-    if (tasks.length === 0) return;
+    if (tasks.length === 0 || !this.preferences.overdueNudgesEnabled) return;
 
     if (tasks.length === 1) {
       this.show({
@@ -218,6 +340,8 @@ class NotificationService {
     }
 
     const check = () => {
+      if (!this.preferences.overdueNudgesEnabled) return;
+
       const tasks = getTasks();
       const completedColumnIds = resolveCompletedColumnIds(options);
       const { overdue } = this.checkOverdueTasks(tasks, { completedColumnIds });

@@ -1,70 +1,21 @@
 import { Keyboard, RotateCcw } from "lucide-react";
 import type React from "react";
 import { useMemo, useState } from "react";
-import type { KeybindingMap } from "../../constants/keybindings";
+import { FEATURE_FLAGS } from "../../constants";
+import {
+  buildShortcutGroups,
+  formatKeyCombo,
+  type KeybindingMap,
+} from "../../constants/keybindings";
 import { Button } from "../common/Button";
 import type { ToastType } from "../../../types";
-
-const SHORTCUT_META: Record<string, { label: string; category: string }> = {
-  "global:command-palette": { label: "Open command palette", category: "Global" },
-  "global:toggle-assistant": { label: "Toggle AI assistant", category: "Global" },
-  "global:toggle-sidebar": { label: "Toggle sidebar", category: "Global" },
-  "global:create-task": { label: "Create new task", category: "Global" },
-  "global:undo": { label: "Undo last action", category: "Global" },
-  "global:export": { label: "Export data", category: "Global" },
-  "global:search-focus": { label: "Focus search", category: "Global" },
-  "nav:down": { label: "Move selection down", category: "Navigation" },
-  "nav:up": { label: "Move selection up", category: "Navigation" },
-  "nav:left": { label: "Move selection left", category: "Navigation" },
-  "nav:right": { label: "Move selection right", category: "Navigation" },
-  "nav:select": { label: "Select / open task", category: "Navigation" },
-  "nav:back": { label: "Close / go back", category: "Navigation" },
-  "nav:column-1": { label: "Jump to column 1", category: "Navigation" },
-  "nav:column-2": { label: "Jump to column 2", category: "Navigation" },
-  "nav:column-3": { label: "Jump to column 3", category: "Navigation" },
-  "nav:column-4": { label: "Jump to column 4", category: "Navigation" },
-  "nav:column-5": { label: "Jump to column 5", category: "Navigation" },
-  "nav:column-6": { label: "Jump to column 6", category: "Navigation" },
-  "nav:column-7": { label: "Jump to column 7", category: "Navigation" },
-  "nav:column-8": { label: "Jump to column 8", category: "Navigation" },
-  "nav:column-9": { label: "Jump to column 9", category: "Navigation" },
-  "task:delete": { label: "Delete selected task", category: "Tasks" },
-  "task:complete": { label: "Toggle task complete", category: "Tasks" },
-  "task:edit": { label: "Edit selected task", category: "Tasks" },
-  "task:move-next": { label: "Move task to next column", category: "Tasks" },
-  "task:move-prev": { label: "Move task to previous column", category: "Tasks" },
-  "task:send-agent": { label: "Send task to best-matched agent", category: "Tasks" },
-};
-
-const CATEGORY_ORDER = ["Global", "Navigation", "Tasks"];
-
-function formatKeyCombo(combo: string): string {
-  return combo
-    .split("+")
-    .map((part) => {
-      const lower = part.toLowerCase();
-      if (lower === "meta" || lower === "cmd" || lower === "command") return "⌘";
-      if (lower === "ctrl" || lower === "control") return "Ctrl";
-      if (lower === "shift") return "Shift";
-      if (lower === "alt" || lower === "opt") return "Alt";
-      if (lower === "arrowdown") return "↓";
-      if (lower === "arrowup") return "↑";
-      if (lower === "arrowleft") return "←";
-      if (lower === "arrowright") return "→";
-      if (lower === "enter") return "↵";
-      if (lower === "escape") return "Esc";
-      if (lower === "delete") return "Del";
-      if (lower === "backspace") return "⌫";
-      return part.length === 1 ? part.toUpperCase() : part;
-    })
-    .join(" ");
-}
 
 interface ShortcutSettingsProps {
   keybindings: KeybindingMap;
   updateKeybinding: (actionId: string, keys: string[]) => string | null;
   resetKeybindings: () => void;
   addToast: (msg: string, type: ToastType) => void;
+  aiFeaturesEnabled?: boolean;
 }
 
 export const ShortcutSettings: React.FC<ShortcutSettingsProps> = ({
@@ -72,23 +23,18 @@ export const ShortcutSettings: React.FC<ShortcutSettingsProps> = ({
   updateKeybinding,
   resetKeybindings,
   addToast,
+  aiFeaturesEnabled = true,
 }) => {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
-  const grouped = useMemo(() => {
-    const groups = new Map<string, Array<{ id: string; label: string; keys: string[] }>>();
-    for (const [id, keys] of Object.entries(keybindings)) {
-      const meta = SHORTCUT_META[id];
-      const category = meta?.category ?? "Other";
-      const label = meta?.label ?? id.replace(/[-:]/g, " ");
-      if (!groups.has(category)) groups.set(category, []);
-      groups.get(category)!.push({ id, label, keys: keys as string[] });
-    }
-    return CATEGORY_ORDER.filter((c) => groups.has(c)).map((category) => ({
-      category,
-      items: groups.get(category)!,
-    }));
-  }, [keybindings]);
+  const grouped = useMemo(
+    () =>
+      buildShortcutGroups(keybindings, {
+        aiFeaturesEnabled,
+        assistantSidebarEnabled: FEATURE_FLAGS.AI_ASSISTANT_SIDEBAR_ENABLED,
+      }),
+    [keybindings, aiFeaturesEnabled],
+  );
 
   const handleReset = () => {
     resetKeybindings();
@@ -100,7 +46,7 @@ export const ShortcutSettings: React.FC<ShortcutSettingsProps> = ({
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-blue-500/20 text-blue-400">
+          <div className="p-2 rounded-lg bg-red-500/20 text-red-400">
             <Keyboard size={20} />
           </div>
           <div>
@@ -116,7 +62,7 @@ export const ShortcutSettings: React.FC<ShortcutSettingsProps> = ({
               Cancel
             </Button>
             <Button variant="danger" size="sm" onClick={handleReset} icon={<RotateCcw size={14} />}>
-              Reset all
+              Reset All
             </Button>
           </div>
         ) : (
@@ -126,7 +72,7 @@ export const ShortcutSettings: React.FC<ShortcutSettingsProps> = ({
             onClick={() => setShowResetConfirm(true)}
             icon={<RotateCcw size={14} />}
           >
-            Reset defaults
+            Reset Defaults
           </Button>
         )}
       </div>
@@ -165,7 +111,7 @@ export const ShortcutSettings: React.FC<ShortcutSettingsProps> = ({
                       if (conflict) addToast(conflict, "error");
                     }}
                     aria-label={`Shortcut for ${label}`}
-                    className="bg-black/20 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-300 w-40 sm:w-48 text-right font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50 focus:border-blue-500/30"
+                    className="bg-black/20 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-300 w-40 sm:w-48 text-right font-mono focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 focus:border-red-500/30"
                     placeholder="e.g. Meta+k"
                   />
                 </div>

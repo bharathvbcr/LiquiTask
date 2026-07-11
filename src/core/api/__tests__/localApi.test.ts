@@ -60,12 +60,59 @@ describe("localApi agentd routing", () => {
       resumeSessionId: undefined,
       thinkingLevel: "high",
       mcpConfig: undefined,
+      permissionMode: undefined,
     });
   });
 
-  it("routes runStart to the legacy command when disabled", async () => {
+  it("forwards containerImage to agentd runStart", async () => {
+    setAgentdEnabled(true);
+    invokeMock.mockResolvedValue("run-container");
+    await localApi.runStart({
+      taskId: "t1",
+      runtime: "claude",
+      prompt: "do the thing",
+      containerImage: "liquitask-agent:latest",
+    });
+    expect(invokeMock).toHaveBeenCalledWith(
+      "agentd_run_start",
+      expect.objectContaining({ containerImage: "liquitask-agent:latest" }),
+    );
+  });
+
+  it("forwards SSH execution params to agentd runStart", async () => {
+    setAgentdEnabled(true);
+    invokeMock.mockResolvedValue("run-ssh");
+    await localApi.runStart({
+      taskId: "t1",
+      runtime: "claude",
+      prompt: "remote task",
+      host: "ssh",
+      localBasePath: "/Users/dev/project",
+      ssh: {
+        target: "dev@box",
+        port: 2222,
+        remotePath: "/home/dev/project",
+        fallbackToLocal: true,
+      },
+    });
+    expect(invokeMock).toHaveBeenCalledWith(
+      "agentd_run_start",
+      expect.objectContaining({
+        host: "ssh",
+        localBasePath: "/Users/dev/project",
+        ssh: expect.objectContaining({
+          target: "dev@box",
+          port: 2222,
+          remoteBasePath: "/home/dev/project",
+          fallbackToLocal: true,
+        }),
+      }),
+    );
+  });
+
+  it("routes runStart to the legacy council command when sidecar disabled", async () => {
     setAgentdEnabled(false);
-    invokeMock.mockResolvedValue("run-legacy");
+    invokeMock.mockResolvedValue(undefined);
     await localApi.runStart({ taskId: "t1", runtime: "claude", prompt: "hi" });
     expect(invokeMock).toHaveBeenCalledWith("agent_run_start", {
       taskId: "t1",
@@ -102,30 +149,18 @@ describe("localApi agentd routing", () => {
     });
   });
 
-  it("routes cancel/pause/resume/inject/reattach to legacy commands when disabled", async () => {
+  it("routes cancel/reattach to legacy council commands when sidecar disabled", async () => {
     setAgentdEnabled(false);
     invokeMock.mockResolvedValue(undefined);
 
     await localApi.runCancel("r1");
     expect(invokeMock).toHaveBeenCalledWith("agent_run_cancel", { runId: "r1" });
 
-    await localApi.runPause("r1");
-    expect(invokeMock).toHaveBeenCalledWith("agent_runner_pause", { runId: "r1" });
-
-    await localApi.runResume("r1");
-    expect(invokeMock).toHaveBeenCalledWith("agent_runner_resume", { runId: "r1" });
-
-    await localApi.runInject("r1", "keep going");
-    expect(invokeMock).toHaveBeenCalledWith("agent_runner_inject_guidance", {
-      runId: "r1",
-      guidance: "keep going",
-    });
-
     invokeMock.mockResolvedValue([]);
     await localApi.runReattach();
     expect(invokeMock).toHaveBeenCalledWith("agent_runs_reattach", undefined);
 
-    // No legacy equivalent for inline permission prompts.
+    // Pause/resume/inject are agentd-only; council runs use agent_council_* via agentRunService.
     const result = await localApi.permissionRespond("r1", "req1", "allow");
     expect(result).toBeUndefined();
     expect(invokeMock).not.toHaveBeenCalledWith("agentd_permission_respond", expect.anything());

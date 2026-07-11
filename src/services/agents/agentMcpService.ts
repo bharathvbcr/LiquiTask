@@ -7,7 +7,10 @@ import storageService from "../storageService";
 import type { ActivityItem, AgentRun, BoardColumn, Task } from "../../../types";
 import { asString } from "../../utils/coerce";
 import { generateTaskId } from "../../utils/taskUtils";
+import agentRunService from "./agentRunService";
 import agentScopeService from "./agentScopeService";
+import agentService from "./agentService";
+import userMcpConfigService from "./userMcpConfigService";
 
 export interface McpToolRequest {
   requestId: string;
@@ -26,13 +29,20 @@ export interface AgentPermissionRequest {
   toolName: string;
   input: unknown;
   receivedAt: Date;
+  /** Sidecar run id — set for agentd prompts; used when routing `permission.respond`. */
+  agentdRunId?: string;
+  /** Binds user approval to the exact tool input (SEC-11). */
+  inputDigest?: string;
 }
 
+export type PermissionResponseDecision = "allow" | "deny" | "always";
+
 type PermissionListener = (requests: AgentPermissionRequest[]) => void;
-type DecisionWaiter = (approved: boolean) => void;
+type DecisionWaiter = (decision: PermissionResponseDecision) => void;
 
 export interface AgentMcpHooks {
   getTask: (taskId: string) => Task | undefined;
+  getTasks?: () => Task[];
   getColumns: () => BoardColumn[];
   updateTask: (
     taskId: string,
@@ -42,6 +52,8 @@ export interface AgentMcpHooks {
   createTask: (task: Partial<Task> & { title: string; projectId: string }) => Task | null;
   /** Runs for a task (newest last) — powers worktree state + completion checks. */
   getRunsForTask?: (taskId: string) => AgentRun[];
+  /** Dispatch a task to an agent (meta-agent orchestration). */
+  dispatchTask?: (taskId: string, agentName: string) => Promise<string>;
 }
 
 /**
@@ -79,15 +91,50 @@ export function extractFilePath(input: unknown): string | undefined {
  * operation that should be checked against DevCouncil's scope whitelist.
  * False-negatives are safer than false-positives here — this is an additive
  * safety net, not the only gate.
+ *
+ * Bash/shell commands without an explicit file path are treated as mutating so
+ * they always surface through the permission prompt when scope is active.
  */
-export function isMutatingToolCall(toolName: string, filePath: string | undefined): boolean {
+export function isMutatingToolCall(
+  toolName: string,
+  filePath: string | undefined,
+  input?: unknown,
+): boolean {
   const lower = toolName.toLowerCase();
+  const obj =
+    input && typeof input === "object" && !Array.isArray(input)
+      ? (input as Record<string, unknown>)
+      : {};
+  const hasShellCommand = isShellTool(toolName, input);
   return (
     Boolean(filePath) ||
+    hasShellCommand ||
     lower.includes("write") ||
     lower.includes("edit") ||
     lower.includes("delete")
   );
+}
+
+/** Dummy file_path values must not bypass the shell-must-prompt rule. */
+export function isCredibleFilePathForShellBypass(filePath: string | undefined): boolean {
+  if (!filePath) return false;
+  const p = filePath.trim();
+  if (p.length < 2) return false;
+  const lower = p.toLowerCase();
+  if ([".", "..", "n/a", "none", "null", "undefined", "/tmp", "tmp"].includes(lower)) {
+    return false;
+  }
+  return p.includes("/") || p.includes("\\") || p.startsWith(".");
+}
+
+/** Shell/Bash tool calls that may bypass file-path scope unless gated. */
+export function isShellTool(toolName: string, input?: unknown): boolean {
+  const lower = toolName.toLowerCase();
+  const obj =
+    input && typeof input === "object" && !Array.isArray(input)
+      ? (input as Record<string, unknown>)
+      : {};
+  return lower.includes("bash") || "command" in obj || "cmd" in obj;
 }
 
 /** Human-readable summary for permission UI. */
@@ -131,7 +178,11 @@ export function describePermissionInput(
 class AgentMcpService {
   private hooks: AgentMcpHooks | null = null;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
-  private activeDirs = new Map<string, string>();
+  private activeBindings = new Map<
+    string,
+    { mcpDir: string; taskId: string; runId: string }
+  >();
+  private activeRuns = new Set<string>();
   private pendingPermissions: AgentPermissionRequest[] = [];
   private permissionListeners = new Set<PermissionListener>();
   private decisionWaiters = new Map<string, DecisionWaiter>();
@@ -147,6 +198,7 @@ class AgentMcpService {
   private devCliAvailableCache: Promise<boolean> | null = null;
 
   constructor() {
+    this.loadPendingPermissions();
     // DLQ retry strategy for failed board mutations: re-run the tool with the
     // original arguments. `retry-` request ids skip re-dead-lettering so a
     // failed retry updates the existing letter instead of spawning a new one.
@@ -158,6 +210,7 @@ class AgentMcpService {
         runId?: string;
       };
       if (!p.tool || !p.taskId) throw new Error("Dead letter is missing tool parameters.");
+      if (this.isMcpActionAlreadyApplied(p)) return;
       const response = await this.handleTool({
         requestId: `retry-${letter.id}`,
         tool: p.tool,
@@ -201,24 +254,44 @@ class AgentMcpService {
     void storageService.set(STORAGE_KEYS.AGENT_AUTO_APPROVE_PERMISSIONS, enabled);
   }
 
-  /** User approved or denied a pending permission request. */
-  respondToPermission(requestId: string, approved: boolean): void {
+  /** User approved, denied, or always-allowed a pending permission request. */
+  respondToPermission(requestId: string, decision: PermissionResponseDecision): void {
+    if (decision === "always") {
+      const pending = this.pendingPermissions.find((p) => p.requestId === requestId);
+      if (pending) {
+        void this.persistAlwaysToolPolicy(pending.runId, pending.toolName);
+      }
+    }
+
     const waiter = this.decisionWaiters.get(requestId);
     if (!waiter) return;
     this.decisionWaiters.delete(requestId);
-    waiter(approved);
+    waiter(decision);
+  }
+
+  /** Approve, deny, or always-allow multiple permission requests in one action. */
+  respondToPermissions(requestIds: string[], decision: PermissionResponseDecision): void {
+    for (const requestId of requestIds) {
+      this.respondToPermission(requestId, decision);
+    }
+  }
+
+  /** Approve, deny, or always-allow every pending permission across all runs. */
+  respondToAllPending(decision: PermissionResponseDecision): void {
+    const ids = this.pendingPermissions.map((p) => p.requestId);
+    this.respondToPermissions(ids, decision);
   }
 
   /** Deny all pending permission prompts for a run (cancel / cleanup). */
   denyAllForRun(runId: string): void {
     this.deniedRuns.add(runId);
     for (const pending of this.pendingPermissions.filter((p) => p.runId === runId)) {
-      this.respondToPermission(pending.requestId, false);
+      this.respondToPermission(pending.requestId, "deny");
     }
     for (const [requestId] of this.decisionWaiters) {
       const pending = this.pendingPermissions.find((p) => p.requestId === requestId);
       if (pending?.runId === runId) {
-        this.respondToPermission(requestId, false);
+        this.respondToPermission(requestId, "deny");
       }
     }
   }
@@ -226,10 +299,28 @@ class AgentMcpService {
   async initForRun(runId: string, taskId: string): Promise<string | null> {
     if (!isTauri()) return null;
     const { invoke } = await import("@tauri-apps/api/core");
-    const mcpDir = await invoke<string>("agent_mcp_init", { runId, taskId });
-    this.activeDirs.set(runId, mcpDir);
+    const init = await invoke<{ mcpDir: string }>("agent_mcp_init", {
+      runId,
+      taskId,
+    });
+    this.activeBindings.set(runId, {
+      mcpDir: init.mcpDir,
+      taskId,
+      runId,
+    });
+    this.activeRuns.add(runId);
     this.ensurePolling();
-    return mcpDir;
+    return init.mcpDir;
+  }
+
+  /** Ignore request-supplied ids — bridge dirs are bound at init time. */
+  private bindRequest(mcpDir: string, req: McpToolRequest): McpToolRequest | null {
+    for (const binding of this.activeBindings.values()) {
+      if (binding.mcpDir === mcpDir) {
+        return { ...req, taskId: binding.taskId, runId: binding.runId };
+      }
+    }
+    return null;
   }
 
   /**
@@ -245,6 +336,7 @@ class AgentMcpService {
   ): Promise<Record<string, unknown> | null> {
     const mcpDir = await this.initForRun(runId, taskId);
     if (!mcpDir) return null;
+    if (!this.activeRuns.has(runId)) return null;
     const { invoke } = await import("@tauri-apps/api/core");
     const bridgePath = await invoke<string>("agent_mcp_resolve_bridge");
     if (!bridgePath) return null;
@@ -273,13 +365,20 @@ class AgentMcpService {
     // point, but the CLI's own reference client integrations always spawn it
     // as `devcouncil mcp-server`, so we mirror that exactly here.
     if (workingDir && (!probeCliForDevcouncil || (await this.isDevCliAvailable()))) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const devCliPath = await invoke<string | null>("agent_resolve_dev_cli_path");
+      const command = devCliPath?.trim() || "devcouncil";
       mcpServers.devcouncil = {
-        command: "devcouncil",
+        command,
         args: ["mcp-server"],
         env: {
           DEVCOUNCIL_PROJECT_ROOT: workingDir,
         },
       };
+    }
+
+    for (const userServer of userMcpConfigService.getEnabledUserMcpServers()) {
+      mcpServers[userServer.name] = userMcpConfigService.userMcpServerToConfigEntry(userServer);
     }
 
     return mcpServers;
@@ -294,7 +393,7 @@ class AgentMcpService {
     if (!isTauri()) return null;
     const mcpServers = await this.buildMcpServers(runId, taskId, workingDir);
     if (!mcpServers) return null;
-    const mcpDir = this.activeDirs.get(runId);
+    const mcpDir = this.activeBindings.get(runId)?.mcpDir;
     if (!mcpDir) return null;
     const { invoke } = await import("@tauri-apps/api/core");
     return invoke<string>("agent_mcp_write_config", {
@@ -307,7 +406,7 @@ class AgentMcpService {
    * agentd path: the sidecar takes the config as a JSON string on run.start
    * and renders it into each runtime's native MCP format (Claude flag file,
    * .cursor/mcp.json, Codex config.toml, openclaw wrapper, …) — this is how
-   * all 14 runtimes get the board bridge, not just Claude Code.
+   * all 15 runtimes get the board bridge, not just Claude Code.
    */
   async prepareAgentdMcpConfig(
     runId: string,
@@ -345,16 +444,18 @@ class AgentMcpService {
     this.denyAllForRun(runId);
     this.removePendingForRun(runId);
     agentScopeService.clearScopeForRun(runId);
-    const mcpDir = this.activeDirs.get(runId);
-    if (!mcpDir || !isTauri()) {
+    const binding = this.activeBindings.get(runId);
+    this.activeBindings.delete(runId);
+    this.activeRuns.delete(runId);
+    if (!binding?.mcpDir || !isTauri()) {
       this.deniedRuns.delete(runId);
+      if (this.activeBindings.size === 0) this.stopPolling();
       return;
     }
-    this.activeDirs.delete(runId);
     const { invoke } = await import("@tauri-apps/api/core");
-    await invoke("agent_mcp_cleanup", { mcpDir }).catch(() => undefined);
+    await invoke("agent_mcp_cleanup", { mcpDir: binding.mcpDir }).catch(() => undefined);
     this.deniedRuns.delete(runId);
-    if (this.activeDirs.size === 0) this.stopPolling();
+    if (this.activeBindings.size === 0) this.stopPolling();
   }
 
   private ensurePolling(): void {
@@ -372,16 +473,20 @@ class AgentMcpService {
   private async pollAll(): Promise<void> {
     if (!this.hooks || !isTauri()) return;
     const { invoke } = await import("@tauri-apps/api/core");
-    for (const [, mcpDir] of this.activeDirs) {
+    for (const [, binding] of this.activeBindings) {
       try {
-        const requests = await invoke<McpToolRequest[]>("agent_mcp_list_requests", { mcpDir });
-        for (const req of requests ?? []) {
+        const requests = await invoke<McpToolRequest[]>("agent_mcp_list_requests", {
+          mcpDir: binding.mcpDir,
+        });
+        for (const rawReq of requests ?? []) {
+          const req = this.bindRequest(binding.mcpDir, rawReq);
+          if (!req) continue;
           if (req.tool === "permission_prompt") {
-            void this.processPermissionPrompt(mcpDir, req);
+            void this.processPermissionPrompt(binding.mcpDir, req);
           } else {
             const response = await this.handleTool(req);
             await invoke("agent_mcp_write_response", {
-              mcpDir,
+              mcpDir: binding.mcpDir,
               requestId: req.requestId,
               response,
             });
@@ -416,6 +521,18 @@ class AgentMcpService {
           return this.toolToggleSubtask(task, req.args);
         case "report_blocker":
           return this.toolReportBlocker(task, req.args);
+        case "board_list":
+          return this.toolBoardList(req.args);
+        case "board_show":
+          return this.toolBoardShow(req.args);
+        case "board_create":
+          return this.toolBoardCreate(req.args);
+        case "board_assign":
+          return this.toolBoardAssign(req.args);
+        case "board_dispatch":
+          return await this.toolBoardDispatch(req.args);
+        case "board_reservations":
+          return await this.toolBoardReservations();
         default:
           return { error: `Unknown tool: ${req.tool}` };
       }
@@ -508,17 +625,21 @@ class AgentMcpService {
     const toolUseId = String(req.args.tool_use_id ?? req.args.toolUseId ?? "");
     const toolName = String(req.args.tool_name ?? req.args.toolName ?? "unknown");
     const input = req.args.input ?? req.args;
+    const filePath = extractFilePath(input);
 
     const runAlreadyDenied = this.deniedRuns.has(req.runId);
-    const autoApprove = !runAlreadyDenied && this.isAutoApproveEnabled();
+    const shellWithoutPath =
+      isShellTool(toolName, input) &&
+      !isCredibleFilePathForShellBypass(filePath);
+    const autoApprove =
+      !runAlreadyDenied && !shellWithoutPath && this.isAutoApproveEnabled();
 
     // DevCouncil scope enforcement: an additive safety net on top of the
     // approve/deny decision above. A run with no registered scope (i.e. the
     // task was never DevCouncil-planned) is always in-scope, so this is a
     // no-op for the vast majority of runs.
-    const filePath = extractFilePath(input);
     let scopeDenialReason: string | undefined;
-    if (isMutatingToolCall(toolName, filePath) && filePath) {
+    if (isMutatingToolCall(toolName, filePath, input) && filePath) {
       const operation = toolName.toLowerCase().includes("delete") ? "delete" : "write";
       const scopeCheck = agentScopeService.checkPath(req.runId, filePath, operation);
       if (!scopeCheck.inScope) {
@@ -544,16 +665,16 @@ class AgentMcpService {
     }
 
     const decided = runAlreadyDenied
-      ? false
+      ? ("deny" as PermissionResponseDecision)
       : scopeDenialReason
-        ? false
+        ? ("deny" as PermissionResponseDecision)
         : autoApprove
-          ? true
+          ? ("allow" as PermissionResponseDecision)
           : await this.waitForUserDecision(req.requestId);
 
     // Scope denial overrides any approval, including auto-approve — it is
     // enforced unconditionally regardless of how the decision above resolved.
-    const approved = scopeDenialReason ? false : decided;
+    const approved = scopeDenialReason ? false : decided !== "deny";
 
     this.removePending(req.requestId);
     this.notifyPermissionListeners();
@@ -569,9 +690,11 @@ class AgentMcpService {
           ? "denied (run ended)"
           : autoApprove
             ? "auto-approved"
-            : approved
-              ? "approved"
-              : "denied";
+            : decided === "always"
+              ? "always allowed"
+              : approved
+                ? "approved"
+                : "denied";
       const detail = scopeDenialReason
         ? `${verb} ${toolName}: ${scopeDenialReason.slice(0, 200)}`
         : `${verb} ${toolName}: ${summary.slice(0, 200)}`;
@@ -613,16 +736,19 @@ class AgentMcpService {
     agentdRunId: string;
     toolName: string;
     input: unknown;
+    inputDigest?: string;
   }): void {
     if (this.processingRuns.has(req.requestId)) return;
     this.processingRuns.add(req.requestId);
 
     const runAlreadyDenied = this.deniedRuns.has(req.runId);
-    const autoApprove = !runAlreadyDenied && this.isAutoApproveEnabled();
-
     const filePath = extractFilePath(req.input);
+    const shellWithoutPath = isShellTool(req.toolName, req.input) && !filePath;
+    const autoApprove =
+      !runAlreadyDenied && !shellWithoutPath && this.isAutoApproveEnabled();
+
     let scopeDenialReason: string | undefined;
-    if (isMutatingToolCall(req.toolName, filePath) && filePath) {
+    if (isMutatingToolCall(req.toolName, filePath, req.input) && filePath) {
       const operation = req.toolName.toLowerCase().includes("delete") ? "delete" : "write";
       const scopeCheck = agentScopeService.checkPath(req.runId, filePath, operation);
       if (!scopeCheck.inScope) {
@@ -630,21 +756,26 @@ class AgentMcpService {
       }
     }
 
-    const respond = (approved: boolean) => {
+    const respond = (decision: PermissionResponseDecision) => {
       this.removePending(req.requestId);
       this.notifyPermissionListeners();
       this.processingRuns.delete(req.requestId);
       void localApi
-        .permissionRespond(req.agentdRunId, req.requestId, approved ? "allow" : "deny")
+        .permissionRespond(
+          req.agentdRunId,
+          req.requestId,
+          decision === "deny" ? "deny" : decision === "always" ? "always" : "allow",
+          req.inputDigest,
+        )
         .catch(() => undefined);
     };
 
     if (runAlreadyDenied || scopeDenialReason) {
-      respond(false);
+      respond("deny");
       return;
     }
     if (autoApprove) {
-      respond(true);
+      respond("allow");
       return;
     }
 
@@ -656,6 +787,8 @@ class AgentMcpService {
       toolName: req.toolName,
       input: req.input,
       receivedAt: new Date(),
+      agentdRunId: req.agentdRunId,
+      inputDigest: req.inputDigest,
     });
     if (this.pendingPermissions.length > 50) {
       this.pendingPermissions.splice(0, this.pendingPermissions.length - 50);
@@ -664,10 +797,22 @@ class AgentMcpService {
     this.notifyPermissionListeners();
   }
 
-  private waitForUserDecision(requestId: string): Promise<boolean> {
+  private waitForUserDecision(requestId: string): Promise<PermissionResponseDecision> {
     return new Promise((resolve) => {
       this.decisionWaiters.set(requestId, resolve);
     });
+  }
+
+  /** Persist an always-allow decision into the owning agent's toolPolicy. */
+  private async persistAlwaysToolPolicy(runId: string, toolName: string): Promise<void> {
+    const trimmed = toolName.trim();
+    if (!trimmed) return;
+    const run = agentRunService.getRuns().find((r) => r.id === runId);
+    if (!run) return;
+    const agent = agentService.getAgentById(run.agentId);
+    if (!agent) return;
+    const nextPolicy = { ...(agent.toolPolicy ?? {}), [trimmed]: "allow" as const };
+    await agentService.saveAgent({ ...agent, toolPolicy: nextPolicy });
   }
 
   private removePending(requestId: string): void {
@@ -685,11 +830,33 @@ class AgentMcpService {
     }
   }
 
+  private loadPendingPermissions(): void {
+    const stored =
+      storageService.get<
+        Array<Omit<AgentPermissionRequest, "receivedAt"> & { receivedAt: string }>
+      >(STORAGE_KEYS.AGENT_PENDING_PERMISSIONS, []) ?? [];
+    this.pendingPermissions = stored.map((entry) => ({
+      ...entry,
+      receivedAt: new Date(entry.receivedAt),
+    }));
+  }
+
+  private schedulePersistPermissions(): void {
+    void storageService.set(
+      STORAGE_KEYS.AGENT_PENDING_PERMISSIONS,
+      this.pendingPermissions.map((entry) => ({
+        ...entry,
+        receivedAt: entry.receivedAt.toISOString(),
+      })),
+    );
+  }
+
   private notifyPermissionListeners(): void {
     const snapshot = this.getPendingPermissions();
     this.permissionListeners.forEach((l) => {
       l(snapshot);
     });
+    this.schedulePersistPermissions();
   }
 
   /** Board snapshot for the agent: its task, subtasks, and the column layout. */
@@ -718,7 +885,40 @@ class AgentMcpService {
   }
 
   private resolveColumn(statusInput: string) {
-    const columns = this.requireHooks.getColumns();
+    return this.resolveColumnForHooks(statusInput);
+  }
+
+  /** DLQ retry idempotency: skip board mutations already applied. */
+  private isMcpActionAlreadyApplied(p: {
+    tool?: string;
+    args?: Record<string, unknown>;
+    taskId?: string;
+  }): boolean {
+    if (!p.tool || !p.taskId || !this.hooks) return false;
+    const task = this.hooks.getTask(p.taskId);
+    if (!task) return false;
+    if (p.tool === "complete_task") {
+      const columns = this.hooks.getColumns();
+      const completedCol =
+        columns.find((c) => c.id === "Completed" && !c.isCompleted) ??
+        columns.find((c) => !c.isCompleted && c.title.toLowerCase() === "completed");
+      const commitCol =
+        columns.find((c) => c.id === "Commit") ?? columns.find((c) => c.isCompleted);
+      if (completedCol && task.status === completedCol.id) return true;
+      if (commitCol && task.status === commitCol.id) return true;
+    }
+    if (p.tool === "update_status") {
+      const statusInput = String(p.args?.status ?? "").trim();
+      if (!statusInput) return false;
+      const col = this.resolveColumnForHooks(statusInput);
+      if (col && task.status === col.id) return true;
+    }
+    return false;
+  }
+
+  private resolveColumnForHooks(statusInput: string) {
+    if (!this.hooks) return undefined;
+    const columns = this.hooks.getColumns();
     return (
       columns.find((c) => c.id === statusInput) ??
       columns.find((c) => c.title.toLowerCase() === statusInput.toLowerCase())
@@ -909,6 +1109,104 @@ class AgentMcpService {
     });
     return {
       content: [{ type: "text", text: `Blocker task created: ${created.jobId || created.id}` }],
+    };
+  }
+
+  private toolBoardList(args: Record<string, unknown>): { content: unknown } {
+    const column = String(args.column ?? args.status ?? "").trim();
+    const tasks = this.requireHooks.getTasks?.() ?? [];
+    const columns = this.requireHooks.getColumns();
+    const filtered = column
+      ? tasks.filter((t) => {
+          if (t.status === column) return true;
+          const col = columns.find(
+            (c) => c.id === t.status && c.title.toLowerCase() === column.toLowerCase(),
+          );
+          return Boolean(col);
+        })
+      : tasks;
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            filtered.map((t) => ({
+              id: t.id,
+              jobId: t.jobId,
+              title: t.title,
+              status: t.status,
+              assignee: t.assignee,
+            })),
+            null,
+            2,
+          ),
+        },
+      ],
+    };
+  }
+
+  private toolBoardShow(args: Record<string, unknown>): { content: unknown } {
+    const ref = String(args.task ?? args.taskId ?? args.jobId ?? "").trim();
+    const tasks = this.requireHooks.getTasks?.() ?? [];
+    const task =
+      tasks.find((t) => t.id === ref || t.jobId === ref) ??
+      tasks.find((t) => t.title.toLowerCase().startsWith(ref.toLowerCase()));
+    if (!task) throw new Error(`Task not found: ${ref}`);
+    return { content: [{ type: "text", text: JSON.stringify(task, null, 2) }] };
+  }
+
+  private toolBoardCreate(args: Record<string, unknown>): { content: unknown } {
+    const title = String(args.title ?? "").trim();
+    if (!title) throw new Error("title is required");
+    const projectId = String(args.projectId ?? args.project_id ?? "").trim();
+    if (!projectId) throw new Error("projectId is required");
+    const created = this.requireHooks.createTask({
+      title,
+      summary: String(args.summary ?? title),
+      projectId,
+      assignee: String(args.assignee ?? "Unassigned"),
+      status: String(args.status ?? "Task"),
+      priority: String(args.priority ?? "medium"),
+    });
+    if (!created) throw new Error("Failed to create task");
+    return { content: [{ type: "text", text: JSON.stringify(created, null, 2) }] };
+  }
+
+  private toolBoardAssign(args: Record<string, unknown>): { content: unknown } {
+    const ref = String(args.task ?? args.taskId ?? "").trim();
+    const assignee = String(args.assignee ?? args.agent ?? "").trim();
+    if (!ref || !assignee) throw new Error("task and assignee are required");
+    const tasks = this.requireHooks.getTasks?.() ?? [];
+    const task = tasks.find((t) => t.id === ref || t.jobId === ref);
+    if (!task) throw new Error(`Task not found: ${ref}`);
+    this.requireHooks.updateTask(task.id, {
+      assignee,
+      activity: [...(task.activity ?? []), activity("agent-mcp", `assigned to ${assignee}`)],
+    });
+    return { content: [{ type: "text", text: `Assigned ${task.jobId} to ${assignee}` }] };
+  }
+
+  private async toolBoardDispatch(args: Record<string, unknown>): Promise<{ content: unknown }> {
+    const ref = String(args.task ?? args.taskId ?? "").trim();
+    const agentName = String(args.agent ?? args.assignee ?? "").trim();
+    if (!this.requireHooks.dispatchTask) {
+      throw new Error("board_dispatch is not available in this context");
+    }
+    const tasks = this.requireHooks.getTasks?.() ?? [];
+    const task = tasks.find((t) => t.id === ref || t.jobId === ref);
+    if (!task) throw new Error(`Task not found: ${ref}`);
+    const targetAgent = agentName || task.assignee;
+    const runId = await this.requireHooks.dispatchTask(task.id, targetAgent);
+    return { content: [{ type: "text", text: `Dispatched run ${runId} for ${task.jobId}` }] };
+  }
+
+  private async toolBoardReservations(): Promise<{ content: unknown }> {
+    if (!isTauri()) {
+      return { content: [{ type: "text", text: "[]" }] };
+    }
+    const state = await localApi.reservationList();
+    return {
+      content: [{ type: "text", text: JSON.stringify(state?.active ?? [], null, 2) }],
     };
   }
 }

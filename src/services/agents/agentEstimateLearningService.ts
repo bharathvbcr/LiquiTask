@@ -18,7 +18,9 @@ export interface EstimateSuggestion {
 
 export function runDurationMinutes(run: AgentRun): number | null {
   if (!run.startedAt || !run.finishedAt) return null;
-  const ms = run.finishedAt.getTime() - run.startedAt.getTime();
+  // Count active runtime only — paused time isn't work, and including it would
+  // teach the estimator that agents are slower than they are.
+  const ms = run.finishedAt.getTime() - run.startedAt.getTime() - (run.pausedMs ?? 0);
   if (ms <= 0) return null;
   return Math.max(1, Math.round(ms / 60_000));
 }

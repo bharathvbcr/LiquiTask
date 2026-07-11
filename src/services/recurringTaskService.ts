@@ -68,19 +68,36 @@ export class RecurringTaskService {
   }
 
   /**
-   * Check all tasks and generate recurring instances as needed
+   * Check all tasks and generate recurring instances as needed.
+   * Catches up missed occurrences (e.g. after days offline) with a safety cap.
    */
   private async checkAndGenerate(tasks: Task[]): Promise<void> {
     const now = new Date();
+    const MAX_CATCHUP = 52;
 
     for (const originalTask of tasks) {
       if (!originalTask.recurring?.enabled) continue;
       if (!originalTask.recurring.nextOccurrence) continue;
 
-      const nextOccurrence = new Date(originalTask.recurring.nextOccurrence);
+      let config = { ...originalTask.recurring };
+      let nextOccurrence = new Date(config.nextOccurrence);
+      let iterations = 0;
 
-      if (now >= nextOccurrence) {
-        await this.generateRecurringInstance(originalTask);
+      while (now >= nextOccurrence && iterations < MAX_CATCHUP) {
+        await this.generateRecurringInstance(
+          { ...originalTask, recurring: config },
+          nextOccurrence,
+        );
+        iterations++;
+
+        const advance = await this.advanceRecurring(config, nextOccurrence);
+        if (!advance.enabled || !advance.nextOccurrence) break;
+        config = {
+          ...config,
+          nextOccurrence: advance.nextOccurrence,
+          enabled: advance.enabled,
+        };
+        nextOccurrence = advance.nextOccurrence;
       }
     }
   }
@@ -88,17 +105,22 @@ export class RecurringTaskService {
   /**
    * Generate a new instance of a recurring task
    */
-  private async generateRecurringInstance(originalTask: Task): Promise<void> {
+  private async generateRecurringInstance(
+    originalTask: Task,
+    occurrenceDate: Date = new Date(),
+  ): Promise<void> {
     if (!originalTask.recurring) return;
 
-    const now = new Date();
-    const nextOcc = await this.calculateNextOccurrenceNative(originalTask.recurring, now);
+    const nextOcc = await this.calculateNextOccurrenceNative(
+      originalTask.recurring,
+      occurrenceDate,
+    );
     const newTask: Task = {
       ...originalTask,
       id: generateTaskId(),
       jobId: `TSK-${Math.floor(Math.random() * 9000) + 1000}`,
-      createdAt: now,
-      updatedAt: now,
+      createdAt: occurrenceDate,
+      updatedAt: occurrenceDate,
       status: this.getDefaultStatus(),
       completedAt: undefined,
       recurring: {
@@ -109,7 +131,7 @@ export class RecurringTaskService {
         {
           id: `act-${Date.now()}`,
           type: "create",
-          timestamp: now,
+          timestamp: occurrenceDate,
           userId: "system",
           details: `Recurring task instance generated from ${originalTask.jobId}`,
         },
@@ -121,7 +143,7 @@ export class RecurringTaskService {
       this.onAgentRecurringTask?.(newTask);
     }
 
-    const advance = await this.advanceRecurring(originalTask.recurring, now);
+    const advance = await this.advanceRecurring(originalTask.recurring, occurrenceDate);
     this.onUpdateTask(originalTask.id, {
       recurring: {
         ...originalTask.recurring,

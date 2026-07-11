@@ -31,12 +31,18 @@ use serde::Serialize;
 use serde_json::{Map, Value};
 use tauri::{AppHandle, Manager, State};
 
-mod agent_runner;
+mod agent_cli_util;
+mod agent_council_runner;
 mod agentd;
+mod agentd_conn;
 mod agentd_store;
 mod agent_mcp;
+mod agent_sandbox;
 mod agent_git;
+mod board_snapshot;
+mod dock_badge;
 mod github_sync;
+mod sleep_guard;
 mod tray;
 mod agent_analytics;
 mod agent_core;
@@ -46,7 +52,6 @@ mod agent_devcouncil_evidence;
 mod agent_skills;
 mod ai_engine;
 mod app_data;
-mod automation_engine;
 mod encryption;
 mod logic;
 mod recurring_engine;
@@ -56,39 +61,52 @@ mod semantic_layer;
 mod storage_tasks;
 mod task_store;
 mod terminal;
-use agent_runner::{
+use agent_council_runner::{
     agent_detect_clis, agent_detect_ide_tools, agent_open_in_terminal, agent_open_in_tool,
-    agent_run_active, agent_run_cancel, agent_runner_inject_guidance, agent_runner_pause,
-    agent_runner_resume, agent_run_start, agent_runs_reattach, AgentProcessRegistry,
+    agent_run_active, agent_run_cancel, agent_council_pause,
+    agent_council_resume, agent_run_start, agent_runs_reattach, AgentProcessRegistry,
 };
 use agentd::{
-    agentd_detect, agentd_ensure, agentd_permission_respond, agentd_run_cancel,
-    agentd_run_inject, agentd_run_pause, agentd_run_reattach, agentd_run_resume,
-    agentd_run_start, agentd_skill_read, agentd_skills_list, AgentdState,
+    agentd_detect, agentd_ensure, agentd_feedback_watch, agentd_notify_config_set, agentd_permission_respond,
+    agentd_queue_acquire, agentd_queue_enqueue, agentd_queue_list, agentd_queue_release,
+    agentd_reservation_claim, agentd_reservation_list, agentd_reservation_release,
+    agentd_queue_remove,     agentd_run_cancel, agentd_run_inject, agentd_run_pause, agentd_run_reattach,
+    agentd_run_resume, agentd_run_start, agentd_pty_history, agentd_pty_takeover, agentd_pty_write,
+    agentd_scheduler_config_set, agentd_scheduler_intent_set,
+    agentd_sessions_discover, agentd_sessions_fork,
+    agentd_sessions_message_count, agentd_sessions_truncate, agentd_skill_read, agentd_skills_list, agentd_ssh_health,
+    agentd_stop,
+    AgentdState,
 };
 use agentd_store::{
     agentd_store_list_agents, agentd_store_list_devcouncil_evidence, agentd_store_list_devcouncil_requirements,
     agentd_store_list_devcouncil_tasks, agentd_store_list_run_events, agentd_store_list_runs, AgentdStore,
 };
 use task_store::{
-    task_events_append, task_events_count, task_events_read, task_store_export_snapshot,
-    task_store_read_snapshot, TaskStore,
+    task_events_append, task_events_count, task_events_latest_snapshot, task_events_read, task_store_commit,
+    task_store_export_snapshot, task_store_read_snapshot, task_store_write_snapshot, TaskStore,
 };
 use terminal::{terminal_close, terminal_open, terminal_resize, terminal_write, TerminalRegistry};
 use agent_mcp::{
-    agent_mcp_cleanup, agent_mcp_init, agent_mcp_list_requests, agent_mcp_resolve_bridge,
-    agent_mcp_write_config, agent_mcp_write_response,
+    agent_mcp_append_guidance, agent_mcp_cleanup, agent_mcp_init, agent_mcp_list_requests,
+    agent_mcp_resolve_bridge, agent_mcp_write_config, agent_mcp_write_response,
 };
 use agent_git::{
     agent_container_build, agent_container_system_status, agent_git_commit_worktree,
     agent_git_create_pr, agent_git_create_worktree, agent_git_diff, agent_git_discard_worktree,
-    agent_git_list_worktrees, agent_git_merge_worktree, agent_git_merge_worktree_tx,
-    agent_git_prune_worktrees, agent_git_worktree_state,
+    agent_git_ensure_workspace_gitignore, agent_git_file_diff, agent_git_list_changed_files,
+    agent_git_list_worktrees, agent_git_merge_main_into_worktree, agent_git_merge_worktree,
+    agent_git_merge_worktree_tx, agent_git_prune_worktrees, agent_git_push,
+    agent_git_recover_merge_journal, agent_git_reset_worktree_to, agent_git_worktree_state,
+    agent_git_branch_is_ancestor,
 };
+use board_snapshot::board_export_snapshot;
 use github_sync::{
     github_auth_status, github_detect_repo, github_issue_close, github_issue_comment, github_issue_list,
+    github_pr_checks, github_pr_failed_logs, github_pr_review_comments,
 };
-use tray::{on_run_event, setup_tray, tray_update_active_runs, tray_update_inbox_count};
+use tray::{on_run_event, setup_tray, tray_update_active_runs, tray_update_dock_badge, tray_update_inbox_count};
+use sleep_guard::sleep_prevention_set_active;
 use agent_core::{
     agent_build_council_goal, agent_build_task_prompt, agent_parse_council_report,
     agent_parse_stream_line,
@@ -96,15 +114,15 @@ use agent_core::{
 use agent_analytics::agent_compute_analytics;
 use agent_devcouncil::{
     agent_dev_cli_available, agent_dev_discover, agent_dev_init, agent_dev_install,
+    agent_resolve_dev_cli_path,
     agent_dev_install_local, agent_dev_map, agent_dev_parse_export, agent_dev_plan,
     agent_dev_repair, agent_dev_repo_files, agent_dev_repo_map_summary, agent_dev_status,
     agent_dev_verify,
 };
 use agent_devcouncil_evidence::agent_dev_mirror_evidence;
 use agent_skills::{agent_skills_capture, agent_skills_delete, agent_skills_filter};
-use ai_engine::{ai_ollama_chat, ai_ollama_generate, ai_ollama_health};
+use ai_engine::{ai_claude_chat, ai_claude_health, ai_claude_models, ai_ollama_chat, ai_ollama_generate, ai_ollama_health};
 use app_data::{app_data_load, app_data_patch, app_data_save, app_data_storage_path};
-use automation_engine::automation_process_actions;
 use logic::automation::{automation_apply_actions, automation_is_rule_due};
 use logic::recurring::{recurring_advance, recurring_next_occurrence};
 // --- liquitask-core migration: risk / time_reporting / cleanup / auto_organize ---
@@ -124,12 +142,14 @@ use recurring_engine::recurring_calculate_next;
 use storage_tasks::{storage_parse_tasks, storage_serialize_tasks, storage_tasks_mutate};
 use semantic_layer::{
     semantic_layer_chat, semantic_layer_config, semantic_layer_feedback, semantic_layer_health,
-    semantic_layer_spawn, semantic_layer_stats, semantic_layer_stop, SemanticLayerState,
+    semantic_layer_spawn, semantic_layer_stats, semantic_layer_stop, stop_on_app_exit,
+    SemanticLayerState,
 };
 use encryption::{
-    decrypt_bytes, decrypt_from_envelope, disable_encryption_key, enable_encryption, encrypt_bytes,
-    encrypt_to_envelope, encryption_status, is_encrypted_payload, lock_encryption, read_meta,
-    storage_opaque_key, unlock_encryption, write_meta, EncryptionStatus,
+    decrypt_bytes, decrypt_from_envelope, decrypt_from_envelope_auto, disable_encryption_key,
+    enable_encryption, encrypt_bytes, encrypt_to_envelope, encrypt_to_envelope_auto,
+    encryption_status, is_encrypted_payload, lock_encryption, read_meta, storage_opaque_key,
+    unlock_encryption, write_meta, EncryptionStatus,
 };
 
 // ---------------------------------------------------------------------------
@@ -140,6 +160,21 @@ const MAX_WORKSPACE_SEARCH_RESULTS: usize = 20;
 const MAX_WORKSPACE_FILE_SIZE_BYTES: u64 = 256 * 1024;
 const MAX_STORAGE_SIZE_BYTES: usize = 50_000_000;
 const STORAGE_FILE_NAME: &str = "storage.json";
+
+/// Keys whose values are encrypted at rest by default (mirrors StorageService.SENSITIVE_KEYS).
+const SENSITIVE_STORAGE_KEYS: &[&str] = &[
+    "liquitask-ai-config",
+    "liquitask-gemini-api-key",
+    "liquitask-search-history",
+    "liquitask-command-history",
+    "liquitask-ai-semantic-cache",
+    "liquitask-auto-organize-history",
+    "liquitask-ai-organize-cache",
+    "liquitask-backups",
+    "liquitask-remote-push-config",
+    "liquitask-user-mcp-servers",
+    "liquitask-agents",
+];
 
 const FORBIDDEN_STORAGE_KEYS: [&str; 3] = ["__proto__", "constructor", "prototype"];
 
@@ -212,15 +247,66 @@ pub(crate) fn read_storage(app: &AppHandle) -> Result<Map<String, Value>, String
 
     let raw = String::from_utf8(json_bytes).map_err(|e| format!("Invalid UTF-8 in storage: {e}"))?;
     match serde_json::from_str::<Value>(&raw) {
-        Ok(Value::Object(map)) => Ok(map),
+        Ok(Value::Object(mut map)) => {
+            decrypt_sensitive_storage_values(&mut map)?;
+            Ok(map)
+        }
         Ok(_) => Ok(Map::new()),
         Err(e) => Err(format!("Failed to parse storage file: {e}")),
     }
 }
 
+fn is_sensitive_storage_key(key: &str) -> bool {
+    SENSITIVE_STORAGE_KEYS.contains(&key)
+}
+
+fn is_value_encrypted_envelope(value: &Value) -> bool {
+    value
+        .as_str()
+        .is_some_and(|s| s.starts_with("LTENC1:"))
+}
+
+fn decrypt_sensitive_storage_values(map: &mut Map<String, Value>) -> Result<(), String> {
+    for key in SENSITIVE_STORAGE_KEYS {
+        let Some(value) = map.get(*key).cloned() else {
+            continue;
+        };
+        if !is_value_encrypted_envelope(&value) {
+            continue;
+        }
+        let envelope = value.as_str().unwrap_or_default();
+        let bytes = decrypt_from_envelope_auto(envelope)?;
+        let decrypted: Value = serde_json::from_slice(&bytes)
+            .map_err(|e| format!("Failed to parse decrypted storage value for {key}: {e}"))?;
+        map.insert((*key).to_string(), decrypted);
+    }
+    Ok(())
+}
+
+fn encrypt_sensitive_storage_values(map: &mut Map<String, Value>) -> Result<(), String> {
+    for key in SENSITIVE_STORAGE_KEYS {
+        let Some(value) = map.get(*key).cloned() else {
+            continue;
+        };
+        if value.is_null() || is_value_encrypted_envelope(&value) {
+            continue;
+        }
+        let serialised = serde_json::to_string(&value)
+            .map_err(|e| format!("Failed to serialise sensitive storage value for {key}: {e}"))?;
+        let envelope = encrypt_to_envelope_auto(serialised.as_bytes())?;
+        map.insert((*key).to_string(), Value::String(envelope));
+    }
+    Ok(())
+}
+
 pub(crate) fn write_storage(app: &AppHandle, data: &Map<String, Value>) -> Result<(), String> {
+    let mut to_write = data.clone();
+    if !storage_encryption_enabled(app)? {
+        encrypt_sensitive_storage_values(&mut to_write)?;
+    }
+
     let serialised =
-        serde_json::to_string_pretty(data).map_err(|e| format!("Failed to serialise storage: {e}"))?;
+        serde_json::to_string_pretty(&to_write).map_err(|e| format!("Failed to serialise storage: {e}"))?;
     if serialised.len() > MAX_STORAGE_SIZE_BYTES {
         return Err("Storage size limit exceeded".to_string());
     }
@@ -236,7 +322,9 @@ pub(crate) fn write_storage(app: &AppHandle, data: &Map<String, Value>) -> Resul
         serialised.into_bytes()
     };
 
-    fs::write(&path, payload).map_err(|e| format!("Failed to write storage file: {e}"))
+    let tmp_path = path.with_extension("json.tmp");
+    fs::write(&tmp_path, payload).map_err(|e| format!("Failed to write storage file: {e}"))?;
+    fs::rename(&tmp_path, &path).map_err(|e| format!("Failed to commit storage file: {e}"))
 }
 
 /// Validate a renderer-supplied storage key (mirrors VALID_STORAGE_KEY_RE +
@@ -422,6 +510,26 @@ fn normalize_for_compare(path: &Path) -> String {
     } else {
         s
     }
+}
+
+/// Canonicalize `dir` and require it to be inside the workspace allowlist.
+pub(crate) fn authorize_workspace_dir(app: &AppHandle, dir: &str) -> Result<PathBuf, String> {
+    let data = read_storage(app)?;
+    let authorized = safe_workspace_paths(&data);
+    if !is_path_authorized(dir, &authorized) {
+        return Err(format!(
+            "Directory is not an authorised workspace path: {dir}"
+        ));
+    }
+    let resolved =
+        dunce::canonicalize(dir).map_err(|e| format!("Directory not accessible: {e}"))?;
+    let resolved_str = resolved.to_string_lossy().to_string();
+    if !is_path_authorized(&resolved_str, &authorized) {
+        return Err(format!(
+            "Resolved directory escapes the authorised workspace: {resolved_str}"
+        ));
+    }
+    Ok(resolved)
 }
 
 /// Exact match or contained within an authorized directory (respecting the
@@ -836,7 +944,9 @@ fn main() {
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_notification::init())
         .manage(StorageGuard(Mutex::new(())))
-        .manage(SemanticLayerState(tokio::sync::Mutex::new(None)))
+        .manage(SemanticLayerState(tokio::sync::Mutex::new(
+            semantic_layer::SemanticLayerRuntime::default(),
+        )))
         .manage(AgentProcessRegistry(Mutex::new(std::collections::HashMap::new())))
         .manage(AgentdState::default())
         .manage(AgentdStore::default())
@@ -880,16 +990,37 @@ fn main() {
             agent_detect_ide_tools,
             agent_open_in_tool,
             agentd_ensure,
+            agentd_stop,
             agentd_detect,
             agentd_skills_list,
             agentd_skill_read,
             agentd_run_start,
+            agentd_ssh_health,
             agentd_run_cancel,
             agentd_run_pause,
             agentd_run_resume,
             agentd_run_inject,
+            agentd_pty_history,
+            agentd_pty_write,
+            agentd_pty_takeover,
             agentd_run_reattach,
+            agentd_sessions_discover,
+            agentd_sessions_fork,
+            agentd_sessions_truncate,
+            agentd_sessions_message_count,
             agentd_permission_respond,
+            agentd_queue_list,
+            agentd_queue_enqueue,
+            agentd_queue_remove,
+            agentd_queue_acquire,
+            agentd_queue_release,
+            agentd_reservation_list,
+            agentd_reservation_claim,
+            agentd_reservation_release,
+            agentd_feedback_watch,
+            agentd_scheduler_intent_set,
+            agentd_scheduler_config_set,
+            agentd_notify_config_set,
             agentd_store_list_runs,
             agentd_store_list_run_events,
             agentd_store_list_agents,
@@ -898,14 +1029,17 @@ fn main() {
             agentd_store_list_devcouncil_evidence,
             task_store_export_snapshot,
             task_store_read_snapshot,
+            task_store_write_snapshot,
             task_events_append,
             task_events_read,
             task_events_count,
+            task_events_latest_snapshot,
+            task_store_commit,
+            board_export_snapshot,
             agent_run_start,
             agent_run_cancel,
-            agent_runner_pause,
-            agent_runner_resume,
-            agent_runner_inject_guidance,
+            agent_council_pause,
+            agent_council_resume,
             agent_run_active,
             agent_runs_reattach,
             agent_open_in_terminal,
@@ -914,17 +1048,26 @@ fn main() {
             agent_mcp_write_response,
             agent_mcp_write_config,
             agent_mcp_resolve_bridge,
+            agent_mcp_append_guidance,
             agent_mcp_cleanup,
             agent_git_create_worktree,
+            agent_git_ensure_workspace_gitignore,
             agent_git_merge_worktree,
+            agent_git_merge_main_into_worktree,
             agent_git_merge_worktree_tx,
             agent_git_worktree_state,
             agent_git_list_worktrees,
             agent_git_prune_worktrees,
+            agent_git_branch_is_ancestor,
             agent_git_commit_worktree,
+            agent_git_reset_worktree_to,
             agent_git_discard_worktree,
             agent_git_diff,
+            agent_git_list_changed_files,
+            agent_git_file_diff,
             agent_git_create_pr,
+            agent_git_push,
+            agent_git_recover_merge_journal,
             agent_container_build,
             agent_container_system_status,
             agent_build_task_prompt,
@@ -936,6 +1079,7 @@ fn main() {
             agent_dev_repair,
             agent_dev_parse_export,
             agent_dev_cli_available,
+            agent_resolve_dev_cli_path,
             agent_dev_status,
             agent_dev_init,
             agent_dev_map,
@@ -948,11 +1092,13 @@ fn main() {
             ai_ollama_generate,
             ai_ollama_health,
             ai_ollama_chat,
+            ai_claude_chat,
+            ai_claude_health,
+            ai_claude_models,
             app_data_load,
             app_data_save,
             app_data_patch,
             app_data_storage_path,
-            automation_process_actions,
             automation_apply_actions,
             automation_is_rule_due,
             recurring_calculate_next,
@@ -981,8 +1127,13 @@ fn main() {
             github_issue_close,
             github_issue_comment,
             github_auth_status,
+            github_pr_checks,
+            github_pr_failed_logs,
+            github_pr_review_comments,
             tray_update_active_runs,
+            tray_update_dock_badge,
             tray_update_inbox_count,
+            sleep_prevention_set_active,
             terminal_open,
             terminal_write,
             terminal_resize,
@@ -991,6 +1142,11 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("error while building LiquiTask")
         .run(|app, event| {
+            if matches!(event, tauri::RunEvent::Exit) {
+                if let Some(state) = app.try_state::<SemanticLayerState>() {
+                    stop_on_app_exit(state.inner());
+                }
+            }
             on_run_event(app, &event);
         });
 }
@@ -1159,5 +1315,21 @@ mod tests {
         // Too many entries rejected.
         let many: Vec<String> = (0..21).map(|i| p(&["dir", &i.to_string()])).collect();
         assert!(validate_workspace_paths(&many).is_err());
+    }
+
+    #[test]
+    fn sensitive_storage_keys_cover_ai_config() {
+        assert!(is_sensitive_storage_key("liquitask-ai-config"));
+        assert!(is_sensitive_storage_key("liquitask-gemini-api-key"));
+        assert!(!is_sensitive_storage_key("liquitask-tasks"));
+    }
+
+    #[test]
+    fn encrypted_envelope_detection() {
+        assert!(is_value_encrypted_envelope(&Value::String(
+            "LTENC1:YWJj".to_string()
+        )));
+        assert!(!is_value_encrypted_envelope(&Value::String("plain".to_string())));
+        assert!(!is_value_encrypted_envelope(&Value::Null));
     }
 }

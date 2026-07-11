@@ -90,8 +90,21 @@ function getServicePort(settings: SemanticLayerSettings): number {
   }
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function readEnvAuthToken(): string | null {
+  if (typeof import.meta !== "undefined" && import.meta.env) {
+    const fromVite = import.meta.env.VITE_LIQUITASK_SEMANTIC_AUTH_TOKEN;
+    if (typeof fromVite === "string" && fromVite.length > 0) return fromVite;
+  }
+  return null;
+}
+
+function buildAuthHeaders(authToken: string | null): Record<string, string> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const token = authToken ?? readEnvAuthToken();
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
 }
 
 function mergeAbortSignals(signals: AbortSignal[]): AbortSignal {
@@ -113,6 +126,7 @@ function useRustEngine(): boolean {
 class SemanticLayerService {
   private available = false;
   private spawnedByApp = false;
+  private authToken: string | null = null;
   private lastCacheEntryId: string | null = null;
   private initPromise: Promise<void> | null = null;
   private status: SemanticLayerRuntimeStatus = "off";
@@ -146,6 +160,7 @@ class SemanticLayerService {
     this.stopHealthMonitor();
     this.available = false;
     this.spawnedByApp = false;
+    this.authToken = null;
     this.lastCacheEntryId = null;
     this.initPromise = null;
     this.lastRestartAttempt = 0;
@@ -330,7 +345,7 @@ class SemanticLayerService {
       const httpFetch = getHttpFetch();
       await httpFetch(`${serviceUrl}/v1/feedback`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: buildAuthHeaders(this.authToken),
         body: JSON.stringify({
           entry_id: this.lastCacheEntryId,
           accepted,
@@ -345,8 +360,6 @@ class SemanticLayerService {
   private async chatViaRust(
     request: SemanticLayerChatRequest,
   ): Promise<SemanticLayerChatResult | null> {
-    const aiConfig = storageService.get<AIConfig | null>(STORAGE_KEYS.AI_CONFIG, null);
-
     try {
       const { invoke } = await import("@tauri-apps/api/core");
       const data = (await invoke("semantic_layer_chat", {
@@ -356,7 +369,6 @@ class SemanticLayerService {
           ragDocuments: request.ragDocuments,
           temperature: request.temperature ?? 0.4,
           maxTokens: request.maxTokens ?? 2048,
-          ollamaBaseUrl: request.ollamaBaseUrl ?? aiConfig?.ollamaBaseUrl,
         },
       })) as {
         text?: string;
@@ -399,17 +411,15 @@ class SemanticLayerService {
 
     try {
       const httpFetch = getHttpFetch();
-      const aiConfig = storageService.get<AIConfig | null>(STORAGE_KEYS.AI_CONFIG, null);
       const response = await httpFetch(`${serviceUrl}/v1/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: buildAuthHeaders(this.authToken),
         body: JSON.stringify({
           prompt: request.prompt,
           system_prompt: request.systemPrompt ?? "",
           rag_documents: request.ragDocuments,
           temperature: request.temperature ?? 0.4,
           max_tokens: request.maxTokens ?? 2048,
-          ollama_base_url: request.ollamaBaseUrl ?? aiConfig?.ollamaBaseUrl,
         }),
         signal,
       });
@@ -467,7 +477,10 @@ class SemanticLayerService {
 
     try {
       const httpFetch = getHttpFetch();
-      const response = await httpFetch(`${serviceUrl}/health`, { signal: controller.signal });
+      const response = await httpFetch(`${serviceUrl}/health`, {
+        signal: controller.signal,
+        headers: buildAuthHeaders(this.authToken),
+      });
       return response.ok;
     } catch {
       return false;
@@ -506,7 +519,7 @@ class SemanticLayerService {
       const httpFetch = getHttpFetch();
       await httpFetch(`${serviceUrl}/v1/config`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: buildAuthHeaders(this.authToken),
         body: JSON.stringify({
           cache_initial_threshold: settings.cacheThreshold,
           cache_max_entries: settings.cacheMaxEntries,
@@ -526,11 +539,14 @@ class SemanticLayerService {
   private async trySpawnEngine(settings: SemanticLayerSettings): Promise<boolean> {
     try {
       const { invoke } = await import("@tauri-apps/api/core");
-      await invoke("semantic_layer_spawn", {
+      const result = (await invoke("semantic_layer_spawn", {
         port: getServicePort(settings),
         ollamaUrl: storageService.get<AIConfig | null>(STORAGE_KEYS.AI_CONFIG, null)
           ?.ollamaBaseUrl,
-      });
+      })) as { authToken?: string; runtime?: string };
+      if (typeof result?.authToken === "string" && result.authToken.length > 0) {
+        this.authToken = result.authToken;
+      }
       return true;
     } catch (error) {
       console.warn("[SemanticLayer] Engine spawn unavailable:", error);

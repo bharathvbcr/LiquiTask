@@ -9,6 +9,7 @@ interface UseTaskAssistantProps {
   addTask: (task: Partial<Task>) => void;
   updateTask: (id: string, updates: Partial<Task>) => void;
   searchTasks: (query: string) => string[];
+  enabled?: boolean;
 }
 
 const MAX_TOOL_TURNS = 5;
@@ -74,7 +75,7 @@ const formatAssistantError = (error: unknown): string => {
   }
 
   if (/AI provider is not configured/i.test(rawMessage)) {
-    return "AI provider is not configured. Open Settings > AI and configure Gemini or Ollama.";
+    return "AI provider is not configured. Open Settings > AI and configure Gemini, Ollama, or Claude Code.";
   }
 
   if (/Gemini API key is missing/i.test(rawMessage)) {
@@ -83,6 +84,14 @@ const formatAssistantError = (error: unknown): string => {
 
   if (/Ollama model name is not configured/i.test(rawMessage)) {
     return "Ollama model is not configured. Open Settings > AI and select an Ollama model.";
+  }
+
+  if (/Claude Code AI requires the LiquiTask desktop app/i.test(rawMessage)) {
+    return rawMessage;
+  }
+
+  if (/Claude Code CLI not found/i.test(rawMessage)) {
+    return `${rawMessage} Install it with npm install -g @anthropic-ai/claude-code, then test the connection in Settings > AI.`;
   }
 
   if (/configured AI provider does not support the assistant/i.test(rawMessage)) {
@@ -106,6 +115,7 @@ export const useTaskAssistant = ({
   addTask,
   updateTask,
   searchTasks,
+  enabled = true,
 }: UseTaskAssistantProps) => {
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const messagesRef = useRef<AssistantMessage[]>([]);
@@ -123,6 +133,7 @@ export const useTaskAssistant = ({
   }, [messages]);
 
   useEffect(() => {
+    if (!enabled) return;
     let cancelled = false;
     getDesktopApi()
       ?.workspace.getPaths()
@@ -140,7 +151,7 @@ export const useTaskAssistant = ({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [enabled]);
 
   const effectiveWorkspacePaths = useMemo(() => {
     const projectPaths = context.workspacePaths ?? [];
@@ -269,7 +280,7 @@ export const useTaskAssistant = ({
 
   const sendMessage = useCallback(
     async (content: string) => {
-      if (!content.trim() || isLoading) return;
+      if (!enabled || !content.trim() || isLoading) return;
       const runId = ++runIdRef.current;
       const isCurrentRun = () => runIdRef.current === runId;
 
@@ -408,7 +419,7 @@ export const useTaskAssistant = ({
         }
       }
     },
-    [allTasks, effectiveContext, executeTool, isLoading],
+    [allTasks, effectiveContext, executeTool, enabled, isLoading],
   );
 
   const clearChat = useCallback(() => {

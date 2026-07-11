@@ -47,6 +47,7 @@ vi.mock("../migrationService", () => ({
 
 vi.mock("../../runtime/runtimeEnvironment", () => ({
   getNativeStorageApi: vi.fn().mockReturnValue(null),
+  isTauri: vi.fn().mockReturnValue(false),
 }));
 
 describe("StorageService Extended", () => {

@@ -7,14 +7,15 @@ import type { AgentRun, PriorityDefinition, Project, Task } from "../../../types
 interface SortableTaskProps {
   task: Task;
   priorities: PriorityDefinition[];
-  isCompletedColumn?: boolean;
   onMoveTask: (taskId: string, newStatus: string, newPriority?: string, newOrder?: number) => void;
   onEditTask: (task: Task) => void;
   onUpdateTask: (task: Task) => void;
   onDeleteTask: (taskId: string) => void;
+  onArchiveTask?: (taskId: string) => void;
   allTasks: Task[];
   isCompact?: boolean;
   onCopyTask?: (message: string) => void;
+  onDuplicateAsQuickAdd?: (task: Task) => void;
   projectName?: string;
   projects?: Project[];
   onMoveToWorkspace?: (taskId: string, projectId: string) => void;
@@ -23,11 +24,13 @@ interface SortableTaskProps {
   onToggleSelect?: (taskId: string, shiftKey?: boolean) => void;
   onApproveAgentWork?: (task: Task, run: AgentRun) => void;
   onRejectAgentWork?: (task: Task, run: AgentRun, feedback: string) => void;
+  agentDispatchEnabled?: boolean;
 }
 
 export const SortableTask: React.FC<SortableTaskProps> = ({
   task,
   onCopyTask,
+  onDuplicateAsQuickAdd,
   projectName,
   projects,
   onMoveToWorkspace,
@@ -53,6 +56,7 @@ export const SortableTask: React.FC<SortableTaskProps> = ({
       task={task}
       {...props}
       onCopyTask={onCopyTask}
+      onDuplicateAsQuickAdd={onDuplicateAsQuickAdd}
       projectName={projectName}
       projects={projects}
       onMoveToWorkspace={onMoveToWorkspace}

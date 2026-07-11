@@ -1,12 +1,10 @@
 import type { Task } from "../../../types";
+import { STORAGE_KEYS } from "../../constants";
 import { isTauri } from "../../runtime/runtimeEnvironment";
-import { replayTaskEvents } from "./taskEventReducer";
-import {
-  draftEvent,
-  serializeTask,
-  type TaskEvent,
-  type TaskEventDraft,
-} from "./taskEvents";
+import { storageService } from "../../services/storageService";
+import { diffProjection, replayTaskEvents } from "./taskEventReducer";
+import { deserializeTask, draftEvent, serializeTask, type TaskEvent, type TaskEventDraft, type TaskEventType } from "./taskEvents";
+import { commitSqliteTaskMutation, isSqliteTaskStoreActive } from "../../services/sqliteTaskStore";
 
 /**
  * Append-only task event store — the durable write-ahead log the board is
@@ -33,6 +31,109 @@ import {
 export const TASK_EVENTS_BROADCAST = "liquitask://task-events-appended";
 
 type Listener = (events: TaskEvent[]) => void;
+
+const MUTATION_EVENT_TYPES = new Set<TaskEventType>([
+  "task.created",
+  "task.imported",
+  "task.updated",
+  "task.moved",
+  "task.deleted",
+]);
+
+function parsePayload(raw: string, eventType: string): TaskEvent["payload"] {
+  try {
+    return JSON.parse(raw) as TaskEvent["payload"];
+  } catch (err) {
+    if (MUTATION_EVENT_TYPES.has(eventType as TaskEventType)) {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new Error(`Corrupt mutation event payload (${eventType}): ${message}`);
+    }
+    return {};
+  }
+}
+
+/** Derive SQLite projection deltas from a mutation event batch. */
+export function projectionDeltaFromEvents(
+  events: TaskEventDraft[],
+  projectedTasks?: Task[],
+): {
+  upsertTasks: Task[];
+  deleteTaskIds: string[];
+} {
+  const upsertIds = new Set<string>();
+  const deleteTaskIds: string[] = [];
+  for (const event of events) {
+    if (event.type === "task.deleted") {
+      deleteTaskIds.push(event.streamId);
+    } else if (
+      event.type === "task.created" ||
+      event.type === "task.imported" ||
+      event.type === "task.updated" ||
+      event.type === "task.moved"
+    ) {
+      upsertIds.add(event.streamId);
+    }
+  }
+  if (projectedTasks) {
+    return {
+      upsertTasks: projectedTasks.filter((t) => upsertIds.has(t.id)),
+      deleteTaskIds,
+    };
+  }
+  const upsertTasks: Task[] = [];
+  for (const event of events) {
+    if (upsertIds.has(event.streamId) && event.payload.task) {
+      upsertTasks.push(deserializeTask(event.payload.task));
+    }
+  }
+  return { upsertTasks, deleteTaskIds };
+}
+
+/** Undo only the failed mutation batch without clobbering concurrent successes. */
+export function revertFailedMutation(
+  currentTasks: Task[],
+  failedEvents: TaskEventDraft[],
+  beforeTasks: Task[],
+): Task[] {
+  let result = [...currentTasks];
+  for (const event of [...failedEvents].reverse()) {
+    const id = event.streamId;
+    switch (event.type) {
+      case "task.created":
+      case "task.imported":
+        result = result.filter((task) => task.id !== id);
+        break;
+      case "task.deleted": {
+        const restored = beforeTasks.find((task) => task.id === id);
+        if (restored && !result.some((task) => task.id === id)) {
+          result.push(restored);
+        }
+        break;
+      }
+      case "task.updated":
+      case "task.moved": {
+        const restored = beforeTasks.find((task) => task.id === id);
+        if (restored) {
+          result = result.map((task) => (task.id === id ? restored : task));
+        } else {
+          result = result.filter((task) => task.id !== id);
+        }
+        break;
+      }
+      default:
+        break;
+    }
+  }
+  return result;
+}
+
+function deletedStreamIds(events: TaskEventDraft[]): Set<string> {
+  const ids = new Set<string>();
+  for (const event of events) {
+    if (event.type === "task.deleted") ids.add(event.streamId);
+  }
+  return ids;
+}
 
 interface EventStoreAdapter {
   append(events: TaskEvent[]): Promise<TaskEvent[]>;
@@ -82,25 +183,17 @@ class NativeAdapter implements EventStoreAdapter {
       seq: r.seq,
       streamId: r.streamId,
       type: r.eventType as TaskEvent["type"],
-      payload: safeParse(r.payload),
+      payload: parsePayload(r.payload, r.eventType),
       actor: r.actor,
       runId: r.runId ?? undefined,
       ts: r.ts,
-      v: 1,
+      v: r.v ?? 1,
     }));
   }
 
   async count(): Promise<number> {
     const { invoke } = await import("@tauri-apps/api/core");
     return invoke<number>("task_events_count");
-  }
-}
-
-function safeParse(raw: string): TaskEvent["payload"] {
-  try {
-    return JSON.parse(raw) as TaskEvent["payload"];
-  } catch {
-    return {};
   }
 }
 
@@ -207,6 +300,98 @@ class TaskEventStore {
     return this.degraded;
   }
 
+  /** Persist mutation drafts while the log is degraded for catch-up on recovery. */
+  journalDegradedMutation(drafts: TaskEventDraft[]): void {
+    if (drafts.length === 0) return;
+    const journal = this.loadDegradedJournal();
+    journal.push(...drafts);
+    void storageService.set(STORAGE_KEYS.TASK_EVENT_DEGRADED_JOURNAL, journal);
+  }
+
+  private loadDegradedJournal(): TaskEventDraft[] {
+    return storageService.get<TaskEventDraft[]>(STORAGE_KEYS.TASK_EVENT_DEGRADED_JOURNAL, []) ?? [];
+  }
+
+  private async flushDegradedJournal(): Promise<void> {
+    if (this.degraded) return;
+    const journal = this.loadDegradedJournal();
+    if (journal.length === 0) return;
+    try {
+      await this.append(journal);
+      void storageService.set(STORAGE_KEYS.TASK_EVENT_DEGRADED_JOURNAL, []);
+    } catch (err) {
+      console.warn("[taskEventStore] degraded journal flush failed:", err);
+    }
+  }
+
+  private async repairSnapshotIntoLog(tasks: Task[]): Promise<void> {
+    if (tasks.length === 0) return;
+    const drafts = tasks.map((task) =>
+      draftEvent({
+        streamId: task.id,
+        type: "task.imported",
+        payload: { task: serializeTask(task), changed: ["recovery"] },
+        actor: "system",
+      }),
+    );
+    await this.ensureAdapter().append(drafts);
+    this.degraded = false;
+  }
+
+  private async readAndReplay(legacyTasks: Task[]): Promise<Task[]> {
+    const adapter = this.ensureAdapter();
+    let sinceSeq = 0;
+    let baseTasks: Task[] | undefined;
+    if (isTauri()) {
+      try {
+        const { invoke } = await import("@tauri-apps/api/core");
+        const snap = await invoke<{
+          uptoSeq: number;
+          tasks: Array<Record<string, unknown>>;
+        } | null>("task_events_latest_snapshot");
+        if (snap && snap.uptoSeq > 0 && Array.isArray(snap.tasks)) {
+          sinceSeq = snap.uptoSeq;
+          baseTasks = snap.tasks.map((raw) => deserializeTask(raw as Parameters<typeof deserializeTask>[0]));
+        }
+      } catch {
+        // Snapshot is an accelerator only — fall back to full replay.
+      }
+    }
+    let events: TaskEvent[];
+    try {
+      events = await adapter.read(sinceSeq > 0 ? sinceSeq : undefined);
+    } catch (readErr) {
+      if (legacyTasks.length === 0) throw readErr;
+      console.warn("[taskEventStore] log read failed — re-importing snapshot:", readErr);
+      await this.repairSnapshotIntoLog(legacyTasks);
+      events = await adapter.read();
+    }
+
+    let tasks = replayTaskEvents(events, baseTasks);
+    const deletedIds = new Set<string>();
+    for (const event of events) {
+      if (event.type === "task.deleted") deletedIds.add(event.streamId);
+    }
+    for (const id of deletedStreamIds(this.loadDegradedJournal())) {
+      deletedIds.add(id);
+    }
+    const drift = diffProjection(tasks, legacyTasks);
+    if (drift.onlyInLog.length > 0 || drift.onlyInSnapshot.length > 0) {
+      console.warn("[taskEventStore] projection drift at boot:", drift);
+    }
+    if (drift.onlyInSnapshot.length > 0) {
+      const missing = legacyTasks.filter(
+        (t) => drift.onlyInSnapshot.includes(t.id) && !deletedIds.has(t.id),
+      );
+      if (missing.length > 0) {
+        await this.repairSnapshotIntoLog(missing);
+        events = await adapter.read();
+        tasks = replayTaskEvents(events);
+      }
+    }
+    return tasks;
+  }
+
   /**
    * Open the log and rebuild board state.
    * - Empty log + existing legacy tasks → one-time genesis import.
@@ -231,13 +416,14 @@ class TaskEventStore {
           await adapter.append(drafts);
         }
         this.initializedOk = true;
+        await this.flushDegradedJournal();
         void this.listenForExternalAppends();
         return { tasks: legacyTasks, source: "genesis" };
       }
 
-      const events = await adapter.read();
-      const tasks = replayTaskEvents(events);
+      const tasks = await this.readAndReplay(legacyTasks);
       this.initializedOk = true;
+      await this.flushDegradedJournal();
       void this.listenForExternalAppends();
       return { tasks, source: "events" };
     } catch (err) {
@@ -272,6 +458,58 @@ class TaskEventStore {
       }
     });
     // Keep the chain alive even when an append fails.
+    this.chain = next.catch(() => undefined);
+    return next;
+  }
+
+  /**
+   * Atomic event append + SQLite task projection. Falls back to `append` on
+   * web or when SQLite is not the active store.
+   */
+  commitMutation(
+    drafts: TaskEventDraft[],
+    upsertTasks: Task[],
+    deleteTaskIds: string[],
+  ): Promise<TaskEvent[]> {
+    if (drafts.length === 0) return Promise.resolve([]);
+    if (this.degraded) {
+      return Promise.reject(new Error("Task event log unavailable (degraded mode)"));
+    }
+    const events = drafts.map(draftEvent);
+    const next = this.chain.then(async () => {
+      try {
+        let appended: TaskEvent[];
+        if (isSqliteTaskStoreActive()) {
+          const result = await commitSqliteTaskMutation({
+            events: events.map((e) => ({
+              id: e.id,
+              streamId: e.streamId,
+              eventType: e.type,
+              payload: JSON.stringify(e.payload),
+              actor: e.actor,
+              runId: e.runId ?? null,
+              ts: e.ts,
+              v: e.v,
+            })),
+            upsertTasks,
+            deleteTaskIds,
+          });
+          if (!result) {
+            appended = await this.ensureAdapter().append(events);
+          } else {
+            appended = events.map((e, i) => ({ ...e, seq: result.seqs[i] }));
+          }
+        } else {
+          appended = await this.ensureAdapter().append(events);
+        }
+        this.notify(appended);
+        void this.broadcast(appended);
+        return appended;
+      } catch (err) {
+        if (!this.initializedOk) this.degraded = true;
+        throw err;
+      }
+    });
     this.chain = next.catch(() => undefined);
     return next;
   }
