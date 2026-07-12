@@ -1,3 +1,12 @@
+/** Shared prompt templates for auto-organize / AI organize flows. */
+
+export function fillOrganizePrompt(
+  template: string,
+  vars: Record<string, string>,
+): string {
+  return template.replace(/\{(\w+)\}/g, (_, key: string) => vars[key] ?? "");
+}
+
 export const CLUSTER_TASKS_PROMPT = `Analyze these tasks and group them into thematic clusters based on semantic similarity, shared context, and related objectives.
 
 Return a JSON array where each object has:
@@ -103,6 +112,7 @@ Return a JSON array where each object has:
 {
   "taskId": "task_id",
   "suggestedTags": ["namespace:tag1", "namespace:tag2"],
+  "suggestedPriority": "priority_id_or_omit",
   "confidence": 0.85,
   "reasoning": "Why these tags are relevant"
 }
@@ -113,6 +123,7 @@ Rules:
 - Tags should be specific and actionable
 - Avoid generic tags like "task" or "work"
 - Consider existing tags and avoid duplicates
+- Optionally suggest a priority when the task clearly warrants it
 
 Context:
 Workspace: {workspace}
@@ -121,53 +132,3 @@ Today's Date: {date}
 
 Tasks:
 {tasks}`;
-
-export const SMART_MERGE_PROMPT = `Analyze these task pairs and determine if they are duplicates that should be merged.
-
-Return a JSON array where each object has:
-{
-  "task1Id": "first_task_id",
-  "task2Id": "second_task_id",
-  "isDuplicate": true,
-  "confidence": 0.9,
-  "keepTaskId": "which_to_keep",
-  "mergedFields": {
-    "title": "best_combined_title",
-    "summary": "merged_description",
-    "tags": ["all_unique_tags_from_both"],
-    "subtasks": ["all_unique_subtasks"]
-  },
-  "reasoning": "Why these are duplicates and how to merge"
-}
-
-Rules:
-- Tasks are duplicates if they describe the same action or goal
-- Different aspects of the same topic are NOT duplicates
-- When merging, combine all unique information from both tasks
-- Keep the task with more complete information
-- Confidence should reflect certainty
-
-Context:
-Workspace: {workspace}
-Today's Date: {date}
-
-Task Pairs:
-{pairs}`;
-
-export const ORGANIZE_SUMMARY_PROMPT = `Provide a summary of the auto-organize analysis results.
-
-Results:
-- Clusters found: {clusters}
-- Duplicates detected: {duplicates}
-- Tags suggested: {tags}
-- Hierarchies detected: {hierarchies}
-- Project moves suggested: {projectMoves}
-- Tag consolidations: {tagConsolidations}
-
-Return a JSON object:
-{
-  "summary": "Brief overview of changes",
-  "impact": "high" | "medium" | "low",
-  "recommendations": ["suggestion1", "suggestion2"],
-  "estimatedTimeSaved": "Estimated time saved from organization"
-}`;

@@ -248,15 +248,3 @@ export function validateTransition(
   }
   return allow();
 }
-
-/** Map a validated transition to its task-event type (for the event log). */
-export function transitionEventType(from: string, to: string): "task.moved" {
-  void from;
-  void to;
-  return "task.moved";
-}
-
-/** One-line description used in activity trails and MCP tool responses. */
-export function describeTransition(from: string, to: string): string {
-  return `${from || "?"} → ${to || "?"}`;
-}

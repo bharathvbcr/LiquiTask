@@ -428,6 +428,12 @@ const App: React.FC = () => {
   // --- Base State ---
   const [isLoaded, setIsLoaded] = useState(false);
   const [columns, setColumns] = useState<BoardColumn[]>(defaultColumns);
+  const handleUpdateColumns = useCallback((newColumns: BoardColumn[]) => {
+    if (!Array.isArray(newColumns)) return;
+    setColumns(newColumns);
+    if (indexedDBService.isAvailable())
+      indexedDBService.saveColumns(newColumns).catch(console.error);
+  }, []);
   const [customFields, setCustomFields] = useState<CustomFieldDefinition[]>([]);
   const [activeProjectId, setActiveProjectId] = useState<string>('');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
@@ -680,6 +686,7 @@ const App: React.FC = () => {
     aiServiceRef,
     assignToAgentRef,
     agentRunProbeRef,
+    onColumnsChange: handleUpdateColumns,
   });
 
   // Initialization
@@ -2058,13 +2065,6 @@ const App: React.FC = () => {
       getTasksFromContextIndex(taskContextIndex, statusId, priorityId),
     [taskContextIndex]
   );
-
-  const handleUpdateColumns = (newColumns: BoardColumn[]) => {
-    if (!Array.isArray(newColumns)) return;
-    setColumns(newColumns);
-    if (indexedDBService.isAvailable())
-      indexedDBService.saveColumns(newColumns).catch(console.error);
-  };
 
   const handleArchiveTaskInternal = useCallback(
     async (taskId: string) => {

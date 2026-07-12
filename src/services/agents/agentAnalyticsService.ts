@@ -1,6 +1,4 @@
 import type { AgentProfile, AgentRun } from "../../../types";
-import { callNative } from "../../runtime/runtimeEnvironment";
-import { dateToMs } from "../../runtime/coreDto";
 
 export interface AgentAnalytics {
   agentId: string;
@@ -15,7 +13,8 @@ export interface AgentAnalytics {
   gatePassRate: number;
 }
 
-function computeAgentAnalyticsJs(
+/** Sync API used by UI (`useMemo`). Desktop async path lives in `nativeBridge.nativeComputeAgentAnalytics`. */
+export function computeAgentAnalytics(
   agents: AgentProfile[],
   runs: AgentRun[],
 ): AgentAnalytics[] {
@@ -48,37 +47,4 @@ function computeAgentAnalyticsJs(
       gatePassRate: withGate.length ? gatePassed.length / withGate.length : 0,
     };
   });
-}
-
-/** Sync API used by UI (`useMemo`); JS implementation is the web fallback. */
-export function computeAgentAnalytics(
-  agents: AgentProfile[],
-  runs: AgentRun[],
-): AgentAnalytics[] {
-  return computeAgentAnalyticsJs(agents, runs);
-}
-
-/** Rust-backed aggregation for desktop callers that can await. */
-export async function computeAgentAnalyticsNative(
-  agents: AgentProfile[],
-  runs: AgentRun[],
-): Promise<AgentAnalytics[]> {
-  return callNative<AgentAnalytics[]>(
-    "agent_compute_analytics",
-    {
-      request: {
-        agents: agents.map((a) => ({ id: a.id, name: a.name })),
-        runs: runs.map((r) => ({
-          agentId: r.agentId,
-          status: r.status,
-          startedAt: dateToMs(r.startedAt),
-          finishedAt: dateToMs(r.finishedAt),
-          costUsd: r.costUsd,
-          numTurns: r.numTurns,
-          verification: r.verification ? { passed: r.verification.passed } : undefined,
-        })),
-      },
-    },
-    () => computeAgentAnalyticsJs(agents, runs),
-  );
 }

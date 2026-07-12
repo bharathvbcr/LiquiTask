@@ -46,7 +46,7 @@ import {
   type ParsedTask,
   type QuickAddSavedTemplate,
 } from "../utils/taskParser";
-import { STORAGE_KEYS } from "../constants";
+import { STORAGE_KEYS, LINK_TYPES } from "../constants";
 import { useConfirmation } from "../contexts/ConfirmationContext";
 import storageService from "../services/storageService";
 import { getDesktopApi } from "../runtime/runtimeEnvironment";
@@ -168,7 +168,7 @@ export function useTaskForm({
   // Links State
   const [links, setLinks] = useState<TaskLink[]>([]);
   const [newLinkTarget, setNewLinkTarget] = useState<string>("");
-  const [newLinkType, setNewLinkType] = useState<string>("relates-to");
+  const [newLinkType, setNewLinkType] = useState<string>(LINK_TYPES.RELATES_TO);
 
   // AI State
   const [aiInput, setAiInput] = useState("");
@@ -1889,11 +1889,11 @@ export function useTaskForm({
 
   const getLinkIcon = (type: string) => {
     switch (type) {
-      case "blocked-by":
+      case LINK_TYPES.BLOCKED_BY:
         return <Lock size={12} />;
-      case "blocks":
+      case LINK_TYPES.BLOCKS:
         return <Shield size={12} />;
-      case "duplicates":
+      case LINK_TYPES.DUPLICATES:
         return <Copy size={12} />;
       default:
         return <ArrowRightLeft size={12} />;

@@ -3,13 +3,6 @@ import { describe, expect, it, vi } from "vitest";
 import type { PriorityDefinition, Task } from "../../types";
 import { TaskCard } from "../TaskCard";
 
-// Mock sub-components to avoid complex rendering dependencies
-vi.mock("../InlineEditable", () => ({
-  InlineEditable: ({ value }: { value: string }) => <span>{value}</span>,
-  InlineSelect: ({ value }: { value: string }) => <span>{value}</span>,
-  InlineDatePicker: () => <span>Date</span>,
-}));
-
 vi.mock("../TimeTracker", () => ({
   default: () => null,
 }));

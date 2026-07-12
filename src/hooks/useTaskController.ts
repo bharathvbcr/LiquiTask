@@ -33,6 +33,7 @@ import {
 import { getNativeStorageApi } from "../runtime/runtimeEnvironment";
 import { isSqliteTaskStoreActive } from "../services/sqliteTaskStore";
 import { generateTaskId, getBacklogColumnId } from "../utils/taskUtils";
+import { unhideColumn } from "../utils/boardColumns";
 import {
   mapFeedbackToTaskEvent,
   type FeedbackDaemonKind,
@@ -168,6 +169,8 @@ interface TaskControllerProps {
   assignToAgentRef?: MutableRefObject<((taskId: string, agentId: string) => void) | null>;
   /** Optional agent-run probe (desktop) for state-machine transition guards. */
   agentRunProbeRef?: MutableRefObject<AgentRunProbe | null>;
+  /** Persist column config when a hidden lane becomes occupied. */
+  onColumnsChange?: (columns: BoardColumn[]) => void;
 }
 
 export const useTaskController = ({
@@ -184,6 +187,7 @@ export const useTaskController = ({
   aiServiceRef,
   assignToAgentRef,
   agentRunProbeRef,
+  onColumnsChange,
 }: TaskControllerProps) => {
   const automationOpts = useCallback(
     () => ({
@@ -987,6 +991,14 @@ export const useTaskController = ({
         return false;
       }
 
+      // Persistently reveal hidden lanes (e.g. In Review) once a task enters them.
+      if (targetColumn.hidden && onColumnsChange) {
+        const nextColumns = unhideColumn(columns, newStatus);
+        if (nextColumns.some((col, i) => col.hidden !== columns[i]?.hidden)) {
+          onColumnsChange(nextColumns);
+        }
+      }
+
       // Git-aligned state machine: every column transition is validated here,
       // regardless of origin (drag & drop, keyboard, MCP, automation).
       const actor = options?.actor ?? "user";
@@ -1190,6 +1202,7 @@ export const useTaskController = ({
       resolveAutomationUpdates,
       sanitizeAutomationUpdates,
       buildTransitionContext,
+      onColumnsChange,
     ],
   );
 

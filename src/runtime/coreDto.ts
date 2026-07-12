@@ -16,7 +16,7 @@ export const dateToMs = (d: Date | string | number | undefined | null): number |
   return Number.isNaN(t) ? undefined : t;
 };
 
-/** Epoch millis -> `Date` (or `undefined`). */
+/** Epoch millis -> `Date` (or `undefined`). Pair of `dateToMs` for Rust-core responses. */
 export const msToDate = (ms: number | null | undefined): Date | undefined =>
   ms === null || ms === undefined ? undefined : new Date(ms);
 

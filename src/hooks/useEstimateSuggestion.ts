@@ -31,13 +31,3 @@ export function useEstimateSuggestion(
 
   return { suggestion, hint };
 }
-
-/** Convenience hook for cards — only shows hint when estimate is missing or far off. */
-export function useTaskEstimateHint(task: Task, allTasks: Task[]): string | null {
-  const { suggestion, hint } = useEstimateSuggestion(task, allTasks);
-  if (!suggestion || !hint) return null;
-  if (task.timeEstimate <= 0) return hint;
-  const delta = Math.abs(task.timeEstimate - suggestion.minutes);
-  if (delta >= 15) return hint;
-  return null;
-}

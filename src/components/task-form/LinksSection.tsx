@@ -1,6 +1,7 @@
 import { Link, Plus, Trash2 } from "lucide-react";
 import type React from "react";
 import type { Task, TaskLink } from "../../../types";
+import { LINK_TYPES, LINK_TYPE_OPTIONS } from "../../constants";
 import { Tooltip } from "../Tooltip";
 
 interface LinksSectionProps {
@@ -40,18 +41,11 @@ export const LinksSection: React.FC<LinksSectionProps> = ({
           className="w-1/3 liquid-input rounded-xl px-4 py-2.5 text-xs appearance-none"
           aria-label="Link type"
         >
-          <option value="relates-to" className="bg-navy-900">
-            Relates to
-          </option>
-          <option value="blocks" className="bg-navy-900">
-            Blocks
-          </option>
-          <option value="blocked-by" className="bg-navy-900">
-            Blocked By
-          </option>
-          <option value="duplicates" className="bg-navy-900">
-            Duplicates
-          </option>
+          {LINK_TYPE_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value} className="bg-navy-900">
+              {opt.label}
+            </option>
+          ))}
         </select>
       </Tooltip>
       <Tooltip content="Select task to link" position="top">
@@ -97,11 +91,11 @@ export const LinksSection: React.FC<LinksSectionProps> = ({
               <span
                 className={`px-2 py-1.5 rounded-lg uppercase font-bold text-[10px] tracking-wide border flex items-center gap-1.5
                                         ${
-                                          link.type === "blocked-by"
+                                          link.type === LINK_TYPES.BLOCKED_BY
                                             ? "bg-red-500/10 text-red-400 border-red-500/20"
-                                            : link.type === "blocks"
+                                            : link.type === LINK_TYPES.BLOCKS
                                               ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                                              : link.type === "duplicates"
+                                              : link.type === LINK_TYPES.DUPLICATES
                                                 ? "bg-slate-500/10 text-slate-300 border-slate-500/20"
                                                 : "bg-slate-500/10 text-slate-300 border-slate-500/20"
                                         }`}

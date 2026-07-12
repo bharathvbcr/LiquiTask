@@ -26,6 +26,11 @@ import { normalizeSubtaskTitles } from "../utils/coerce";
 import { assertAiFeaturesEnabled } from "../utils/aiFeatures";
 import { sanitizeUrl } from "../utils/validation";
 import { isNativeBackend, nativeClaudeChat, nativeClaudeHealth, nativeClaudeModels, nativeOllamaChat, nativeOllamaHealth } from "./nativeBridge";
+import {
+  AUTO_TAG_PROMPT,
+  CLUSTER_TASKS_PROMPT,
+  fillOrganizePrompt,
+} from "./prompts/organize-prompts";
 import storageService from "./storageService";
 import { isSemanticLayerEnabled, semanticLayerService } from "./semanticLayerService";
 
@@ -1660,7 +1665,12 @@ Tasks:\n${taskDetails}`;
       const batchPromises = batchesToRun.map(async (batch) => {
         const taskDetails = batch.map((t) => JSON.stringify(stripTaskData(t))).join("\n\n");
 
-        const prompt = `Categorize these tasks. Return JSON array: [{"taskId": "id", "suggestedTags": ["tag1"], "suggestedPriority": "priority", "confidence": 0.8, "reasoning": "why"}]\n\nTasks:\n${taskDetails}`;
+        const prompt = fillOrganizePrompt(AUTO_TAG_PROMPT, {
+          workspace: context.activeProjectId || "default",
+          priorities: context.priorities.map((p) => p.id).join(", "),
+          date: new Date().toISOString().slice(0, 10),
+          tasks: taskDetails,
+        });
 
         try {
           const refined = await provider.refineTask(prompt, {}, context);
@@ -1702,7 +1712,12 @@ Tasks:\n${taskDetails}`;
       .map((t) => `ID: ${t.id}\nTitle: "${t.title}"\nTags: ${t.tags.join(", ")}`)
       .join("\n\n");
 
-    const prompt = `Group these tasks into clusters based on similarity. Return JSON array: [{"taskIds": ["id1", "id2"], "theme": "cluster_theme", "suggestedTags": ["tags"], "confidence": 0.8}]\n\nTasks:\n${taskDetails}`;
+    const prompt = fillOrganizePrompt(CLUSTER_TASKS_PROMPT, {
+      workspace: context.activeProjectId || "default",
+      priorities: context.priorities.map((p) => p.id).join(", "),
+      date: new Date().toISOString().slice(0, 10),
+      tasks: taskDetails,
+    });
 
     try {
       const refined = await provider.refineTask(prompt, {}, context);

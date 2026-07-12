@@ -10,10 +10,16 @@ import type {
   TagConsolidationSuggestion,
   Task,
 } from "../../types";
-import { STORAGE_KEYS } from "../constants";
+import { STORAGE_KEYS, LINK_TYPES } from "../constants";
 import { toCoreTask } from "../runtime/coreDto";
 import { callNative } from "../runtime/runtimeEnvironment";
 import { aiService } from "./aiService";
+import {
+  CONSOLIDATE_TAGS_PROMPT,
+  DETECT_HIERARCHY_PROMPT,
+  SUGGEST_PROJECT_ASSIGNMENT_PROMPT,
+  fillOrganizePrompt,
+} from "./prompts/organize-prompts";
 import storageService from "./storageService";
 
 class AutoOrganizeService {
@@ -375,7 +381,11 @@ class AutoOrganizeService {
 
     try {
       const result = await aiService.analyzeTasks(
-        `Analyze these tasks and identify implicit parent-child relationships, dependency chains, and tasks that should be subtasks of other tasks.\n\nReturn a JSON array where each object has:\n{\n  "type": "parent-child" | "dependency-chain" | "subtask-promotion",\n  "parentTaskId": "the_parent_task_id",\n  "childTaskIds": ["child_1", "child_2"],\n  "confidence": 0.85,\n  "reasoning": "Why these tasks form a hierarchy"\n}\n\nTasks:\n${taskDetails}`,
+        fillOrganizePrompt(DETECT_HIERARCHY_PROMPT, {
+          workspace: context.activeProjectId || "default",
+          date: new Date().toISOString().slice(0, 10),
+          tasks: taskDetails,
+        }),
         tasks,
         context,
       );
@@ -392,7 +402,7 @@ class AutoOrganizeService {
               after: {
                 suggestedLinks: h.childTaskIds.map((id) => ({
                   targetTaskId: id,
-                  type: "blocks" as const,
+                  type: LINK_TYPES.BLOCKS,
                 })),
               },
               confidence: h.confidence,
@@ -428,7 +438,12 @@ class AutoOrganizeService {
 
     try {
       const result = await aiService.analyzeTasks(
-        `Analyze these tasks and suggest which project/workspace each task should belong to based on content, tags, and context.\n\nReturn a JSON array where each object has:\n{\n  "taskId": "task_id",\n  "suggestedProjectId": "project_id",\n  "confidence": 0.85,\n  "reasoning": "Why this project is a better fit"\n}\n\nAvailable Projects:\n${projectsList}\n\nTasks:\n${taskDetails}`,
+        fillOrganizePrompt(SUGGEST_PROJECT_ASSIGNMENT_PROMPT, {
+          workspace: context.activeProjectId || "default",
+          projects: projectsList,
+          date: new Date().toISOString().slice(0, 10),
+          tasks: taskDetails,
+        }),
         tasks,
         context,
       );
@@ -486,7 +501,10 @@ class AutoOrganizeService {
 
     try {
       const result = await aiService.analyzeTasks(
-        `Analyze all tags used across these tasks and identify tags that should be consolidated (merged) because they represent the same concept.\n\nReturn a JSON array where each object has:\n{\n  "tags": ["tag1", "tag2"],\n  "suggestedTag": "canonical_tag",\n  "affectedTaskIds": ["task_id_1", "task_id_2"],\n  "confidence": 0.85,\n  "reasoning": "Why these tags should be merged"\n}\n\nAll unique tags: ${Array.from(allTags).join(", ")}\n\nTasks:\n${taskDetails}`,
+        fillOrganizePrompt(CONSOLIDATE_TAGS_PROMPT, {
+          allTags: Array.from(allTags).join(", "),
+          tasks: taskDetails,
+        }),
         tasks,
         context,
       );
@@ -619,7 +637,7 @@ class AutoOrganizeService {
                   ...(task.links || []),
                   ...change.relatedTaskIds.map((id) => ({
                     targetTaskId: id,
-                    type: "relates-to" as const,
+                    type: LINK_TYPES.RELATES_TO,
                   })),
                 ];
                 callbacks.onUpdateTask(change.taskId, { links: newLinks });

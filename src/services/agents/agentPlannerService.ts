@@ -9,7 +9,7 @@
  */
 
 import type { AgentProfile, Task, TaskLink } from "../../../types";
-import { STORAGE_KEYS } from "../../constants";
+import { LINK_TYPES, STORAGE_KEYS } from "../../constants";
 import storageService from "../storageService";
 import { getBacklogColumnId } from "../../utils/taskUtils";
 import { generateTaskId } from "../../utils/taskUtils";
@@ -94,7 +94,7 @@ export function materializeSubtasks(options: PlannerMaterializeOptions): Materia
     subtasks,
     agents,
     columns,
-    linkType = "relates-to",
+    linkType = LINK_TYPES.RELATES_TO,
     tagPrefix,
   } = options;
 

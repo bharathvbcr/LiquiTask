@@ -179,10 +179,17 @@ export const LEGACY_COLUMN_MIGRATION: Record<string, string> = {
   Delivered: COLUMN_STATUS.COMMIT,
 };
 
-// Link types
+/** Canonical task-link types (`types.LinkType`). */
 export const LINK_TYPES = {
   BLOCKS: "blocks",
   BLOCKED_BY: "blocked-by",
   RELATES_TO: "relates-to",
   DUPLICATES: "duplicates",
 } as const;
+
+export const LINK_TYPE_OPTIONS = [
+  { value: LINK_TYPES.RELATES_TO, label: "Relates to" },
+  { value: LINK_TYPES.BLOCKS, label: "Blocks" },
+  { value: LINK_TYPES.BLOCKED_BY, label: "Blocked By" },
+  { value: LINK_TYPES.DUPLICATES, label: "Duplicates" },
+] as const;

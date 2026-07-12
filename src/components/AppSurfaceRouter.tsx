@@ -1,7 +1,6 @@
 import type React from "react";
 import { Suspense, lazy } from "react";
 
-import { FEATURE_FLAGS } from "../constants";
 import { PanelBoundary } from "./ErrorBoundary";
 import { ViewTransition } from "./ViewTransition";
 import type { AppSurface } from "../hooks/useAppSurface";
@@ -119,6 +118,3 @@ export const AppSurfaceRouter: React.FC<AppSurfaceRouterProps> = ({
     </>
   );
 };
-
-/** Whether the v3 shell is active (exported for App layout decisions). */
-export const isV3ShellActive = (): boolean => FEATURE_FLAGS.V3_SHELL_ENABLED;
