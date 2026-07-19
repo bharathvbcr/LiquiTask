@@ -94,6 +94,7 @@ import type {
   ToastType,
 } from "../../types";
 import { ModalWrapper } from "./ModalWrapper";
+import { TimeTracker } from "./TimeTracker";
 import { Tooltip } from "./Tooltip";
 import { TaskEvidencePanel } from "./agents/TaskEvidencePanel";
 import { useTaskForm } from "../hooks/useTaskForm";
@@ -141,6 +142,8 @@ interface TaskFormModalProps {
     similarTitleThreshold?: number;
   };
   addToast?: (msg: string, type: ToastType) => void;
+  /** Persist timeSpent immediately while editing (auto-save / Save on TimeTracker). */
+  onUpdateTimeSpent?: (taskId: string, timeSpent: number) => void;
 }
 
 export const TaskFormModal: React.FC<TaskFormModalProps> = ({
@@ -169,6 +172,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
     similarTitleThreshold: SIMILAR_TITLE_THRESHOLD,
   },
   addToast = () => {},
+  onUpdateTimeSpent,
 }) => {
   const form = useTaskForm({
     isOpen,
@@ -613,6 +617,26 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                   />
                 </Tooltip>
               </div>
+
+              {initialData && !String(initialData.id).startsWith("temp-") && (
+                <TimeTracker
+                  task={{
+                    ...initialData,
+                    title: formData.title,
+                    subtitle: formData.subtitle,
+                    summary: formData.summary,
+                    assignee: formData.assignee,
+                    priority: formData.priority,
+                    status: formData.status,
+                    timeSpent: formData.timeSpent ?? initialData.timeSpent ?? 0,
+                    timeEstimate: formData.timeEstimate ?? initialData.timeEstimate ?? 0,
+                  }}
+                  onSaveTime={(taskId, timeSpent) => {
+                    setFormData((prev) => ({ ...prev, timeSpent }));
+                    onUpdateTimeSpent?.(taskId, timeSpent);
+                  }}
+                />
+              )}
             </div>
 
             {/* Custom Fields Section */}

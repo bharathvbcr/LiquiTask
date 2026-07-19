@@ -17,6 +17,7 @@ import { COLUMN_STATUS } from "../constants";
 import { CalendarView } from "../views/board/CalendarView";
 import GanttView from "../views/board/GanttView";
 import ProjectBoard from "../views/board/ProjectBoard";
+import { EmptyState } from "./EmptyState";
 import { StatCard } from "./StatCard";
 import type { ViewMode } from "./ViewSwitcher";
 import { ViewTransition } from "./ViewTransition";
@@ -50,6 +51,12 @@ interface DashboardProps {
   onMoveToWorkspace?: (taskId: string, projectId: string) => void;
   onUpdateDueDate?: (taskId: string, newDate: Date) => void;
   onCreateTask?: (date: Date) => void;
+  /** Open the create-task modal (board empty CTA). */
+  onCreateTaskClick?: () => void;
+  /** Open the AI assistant (board empty CTA). */
+  onOpenAI?: () => void;
+  /** True when a search/filter has emptied the task list. */
+  hasActiveSearch?: boolean;
   viewMode?: ViewMode;
   onViewModeChange?: (mode: ViewMode) => void;
   onSuggestNextTask?: () => void;
@@ -76,6 +83,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onMoveToWorkspace,
   onUpdateDueDate,
   onCreateTask,
+  onCreateTaskClick,
+  onOpenAI,
+  hasActiveSearch = false,
   viewMode: externalViewMode,
   onViewModeChange,
   onSuggestNextTask,
@@ -322,30 +332,39 @@ export const Dashboard: React.FC<DashboardProps> = ({
             />
           </div>
         ) : viewMode === "board" ? (
-          <div className="pb-4 h-full overflow-x-auto scrollbar-hide">
-            <div className="min-w-[1200px] h-full">
-              <ProjectBoard
-                columns={columns}
-                priorities={priorities || []}
-                tasks={currentProjectTasks}
-                allTasks={tasks}
-                boardGrouping={boardGrouping}
-                onUpdateColumns={onUpdateColumns || (() => {})}
-                onMoveTask={onMoveTask}
-                onEditTask={onEditTask}
-                onUpdateTask={onUpdateTask}
-                onDeleteTask={onDeleteTask}
-                onArchiveTask={onArchiveTask}
-                addToast={addToast}
-                getTasksByContext={effectiveGetTasksByContext}
-                isCompact={isCompact}
-                onCopyTask={onCopyTask}
-                projectName={activeProject.name}
-                projects={projects}
-                onMoveToWorkspace={onMoveToWorkspace}
-              />
+          currentProjectTasks.length === 0 ? (
+            <EmptyState
+              type={hasActiveSearch ? "search" : "tasks"}
+              projectName={activeProject.name}
+              onCreateTask={hasActiveSearch ? undefined : onCreateTaskClick}
+              onOpenAI={hasActiveSearch ? undefined : onOpenAI}
+            />
+          ) : (
+            <div className="pb-4 h-full overflow-x-auto scrollbar-hide">
+              <div className="min-w-[1200px] h-full">
+                <ProjectBoard
+                  columns={columns}
+                  priorities={priorities || []}
+                  tasks={currentProjectTasks}
+                  allTasks={tasks}
+                  boardGrouping={boardGrouping}
+                  onUpdateColumns={onUpdateColumns || (() => {})}
+                  onMoveTask={onMoveTask}
+                  onEditTask={onEditTask}
+                  onUpdateTask={onUpdateTask}
+                  onDeleteTask={onDeleteTask}
+                  onArchiveTask={onArchiveTask}
+                  addToast={addToast}
+                  getTasksByContext={effectiveGetTasksByContext}
+                  isCompact={isCompact}
+                  onCopyTask={onCopyTask}
+                  projectName={activeProject.name}
+                  projects={projects}
+                  onMoveToWorkspace={onMoveToWorkspace}
+                />
+              </div>
             </div>
-          </div>
+          )
         ) : viewMode === "gantt" ? (
           <GanttView
             tasks={currentProjectTasks}

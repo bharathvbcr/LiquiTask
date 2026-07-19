@@ -141,6 +141,43 @@ describe("AgentForm", () => {
     expect(screen.getByText(/Runs via the agentd sidecar/)).toBeInTheDocument();
   });
 
+  it("shows advisor model picker for Claude Code workers and forwards changes", () => {
+    const onChange = vi.fn();
+    render(
+      <AgentForm draft={makeDraft()} onChange={onChange} workspacePaths={[]} addToast={vi.fn()} />,
+    );
+    expect(screen.getByText("Advisor model (optional)")).toBeInTheDocument();
+    expect(screen.getByText(/Sonnet main \+ Opus advisor/)).toBeInTheDocument();
+    expect(screen.getByText(/Fable advisor needs ≥2\.1\.170/)).toBeInTheDocument();
+    const input = screen.getByPlaceholderText(/Off — leave blank/);
+    fireEvent.change(input, { target: { value: "opus" } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ advisorModel: "opus" }));
+  });
+
+  it("hides advisor model picker for planner role", () => {
+    render(
+      <AgentForm
+        draft={makeDraft({ role: "planner", advisorModel: "opus" })}
+        onChange={vi.fn()}
+        workspacePaths={[]}
+        addToast={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText("Advisor model (optional)")).not.toBeInTheDocument();
+  });
+
+  it("hides advisor model picker for non-Claude runtimes", () => {
+    render(
+      <AgentForm
+        draft={makeDraft({ provider: "codex", advisorModel: "opus" })}
+        onChange={vi.fn()}
+        workspacePaths={[]}
+        addToast={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText("Advisor model (optional)")).not.toBeInTheDocument();
+  });
+
   it("clamps a negative daily cost cap to zero", () => {
     const onChange = vi.fn();
     render(

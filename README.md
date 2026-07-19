@@ -1,5 +1,7 @@
 # LiquiTask
 
+![LiquiTask Social Preview](src/assets/social-preview.jpg)
+
 LiquiTask is a **local-first agentic task workbench**: a desktop app where every
 task on the board can be handed to a coding agent the way you'd hand it to a
 teammate. Assign a card to Claude Code, Codex, Cursor, Antigravity, or any of

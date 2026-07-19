@@ -79,6 +79,34 @@ describe("localApi agentd routing", () => {
     );
   });
 
+  it("forwards advisorModel to agentd runStart when set", async () => {
+    setAgentdEnabled(true);
+    invokeMock.mockResolvedValue("run-advisor");
+    await localApi.runStart({
+      taskId: "t1",
+      runtime: "claude",
+      prompt: "do the thing",
+      advisorModel: "  opus  ",
+    });
+    expect(invokeMock).toHaveBeenCalledWith(
+      "agentd_run_start",
+      expect.objectContaining({ advisorModel: "opus" }),
+    );
+  });
+
+  it("omits advisorModel from agentd runStart when blank", async () => {
+    setAgentdEnabled(true);
+    invokeMock.mockResolvedValue("run-no-advisor");
+    await localApi.runStart({
+      taskId: "t1",
+      runtime: "claude",
+      prompt: "do the thing",
+      advisorModel: "   ",
+    });
+    const call = invokeMock.mock.calls.find((c) => c[0] === "agentd_run_start");
+    expect(call?.[1]).not.toHaveProperty("advisorModel");
+  });
+
   it("forwards SSH execution params to agentd runStart", async () => {
     setAgentdEnabled(true);
     invokeMock.mockResolvedValue("run-ssh");

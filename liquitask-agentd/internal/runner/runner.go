@@ -98,6 +98,7 @@ type StartParams struct {
 	PerRunTokenCap      int64             `json:"perRunTokenCap,omitempty"`
 	TodaySpendUsd       float64           `json:"todaySpendUsd,omitempty"`
 	TodayRunCount       int               `json:"todayRunCount,omitempty"`
+	AdvisorModel        string            `json:"advisorModel,omitempty"`
 }
 
 // Manager supervises agent runs and streams events via JSON-RPC notifications.
@@ -896,6 +897,7 @@ func (m *Manager) execute(ctx context.Context, ar *activeRun, p StartParams, cwd
 	opts := agent.ExecOptions{
 		Cwd:              cwd,
 		Model:            p.Model,
+		AdvisorModel:     p.AdvisorModel,
 		ThinkingLevel:    p.ThinkingLevel,
 		ResumeSessionID:  p.ResumeSessionID,
 		PermissionMode:   p.PermissionMode,

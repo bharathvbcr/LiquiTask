@@ -14,7 +14,7 @@
  *    don't flood the prompt;
  *  - results are ordered by score, then captured-before-installed, then input order.
  */
-import type { SkillCatalogEntry } from "../../core/skills/mergeSkillCatalog";
+import type { SkillCatalogEntry } from "../../core/skills";
 import type { AgentSkill, Task } from "../../../types";
 
 const DEFAULT_LIMIT = 5;

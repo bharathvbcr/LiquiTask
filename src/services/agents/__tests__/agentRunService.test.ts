@@ -21,11 +21,12 @@ import { agentRunService } from "../agentRunService";
 import type { AgentRun } from "../../../../types";
 
 /** Minimal persisted run record shaped like what storageService returns. */
-const persistedRun = (id: string, status: AgentRun["status"]) => ({
+const persistedRun = (id: string, status: AgentRun["status"], boardSynced?: boolean) => ({
   id,
   taskId: `task-${id}`,
   agentId: `agent-${id}`,
   status,
+  boardSynced,
   createdAt: new Date("2026-07-05T00:00:00.000Z").toISOString(),
   events: [],
 });
@@ -41,7 +42,7 @@ describe("agentRunService reattach + retro-drive (Runtime v2)", () => {
       persistedRun("r-done", "running"),
       persistedRun("r-failed", "running"),
       persistedRun("r-unknown", "verifying"),
-      persistedRun("r-old", "completed"), // terminal already — must be left alone
+      persistedRun("r-old", "completed", true), // terminal already — must be left alone
     ]);
 
     invokeMock.mockImplementation((cmd: string) => {

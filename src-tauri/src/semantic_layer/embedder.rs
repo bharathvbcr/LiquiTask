@@ -1,6 +1,7 @@
 //! Text embedding — deterministic for tests, fastembed for production.
 
 use sha2::{Digest, Sha256};
+use std::path::PathBuf;
 use std::sync::Mutex;
 
 use super::config::SemanticLayerConfig;
@@ -67,6 +68,54 @@ impl FastEmbedder {
     }
 }
 
+/// FastEmbed's default cache root (cwd-relative `.fastembed_cache`, or `FASTEMBED_CACHE_DIR`).
+fn fastembed_cache_dir() -> PathBuf {
+    std::env::var_os("FASTEMBED_CACHE_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(".fastembed_cache"))
+}
+
+/// True when a previously downloaded All-MiniLM-L6-v2 ONNX model is already on disk.
+///
+/// Cold-cache `TextEmbedding::try_new` downloads `model.onnx` from HuggingFace and can
+/// block the Tauri command thread for a long time (or hang on network failure). Startup
+/// must not pay that cost — use deterministic embeddings until a local cache exists.
+fn local_minilm_cache_present() -> bool {
+    let cache = fastembed_cache_dir();
+    if !cache.is_dir() {
+        return false;
+    }
+    let Ok(entries) = std::fs::read_dir(&cache) else {
+        return false;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            let onnx = path.join("model.onnx");
+            if onnx.is_file() {
+                return true;
+            }
+            // hf-hub layout: models--…/snapshots/<rev>/model.onnx
+            if let Ok(walker) = std::fs::read_dir(&path) {
+                for child in walker.flatten() {
+                    let child_path = child.path();
+                    if child_path.join("model.onnx").is_file() {
+                        return true;
+                    }
+                    if let Ok(snapshots) = std::fs::read_dir(child_path.join("snapshots")) {
+                        for snap in snapshots.flatten() {
+                            if snap.path().join("model.onnx").is_file() {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    false
+}
+
 impl Embedder for FastEmbedder {
     fn encode_one(&self, text: &str) -> Vec<f32> {
         let Ok(guard) = self.inner.lock() else {
@@ -91,6 +140,13 @@ impl Embedder for FastEmbedder {
 
 pub fn build_embedder(config: &SemanticLayerConfig) -> Box<dyn Embedder> {
     if cfg!(test) {
+        return Box::new(DeterministicEmbedder::new(config.embed_dim));
+    }
+    if !local_minilm_cache_present() {
+        eprintln!(
+            "[SemanticLayer] Embedding model not in local cache ({}); using deterministic embeddings",
+            fastembed_cache_dir().display()
+        );
         return Box::new(DeterministicEmbedder::new(config.embed_dim));
     }
     match FastEmbedder::new(config) {

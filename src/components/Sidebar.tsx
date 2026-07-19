@@ -35,6 +35,7 @@ import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 
 import type { Project, ProjectType } from "../../types";
 import logo from "../assets/logo.png";
+import { EmptyState } from "./EmptyState";
 import { Tooltip } from "./Tooltip";
 
 const EditProjectModal = React.lazy(() =>
@@ -647,8 +648,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             ))}
 
             {displayProjects.length === 0 && !isCollapsed && (
-              <div className="px-4 py-6 text-center text-xs text-slate-600 italic border border-dashed border-white/5 rounded-xl">
-                {projectSearch ? "No matching workspaces." : "No workspaces yet."}
+              <div className="px-2">
+                <EmptyState
+                  type={projectSearch ? "search" : "projects"}
+                  compact
+                  onCreateProject={projectSearch ? undefined : () => onAddProject()}
+                />
               </div>
             )}
           </div>

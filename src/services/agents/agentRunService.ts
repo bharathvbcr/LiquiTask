@@ -21,7 +21,7 @@ import agentScopeService from './agentScopeService';
 import agentReservationService from './agentReservationService';
 import { declarePlannedScope } from './scopeHeuristic';
 import agentSkillsService from './agentSkillsService';
-import { mergeSkillCatalog, type InstalledSkill } from '../../core/skills/mergeSkillCatalog';
+import { mergeSkillCatalog, type InstalledSkill } from '../../core/skills';
 import {
   catalogEntryToSkill,
   selectRunSkills as pinAndRankRunSkills,
@@ -252,18 +252,33 @@ function agentdProfileStartParams(agent: AgentProfile): {
   timeoutMs?: number;
   autoApprove?: boolean;
   toolPolicy?: Record<string, AgentToolPolicyAction>;
+  advisorModel?: string;
 } {
   const params: {
     timeoutMs?: number;
     autoApprove?: boolean;
     toolPolicy?: Record<string, AgentToolPolicyAction>;
+    advisorModel?: string;
   } = {};
   const timeoutMs = agentdStartTimeoutMs(agent, DEFAULT_RUN_LIMITS);
   if (timeoutMs > 0) params.timeoutMs = timeoutMs;
   if (agent.autoApprove === true) params.autoApprove = true;
   const policy = agent.toolPolicy;
   if (policy && Object.keys(policy).length > 0) params.toolPolicy = policy;
+  const advisor = resolveAdvisorModel(agent);
+  if (advisor) params.advisorModel = advisor;
   return params;
+}
+
+/**
+ * Claude Code advisor model for coding runs. Planner role never uses advisor;
+ * non-Claude providers ignore the field.
+ */
+export function resolveAdvisorModel(agent: AgentProfile): string | undefined {
+  if ((agent.role ?? 'default') === 'planner') return undefined;
+  if (agent.provider !== 'claude-code') return undefined;
+  const trimmed = agent.advisorModel?.trim();
+  return trimmed || undefined;
 }
 
 type QueueCacheEntry = { taskId: string; agentId: string; runId?: string };
@@ -554,6 +569,7 @@ class AgentRunService {
         run.status = 'failed';
         run.error = 'Interrupted by app restart';
         run.finishedAt = run.finishedAt ?? new Date();
+        run.boardSynced = true;
       } else if (info.alive) {
         // Still working detached — native events will resume the live stream.
         run.status = run.status === 'verifying' ? 'verifying' : 'running';
@@ -679,6 +695,13 @@ class AgentRunService {
     }
     this.initialized = false;
     this.readyGate = createReadyGate();
+    this.runs.clear();
+    this.queueCache = [];
+    this.activeByAgent.clear();
+    this.runContext.clear();
+    this.councilBuffers.clear();
+    this.verifyBuffers.clear();
+    this.agentdIdMap.clear();
   }
 
   /**
@@ -1659,6 +1682,10 @@ class AgentRunService {
         `Model: ${resolvedModel}${(agent.modelRouting ?? 'fixed') === 'auto' ? ' (auto-routed)' : ''}`
       );
     }
+    const advisorModel = resolveAdvisorModel(agent);
+    if (advisorModel) {
+      this.pushEvent(run, 'info', `Advisor: ${advisorModel}`);
+    }
     this.upsert(run);
     this.hooks.onRunStarted?.(task.id, run);
     void taskEventStore.appendSafe([
@@ -1800,7 +1827,7 @@ class AgentRunService {
           mode: 'devcouncil-e2e',
           prompt: councilGoal,
           workingDir,
-          model: null,
+          model: resolvedModel ?? null,
           permissionMode: null,
           maxTurns: null,
           containerImage: agentContainerImage(agent),
@@ -1808,6 +1835,7 @@ class AgentRunService {
           mcpConfigPath: mcpConfig,
           permissionPromptTool: permissionPromptToolFor(agent, mcpConfig),
           sandboxMode: agentSandboxMode(agent) === 'os' ? 'os' : null,
+          advisorModel: resolveAdvisorModel(agent) ?? null,
           ...policy,
         });
       } else {

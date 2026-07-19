@@ -18,6 +18,7 @@ import { useBoardDnDController } from "../../hooks/useBoardDnDController";
 import { useBoardKeyboardNav } from "../../hooks/useBoardKeyboardNav";
 import { useBulkSelection } from "../../hooks/useBulkSelection";
 import BulkActionsBar from "../../components/BulkActionsBar";
+import { SkeletonLoader } from "../../components/SkeletonLoader";
 
 const StandardBoardView = lazy(() => import("./StandardBoardView"));
 const PriorityBoardView = lazy(() => import("./PriorityBoardView"));
@@ -63,10 +64,8 @@ interface ProjectBoardProps {
 }
 
 const BoardLoadingFallback: React.FC = () => (
-  <div className="h-full w-full flex items-center justify-center">
-    <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-slate-400">
-      Loading board...
-    </div>
+  <div className="h-full w-full overflow-x-auto p-4">
+    <SkeletonLoader type="column" count={3} />
   </div>
 );
 

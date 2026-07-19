@@ -229,6 +229,14 @@ export interface AgentProfile {
   /** Repo/directory the agent works in. Must be an authorised workspace path. */
   workingDir: string;
   model?: string;
+  /**
+   * Optional Claude Code advisor model (`claude --advisor <model>`).
+   * Claude Code only; ignored for planner role and non-Claude runtimes.
+   * When unset on direct agentd runs, LiquiTask disables the advisor tool for
+   * that spawn so interactive user settings do not leak cost into board runs.
+   * Council e2e composes via a reserved DevCouncil CLI profile.
+   */
+  advisorModel?: string;
   permissionMode: AgentPermissionMode;
   /**
    * Auto-approve tool prompts without user confirmation. Explicit opt-in only;

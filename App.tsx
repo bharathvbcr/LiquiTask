@@ -7,6 +7,7 @@ import logo from './src/assets/logo.png';
 // Power User Features
 import type { CommandAction } from './src/components/CommandPalette';
 import { LiquidBackdrop } from './src/components/LiquidBackdrop';
+import { EmptyState } from './src/components/EmptyState';
 import { ViewTransition } from './src/components/ViewTransition';
 import { COLUMN_STATUS, FEATURE_FLAGS, STORAGE_KEYS } from './src/constants';
 import { useConfirmation } from './src/contexts/ConfirmationContext';
@@ -2175,6 +2176,16 @@ const App: React.FC = () => {
           });
           setIsTaskModalOpen(true);
         }}
+        onCreateTaskClick={() => {
+          setEditingTask(null);
+          setIsTaskModalOpen(true);
+        }}
+        onOpenAI={
+          aiFeaturesEnabled && isAiAssistantSidebarEnabled
+            ? () => setAiAssistantOpen(true)
+            : undefined
+        }
+        hasActiveSearch={Boolean(searchQuery.trim())}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         onSuggestNextTask={aiFeaturesEnabled ? handleSuggestNextTask : undefined}
@@ -2191,6 +2202,24 @@ const App: React.FC = () => {
           setIsTaskModalOpen(true);
         }}
         onUpdateTask={handleUpdateTask}
+      />
+    ) : currentProjectTasks.length === 0 ? (
+      <EmptyState
+        type={searchQuery.trim() ? 'search' : 'tasks'}
+        projectName={activeProject.name}
+        onCreateTask={
+          searchQuery.trim()
+            ? undefined
+            : () => {
+                setEditingTask(null);
+                setIsTaskModalOpen(true);
+              }
+        }
+        onOpenAI={
+          searchQuery.trim() || !(aiFeaturesEnabled && isAiAssistantSidebarEnabled)
+            ? undefined
+            : () => setAiAssistantOpen(true)
+        }
       />
     ) : (
       <ProjectBoard
@@ -2464,6 +2493,7 @@ const App: React.FC = () => {
               agents={{
                 agents,
                 agentRuns,
+                tasks,
                 runtimeHealth,
                 runtimeHealthLoading: runtimeHealthLoading && !runtimeHealth,
                 onOpenRun: setSelectedRunId,
@@ -2516,6 +2546,7 @@ const App: React.FC = () => {
             aiFeaturesEnabled={aiFeaturesEnabled}
             aiSettings={aiSettings}
             addToast={addToast}
+            onUpdateTimeSpent={(taskId, timeSpent) => handleUpdateTask(taskId, { timeSpent })}
           />
         </Suspense>
       )}

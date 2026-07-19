@@ -450,9 +450,13 @@ func (s *scheduler) tryDispatchQueued(entry QueueEntry) bool {
 	return true
 }
 
-func (s *scheduler) startFollowUp(intent *DispatchIntent, prompt, kind string) {
-	if intent == nil || strings.TrimSpace(prompt) == "" {
-		return
+// buildFollowUpStartParams clones the original start params (preserving
+// AdvisorModel, ThinkingLevel, MCP, sandbox, etc.) and overrides only the
+// follow-up prompt and resume session. Auto-repair resumes must not drop
+// advisor — empty AdvisorModel forces CLAUDE_CODE_DISABLE_ADVISOR_TOOL=1.
+func buildFollowUpStartParams(intent *DispatchIntent, prompt string) (StartParams, bool) {
+	if intent == nil {
+		return StartParams{}, false
 	}
 	params := StartParams{
 		TaskID:          intent.TaskID,
@@ -463,22 +467,37 @@ func (s *scheduler) startFollowUp(intent *DispatchIntent, prompt, kind string) {
 		ResumeSessionID: intent.SessionID,
 	}
 	if intent.StartParams != nil {
-		params.PermissionMode = intent.StartParams.PermissionMode
-		params.McpConfig = intent.StartParams.McpConfig
-		params.SandboxMode = intent.StartParams.SandboxMode
-		params.ContainerImage = intent.StartParams.ContainerImage
-		params.AutoApprove = intent.StartParams.AutoApprove
-		params.ToolPolicy = intent.StartParams.ToolPolicy
-		params.TimeoutMs = intent.StartParams.TimeoutMs
-		params.WorkspacePaths = intent.StartParams.WorkspacePaths
+		params = *intent.StartParams
+		params.Prompt = prompt
+		params.ResumeSessionID = intent.SessionID
+		if strings.TrimSpace(params.TaskID) == "" {
+			params.TaskID = intent.TaskID
+		}
+		if strings.TrimSpace(params.Runtime) == "" {
+			params.Runtime = intent.Runtime
+		}
+		if strings.TrimSpace(params.Cwd) == "" {
+			params.Cwd = intent.Cwd
+		}
+		if strings.TrimSpace(params.Model) == "" {
+			params.Model = intent.Model
+		}
 	}
 	if strings.TrimSpace(params.Cwd) == "" {
 		params.Cwd = intent.RepoDir
 	}
-	if strings.TrimSpace(params.Runtime) == "" && intent.StartParams != nil {
-		params.Runtime = intent.StartParams.Runtime
-	}
 	if strings.TrimSpace(params.ResumeSessionID) == "" {
+		return StartParams{}, false
+	}
+	return params, true
+}
+
+func (s *scheduler) startFollowUp(intent *DispatchIntent, prompt, kind string) {
+	if intent == nil || strings.TrimSpace(prompt) == "" {
+		return
+	}
+	params, ok := buildFollowUpStartParams(intent, prompt)
+	if !ok {
 		return
 	}
 	if err := s.mgr.queue.acquire(intent.AgentID, intent.LocalRunID, s.config.MaxConcurrentRuns); err != nil {

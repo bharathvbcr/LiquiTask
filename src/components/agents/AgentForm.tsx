@@ -16,8 +16,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { FEATURE_FLAGS } from '../../constants';
 import { localApi } from '../../core/api/localApi';
-import { mergeSkillCatalog } from '../../core/skills/mergeSkillCatalog';
-import type { SkillCatalogEntry } from '../../core/skills/mergeSkillCatalog';
+import { mergeSkillCatalog } from '../../core/skills';
+import type { SkillCatalogEntry } from '../../core/skills';
 import { getDesktopApi, isTauri } from '../../runtime/runtimeEnvironment';
 import agentRunService from '../../services/agents/agentRunService';
 import agentSkillsService from '../../services/agents/agentSkillsService';
@@ -363,6 +363,29 @@ export const AgentForm: React.FC<AgentFormProps> = ({
             </option>
           </select>
         </label>
+        {draft.provider === 'claude-code' && (draft.role ?? 'default') !== 'planner' && (
+          <label className="space-y-1.5 sm:col-span-2">
+            <span className="text-xs font-medium text-slate-300">Advisor model (optional)</span>
+            <input
+              list="lt-advisor-model-suggestions"
+              value={draft.advisorModel ?? ''}
+              onChange={e => set({ advisorModel: e.target.value.trim() || undefined })}
+              placeholder="Off — leave blank to disable"
+              className="w-full liquid-input rounded-lg px-3 py-2 text-sm"
+            />
+            <datalist id="lt-advisor-model-suggestions">
+              <option value="opus" />
+              <option value="sonnet" />
+              <option value="fable" />
+            </datalist>
+            <span className="block text-[11px] text-slate-500">
+              Claude Code ≥2.1.98 (Anthropic API). Typical pair: Sonnet main + Opus advisor; Fable
+              advisor needs ≥2.1.170. Passes <code className="text-slate-400">--advisor</code> on
+              direct runs; council mode adds a reserved DevCouncil profile. Stacks with plan/verify —
+              does not replace them. Ignored for planner role.
+            </span>
+          </label>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

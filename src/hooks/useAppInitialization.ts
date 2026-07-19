@@ -205,17 +205,20 @@ export const useAppInitialization = ({
         console.warn("[Storage] Encryption bootstrap failed:", error);
       }
 
-      try {
-        if (readAiFeaturesEnabled()) {
-          const data = storageService.getAllData();
-          skipOnboardingForExistingInstall(data);
-          if (!needsOnboardingExperienceChoice(data)) {
-            await semanticLayerService.initialize();
-            semanticLayerService.startHealthMonitor();
-          }
+      // Kick off the semantic engine in the background. Awaiting it here kept
+      // the app on "Loading LiquiTask..." while FastEmbed fetched model.onnx
+      // (or while spawn/health retries ran) — often tens of seconds.
+      if (readAiFeaturesEnabled()) {
+        const earlyData = storageService.getAllData();
+        skipOnboardingForExistingInstall(earlyData);
+        if (!needsOnboardingExperienceChoice(earlyData)) {
+          void semanticLayerService
+            .initialize()
+            .then(() => semanticLayerService.startHealthMonitor())
+            .catch((error) => {
+              console.warn("[SemanticLayer] Initialization failed:", error);
+            });
         }
-      } catch (error) {
-        console.warn("[SemanticLayer] Initialization failed:", error);
       }
 
       const data = storageService.getAllData();

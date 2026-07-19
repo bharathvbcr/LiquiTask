@@ -67,7 +67,7 @@ func (b *claudeBackend) Execute(ctx context.Context, prompt string, opts ExecOpt
 	if opts.Cwd != "" {
 		cmd.Dir = opts.Cwd
 	}
-	cmd.Env = buildEnv(b.cfg.Env)
+	cmd.Env = buildClaudeEnv(opts, b.cfg.Env)
 
 	pio, err := AttachProcessIO(cmd, "claude", opts)
 	if err != nil {
@@ -181,13 +181,17 @@ func (b *claudeBackend) Execute(ctx context.Context, prompt string, opts ExecOpt
 					output.WriteString(msg.ResultText)
 				}
 				if resultUsage := claudeResultUsage(msg, opts.Model); len(resultUsage) > 0 {
-					usage = resultUsage
+					mergeClaudeUsage(usage, resultUsage)
 				}
 				if msg.IsError {
 					finalStatus = "failed"
 					finalError = msg.ResultText
 				}
 				closeStdin()
+			case "server_tool_use":
+				emitClaudeServerToolUse(msgCh, msg.ID, msg.Name, msg.Input)
+			case "advisor_tool_result":
+				emitClaudeAdvisorToolResult(msgCh, msg.ToolUseID, msg.Content)
 			case "log":
 				if msg.Log != nil {
 					trySend(msgCh, Message{
@@ -305,7 +309,65 @@ func (b *claudeBackend) handleAssistant(msg claudeSDKMessage, ch chan<- Message,
 				CallID: block.ID,
 				Input:  input,
 			})
+		case "server_tool_use":
+			emitClaudeServerToolUse(ch, block.ID, block.Name, block.Input)
+		case "advisor_tool_result":
+			emitClaudeAdvisorToolResult(ch, block.ToolUseID, block.Content)
 		}
+	}
+}
+
+// emitClaudeServerToolUse surfaces Anthropic server tools we care about in
+// the run trace. Advisor consultations arrive as server_tool_use name=advisor
+// (content-block or top-level stream-json).
+func emitClaudeServerToolUse(ch chan<- Message, id, name string, inputRaw json.RawMessage) {
+	if name != "advisor" {
+		return
+	}
+	var input map[string]any
+	if inputRaw != nil {
+		_ = json.Unmarshal(inputRaw, &input)
+	}
+	trySend(ch, Message{
+		Type:   MessageToolUse,
+		Tool:   "advisor",
+		CallID: id,
+		Input:  input,
+	})
+}
+
+// emitClaudeAdvisorToolResult maps advisor_tool_result to MessageToolResult.
+// Plaintext advisor_result text is forwarded; redacted variants become a short
+// opaque marker so the UI can show that advising completed without decrypting.
+func emitClaudeAdvisorToolResult(ch chan<- Message, toolUseID string, content json.RawMessage) {
+	trySend(ch, Message{
+		Type:   MessageToolResult,
+		CallID: toolUseID,
+		Tool:   "advisor",
+		Output: formatClaudeAdvisorToolResult(content),
+	})
+}
+
+const claudeAdvisorRedactedMarker = "[advisor result redacted]"
+
+func formatClaudeAdvisorToolResult(content json.RawMessage) string {
+	if len(content) == 0 {
+		return ""
+	}
+	var parsed struct {
+		Type string `json:"type"`
+		Text string `json:"text"`
+	}
+	if err := json.Unmarshal(content, &parsed); err != nil {
+		return string(content)
+	}
+	switch parsed.Type {
+	case "advisor_result":
+		return parsed.Text
+	case "advisor_redacted_result":
+		return claudeAdvisorRedactedMarker
+	default:
+		return string(content)
 	}
 }
 
@@ -449,6 +511,13 @@ type claudeSDKMessage struct {
 	Usage      *claudeUsage                      `json:"usage,omitempty"`
 	ModelUsage map[string]claudeResultModelUsage `json:"modelUsage,omitempty"`
 
+	// top-level server_tool_use / advisor_tool_result (Claude Code stream-json)
+	ID        string          `json:"id,omitempty"`
+	Name      string          `json:"name,omitempty"`
+	Input     json.RawMessage `json:"input,omitempty"`
+	ToolUseID string          `json:"tool_use_id,omitempty"`
+	Content   json.RawMessage `json:"content,omitempty"`
+
 	// log fields
 	Log *claudeLogEntry `json:"log,omitempty"`
 
@@ -524,6 +593,18 @@ func claudeResultUsage(msg claudeSDKMessage, fallbackModel string) map[string]To
 	}
 }
 
+// mergeClaudeUsage overlays src onto dst by model key. Result modelUsage is
+// treated as authoritative for models it reports, while models only seen in
+// mid-stream accumulation (e.g. executor before advisor) are preserved.
+func mergeClaudeUsage(dst, src map[string]TokenUsage) {
+	if dst == nil || len(src) == 0 {
+		return
+	}
+	for model, u := range src {
+		dst[model] = u
+	}
+}
+
 func claudeUsageHasTokens(input, output, cacheRead, cacheWrite int64) bool {
 	return input > 0 || output > 0 || cacheRead > 0 || cacheWrite > 0
 }
@@ -572,6 +653,9 @@ var claudeBlockedArgs = map[string]blockedArgMode{
 	// log a warning rather than letting the CLI receive two conflicting
 	// --effort values.
 	"--effort": blockedWithValue,
+	// `--advisor` is owned by AdvisorModel so custom_args cannot silently
+	// enable or retarget the advisor tool outside LiquiTask's profile knob.
+	"--advisor": blockedWithValue,
 }
 
 func buildClaudeArgs(opts ExecOptions, logger *slog.Logger) []string {
@@ -599,6 +683,9 @@ func buildClaudeArgs(opts ExecOptions, logger *slog.Logger) []string {
 		// itself accepts the flag in any order but this ordering makes
 		// the launch line readable in `agent command` logs.
 		args = append(args, "--effort", opts.ThinkingLevel)
+	}
+	if advisor := strings.TrimSpace(opts.AdvisorModel); advisor != "" {
+		args = append(args, "--advisor", advisor)
 	}
 	if opts.MaxTurns > 0 {
 		args = append(args, "--max-turns", fmt.Sprintf("%d", opts.MaxTurns))
@@ -661,6 +748,35 @@ func resolveSessionID(requestedResume, emitted string, failed bool) string {
 
 func buildEnv(extra map[string]string) []string {
 	return mergeEnv(allowedHostEnviron(), extra)
+}
+
+// buildClaudeEnv builds the Claude Code child environment. LiquiTask is
+// authoritative for the advisor tool on board runs: when AdvisorModel is
+// unset we force CLAUDE_CODE_DISABLE_ADVISOR_TOOL=1 so interactive user
+// settings cannot leak cost; when set we strip any inherited disable flag
+// so --advisor is not silently no-op'd.
+func buildClaudeEnv(opts ExecOptions, extra map[string]string) []string {
+	envExtra := make(map[string]string, len(extra)+1)
+	for k, v := range extra {
+		envExtra[k] = v
+	}
+	const disableKey = "CLAUDE_CODE_DISABLE_ADVISOR_TOOL"
+	if strings.TrimSpace(opts.AdvisorModel) == "" {
+		envExtra[disableKey] = "1"
+	} else {
+		delete(envExtra, disableKey)
+	}
+
+	base := allowedHostEnviron()
+	filtered := make([]string, 0, len(base))
+	for _, entry := range base {
+		key, _, _ := strings.Cut(entry, "=")
+		if key == disableKey {
+			continue
+		}
+		filtered = append(filtered, entry)
+	}
+	return mergeEnv(filtered, envExtra)
 }
 
 func mergeEnv(base []string, extra map[string]string) []string {

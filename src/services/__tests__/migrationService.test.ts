@@ -293,7 +293,7 @@ describe("MigrationService", () => {
       expect(result.data?.projects).toEqual(data.projects);
       // v1.1.0 rebuilds the canonical agentic columns but preserves custom ones.
       const columnIds = result.data?.columns?.map((c) => c.id);
-      expect(columnIds).toEqual(["Task", "InProgress", "Completed", "Commit", "col1"]);
+      expect(columnIds).toEqual(["Task", "InProgress", "Completed", "InReview", "Commit", "col1"]);
       expect(result.data?.columns?.find((c) => c.id === "col1")).toEqual(data.columns?.[0]);
     });
   });

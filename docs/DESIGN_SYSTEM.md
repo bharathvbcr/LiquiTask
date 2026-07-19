@@ -76,6 +76,19 @@ smooth (`--lt-ease-smooth`) for everything else. Modals spring in (scale 0.95→
 slide from the right; status dots ping. Glows and shimmer are for emphasis only, used
 sparingly. All motion must respect `prefers-reduced-motion`.
 
+### Liquid physics (the signature motion)
+
+The `.liquid-card` blobs are driven by a fixed-timestep (120 Hz) fluid simulation in
+`useLiquidBlobPhysics`: viscous (linear + quadratic) drag, a smoothed "flow" coupling so the
+liquid answers the hand with weight, cohesion between the main body / surface film / droplet,
+soft wall collisions that ripple, and velocity-aligned stretch so blobs elongate like real
+fluid parcels. Hard sloshes fling the droplet off its surface-tension ligament; it arcs,
+snaps back, and merges into the pool with a pulse. Pressing pokes the surface; releasing
+rebounds. The simulation sleeps once settled and always snaps to a pixel-perfect rest state.
+Drag-and-drop ends in a splash (`DropSplash` + `.lt-splash`): ballistic droplets that stall at
+their apex and splat flat, an opening crown, organic morphing shockwave rings, and a
+Worthington rebound jet. All of it honors `prefers-reduced-motion` and the reduced GPU tier.
+
 ## Iconography
 
 One system: Lucide (`lucide-react`), 18–20px at 2px stroke with rounded caps. Neutral slate by

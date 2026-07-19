@@ -59,6 +59,8 @@ vi.mock("../../storageService", () => ({
 
 import { FEATURE_FLAGS } from "../../../constants";
 import { agentRunService } from "../agentRunService";
+import agentReservationService from "../agentReservationService";
+import agentScopeService from "../agentScopeService";
 import type { AgentProfile, Task } from "../../../../types";
 
 const codexAgent: AgentProfile = {
@@ -105,12 +107,20 @@ function emitAgentd(payload: Record<string, unknown>) {
   handler!({ payload });
 }
 
+function emitScheduler(payload: Record<string, unknown>) {
+  const handler = listeners.get("agentd-scheduler-event");
+  expect(handler).toBeDefined();
+  handler!({ payload });
+}
+
 describe("agentRunService agentd routing", () => {
   beforeEach(() => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     invokeMock.mockReset();
     listeners.clear();
     agentRunService.dispose();
+    agentReservationService.resetForTests();
+    agentScopeService.resetForTests();
   });
 
   it("starts non-claude providers through agentd and maps streamed events", async () => {
@@ -141,6 +151,13 @@ describe("agentRunService agentd routing", () => {
       kind: "result",
       status: "completed",
       text: "done",
+      sessionId: "sess-9",
+    });
+    emitScheduler({
+      runId: "sidecar-run-1",
+      localRunId: run!.id,
+      kind: "scheduler.run.finished",
+      status: "completed",
       sessionId: "sess-9",
     });
 
@@ -381,6 +398,57 @@ describe("agentRunService agentd routing", () => {
       autoApprove: true,
       toolPolicy: { bash: "allow", write: "deny" },
     });
+  });
+
+  it("forwards advisorModel to agentd_run_start for Claude Code workers", async () => {
+    invokeMock.mockClear();
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "agent_runs_reattach") return Promise.resolve([]);
+      if (cmd === "agentd_run_start") return Promise.resolve("sidecar-advisor-1");
+      if (cmd === "agent_mcp_init") return Promise.resolve(mcpInitResponse("/tmp/liquitask-mcp/run-advisor"));
+      if (cmd === "agent_mcp_resolve_bridge")
+        return Promise.resolve("/app/scripts/liquitask-mcp-bridge.mjs");
+      if (cmd === "agent_mcp_list_requests") return Promise.resolve([]);
+      return Promise.resolve(undefined);
+    });
+
+    const advisorAgent: AgentProfile = {
+      ...claudeAgent,
+      id: "agent-advisor-1",
+      advisorModel: "  opus  ",
+    };
+
+    const run = await agentRunService.assign({ ...task, id: "task-advisor" }, advisorAgent);
+    expect(run?.status).toBe("running");
+    expect(run?.events.some((e) => e.kind === "info" && e.text === "Advisor: opus")).toBe(true);
+
+    const startCall = invokeMock.mock.calls.find((c) => c[0] === "agentd_run_start")!;
+    expect(startCall[1]).toMatchObject({
+      taskId: "task-advisor",
+      runtime: "claude",
+      advisorModel: "opus",
+    });
+  });
+
+  it("omits advisorModel from agentd_run_start when the profile has none", async () => {
+    invokeMock.mockClear();
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "agent_runs_reattach") return Promise.resolve([]);
+      if (cmd === "agentd_run_start") return Promise.resolve("sidecar-no-advisor-1");
+      if (cmd === "agent_mcp_init")
+        return Promise.resolve(mcpInitResponse("/tmp/liquitask-mcp/run-no-advisor"));
+      if (cmd === "agent_mcp_resolve_bridge")
+        return Promise.resolve("/app/scripts/liquitask-mcp-bridge.mjs");
+      if (cmd === "agent_mcp_list_requests") return Promise.resolve([]);
+      return Promise.resolve(undefined);
+    });
+
+    await agentRunService.assign(
+      { ...task, id: "task-no-advisor" },
+      { ...claudeAgent, id: "agent-no-advisor-1" },
+    );
+    const startCall = invokeMock.mock.calls.find((c) => c[0] === "agentd_run_start")!;
+    expect(startCall[1]).not.toHaveProperty("advisorModel");
   });
 
   it("does not forward autoApprove when the profile has not opted in", async () => {

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -82,6 +83,115 @@ func TestClaudeHandleAssistantToolUse(t *testing.T) {
 		}
 	default:
 		t.Fatal("expected message on channel")
+	}
+}
+
+func TestClaudeHandleAssistantAdvisorServerToolUse(t *testing.T) {
+	t.Parallel()
+
+	b := &claudeBackend{cfg: Config{Logger: slog.Default()}}
+	ch := make(chan Message, 10)
+	var output strings.Builder
+
+	msg := claudeSDKMessage{
+		Type: "assistant",
+		Message: mustMarshal(t, claudeMessageContent{
+			Role: "assistant",
+			Content: []claudeContentBlock{
+				{
+					Type:  "server_tool_use",
+					ID:    "srvtoolu_abc",
+					Name:  "advisor",
+					Input: mustMarshal(t, map[string]any{}),
+				},
+				{
+					Type:      "advisor_tool_result",
+					ToolUseID: "srvtoolu_abc",
+					Content: mustMarshal(t, map[string]any{
+						"type": "advisor_result",
+						"text": "Prefer channels for coordination.",
+					}),
+				},
+			},
+		}),
+	}
+
+	b.handleAssistant(msg, ch, &output, make(map[string]TokenUsage))
+
+	use := <-ch
+	if use.Type != MessageToolUse || use.Tool != "advisor" || use.CallID != "srvtoolu_abc" {
+		t.Fatalf("unexpected tool use: %+v", use)
+	}
+	result := <-ch
+	if result.Type != MessageToolResult || result.CallID != "srvtoolu_abc" || result.Tool != "advisor" {
+		t.Fatalf("unexpected tool result: %+v", result)
+	}
+	if result.Output != "Prefer channels for coordination." {
+		t.Fatalf("advisor result text = %q", result.Output)
+	}
+}
+
+func TestClaudeHandleAssistantAdvisorRedactedResult(t *testing.T) {
+	t.Parallel()
+
+	b := &claudeBackend{cfg: Config{Logger: slog.Default()}}
+	ch := make(chan Message, 10)
+	var output strings.Builder
+
+	msg := claudeSDKMessage{
+		Type: "assistant",
+		Message: mustMarshal(t, claudeMessageContent{
+			Role: "assistant",
+			Content: []claudeContentBlock{
+				{
+					Type:      "advisor_tool_result",
+					ToolUseID: "srvtoolu_redacted",
+					Content: mustMarshal(t, map[string]any{
+						"type":              "advisor_redacted_result",
+						"encrypted_content": "opaque-blob",
+					}),
+				},
+			},
+		}),
+	}
+
+	b.handleAssistant(msg, ch, &output, make(map[string]TokenUsage))
+
+	result := <-ch
+	if result.Type != MessageToolResult || result.Output != claudeAdvisorRedactedMarker {
+		t.Fatalf("expected redacted marker, got %+v", result)
+	}
+}
+
+func TestClaudeTopLevelAdvisorStreamEvents(t *testing.T) {
+	t.Parallel()
+
+	ch := make(chan Message, 10)
+	emitClaudeServerToolUse(ch, "srvtoolu_top", "advisor", mustMarshal(t, map[string]any{}))
+	emitClaudeAdvisorToolResult(ch, "srvtoolu_top", mustMarshal(t, map[string]any{
+		"type": "advisor_result",
+		"text": "Ship the smaller fix first.",
+	}))
+
+	use := <-ch
+	if use.Type != MessageToolUse || use.Tool != "advisor" || use.CallID != "srvtoolu_top" {
+		t.Fatalf("unexpected top-level tool use: %+v", use)
+	}
+	result := <-ch
+	if result.Type != MessageToolResult || result.Output != "Ship the smaller fix first." {
+		t.Fatalf("unexpected top-level tool result: %+v", result)
+	}
+}
+
+func TestClaudeIgnoresNonAdvisorServerToolUse(t *testing.T) {
+	t.Parallel()
+
+	ch := make(chan Message, 1)
+	emitClaudeServerToolUse(ch, "srvtoolu_other", "web_search", mustMarshal(t, map[string]any{"query": "x"}))
+	select {
+	case m := <-ch:
+		t.Fatalf("non-advisor server_tool_use should be ignored, got %+v", m)
+	default:
 	}
 }
 
@@ -832,6 +942,108 @@ func TestClaudeExecuteRecordsResultModelUsage(t *testing.T) {
 	}
 }
 
+func TestMergeClaudeUsagePreservesMultiModel(t *testing.T) {
+	t.Parallel()
+
+	usage := map[string]TokenUsage{
+		"claude-sonnet-4-6": {InputTokens: 10, OutputTokens: 2},
+	}
+	mergeClaudeUsage(usage, map[string]TokenUsage{
+		"claude-opus-4-8":   {InputTokens: 1000, OutputTokens: 50},
+		"claude-sonnet-4-6": {InputTokens: 200, OutputTokens: 40},
+	})
+	if usage["claude-sonnet-4-6"].InputTokens != 200 || usage["claude-sonnet-4-6"].OutputTokens != 40 {
+		t.Fatalf("executor usage should be overwritten by result modelUsage: %+v", usage["claude-sonnet-4-6"])
+	}
+	if usage["claude-opus-4-8"].InputTokens != 1000 {
+		t.Fatalf("advisor usage missing after merge: %+v", usage)
+	}
+}
+
+func TestClaudeExecuteMergesExecutorAndAdvisorModelUsage(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "windows" {
+		t.Skip("shell-script fixture is POSIX-only")
+	}
+
+	fakePath := filepath.Join(t.TempDir(), "claude")
+	// Mid-stream assistant usage for the executor, then result modelUsage that
+	// only lists the advisor — merge must keep both keys.
+	script := "#!/bin/sh\n" +
+		"IFS= read -r _\n" +
+		"printf '%s\\n' '{\"type\":\"system\",\"session_id\":\"sess-multi-usage\"}'\n" +
+		"printf '%s\\n' '{\"type\":\"assistant\",\"message\":{\"role\":\"assistant\",\"model\":\"claude-sonnet-4-6\",\"usage\":{\"input_tokens\":111,\"output_tokens\":22,\"cache_read_input_tokens\":0,\"cache_creation_input_tokens\":0},\"content\":[{\"type\":\"text\",\"text\":\"working\"}]}}'\n" +
+		"printf '%s\\n' '{\"type\":\"server_tool_use\",\"id\":\"srvtoolu_1\",\"name\":\"advisor\",\"input\":{}}'\n" +
+		"printf '%s\\n' '{\"type\":\"advisor_tool_result\",\"tool_use_id\":\"srvtoolu_1\",\"content\":{\"type\":\"advisor_result\",\"text\":\"Ship it.\"}}'\n" +
+		"printf '%s\\n' '{\"type\":\"result\",\"subtype\":\"success\",\"is_error\":false,\"session_id\":\"sess-multi-usage\",\"result\":\"done\",\"modelUsage\":{\"claude-opus-4-8\":{\"inputTokens\":900,\"outputTokens\":80,\"cacheReadInputTokens\":0,\"cacheCreationInputTokens\":0}}}'\n"
+	writeTestExecutable(t, fakePath, []byte(script))
+
+	backend, err := New("claude", Config{ExecutablePath: fakePath, Logger: slog.Default()})
+	if err != nil {
+		t.Fatalf("new claude backend: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	session, err := backend.Execute(ctx, "prompt-ignored", ExecOptions{
+		Timeout:      5 * time.Second,
+		AdvisorModel: "opus",
+	})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	var (
+		mu              sync.Mutex
+		sawAdvisorUse   bool
+		sawAdvisorResult bool
+	)
+	drained := make(chan struct{})
+	go func() {
+		defer close(drained)
+		for m := range session.Messages {
+			mu.Lock()
+			if m.Type == MessageToolUse && m.Tool == "advisor" {
+				sawAdvisorUse = true
+			}
+			if m.Type == MessageToolResult && m.Tool == "advisor" && m.Output == "Ship it." {
+				sawAdvisorResult = true
+			}
+			mu.Unlock()
+		}
+	}()
+
+	select {
+	case result, ok := <-session.Result:
+		if !ok {
+			t.Fatal("result channel closed without a value")
+		}
+		<-drained
+		executor, ok := result.Usage["claude-sonnet-4-6"]
+		if !ok {
+			t.Fatalf("expected executor usage preserved after merge, got %#v", result.Usage)
+		}
+		if executor.InputTokens != 111 || executor.OutputTokens != 22 {
+			t.Fatalf("unexpected executor usage: %+v", executor)
+		}
+		advisor, ok := result.Usage["claude-opus-4-8"]
+		if !ok {
+			t.Fatalf("expected advisor usage from modelUsage, got %#v", result.Usage)
+		}
+		if advisor.InputTokens != 900 || advisor.OutputTokens != 80 {
+			t.Fatalf("unexpected advisor usage: %+v", advisor)
+		}
+		mu.Lock()
+		gotUse, gotResult := sawAdvisorUse, sawAdvisorResult
+		mu.Unlock()
+		if !gotUse || !gotResult {
+			t.Fatalf("expected advisor stream events, use=%v result=%v", gotUse, gotResult)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("timeout waiting for result")
+	}
+}
+
 func mustMarshal(t *testing.T, v any) json.RawMessage {
 	t.Helper()
 	data, err := json.Marshal(v)
@@ -861,5 +1073,76 @@ func TestBuildClaudeArgsExtraArgsBeforeCustomArgsAndFiltersBoth(t *testing.T) {
 	}
 	if extraIdx == -1 || customIdx == -1 || extraIdx > customIdx {
 		t.Fatalf("expected extra args before custom args, got %v", args)
+	}
+}
+
+func TestBuildClaudeArgsAdvisorModel(t *testing.T) {
+	t.Parallel()
+
+	withAdvisor := buildClaudeArgs(ExecOptions{AdvisorModel: "opus"}, slog.Default())
+	found := false
+	for i := 0; i+1 < len(withAdvisor); i++ {
+		if withAdvisor[i] == "--advisor" && withAdvisor[i+1] == "opus" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected --advisor opus, got %v", withAdvisor)
+	}
+
+	without := buildClaudeArgs(ExecOptions{}, slog.Default())
+	for _, a := range without {
+		if a == "--advisor" {
+			t.Fatalf("expected no --advisor when AdvisorModel unset, got %v", without)
+		}
+	}
+}
+
+func TestBuildClaudeArgsBlocksCustomAdvisor(t *testing.T) {
+	t.Parallel()
+
+	args := buildClaudeArgs(ExecOptions{
+		AdvisorModel: "sonnet",
+		CustomArgs:   []string{"--advisor", "opus", "--verbose"},
+	}, slog.Default())
+	joined := strings.Join(args, " ")
+	if strings.Contains(joined, "--advisor opus") {
+		t.Fatalf("custom --advisor must be blocked, got %v", args)
+	}
+	if !strings.Contains(joined, "--advisor sonnet") {
+		t.Fatalf("expected profile AdvisorModel sonnet, got %v", args)
+	}
+	if !strings.Contains(joined, "--verbose") {
+		t.Fatalf("expected non-blocked custom arg to survive, got %v", args)
+	}
+}
+
+func TestBuildClaudeEnvDisablesAdvisorWhenUnset(t *testing.T) {
+	t.Parallel()
+
+	env := buildClaudeEnv(ExecOptions{}, nil)
+	found := false
+	for _, entry := range env {
+		if entry == "CLAUDE_CODE_DISABLE_ADVISOR_TOOL=1" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected CLAUDE_CODE_DISABLE_ADVISOR_TOOL=1 when advisor unset, got %v", env)
+	}
+}
+
+func TestBuildClaudeEnvOmitsDisableWhenAdvisorSet(t *testing.T) {
+	t.Parallel()
+
+	env := buildClaudeEnv(ExecOptions{AdvisorModel: "opus"}, map[string]string{
+		"CLAUDE_CODE_DISABLE_ADVISOR_TOOL": "1",
+	})
+	for _, entry := range env {
+		if strings.HasPrefix(entry, "CLAUDE_CODE_DISABLE_ADVISOR_TOOL=") {
+			t.Fatalf("disable env must be omitted when AdvisorModel set, got %v", env)
+		}
 	}
 }

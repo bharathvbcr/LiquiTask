@@ -9,12 +9,13 @@
  * language of AgentTeamPanel / AgentRunsDock (glass rows, PresenceRing,
  * StatusPill) so this feels like the same product.
  */
-import { Bot, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { AlertTriangle, Bot, CalendarClock, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 
-import { deriveSquads } from '../../core/squads/deriveSquads';
-import type { AgentProfile, AgentRun } from '../../../types';
+import { deriveAutopilots } from '../../core/autopilots';
+import { deriveSquads } from '../../core/squads';
+import type { AgentProfile, AgentRun, Task } from '../../../types';
 import { FlatCard, PresenceRing, StatusPill } from '../../ui';
 import type { PresenceStatus } from '../../ui';
 import {
@@ -36,6 +37,8 @@ export interface RuntimeHealthInfo {
 export interface AgentsViewProps {
   agents: AgentProfile[];
   agentRuns: AgentRun[];
+  /** Board tasks — used to derive recurring autopilots (agent + recurring task pairs). */
+  tasks?: Task[];
   /** Detected runtime binaries (from `localApi.detectRuntimes()`), when the agentd sidecar is enabled. */
   runtimeHealth?: RuntimeHealthInfo[];
   /** True while the first runtime scan is still running — shows a shimmer instead of popping in. */
@@ -283,6 +286,7 @@ const AgentRosterRow: React.FC<AgentRosterRowProps> = ({
 export const AgentsView: React.FC<AgentsViewProps> = ({
   agents,
   agentRuns,
+  tasks = [],
   runtimeHealth,
   runtimeHealthLoading = false,
   onSelectAgent,
@@ -334,6 +338,11 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
     return { squadSections: sections, soloAgents: solo };
   }, [filteredAgents, agentRuns]);
 
+  const autopilots = useMemo(
+    () => deriveAutopilots(agents, tasks, agentRuns),
+    [agents, tasks, agentRuns],
+  );
+
   const renderRow = (agent: AgentProfile) => (
     <AgentRosterRow
       key={agent.id}
@@ -383,6 +392,52 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
         <RuntimeHealthSkeleton />
       ) : (
         runtimeHealth && runtimeHealth.length > 0 && <RuntimeHealthStrip runtimes={runtimeHealth} />
+      )}
+
+      {autopilots.length > 0 && (
+        <section className="space-y-2" aria-label="Autopilots">
+          <h3 className="px-1 text-[10px] uppercase tracking-widest text-slate-500">Autopilots</h3>
+          <div className="space-y-2">
+            {autopilots.map(autopilot => (
+              <FlatCard key={autopilot.id} className="flex items-start gap-3 p-3">
+                <div
+                  className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${
+                    autopilot.healthy
+                      ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400'
+                      : 'border-amber-500/20 bg-amber-500/10 text-amber-400'
+                  }`}
+                >
+                  {autopilot.healthy ? (
+                    <CalendarClock size={16} aria-hidden />
+                  ) : (
+                    <AlertTriangle size={16} aria-hidden />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate text-sm font-medium text-slate-200">{autopilot.taskTitle}</p>
+                    {!autopilot.healthy && (
+                      <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-300">
+                        Unhealthy
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {autopilot.agentName} · {autopilot.cadenceLabel}
+                    {autopilot.nextRunAt
+                      ? ` · Next ${autopilot.nextRunAt.toLocaleString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: 'numeric',
+                          minute: '2-digit',
+                        })}`
+                      : ''}
+                  </p>
+                </div>
+              </FlatCard>
+            ))}
+          </div>
+        </section>
       )}
 
       {!hasAgents ? (

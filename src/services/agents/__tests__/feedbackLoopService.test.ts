@@ -1,17 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../../runtime/runtimeEnvironment", () => ({ isTauri: () => true }));
-
-vi.mock("../../../constants", () => ({
-  COLUMN_STATUS: {
-    TASK: "Task",
-    IN_PROGRESS: "InProgress",
-    COMPLETED: "Completed",
-    IN_REVIEW: "InReview",
-    COMMIT: "Commit",
-  },
-  FEATURE_FLAGS: { AGENTD_SIDECAR_ENABLED: false },
+vi.mock("../../../runtime/runtimeEnvironment", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  isTauri: () => true,
 }));
+
+vi.mock("../../../constants", async (importOriginal) => {
+  const actual = await importOriginal<any>();
+  return {
+    ...actual,
+    FEATURE_FLAGS: {
+      ...actual.FEATURE_FLAGS,
+      AGENTD_SIDECAR_ENABLED: false,
+    },
+  };
+});
 
 const feedbackWatch = vi.fn();
 vi.mock("../../../core/api/localApi", () => ({

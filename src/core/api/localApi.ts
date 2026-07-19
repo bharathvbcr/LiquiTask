@@ -207,6 +207,7 @@ export const localApi = {
     agentId?: string;
     runtime: string;
     model?: string;
+    advisorModel?: string;
     cwd?: string;
     prompt: string;
     scope?: string[];
@@ -242,6 +243,9 @@ export const localApi = {
         mcpConfig: params.mcpConfig,
         permissionMode: params.permissionMode,
       };
+      if (params.advisorModel?.trim()) {
+        args.advisorModel = params.advisorModel.trim();
+      }
       if (params.timeoutMs !== undefined) args.timeoutMs = params.timeoutMs;
       if (params.autoApprove !== undefined) args.autoApprove = params.autoApprove;
       if (params.toolPolicy !== undefined) args.toolPolicy = params.toolPolicy;

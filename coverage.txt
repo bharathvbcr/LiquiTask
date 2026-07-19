@@ -1,0 +1,241 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.9 [39m[90m/Users/bharath/Code/LiquiTask[39m
+
+ [32m✓[39m src/core/events/__tests__/taskEventStore.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 225[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/mergePipelineService.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 290[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/agentRunServiceWorkspace.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 346[2mms[22m[39m
+     [33m[2m✓[22m[39m blocks the run and records a dead-letter when the project has no workspace [33m 337[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/agentRunServiceRepoDir.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 347[2mms[22m[39m
+     [33m[2m✓[22m[39m discardWorktree targets the run's persisted repoDir even with no live context [33m 334[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/agentRunServiceClear.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 357[2mms[22m[39m
+     [33m[2m✓[22m[39m removeRun deletes a clean terminal run (and does not re-add it) [33m 337[2mms[22m[39m
+ [32m✓[39m src/components/__tests__/ErrorBoundary.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[32m 191[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/agentRunServiceOrchestration.test.ts [2m([22m[2m10 tests[22m[2m)[22m[33m 408[2mms[22m[39m
+     [33m[2m✓[22m[39m routes cancel through finishRun hooks and releases the agent queue [33m 327[2mms[22m[39m
+ [32m✓[39m src/components/__tests__/Sidebar.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[33m 305[2mms[22m[39m
+ [32m✓[39m src/views/board/__tests__/CalendarView.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 333[2mms[22m[39m
+ [32m✓[39m src/components/__tests__/AIProjectAssignmentModal.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 261[2mms[22m[39m
+ [32m✓[39m src/components/__tests__/TaskAssistantSidebar.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[32m 256[2mms[22m[39m
+ [32m✓[39m src/components/__tests__/AppHeader.test.tsx [2m([22m[2m14 tests[22m[2m)[22m[33m 341[2mms[22m[39m
+ [32m✓[39m src/components/agents/__tests__/AgentForm.test.tsx [2m([22m[2m11 tests[22m[2m)[22m[33m 460[2mms[22m[39m
+ [32m✓[39m src/components/settings/__tests__/AiSettings.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 551[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/agentMcpDlqRetry.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 127[2mms[22m[39m
+ [32m✓[39m src/components/__tests__/AIReorganizeModal.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 112[2mms[22m[39m
+ [32m✓[39m src/views/board/__tests__/GanttView.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 152[2mms[22m[39m
+ [32m✓[39m src/components/__tests__/SidebarExtended.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[32m 199[2mms[22m[39m
+ [32m✓[39m src/components/settings/__tests__/DataSettings.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[32m 156[2mms[22m[39m
+ [32m✓[39m src/components/__tests__/AIHealthDashboard.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 135[2mms[22m[39m
+ [32m✓[39m src/components/agents/__tests__/AgentTeamPanel.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[32m 128[2mms[22m[39m
+ [32m✓[39m src/components/__tests__/AISubtaskSuggestionsModal.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 109[2mms[22m[39m
+ [32m✓[39m src/components/__tests__/TaskFormModal.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[33m 655[2mms[22m[39m
+ [32m✓[39m src/components/settings/__tests__/DevToolsSettings.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 193[2mms[22m[39m
+[90mstdout[2m | src/__tests__/App.test.tsx[2m > [22m[2mApp Integration[2m > [22m[2mshould render the app shell
+[22m[39m[Boot] task state rebuilt from legacy-fallback (0 task(s))
+
+ [32m✓[39m src/components/__tests__/AIMergeDuplicatesModal.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 122[2mms[22m[39m
+ [32m✓[39m src/ui/__tests__/DiffView.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[32m 203[2mms[22m[39m
+ [32m✓[39m src/components/__tests__/Dashboard.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 183[2mms[22m[39m
+ [32m✓[39m src/components/__tests__/TaskCardExtended.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[32m 170[2mms[22m[39m
+[90mstdout[2m | src/__tests__/App.test.tsx[2m > [22m[2mApp Integration[2m > [22m[2mhandles project switching
+[22m[39m[Boot] task state rebuilt from legacy-fallback (0 task(s))
+
+ [32m✓[39m src/services/agents/__tests__/agentMcpPermission.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 80[2mms[22m[39m
+ [32m✓[39m src/components/__tests__/EditProjectModal.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 105[2mms[22m[39m
+ [32m✓[39m src/components/__tests__/TaskCard.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 69[2mms[22m[39m
+[90mstdout[2m | src/__tests__/App.test.tsx[2m > [22m[2mApp Integration[2m > [22m[2mopens settings via the sidebar button
+[22m[39m[Boot] task state rebuilt from legacy-fallback (0 task(s))
+
+ [32m✓[39m src/components/__tests__/FilterBuilder.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[32m 116[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/agentRunServiceScheduler.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 99[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/agentRunServiceGuardrails.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 152[2mms[22m[39m
+ [32m✓[39m src/components/__tests__/AutoOrganizePanel.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 166[2mms[22m[39m
+ [32m✓[39m src/components/__tests__/EmptyState.test.tsx [2m([22m[2m11 tests[22m[2m)[22m[32m 84[2mms[22m[39m
+ [32m✓[39m src/components/agents/__tests__/AgentRunsDock.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[32m 133[2mms[22m[39m
+[90mstdout[2m | src/hooks/__tests__/useAppInitialization.test.ts[2m > [22m[2museAppInitialization[2m > [22m[2mregisters recurring callbacks with functional task updates
+[22m[39m[Boot] task state rebuilt from legacy-fallback (0 task(s))
+
+ [32m✓[39m src/components/common/__tests__/LiquidDatePicker.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 140[2mms[22m[39m
+[90mstdout[2m | src/hooks/__tests__/useAppInitialization.test.ts[2m > [22m[2museAppInitialization[2m > [22m[2msyncs due-date reminders when tasks change
+[22m[39m[Boot] task state rebuilt from legacy-fallback (0 task(s))
+
+[90mstdout[2m | src/hooks/__tests__/useAppInitialization.test.ts[2m > [22m[2museAppInitialization[2m > [22m[2msyncs due-date reminders when tasks change
+[22m[39m[Boot] task state rebuilt from legacy-fallback (0 task(s))
+
+[90mstdout[2m | src/hooks/__tests__/useAppInitialization.test.ts[2m > [22m[2museAppInitialization[2m > [22m[2mcancels due-date reminders when a task moves into a completed column
+[22m[39m[Boot] task state rebuilt from legacy-fallback (0 task(s))
+
+[90mstdout[2m | src/hooks/__tests__/useAppInitialization.test.ts[2m > [22m[2museAppInitialization[2m > [22m[2mcancels due-date reminders when a task moves into a completed column
+[22m[39m[Boot] task state rebuilt from legacy-fallback (0 task(s))
+
+ [32m✓[39m src/hooks/__tests__/useAppInitialization.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 88[2mms[22m[39m
+ [32m✓[39m src/components/settings/__tests__/CustomFieldSettings.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 92[2mms[22m[39m
+[90mstdout[2m | src/__tests__/App.test.tsx[2m > [22m[2mApp Integration[2m > [22m[2mdoes not reveal AI Assistant UI when sidebar feature flag is disabled
+[22m[39m[Boot] task state rebuilt from legacy-fallback (0 task(s))
+
+[90mstdout[2m | src/__tests__/App.test.tsx[2m > [22m[2mApp Integration[2m > [22m[2mhides AI and agent surfaces when AI features are disabled in storage
+[22m[39m[Boot] task state rebuilt from legacy-fallback (0 task(s))
+
+ [32m✓[39m src/components/__tests__/ExperienceChoiceGate.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 66[2mms[22m[39m
+[90mstdout[2m | src/__tests__/App.test.tsx[2m > [22m[2mApp Integration[2m > [22m[2mshows the experience choice gate on a fresh install
+[22m[39m[Boot] task state rebuilt from legacy-fallback (0 task(s))
+
+[90mstdout[2m | src/__tests__/App.test.tsx[2m > [22m[2mApp Integration[2m > [22m[2mpersists simple mode when chosen on fresh install
+[22m[39m[Boot] task state rebuilt from legacy-fallback (0 task(s))
+
+ [32m✓[39m src/views/board/__tests__/SortableColumn.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 45[2mms[22m[39m
+ [32m✓[39m src/hooks/__tests__/useAgentTeammates.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 86[2mms[22m[39m
+ [32m✓[39m src/components/__tests__/SafeMarkdownLink.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 45[2mms[22m[39m
+[90mstdout[2m | src/__tests__/App.test.tsx[2m > [22m[2mApp Integration[2m > [22m[2mskips the experience choice gate for existing installs with projects
+[22m[39m[Boot] task state rebuilt from legacy-fallback (0 task(s))
+
+ [32m✓[39m src/__tests__/App.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 1103[2mms[22m[39m
+     [33m[2m✓[22m[39m should render the app shell [33m 412[2mms[22m[39m
+     [33m[2m✓[22m[39m opens settings via the sidebar button [33m 378[2mms[22m[39m
+ [32m✓[39m src/components/__tests__/TaskFormModalAi.test.tsx [2m([22m[2m23 tests[22m[2m)[22m[33m 1755[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/userMcpConfigService.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 81[2mms[22m[39m
+ [32m✓[39m src/components/__tests__/Tooltip.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[32m 65[2mms[22m[39m
+ [32m✓[39m src/components/__tests__/MarkdownRenderer.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 78[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/feedbackLoopService.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 78[2mms[22m[39m
+ [32m✓[39m src/components/common/__tests__/Button.test.tsx [2m([22m[2m11 tests[22m[2m)[22m[32m 111[2mms[22m[39m
+ [32m✓[39m src/hooks/__tests__/useTaskAssistant.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 32[2mms[22m[39m
+ [32m✓[39m src/hooks/__tests__/useTaskController.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 70[2mms[22m[39m
+ [32m✓[39m src/components/__tests__/BulkAIOperationsModal.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 55[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/agentMcpService.test.ts [2m([22m[2m18 tests[22m[2m)[22m[32m 61[2mms[22m[39m
+ [32m✓[39m src/components/settings/__tests__/GeneralSettings.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 157[2mms[22m[39m
+ [32m✓[39m src/views/board/__tests__/BoardViews.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 69[2mms[22m[39m
+ [32m✓[39m src/components/common/__tests__/Input.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 80[2mms[22m[39m
+ [32m✓[39m src/components/__tests__/AIInsightsPanel.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 80[2mms[22m[39m
+ [32m✓[39m src/components/__tests__/ViewSwitcher.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[32m 41[2mms[22m[39m
+ [32m✓[39m src/components/common/__tests__/Popover.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[32m 41[2mms[22m[39m
+ [32m✓[39m src/ui/__tests__/ToolTimeline.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[32m 48[2mms[22m[39m
+ [32m✓[39m src/utils/__tests__/taskCardUtils.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m src/components/agents/__tests__/AgentDropTray.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[32m 49[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/activityService.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m src/hooks/__tests__/useBulkSelection.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 23[2mms[22m[39m
+ [32m✓[39m src/hooks/__tests__/useTimer.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 35[2mms[22m[39m
+ [32m✓[39m src/hooks/__tests__/useTaskControllerSuper.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 55[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/indexedDBServiceExtended.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+ [32m✓[39m src/views/board/__tests__/SortableTask.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 31[2mms[22m[39m
+ [32m✓[39m src/hooks/__tests__/useSavedViews.test.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 37[2mms[22m[39m
+ [32m✓[39m src/hooks/__tests__/useGlobalKeyboardShortcuts.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 25[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/exportService.test.ts [2m([22m[2m28 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/aiService.test.ts [2m([22m[2m24 tests[22m[2m)[22m[32m 32[2mms[22m[39m
+ [32m✓[39m src/hooks/__tests__/useBoardDnDController.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m src/utils/__tests__/debounce.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/utils/__tests__/validation.test.ts [2m([22m[2m26 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/hooks/__tests__/useProjectController.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+ [32m✓[39m src/hooks/__tests__/useDragAndDrop.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m src/hooks/__tests__/useSearchHistory.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+ [32m✓[39m src/hooks/__tests__/useKeyboardNav.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 28[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/aiSummaryService.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/agentRunServiceAgentd.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 42[2mms[22m[39m
+ [32m✓[39m src/hooks/__tests__/useTaskCardContextMenu.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+ [32m✓[39m src/utils/__tests__/taskParser.test.ts [2m([22m[2m64 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m src/hooks/__tests__/useAutoArchive.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 29[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/indexedDBService.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 46[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/activityServiceExtended.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m src/utils/__tests__/validationExtended.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/campaignRoles.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/hooks/__tests__/useTaskControllerExtended.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m src/core/autopilots/__tests__/deriveAutopilots.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m src/hooks/__tests__/useVirtualScroll.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/aiServiceOllama.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/encryptionSetup.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/utils/__tests__/agentRunLimits.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/searchIndexService.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/core/skills/__tests__/mergeSkillCatalog.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/core/squads/__tests__/deriveSquads.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/campaignOrchestratorService.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/automationDeadLetter.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/notificationService.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m src/runtime/__tests__/runtimeEnvironment.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/recurringTaskService.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+[90mstdout[2m | src/services/__tests__/storageServiceExtended.test.ts[2m > [22m[2mStorageService Extended[2m > [22m[2mshould run migrations during initialize if needed
+[22m[39m[Storage] Data migration needed: 0.0.0 → 2.0.0
+
+[90mstdout[2m | src/services/__tests__/storageServiceExtended.test.ts[2m > [22m[2mStorageService Extended[2m > [22m[2mshould run migrations during initialize if needed
+[22m[39m[Storage] Migration complete: 1.0.0 → 2.0.0
+
+ [32m✓[39m src/services/__tests__/storageServiceExtended.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/core/board/__tests__/boardStateMachine.test.ts [2m([22m[2m27 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/migrationService.test.ts [2m([22m[2m30 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/automationService.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/agentPlannerService.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/utils/__tests__/taskSearch.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/utils/__tests__/errorReporting.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/devcouncilEvidence.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/utils/__tests__/bulkTaskSchema.test.ts [2m([22m[2m34 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/agentPrompt.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/storageService.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/semanticLayerService.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/sqliteTaskStore.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/utils/__tests__/taskToJson.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/templateService.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/core/api/__tests__/localApi.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/autoOrganizeService.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/utils/__tests__/storageQuota.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/automationServiceExtended.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/campaignMailbox.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/agentDispatchService.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/sessionForkService.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+ [32m✓[39m src/utils/__tests__/queryEngine.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/utils/__tests__/describeProcessExit.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/archiveService.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/automationScheduleAmplification.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/deadLetterService.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/utils/__tests__/runProgress.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/agentScopeService.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/skillSelection.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/campaignBloom.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/devcouncilWorkspaceSync.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/agentRunService.devtools.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/agentStreamParser.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/agentRunService.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/skillDistill.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/riskAnalysisService.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/utils/__tests__/onboarding.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/utils/__tests__/coerce.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 46[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/timeReportingService.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/core/events/__tests__/taskEventReducer.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/recurringTaskServiceExtended.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/workspaceSkillsInjector.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/agentReservationService.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/core/inbox/__tests__/deriveInboxItems.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/agentEstimateLearningService.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/encryptionService.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/constants/__tests__/keybindings.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/utils/__tests__/aiFeatures.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/utils/__tests__/aiModalTrust.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/automationDlqRetry.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/parseJsonFromLlmContent.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/sessionDiscoveryService.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/core/board/__tests__/deriveAttentionLane.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/evaluateVerifyGate.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m src/utils/__tests__/taskUtils.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m src/utils/__tests__/gpuDetection.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/workspaceGitignoreInjector.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/migrations/__tests__/agenticBoard.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/runLimits.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 24[2mms[22m[39m
+ [32m✓[39m src/utils/__tests__/safeUrl.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/agentPolicyService.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/utils/__tests__/formatRunLog.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/resolveAgentWorkspace.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/utils/__tests__/taskContextIndex.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/utils/__tests__/runUsage.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/agentSSH.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/agentStandupDigestService.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/migrations/__tests__/normalizeTaskStrings.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/utils/__tests__/notificationPreferences.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/agentRecurrence.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/runTraceService.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/utils/__tests__/failureKindLabel.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/agentdCost.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m src/utils/__tests__/pushNotificationConfig.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m src/services/__tests__/automationTimezone.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 1[2mms[22m[39m
+ [32m✓[39m src/services/agents/__tests__/agentMcpToggleSubtask.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 2[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m181 passed[39m[22m[90m (181)[39m
+[2m      Tests [22m [1m[32m1406 passed[39m[22m[90m (1406)[39m
+[2m   Start at [22m 10:01:08
+[2m   Duration [22m 7.37s[2m (transform 7.81s, setup 11.82s, import 22.02s, tests 14.12s, environment 53.50s)[22m
+

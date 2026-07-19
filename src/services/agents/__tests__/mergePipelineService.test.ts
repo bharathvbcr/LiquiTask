@@ -311,7 +311,7 @@ describe("mergePipelineService", () => {
     expect(invokeMock).not.toHaveBeenCalledWith("agent_git_merge_worktree_tx", expect.anything());
     expect(moveTaskToCommit).toHaveBeenCalledWith(
       "task-1",
-      "Merge already completed (worktree absent).",
+      "Merge already completed (branch merged into HEAD).",
     );
   });
 });

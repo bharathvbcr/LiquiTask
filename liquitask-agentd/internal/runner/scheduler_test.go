@@ -150,6 +150,66 @@ func TestSchedulerAutoRepairFollowUpAcquiresSlot(t *testing.T) {
 	}
 }
 
+func TestBuildFollowUpStartParamsPreservesAdvisorAndThinking(t *testing.T) {
+	t.Parallel()
+
+	intent := &DispatchIntent{
+		TaskID:    "task-1",
+		Runtime:   "claude",
+		Cwd:       "/repo",
+		Model:     "claude-sonnet-4-6",
+		SessionID: "sess-abc",
+		StartParams: &StartParams{
+			TaskID:         "task-1",
+			Runtime:        "claude",
+			Cwd:            "/repo",
+			Prompt:         "original prompt",
+			Model:          "claude-sonnet-4-6",
+			AdvisorModel:   "opus",
+			ThinkingLevel:  "high",
+			PermissionMode: "acceptEdits",
+			McpConfig:      `{"mcpServers":{}}`,
+			TimeoutMs:      120000,
+		},
+	}
+
+	params, ok := buildFollowUpStartParams(intent, "fix CI failures")
+	if !ok {
+		t.Fatal("expected follow-up params")
+	}
+	if params.Prompt != "fix CI failures" {
+		t.Fatalf("prompt = %q, want follow-up prompt", params.Prompt)
+	}
+	if params.ResumeSessionID != "sess-abc" {
+		t.Fatalf("ResumeSessionID = %q, want sess-abc", params.ResumeSessionID)
+	}
+	if params.AdvisorModel != "opus" {
+		t.Fatalf("AdvisorModel = %q, want opus (must survive auto-repair follow-up)", params.AdvisorModel)
+	}
+	if params.ThinkingLevel != "high" {
+		t.Fatalf("ThinkingLevel = %q, want high", params.ThinkingLevel)
+	}
+	if params.PermissionMode != "acceptEdits" || params.McpConfig == "" || params.TimeoutMs != 120000 {
+		t.Fatalf("expected other StartParams fields preserved, got %+v", params)
+	}
+}
+
+func TestBuildFollowUpStartParamsRequiresSession(t *testing.T) {
+	t.Parallel()
+
+	_, ok := buildFollowUpStartParams(&DispatchIntent{
+		TaskID: "task-1",
+		StartParams: &StartParams{
+			Runtime:      "claude",
+			Prompt:       "seed",
+			AdvisorModel: "opus",
+		},
+	}, "follow-up")
+	if ok {
+		t.Fatal("expected false when SessionID missing")
+	}
+}
+
 func TestRunDevVerifyGateNoCLI(t *testing.T) {
 	if resolveDevCLI() != "" {
 		t.Skip("dev CLI present in environment")

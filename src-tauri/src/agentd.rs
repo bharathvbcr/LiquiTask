@@ -221,7 +221,6 @@ pub struct AgentdState {
     conn: Mutex<Option<Arc<AgentdConnection>>>,
     next_id: AtomicU64,
     pending: Arc<Mutex<HashMap<u64, Arc<PendingRpc>>>>,
-    reader_started: Mutex<bool>,
     data_dir: PathBuf,
 }
 
@@ -231,7 +230,6 @@ impl Default for AgentdState {
             conn: Mutex::new(None),
             next_id: AtomicU64::new(1),
             pending: Arc::new(Mutex::new(HashMap::new())),
-            reader_started: Mutex::new(false),
             data_dir: default_agentd_data_dir(),
         }
     }
@@ -421,6 +419,17 @@ fn ensure_daemon_running(app: &AppHandle, state: &AgentdState) -> Result<(), Str
     Err("agentd daemon did not become reachable".to_string())
 }
 
+fn fail_pending_rpcs(pending: &Mutex<HashMap<u64, Arc<PendingRpc>>>, message: &str) {
+    if let Ok(mut map) = pending.lock() {
+        for (_, slot) in map.drain() {
+            if let Ok(mut result) = slot.result.lock() {
+                *result = Some(Err(message.to_string()));
+            }
+            slot.cv.notify_one();
+        }
+    }
+}
+
 fn open_connection(app: &AppHandle, state: &AgentdState) -> Result<Arc<AgentdConnection>, String> {
     ensure_daemon_running(app, state)?;
     let token = read_auth_token(&state.data_dir)?;
@@ -435,99 +444,125 @@ fn open_connection(app: &AppHandle, state: &AgentdState) -> Result<Arc<AgentdCon
         writer: Mutex::new(writer),
     });
 
-    let mut started = state.reader_started.lock().map_err(|_| "lock")?;
-    if !*started {
-        *started = true;
-        let app_clone = app.clone();
-        let pending = Arc::clone(&state.pending);
-        thread::spawn(move || {
-            for line in reader.lines() {
-                let Ok(line) = line else { break };
-                if line.trim().is_empty() {
-                    continue;
-                }
-                let Ok(v) = serde_json::from_str::<Value>(&line) else {
-                    continue;
-                };
-                if let Some(id) = v.get("id").and_then(|x| x.as_u64()) {
-                    if let Ok(mut map) = pending.lock() {
-                        if let Some(slot) = map.remove(&id) {
-                            let res = if let Some(err) = v.get("error") {
-                                Err(err
-                                    .get("message")
-                                    .and_then(|m| m.as_str())
-                                    .unwrap_or("rpc error")
-                                    .to_string())
-                            } else {
-                                Ok(v.get("result").cloned().unwrap_or(Value::Null))
-                            };
-                            *slot.result.lock().unwrap() = Some(res);
-                            slot.cv.notify_one();
-                        }
+    // Always attach a reader to THIS socket. A previous "start once" flag meant
+    // reconnects installed a new writer while leaving responses unread on the
+    // new socket — every subsequent RPC then hit the 30s timeout and froze the UI.
+    let app_clone = app.clone();
+    let pending = Arc::clone(&state.pending);
+    let conn_for_reader = Arc::clone(&conn);
+    thread::spawn(move || {
+        for line in reader.lines() {
+            let Ok(line) = line else { break };
+            if line.trim().is_empty() {
+                continue;
+            }
+            let Ok(v) = serde_json::from_str::<Value>(&line) else {
+                continue;
+            };
+            if let Some(id) = v.get("id").and_then(|x| x.as_u64()) {
+                if let Ok(mut map) = pending.lock() {
+                    if let Some(slot) = map.remove(&id) {
+                        let res = if let Some(err) = v.get("error") {
+                            Err(err
+                                .get("message")
+                                .and_then(|m| m.as_str())
+                                .unwrap_or("rpc error")
+                                .to_string())
+                        } else {
+                            Ok(v.get("result").cloned().unwrap_or(Value::Null))
+                        };
+                        *slot.result.lock().unwrap() = Some(res);
+                        slot.cv.notify_one();
                     }
-                    continue;
                 }
-                if let Some(method) = v.get("method").and_then(|m| m.as_str()) {
-                    if method == "run.events" {
-                        if let Some(params) = v.get("params") {
-                            let run_id = params
-                                .get("runId")
-                                .and_then(|x| x.as_str())
-                                .unwrap_or("")
-                                .to_string();
-                            let kind = params
-                                .get("kind")
-                                .and_then(|x| x.as_str())
-                                .unwrap_or("message")
-                                .to_string();
-                            if let Some(store) = app_clone.try_state::<AgentdStore>() {
-                                let _ = store.record_event(&app_clone, &run_id, &kind, params);
-                            }
-                            let _ = app_clone.emit(
-                                AGENTD_RUN_EVENT,
-                                AgentdRunEventPayload {
-                                    run_id,
-                                    kind,
-                                    extra: params.clone(),
-                                },
-                            );
+                continue;
+            }
+            if let Some(method) = v.get("method").and_then(|m| m.as_str()) {
+                if method == "run.events" {
+                    if let Some(params) = v.get("params") {
+                        let run_id = params
+                            .get("runId")
+                            .and_then(|x| x.as_str())
+                            .unwrap_or("")
+                            .to_string();
+                        let kind = params
+                            .get("kind")
+                            .and_then(|x| x.as_str())
+                            .unwrap_or("message")
+                            .to_string();
+                        if let Some(store) = app_clone.try_state::<AgentdStore>() {
+                            let _ = store.record_event(&app_clone, &run_id, &kind, params);
                         }
-                    } else if method == "run.pty" {
-                        if let Some(params) = v.get("params") {
-                            let run_id = params
-                                .get("runId")
-                                .and_then(|x| x.as_str())
-                                .unwrap_or("")
-                                .to_string();
-                            let data = params
-                                .get("data")
-                                .and_then(|x| x.as_str())
-                                .unwrap_or("")
-                                .to_string();
-                            let _ = app_clone.emit(
-                                AGENTD_PTY_EVENT,
-                                AgentdPtyEventPayload { run_id, data },
-                            );
-                        }
-                    } else if method == "feedback.event" {
-                        if let Some(params) = v.get("params") {
-                            let _ = app_clone.emit(AGENTD_FEEDBACK_EVENT, params.clone());
-                        }
-                    } else if method.starts_with("scheduler.") {
-                        if let Some(params) = v.get("params") {
-                            let _ = app_clone.emit(AGENTD_SCHEDULER_EVENT, params.clone());
-                        }
+                        let _ = app_clone.emit(
+                            AGENTD_RUN_EVENT,
+                            AgentdRunEventPayload {
+                                run_id,
+                                kind,
+                                extra: params.clone(),
+                            },
+                        );
+                    }
+                } else if method == "run.pty" {
+                    if let Some(params) = v.get("params") {
+                        let run_id = params
+                            .get("runId")
+                            .and_then(|x| x.as_str())
+                            .unwrap_or("")
+                            .to_string();
+                        let data = params
+                            .get("data")
+                            .and_then(|x| x.as_str())
+                            .unwrap_or("")
+                            .to_string();
+                        let _ = app_clone.emit(
+                            AGENTD_PTY_EVENT,
+                            AgentdPtyEventPayload { run_id, data },
+                        );
+                    }
+                } else if method == "feedback.event" {
+                    if let Some(params) = v.get("params") {
+                        let _ = app_clone.emit(AGENTD_FEEDBACK_EVENT, params.clone());
+                    }
+                } else if method.starts_with("scheduler.") {
+                    if let Some(params) = v.get("params") {
+                        let _ = app_clone.emit(AGENTD_SCHEDULER_EVENT, params.clone());
                     }
                 }
             }
+        }
+
+        // Drop only the connection this reader was serving (not a newer reconnect).
+        let mut cleared_current = false;
+        if let Some(state) = app_clone.try_state::<AgentdState>() {
+            if let Ok(mut guard) = state.conn.lock() {
+                let is_current = guard
+                    .as_ref()
+                    .is_some_and(|current| Arc::ptr_eq(current, &conn_for_reader));
+                if is_current {
+                    *guard = None;
+                    cleared_current = true;
+                }
+            }
+        }
+        if cleared_current {
+            fail_pending_rpcs(&pending, "agentd disconnected");
             let _ = app_clone.emit(AGENTD_HEALTH_EVENT, json!({ "alive": false }));
-        });
-    }
+        }
+    });
 
     Ok(conn)
 }
 
 pub fn agentd_connect(app: &AppHandle, state: &AgentdState) -> Result<(), String> {
+    // Reuse a live connection. Calling open_connection again used to replace the
+    // writer without attaching a reader for the new socket (see above), which
+    // made the next RPC hang until the 30s timeout.
+    {
+        let guard = state.conn.lock().map_err(|_| "lock")?;
+        if guard.is_some() {
+            return Ok(());
+        }
+    }
     let conn = open_connection(app, state)?;
     let mut guard = state.conn.lock().map_err(|_| "lock")?;
     *guard = Some(conn);
@@ -765,6 +800,7 @@ pub fn agentd_run_start(
     prompt: String,
     cwd: Option<String>,
     model: Option<String>,
+    advisor_model: Option<String>,
     resume_session_id: Option<String>,
     thinking_level: Option<String>,
     mcp_config: Option<String>,
@@ -812,6 +848,12 @@ pub fn agentd_run_start(
     }
     if let Some(ref m) = model {
         params.insert("model".into(), json!(m));
+    }
+    if let Some(ref advisor) = advisor_model {
+        let trimmed = advisor.trim();
+        if !trimmed.is_empty() {
+            params.insert("advisorModel".into(), json!(trimmed));
+        }
     }
     if let Some(id) = resume_session_id {
         params.insert("resumeSessionId".into(), json!(id));
@@ -1395,27 +1437,33 @@ pub struct AgentdNotifyConfig {
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub fn agentd_notify_config_set(
+pub async fn agentd_notify_config_set(
     app: AppHandle,
-    state: tauri::State<'_, AgentdState>,
     config: AgentdNotifyConfig,
 ) -> Result<bool, String> {
-    agentd_connect(&app, &state)?;
-    let mut params = json!({
-        "enabled": config.enabled,
-        "provider": config.provider,
-    });
-    if let Some(v) = config.pushover_user_key {
-        params["pushoverUserKey"] = json!(v);
-    }
-    if let Some(v) = config.pushover_api_token {
-        params["pushoverApiToken"] = json!(v);
-    }
-    if let Some(v) = config.webhook_url {
-        params["webhookUrl"] = json!(v);
-    }
-    let result = rpc_call(&state, &app, "notify.config.set", params)?;
-    Ok(result.get("ok").and_then(|v| v.as_bool()).unwrap_or(true))
+    // Run off the UI/IPC thread — rpc_call can block up to 30s and used to freeze
+    // the main event loop when the agentd reader was orphaned on reconnect.
+    tokio::task::spawn_blocking(move || {
+        let state = app.state::<AgentdState>();
+        agentd_connect(&app, &state)?;
+        let mut params = json!({
+            "enabled": config.enabled,
+            "provider": config.provider,
+        });
+        if let Some(v) = config.pushover_user_key {
+            params["pushoverUserKey"] = json!(v);
+        }
+        if let Some(v) = config.pushover_api_token {
+            params["pushoverApiToken"] = json!(v);
+        }
+        if let Some(v) = config.webhook_url {
+            params["webhookUrl"] = json!(v);
+        }
+        let result = rpc_call(&state, &app, "notify.config.set", params)?;
+        Ok(result.get("ok").and_then(|v| v.as_bool()).unwrap_or(true))
+    })
+    .await
+    .map_err(|e| format!("notify config task failed: {e}"))?
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

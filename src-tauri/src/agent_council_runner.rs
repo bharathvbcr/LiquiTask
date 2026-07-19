@@ -16,7 +16,7 @@
 //! `{ runId, stream: "stdout" | "stderr" | "exit" | "error", line?, code? }`
 
 use std::collections::HashMap;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
@@ -25,7 +25,11 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
+use serde_yaml::Value as YamlValue;
 use tauri::{AppHandle, Emitter, Manager, State};
+
+/// Reserved DevCouncil CLI profile name for LiquiTask-managed Claude advisor.
+const LIQUITASK_ADVISOR_PROFILE: &str = "liquitask-advisor";
 
 use crate::agent_cli_util::{augmented_path, find_executable, resolve_dev_cli};
 use crate::agent_policy;
@@ -445,14 +449,15 @@ struct AssembledCommand {
 fn assemble_command(
     mode: &str,
     prompt: &str,
-    _working_dir: &str,
-    _model: &Option<String>,
+    working_dir: &str,
+    model: &Option<String>,
     _permission_mode: &Option<String>,
     _max_turns: &Option<u32>,
     _container_image: &Option<String>,
     _session_id: &Option<String>,
     _mcp_config_path: &Option<String>,
     _permission_prompt_tool: &Option<String>,
+    advisor_model: &Option<String>,
 ) -> Result<AssembledCommand, String> {
     match mode {
         // DevCouncil deterministic verification gate (`dev check --verify --json`).
@@ -473,20 +478,121 @@ fn assemble_command(
         "devcouncil-e2e" => {
             let program = resolve_dev_cli()
                 .ok_or_else(|| "DevCouncil CLI (`dev`) not found on PATH.".to_string())?;
+            let mut args = vec![
+                "e2e".to_string(),
+                prompt.to_string(),
+                "--executor".to_string(),
+                "claude".to_string(),
+                "--json".to_string(),
+            ];
+            if let Some(advisor) = advisor_model
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
+                ensure_liquitask_advisor_profile(Path::new(working_dir), advisor, model.as_deref())?;
+                args.push("--profile".to_string());
+                args.push(LIQUITASK_ADVISOR_PROFILE.to_string());
+            }
             Ok(AssembledCommand {
                 program,
-                args: vec![
-                    "e2e".to_string(),
-                    prompt.to_string(),
-                    "--executor".to_string(),
-                    "claude".to_string(),
-                    "--json".to_string(),
-                ],
+                args,
                 sandbox_profile_dir: None,
             })
         }
         other => Err(format!("Unknown agent run mode: {other}")),
     }
+}
+
+/// Ensure `parent[key]` exists as a YAML mapping and return a mutable borrow.
+fn ensure_yaml_mapping<'a>(
+    parent: &'a mut serde_yaml::Mapping,
+    key: &str,
+) -> Result<&'a mut serde_yaml::Mapping, String> {
+    let yaml_key = YamlValue::String(key.into());
+    if !parent.contains_key(&yaml_key) {
+        parent.insert(
+            yaml_key.clone(),
+            YamlValue::Mapping(serde_yaml::Mapping::new()),
+        );
+    }
+    parent
+        .get_mut(&yaml_key)
+        .and_then(YamlValue::as_mapping_mut)
+        .ok_or_else(|| format!("{key} must be a YAML mapping"))
+}
+
+/// Merge-only write of the reserved `liquitask-advisor` CLI profile into
+/// `.devcouncil/config.yaml` under `integrations.cli_agents.profiles`
+/// (DevCouncil's load path). Creates the file/tree when missing; never wipes
+/// other profiles or unrelated keys.
+///
+/// Profile fields: `description`, `advisor_model`, optional `model`.
+/// No `extra_args` — DevCouncil applies `--advisor` from `advisor_model`.
+fn ensure_liquitask_advisor_profile(
+    working_dir: &Path,
+    advisor_model: &str,
+    coding_model: Option<&str>,
+) -> Result<(), String> {
+    let config_dir = working_dir.join(".devcouncil");
+    let config_path = config_dir.join("config.yaml");
+    fs::create_dir_all(&config_dir)
+        .map_err(|e| format!("Failed to create .devcouncil directory: {e}"))?;
+
+    let mut root = if config_path.is_file() {
+        let raw = fs::read_to_string(&config_path)
+            .map_err(|e| format!("Failed to read {}: {e}", config_path.display()))?;
+        if raw.trim().is_empty() {
+            YamlValue::Mapping(serde_yaml::Mapping::new())
+        } else {
+            serde_yaml::from_str::<YamlValue>(&raw)
+                .map_err(|e| format!("Failed to parse {}: {e}", config_path.display()))?
+        }
+    } else {
+        YamlValue::Mapping(serde_yaml::Mapping::new())
+    };
+
+    let root_map = root.as_mapping_mut().ok_or_else(|| {
+        format!(
+            "{} root must be a YAML mapping",
+            config_path.display()
+        )
+    })?;
+
+    // DevCouncil loads profiles from integrations.cli_agents.profiles only.
+    let integrations = ensure_yaml_mapping(root_map, "integrations")?;
+    let cli_agents = ensure_yaml_mapping(integrations, "cli_agents")?;
+    let profiles = ensure_yaml_mapping(cli_agents, "profiles")?;
+
+    let mut profile = serde_yaml::Mapping::new();
+    profile.insert(
+        YamlValue::String("description".into()),
+        YamlValue::String(
+            "LiquiTask-managed Claude Code advisor (merge-only; do not hand-edit)"
+                .into(),
+        ),
+    );
+    profile.insert(
+        YamlValue::String("advisor_model".into()),
+        YamlValue::String(advisor_model.to_string()),
+    );
+    if let Some(model) = coding_model.map(str::trim).filter(|s| !s.is_empty()) {
+        profile.insert(
+            YamlValue::String("model".into()),
+            YamlValue::String(model.to_string()),
+        );
+    }
+
+    profiles.insert(
+        YamlValue::String(LIQUITASK_ADVISOR_PROFILE.into()),
+        YamlValue::Mapping(profile),
+    );
+
+    let serialized = serde_yaml::to_string(&root)
+        .map_err(|e| format!("Failed to serialize {}: {e}", config_path.display()))?;
+    fs::write(&config_path, serialized)
+        .map_err(|e| format!("Failed to write {}: {e}", config_path.display()))?;
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -533,6 +639,7 @@ pub fn agent_run_start(
     task_priority: Option<String>,
     task_time_estimate_min: Option<u32>,
     profile_model: Option<String>,
+    advisor_model: Option<String>,
 ) -> Result<(), String> {
     if run_id.is_empty() || run_id.len() > 128 {
         return Err("Invalid run id".to_string());
@@ -590,6 +697,7 @@ pub fn agent_run_start(
         &session_id,
         &mcp_config_path,
         &permission_prompt_tool,
+        &advisor_model,
     )?;
 
     let mut extra_roots: Vec<String> = safe_workspace_paths(&data);
@@ -1681,8 +1789,166 @@ mod tests {
 
     #[test]
     fn rejects_unknown_mode() {
-        let err = assemble_command("rm-rf", "hi", "/tmp", &None, &None, &None, &None, &None, &None, &None);
+        let err = assemble_command(
+            "rm-rf",
+            "hi",
+            "/tmp",
+            &None,
+            &None,
+            &None,
+            &None,
+            &None,
+            &None,
+            &None,
+            &None,
+        );
         assert!(err.is_err());
+    }
+
+    fn advisor_profiles_map(parsed: &serde_yaml::Value) -> &serde_yaml::Mapping {
+        parsed
+            .get("integrations")
+            .and_then(|v| v.get("cli_agents"))
+            .and_then(|v| v.get("profiles"))
+            .and_then(|v| v.as_mapping())
+            .expect("integrations.cli_agents.profiles map")
+    }
+
+    #[test]
+    fn e2e_args_include_profile_when_advisor_set() {
+        if resolve_dev_cli().is_none() {
+            // Still cover the merge path without a local `dev` binary.
+            let dir = tempfile::tempdir().unwrap();
+            ensure_liquitask_advisor_profile(dir.path(), "opus", Some("sonnet")).unwrap();
+            let raw = std::fs::read_to_string(dir.path().join(".devcouncil/config.yaml")).unwrap();
+            let parsed: serde_yaml::Value = serde_yaml::from_str(&raw).unwrap();
+            let profiles = advisor_profiles_map(&parsed);
+            let profile = profiles
+                .get(serde_yaml::Value::String("liquitask-advisor".into()))
+                .and_then(|v| v.as_mapping())
+                .expect("advisor profile");
+            assert_eq!(
+                profile
+                    .get(serde_yaml::Value::String("advisor_model".into()))
+                    .and_then(|v| v.as_str()),
+                Some("opus")
+            );
+            assert!(!profile.contains_key(serde_yaml::Value::String("extra_args".into())));
+            return;
+        }
+
+        let dir = tempfile::tempdir().unwrap();
+        // Seed an unrelated profile so merge stays additive.
+        let config_dir = dir.path().join(".devcouncil");
+        std::fs::create_dir_all(&config_dir).unwrap();
+        std::fs::write(
+            config_dir.join("config.yaml"),
+            "integrations:\n  cli_agents:\n    profiles:\n      keep-me:\n        description: preserved\n",
+        )
+        .unwrap();
+
+        let advisor = Some("opus".to_string());
+        let model = Some("sonnet".to_string());
+        let assembled = assemble_command(
+            "devcouncil-e2e",
+            "ship it",
+            &dir.path().to_string_lossy(),
+            &model,
+            &None,
+            &None,
+            &None,
+            &None,
+            &None,
+            &None,
+            &advisor,
+        )
+        .expect("assemble e2e");
+
+        let args = assembled.args;
+        assert!(args.windows(2).any(|w| w == ["--profile", "liquitask-advisor"]));
+        assert!(args.contains(&"--executor".to_string()));
+        assert!(args.contains(&"claude".to_string()));
+
+        let raw = std::fs::read_to_string(config_dir.join("config.yaml")).unwrap();
+        let parsed: serde_yaml::Value = serde_yaml::from_str(&raw).unwrap();
+        let profiles = advisor_profiles_map(&parsed);
+        assert!(
+            profiles.contains_key(serde_yaml::Value::String("keep-me".into())),
+            "existing profile must survive merge"
+        );
+        let profile = profiles
+            .get(serde_yaml::Value::String("liquitask-advisor".into()))
+            .and_then(|v| v.as_mapping())
+            .expect("advisor profile");
+        assert_eq!(
+            profile
+                .get(serde_yaml::Value::String("advisor_model".into()))
+                .and_then(|v| v.as_str()),
+            Some("opus")
+        );
+        assert_eq!(
+            profile
+                .get(serde_yaml::Value::String("model".into()))
+                .and_then(|v| v.as_str()),
+            Some("sonnet")
+        );
+        assert!(!profile.contains_key(serde_yaml::Value::String("extra_args".into())));
+        // Must not write the old root-level nest DevCouncil ignores.
+        assert!(parsed.get("cli_agents").is_none());
+    }
+
+    #[test]
+    fn e2e_args_omit_profile_when_advisor_unset() {
+        if resolve_dev_cli().is_none() {
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let assembled = assemble_command(
+            "devcouncil-e2e",
+            "ship it",
+            &dir.path().to_string_lossy(),
+            &None,
+            &None,
+            &None,
+            &None,
+            &None,
+            &None,
+            &None,
+            &None,
+        )
+        .expect("assemble e2e");
+        assert!(!assembled.args.iter().any(|a| a == "--profile"));
+        assert!(!dir.path().join(".devcouncil/config.yaml").exists());
+    }
+
+    #[test]
+    fn advisor_profile_merge_is_additive() {
+        let dir = tempfile::tempdir().unwrap();
+        ensure_liquitask_advisor_profile(dir.path(), "opus", Some("sonnet")).unwrap();
+        ensure_liquitask_advisor_profile(dir.path(), "fable", Some("haiku")).unwrap();
+
+        let raw = std::fs::read_to_string(dir.path().join(".devcouncil/config.yaml")).unwrap();
+        let parsed: serde_yaml::Value = serde_yaml::from_str(&raw).unwrap();
+        let profiles = advisor_profiles_map(&parsed);
+        assert_eq!(profiles.len(), 1);
+        let profile = profiles
+            .get(serde_yaml::Value::String("liquitask-advisor".into()))
+            .and_then(|v| v.as_mapping())
+            .expect("advisor profile");
+        assert_eq!(
+            profile
+                .get(serde_yaml::Value::String("advisor_model".into()))
+                .and_then(|v| v.as_str()),
+            Some("fable")
+        );
+        assert_eq!(
+            profile
+                .get(serde_yaml::Value::String("model".into()))
+                .and_then(|v| v.as_str()),
+            Some("haiku")
+        );
+        assert!(!profile.contains_key(serde_yaml::Value::String("extra_args".into())));
+        assert!(parsed.get("cli_agents").is_none());
     }
 
     #[test]

@@ -42,6 +42,7 @@ vi.mock("../agentScopeService", () => ({
     bindTaskScopeToRun: vi.fn(),
     setRunRoot: vi.fn(),
     clearScopeForRun: vi.fn(),
+    getScopeForTask: vi.fn(() => []),
   },
 }));
 
@@ -87,8 +88,14 @@ async function boot(seed?: () => void, invokeImpl?: (cmd: string) => unknown) {
   mergePipelineRunMock.mockReset();
   mergePipelineRunMock.mockImplementation(() => new Promise(() => undefined));
   seed?.();
+
+  const queueState = {
+    activeByAgent: {} as Record<string, string>,
+    queue: [] as Array<{ taskId: string; agentId: string; runId: string }>,
+  };
+
   invokeMock.mockReset();
-  invokeMock.mockImplementation((cmd: string) => {
+  invokeMock.mockImplementation((cmd: string, args?: any) => {
     if (invokeImpl) {
       const custom = invokeImpl(cmd);
       if (custom !== undefined) return custom;
@@ -104,6 +111,47 @@ async function boot(seed?: () => void, invokeImpl?: (cmd: string) => unknown) {
     if (cmd === "agent_git_create_pr") return Promise.resolve({ url: "https://github.com/pr/1" });
     if (cmd === "agent_build_task_prompt") return Promise.resolve("task prompt");
     if (cmd === "agent_git_prune_worktrees") return Promise.resolve(0);
+
+    // Daemon queue mock implementation for unit test orchestration
+    if (cmd === "agentd_queue_list") {
+      return Promise.resolve(queueState);
+    }
+    if (cmd === "agentd_queue_enqueue") {
+      if (!queueState.queue.some(q => q.runId === args.runId)) {
+        queueState.queue.push({
+          taskId: args.taskId,
+          agentId: args.agentId,
+          runId: args.runId,
+        });
+      }
+      return Promise.resolve(queueState.queue.length);
+    }
+    if (cmd === "agentd_queue_acquire") {
+      queueState.activeByAgent[args.agentId] = args.runId;
+      queueState.queue = queueState.queue.filter((q) => q.runId !== args.runId);
+      return Promise.resolve(true);
+    }
+    if (cmd === "agentd_queue_release") {
+      delete queueState.activeByAgent[args.agentId];
+      const nextIndex = queueState.queue.findIndex((q) => q.agentId === args.agentId);
+      if (nextIndex >= 0) {
+        const next = queueState.queue[nextIndex];
+        queueState.queue.splice(nextIndex, 1);
+        queueState.activeByAgent[args.agentId] = next.runId;
+        return Promise.resolve(next);
+      }
+      return Promise.resolve(null);
+    }
+    if (cmd === "agentd_queue_remove") {
+      if (args.taskId) {
+        queueState.queue = queueState.queue.filter((q) => q.taskId !== args.taskId);
+      }
+      return Promise.resolve(true);
+    }
+    if (cmd === "agentd_scheduler_config_set") {
+      return Promise.resolve(true);
+    }
+
     return Promise.resolve(undefined);
   });
   vi.stubGlobal("window", {
@@ -259,6 +307,30 @@ describe("agentRunService orchestration hardening", () => {
     expect(run).not.toBeNull();
     expect(run!.status).toBe("running");
     expect(invokeMock).toHaveBeenCalledWith("agentd_run_start", expect.anything());
+  });
+
+  it("forwards advisorModel on council agent_run_start when the profile has an advisor", async () => {
+    const svc = await boot(undefined, (cmd) => {
+      if (cmd === "agent_build_council_goal") return Promise.resolve("council goal");
+      if (cmd === "agent_run_start") return Promise.resolve(undefined);
+      return undefined;
+    });
+    const councilAgent: AgentProfile = {
+      ...agent,
+      id: "agent-council-advisor",
+      runMode: "council",
+      advisorModel: "opus",
+    };
+    const run = await svc.assign({ ...task, id: "task-council-advisor" }, councilAgent);
+    expect(run).not.toBeNull();
+    expect(run!.engine).toBe("council");
+    expect(run!.status).toBe("running");
+    const startCall = invokeMock.mock.calls.find((c) => c[0] === "agent_run_start");
+    expect(startCall?.[1]).toMatchObject({
+      mode: "devcouncil-e2e",
+      advisorModel: "opus",
+    });
+    expect(invokeMock.mock.calls.some((c) => c[0] === "agentd_run_start")).toBe(false);
   });
 
   it("passes confirmPruneAll when pruning with no runs to keep", async () => {

@@ -120,6 +120,10 @@ prefilled from your workspace folder.
   DevCouncil (plan → scoped run → verify) — debate planning, scope enforcement,
   permission hooks, and evidence gates. The final council report (blocking gaps,
   verdict) lands on the card.
+- **Claude Code advisor** (optional worker config): set an advisor model on a
+  Claude Code coding profile to pass `--advisor` (Claude Code ≥2.1.98, Anthropic
+  API only). It stacks with DevCouncil plan/verify and does **not** replace them.
+  Planner-role profiles ignore the field.
 - **Skills compounding**: every successful run is captured as a reusable skill
   (task + solution summary, scoped to the repo). The five most recent skills
   for a repo are injected into future prompts as "Team knowledge", so agents

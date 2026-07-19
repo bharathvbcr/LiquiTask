@@ -143,29 +143,47 @@ fn is_not_found(message: &str) -> bool {
 #[cfg(target_os = "macos")]
 mod macos {
     use super::*;
+    use security_framework::access_control::SecAccessControl;
     use security_framework::passwords::{
         delete_generic_password_options, generic_password, set_generic_password_options,
         PasswordOptions,
     };
     use security_framework::passwords_options::AccessControlOptions;
 
-    pub fn store_key(key: &[u8; KEY_LEN]) -> Result<(), String> {
+    fn generic_password_options() -> PasswordOptions {
         let mut options = PasswordOptions::new_generic_password(KEYCHAIN_SERVICE, KEYCHAIN_USER);
-        options.set_access_control_options(
-            AccessControlOptions::BIOMETRY_CURRENT_SET | AccessControlOptions::USER_PRESENCE,
-        );
-        set_generic_password_options(key, options).map_err(|e| format!("Failed to store key in Keychain: {e}"))
+        // Biometric / passcode ACL items live in the data-protection keychain.
+        options.use_protected_keychain();
+        options
+    }
+
+    /// Build access control for Touch ID / device passcode.
+    ///
+    /// Do not OR `BIOMETRY_CURRENT_SET` with `USER_PRESENCE` — that combination
+    /// returns `errSecParam` (-50) from `SecAccessControlCreateWithFlags`, and
+    /// `PasswordOptions::set_access_control_options` unwraps that into a panic.
+    /// `USER_PRESENCE` alone already means biometry or device passcode.
+    fn user_presence_access_control() -> Result<SecAccessControl, String> {
+        SecAccessControl::create_with_flags(AccessControlOptions::USER_PRESENCE.bits())
+            .map_err(|e| format!("Failed to create Keychain access control: {e}"))
+    }
+
+    pub fn store_key(key: &[u8; KEY_LEN]) -> Result<(), String> {
+        let mut options = generic_password_options();
+        options.set_access_control(user_presence_access_control()?);
+        set_generic_password_options(key, options)
+            .map_err(|e| format!("Failed to store key in Keychain: {e}"))
     }
 
     pub fn load_key() -> Result<[u8; KEY_LEN], String> {
-        let options = PasswordOptions::new_generic_password(KEYCHAIN_SERVICE, KEYCHAIN_USER);
+        let options = generic_password_options();
         let bytes = generic_password(options)
             .map_err(|e| format!("Encryption key not found: {e}"))?;
         decode_key(&bytes)
     }
 
     pub fn delete_key() -> Result<(), String> {
-        let options = PasswordOptions::new_generic_password(KEYCHAIN_SERVICE, KEYCHAIN_USER);
+        let options = generic_password_options();
         delete_generic_password_options(options)
             .map_err(|e| format!("Failed to delete key from Keychain: {e}"))
     }

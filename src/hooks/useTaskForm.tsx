@@ -103,6 +103,7 @@ interface TaskFormSnapshot {
     dueDate: string;
     status: string;
     timeEstimate: number;
+    timeSpent: number;
   };
   subtasks: Subtask[];
   attachments: Attachment[];
@@ -146,6 +147,7 @@ export function useTaskForm({
     dueDate: "",
     status: "",
     timeEstimate: 0,
+    timeSpent: 0,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -283,6 +285,7 @@ export function useTaskForm({
       dueDate: "",
       status: defaultStatus,
       timeEstimate: 0,
+      timeSpent: 0,
     };
     let nextSubtasks: Subtask[] = [];
     let nextAttachments: Attachment[] = [];
@@ -310,6 +313,7 @@ export function useTaskForm({
         dueDate: dateStr,
         status: initialData.status || defaultStatus,
         timeEstimate: initialData.timeEstimate || 0,
+        timeSpent: initialData.timeSpent || 0,
       };
       nextLocalProjectId = initialData.projectId;
       nextSubtasks = initialData.subtasks || [];
@@ -1609,6 +1613,7 @@ export function useTaskForm({
       customFieldValues: customValues,
       links: links,
       timeEstimate: effectiveForm.timeEstimate,
+      timeSpent: effectiveForm.timeSpent,
       recurring: effectiveRecurring,
     };
 

@@ -81,6 +81,11 @@ type ExecOptions struct {
 	// non-empty and OS sandbox is on, writable roots are restricted to these paths
 	// plus essentials (MCP dir, tmp, ephemeral HOME).
 	ScopePaths []string
+	// AdvisorModel enables Claude Code's advisor tool via `--advisor <model>`.
+	// Empty means LiquiTask disables the advisor for that spawn
+	// (`CLAUDE_CODE_DISABLE_ADVISOR_TOOL=1`) so interactive user settings do not
+	// leak cost into board runs. Ignored by non-Claude backends.
+	AdvisorModel string
 	// ExecutablePath is the resolved agent CLI binary used for sandbox profile building.
 	ExecutablePath string
 	// PtyEnabled runs the subprocess under a PTY when the runtime supports it.

@@ -97,6 +97,7 @@ export interface FeedbackLoopBoardHooks {
 }
 
 const WATCH_SYNC_MS = 60_000;
+const AUTO_REPAIR_ATTEMPTS_KEY = "liquitask-auto-repair-attempts";
 
 class FeedbackLoopService {
   private pendingReMerge = new Map<string, PendingReMerge>();

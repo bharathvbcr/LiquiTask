@@ -18,7 +18,7 @@
  * write.
  */
 import { localApi } from "../../core/api/localApi";
-import { mergeSkillCatalog, type SkillCatalogEntry } from "../../core/skills/mergeSkillCatalog";
+import { mergeSkillCatalog, type SkillCatalogEntry } from "../../core/skills";
 import { getDesktopApi, isTauri } from "../../runtime/runtimeEnvironment";
 import agentSkillsService from "./agentSkillsService";
 

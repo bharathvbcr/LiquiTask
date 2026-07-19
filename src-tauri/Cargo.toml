@@ -22,6 +22,8 @@ tauri-plugin-notification = "2"
 tauri-plugin-single-instance = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# Merge-only edits to `.devcouncil/config.yaml` (reserved LiquiTask advisor profile).
+serde_yaml = "0.9"
 # Cross-platform canonicalize that does not emit Windows \\?\ verbatim prefixes,
 # so resolved paths stay comparable to the stored workspace allowlist.
 dunce = "1"
@@ -50,7 +52,8 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 libc = "0.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
-security-framework = "3.2"
+# OSX_10_15 enables kSecUseDataProtectionKeychain, required for biometric ACL items.
+security-framework = { version = "3.2", features = ["OSX_10_15"] }
 objc2 = "0.6.4"
 objc2-app-kit = { version = "0.3.2", features = ["NSApplication", "NSDockTile"] }
 objc2-foundation = "0.3.2"
