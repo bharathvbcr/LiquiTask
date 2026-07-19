@@ -70,9 +70,15 @@ const FLOW_RESPONSE = 14; // 1/s — how quickly the fluid answers the hand (vis
 const POINTER_VEL_DECAY = 9; // 1/s — a stopped hand stops pushing within ~100 ms
 const PULSE_DECAY = 3.4; // 1/s — merge/impact ripple lifetime
 
-const SETTLE_SPEED = 0.03;
-const SETTLE_POS = 0.016;
+const SETTLE_SPEED = 0.025;
+const SETTLE_POS = 0.014;
+/** Only hard-snap (and sleep) once this close — avoids a visible pop. */
+const SETTLE_SNAP = 0.0025;
 const SETTLE_PULSE = 0.02;
+/** Soft ease toward rest once near-settled (1/s). */
+const SETTLE_LERP = 14;
+/** Pointer velocity EMA — irregular event timing no longer spikes the fluid. */
+const POINTER_VEL_SMOOTH = 0.55;
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
@@ -158,6 +164,11 @@ export function useLiquidBlobPhysics() {
   const stretchRef = useRef({ mag: 0, dirX: 1, dirY: 0 });
   const dropStretchRef = useRef({ mag: 0, dirX: 0, dirY: 1 });
 
+  /**
+   * Track the card's screen position. Container velocity only feeds the fluid
+   * while the pointer is captured (drag) — hover CSS lifts (`translateY` /
+   * `scale` on `.liquid-card`) would otherwise inject fake slosh every frame.
+   */
   const sampleContainerMotion = useCallback((dtFrame = 1 / 60) => {
     const el = rootRef.current;
     if (!el) return;
@@ -167,12 +178,18 @@ export function useLiquidBlobPhysics() {
 
     const prev = containerRef.current;
     const dt = Math.max(dtFrame, 1 / 240);
-    containerRef.current = {
-      x: rect.left,
-      y: rect.top,
-      vx: clamp((rect.left - prev.x) / rect.width / dt, -10, 10),
-      vy: clamp((rect.top - prev.y) / rect.height / dt, -10, 10),
-    };
+    if (capturingRef.current) {
+      containerRef.current = {
+        x: rect.left,
+        y: rect.top,
+        vx: clamp((rect.left - prev.x) / rect.width / dt, -10, 10),
+        vy: clamp((rect.top - prev.y) / rect.height / dt, -10, 10),
+      };
+    } else {
+      // Keep the anchor current so the next drag doesn't inherit a stale delta,
+      // but kill residual velocity so hover/layout motion cannot jitter the pool.
+      containerRef.current = { x: rect.left, y: rect.top, vx: 0, vy: 0 };
+    }
   }, []);
 
   /** One fixed-timestep step of the fluid model (semi-implicit Euler). */
@@ -191,10 +208,11 @@ export function useLiquidBlobPhysics() {
     flow.vx += (pointer.vx + containerRef.current.vx - flow.vx) * follow;
     flow.vy += (pointer.vy + containerRef.current.vy - flow.vy) * follow;
 
-    // A living surface never sits perfectly still while touched.
+    // A living surface never sits perfectly still while touched — kept subtle
+    // so it reads as surface tension, not jitter.
     const phase = phaseRef.current;
-    const microX = active ? (Math.sin(phase * 2.3) + Math.sin(phase * 3.9 + 1.7)) * 0.3 : 0;
-    const microY = active ? (Math.sin(phase * 2.9 + 0.6) + Math.sin(phase * 4.3 + 2.1)) * 0.22 : 0;
+    const microX = active ? (Math.sin(phase * 2.3) + Math.sin(phase * 3.9 + 1.7)) * 0.12 : 0;
+    const microY = active ? (Math.sin(phase * 2.9 + 0.6) + Math.sin(phase * 4.3 + 2.1)) * 0.09 : 0;
 
     // — Main body: underdamped spring home, pumped by the slosh forcing. —
     const spring = active ? SPRING_ACTIVE : SPRING_IDLE;
@@ -312,7 +330,8 @@ export function useLiquidBlobPhysics() {
     const stretch = stretchRef.current;
     const stretchTarget = Math.min(speed * 0.5, 0.34);
     stretch.mag += (stretchTarget - stretch.mag) * (1 - Math.exp(-14 * dtFrame));
-    if (speed > 0.05) {
+    // Freeze stretch direction at low speed so the long axis never whips 180°.
+    if (speed > 0.08) {
       const dirFollow = 1 - Math.exp(-18 * dtFrame);
       stretch.dirX += (primary.vx / speed - stretch.dirX) * dirFollow;
       stretch.dirY += (primary.vy / speed - stretch.dirY) * dirFollow;
@@ -394,58 +413,92 @@ export function useLiquidBlobPhysics() {
       pointerRef.current.vx *= decay;
       pointerRef.current.vy *= decay;
 
-      accumulatorRef.current = Math.min(
-        accumulatorRef.current + dtFrame,
-        PHYSICS_STEP * MAX_STEPS_PER_FRAME,
-      );
-      let steps = 0;
-      while (accumulatorRef.current >= PHYSICS_STEP && steps < MAX_STEPS_PER_FRAME) {
-        stepPhysics(PHYSICS_STEP);
-        accumulatorRef.current -= PHYSICS_STEP;
-        steps++;
+      const primary = primaryRef.current;
+      const secondary = secondaryRef.current;
+      const droplet = dropletRef.current;
+      const softSettling =
+        !interactingRef.current &&
+        isSettled(primary, secondary, droplet, dropletMergedRef.current, pulseRef.current);
+
+      // While easing into sleep, skip integration so the soft lerp isn't fighting
+      // the idle spring (that fight showed up as end-of-slosh jitter).
+      if (!softSettling) {
+        accumulatorRef.current = Math.min(
+          accumulatorRef.current + dtFrame,
+          PHYSICS_STEP * MAX_STEPS_PER_FRAME,
+        );
+        let steps = 0;
+        while (accumulatorRef.current >= PHYSICS_STEP && steps < MAX_STEPS_PER_FRAME) {
+          stepPhysics(PHYSICS_STEP);
+          accumulatorRef.current -= PHYSICS_STEP;
+          steps++;
+        }
+      } else {
+        accumulatorRef.current = 0;
       }
 
       // Impact/merge ripples ring down exponentially.
       pulseRef.current *= Math.exp(-PULSE_DECAY * dtFrame);
       if (pulseRef.current < 0.001) pulseRef.current = 0;
 
-      applyVars(dtFrame);
-
-      const primary = primaryRef.current;
-      const secondary = secondaryRef.current;
-      const droplet = dropletRef.current;
-      if (
-        !interactingRef.current &&
-        isSettled(primary, secondary, droplet, dropletMergedRef.current, pulseRef.current)
-      ) {
-        // Snap to a pixel-perfect rest state: the sleeping surface is
-        // deterministic and the next interaction starts from true rest.
-        primary.x = 0;
-        primary.y = REST_Y;
-        primary.vx = 0;
-        primary.vy = 0;
-        secondary.x = 0;
-        secondary.y = REST_Y + 0.05;
-        secondary.vx = 0;
-        secondary.vy = 0;
+      // Soft settle: ease into rest instead of popping when the sleep threshold
+      // is crossed. Hard-snap only once positions are already pixel-close.
+      if (softSettling) {
+        const k = 1 - Math.exp(-SETTLE_LERP * dtFrame);
+        primary.x += (0 - primary.x) * k;
+        primary.y += (REST_Y - primary.y) * k;
+        primary.vx *= 1 - k;
+        primary.vy *= 1 - k;
+        secondary.x += (0 - secondary.x) * k;
+        secondary.y += (REST_Y + 0.05 - secondary.y) * k;
+        secondary.vx *= 1 - k;
+        secondary.vy *= 1 - k;
+        droplet.x += (0 - droplet.x) * k;
+        droplet.y += (REST_Y + 0.1 - droplet.y) * k;
+        droplet.vx *= 1 - k;
+        droplet.vy *= 1 - k;
+        flowRef.current.vx *= 1 - k;
+        flowRef.current.vy *= 1 - k;
+        stretchRef.current.mag *= 1 - k;
+        dropStretchRef.current.mag *= 1 - k;
+        pulseRef.current *= 1 - k;
         dropletMergedRef.current = true;
-        droplet.x = 0;
-        droplet.y = REST_Y + 0.1;
-        droplet.vx = 0;
-        droplet.vy = 0;
-        flowRef.current.vx = 0;
-        flowRef.current.vy = 0;
-        stretchRef.current.mag = 0;
-        dropStretchRef.current.mag = 0;
-        pulseRef.current = 0;
-        applyVars(dtFrame);
-        animatingRef.current = false;
-        rafRef.current = null;
-        lastTimeRef.current = null;
-        rootRef.current?.classList.remove("liquid-card--blob-active");
-        return;
+
+        const atRest =
+          Math.abs(primary.x) < SETTLE_SNAP &&
+          Math.abs(primary.y - REST_Y) < SETTLE_SNAP &&
+          Math.abs(secondary.x) < SETTLE_SNAP &&
+          Math.abs(droplet.x) < SETTLE_SNAP &&
+          pulseRef.current < SETTLE_PULSE * 0.5;
+
+        if (atRest) {
+          primary.x = 0;
+          primary.y = REST_Y;
+          primary.vx = 0;
+          primary.vy = 0;
+          secondary.x = 0;
+          secondary.y = REST_Y + 0.05;
+          secondary.vx = 0;
+          secondary.vy = 0;
+          droplet.x = 0;
+          droplet.y = REST_Y + 0.1;
+          droplet.vx = 0;
+          droplet.vy = 0;
+          flowRef.current.vx = 0;
+          flowRef.current.vy = 0;
+          stretchRef.current.mag = 0;
+          dropStretchRef.current.mag = 0;
+          pulseRef.current = 0;
+          applyVars(dtFrame);
+          animatingRef.current = false;
+          rafRef.current = null;
+          lastTimeRef.current = null;
+          rootRef.current?.classList.remove("liquid-card--blob-active");
+          return;
+        }
       }
 
+      applyVars(dtFrame);
       rafRef.current = requestAnimationFrame(tick);
     },
     [applyVars, sampleContainerMotion, stepPhysics],
@@ -480,11 +533,13 @@ export function useLiquidBlobPhysics() {
     pointerTimeRef.current = now;
 
     const prev = pointerRef.current;
+    const rawVx = clamp((nx - prev.x) / dtEvent, -8, 8);
+    const rawVy = clamp((ny - prev.y) / dtEvent, -8, 8);
     pointerRef.current = {
       x: nx,
       y: ny,
-      vx: clamp((nx - prev.x) / dtEvent, -8, 8),
-      vy: clamp((ny - prev.y) / dtEvent, -8, 8),
+      vx: prev.vx * (1 - POINTER_VEL_SMOOTH) + rawVx * POINTER_VEL_SMOOTH,
+      vy: prev.vy * (1 - POINTER_VEL_SMOOTH) + rawVy * POINTER_VEL_SMOOTH,
     };
     return { x: nx, y: ny };
   }, []);
@@ -512,6 +567,9 @@ export function useLiquidBlobPhysics() {
   const releaseInteraction = useCallback(() => {
     interactingRef.current = false;
     pointerRef.current = { x: 0.5, y: 0.5, vx: 0, vy: 0 };
+    // Drop any drag-injected container velocity so release doesn't kick the pool.
+    containerRef.current.vx = 0;
+    containerRef.current.vy = 0;
     // Surface rebound blip as the "finger" lifts off the liquid.
     pulseRef.current = Math.min(pulseRef.current + 0.12, 1.2);
     startLoop();

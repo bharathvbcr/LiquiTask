@@ -477,6 +477,14 @@ body {
     scale(calc(0.45 + var(--blob-speed) * 0.3));
 }
 
+/* Specular breathe rides a custom property so it never fights the JS-driven
+   opacity calc (which caused a flash when blob-active toggled). */
+@property --blob-breathe {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
 /* Specular highlight riding the surface. It parallaxes *less* than the liquid
    itself, so it reads as light refracting through the fluid — and it flares
    with slosh speed and merge/impact pulses. */
@@ -488,7 +496,8 @@ body {
   border-radius: 50%;
   filter: blur(7px);
   mix-blend-mode: screen;
-  opacity: calc(0.08 + var(--blob-speed) * 0.5 + var(--blob-pulse) * 0.4);
+  --blob-breathe: 0;
+  opacity: calc(0.08 + var(--blob-speed) * 0.5 + var(--blob-pulse) * 0.4 + var(--blob-breathe) * 0.06);
   background: radial-gradient(
     ellipse 60% 60% at 42% 38%,
     rgba(255, 226, 226, 0.9),
@@ -497,18 +506,16 @@ body {
   );
   transform: translate(calc(var(--blob-x) * 0.82 - 3%), calc(var(--blob-y) * 0.62 - 4%))
     rotate(var(--blob-tilt)) scale(calc(1 + var(--blob-pulse) * 0.35));
-  /* Resting liquid is never dead: a slow, compositor-only (opacity) breathing
-     while idle. Disabled while interacting (JS vars take over), under
-     reduced-motion, and on the reduced GPU tier via the shared overrides. */
+  /* Resting liquid is never dead: a slow compositor-only breathe while idle. */
   animation: liquid-specular-breathe 7s ease-in-out infinite alternate;
 }
 
 @keyframes liquid-specular-breathe {
   0% {
-    opacity: 0.05;
+    --blob-breathe: 0;
   }
   100% {
-    opacity: 0.15;
+    --blob-breathe: 1;
   }
 }
 
@@ -531,6 +538,11 @@ body {
 
 .liquid-card--blob-active .liquid-card-blob {
   animation: none;
+}
+
+/* Freeze breathe at 0 while the sim drives opacity — no keyframe restart flash. */
+.liquid-card--blob-active .liquid-card-blob--specular {
+  --blob-breathe: 0;
 }
 
 @keyframes liquid-card-morph {
@@ -572,7 +584,8 @@ body {
 .liquid-card:hover {
   background: rgba(45, 12, 12, 0.6);
   border-color: rgba(255, 50, 50, 0.4);
-  transform: translateY(-4px) scale(1.01);
+  /* Gentler lift — less layout thrash while the fluid sim is live. */
+  transform: translateY(-3px) scale(1.008);
   box-shadow:
     0 20px 40px rgba(0, 0, 0, 0.5),
     0 0 30px rgba(220, 30, 30, 0.15);

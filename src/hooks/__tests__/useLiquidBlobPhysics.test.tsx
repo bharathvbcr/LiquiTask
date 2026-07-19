@@ -208,5 +208,42 @@ describe("useLiquidBlobPhysics", () => {
     unmount();
     expect(rafQueue.size).toBe(0);
   });
+
+  it("ignores hover-like container motion until the pointer is captured", () => {
+    render(<Probe />);
+    const card = screen.getByTestId("card");
+    let top = 0;
+    card.getBoundingClientRect = () =>
+      ({
+        left: 0,
+        top,
+        width: 200,
+        height: 120,
+        right: 200,
+        bottom: top + 120,
+        x: 0,
+        y: top,
+        toJSON: () => ({}),
+      }) as DOMRect;
+
+    // Hover enter — CSS lift would slide the card a few px each frame.
+    fireEvent.pointerEnter(card, { clientX: 100, clientY: 60 });
+    for (let i = 0; i < 12; i++) {
+      top -= 0.35; // ~4px over ~0.4s at 60fps — the old hover-lift jitter source
+      runFrames(1, i * 17);
+    }
+    // Without pointer capture, container motion must not pump the fluid.
+    expect(liquidNum(card, "--blob-speed")).toBeLessThan(0.15);
+
+    // Drag capture: the same container motion should now slosh.
+    fireEvent.pointerDown(card, { clientX: 100, clientY: 60, pointerId: 1 });
+    for (let i = 0; i < 10; i++) {
+      top -= 4;
+      runFrames(1, 300 + i * 17);
+    }
+    expect(liquidNum(card, "--blob-speed")).toBeGreaterThan(0.2);
+
+    fireEvent.pointerUp(card, { clientX: 100, clientY: 60, pointerId: 1 });
+  });
 });
 

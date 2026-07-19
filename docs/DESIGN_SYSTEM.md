@@ -84,7 +84,8 @@ liquid answers the hand with weight, cohesion between the main body / surface fi
 soft wall collisions that ripple, and velocity-aligned stretch so blobs elongate like real
 fluid parcels. Hard sloshes fling the droplet off its surface-tension ligament; it arcs,
 snaps back, and merges into the pool with a pulse. Pressing pokes the surface; releasing
-rebounds. The simulation sleeps once settled and always snaps to a pixel-perfect rest state.
+rebounds. Container motion only feeds the fluid while dragging (so CSS hover lifts cannot
+jitter the pool). Near rest the sim eases in, then snaps to a pixel-perfect sleep state.
 Drag-and-drop ends in a splash (`DropSplash` + `.lt-splash`): ballistic droplets that stall at
 their apex and splat flat, an opening crown, organic morphing shockwave rings, and a
 Worthington rebound jet. All of it honors `prefers-reduced-motion` and the reduced GPU tier.
