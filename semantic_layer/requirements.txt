@@ -6,7 +6,7 @@ fastapi==0.115.12
 uvicorn[standard]==0.34.0
 pydantic==2.11.3
 psutil==7.0.0
-pytest==8.3.5
+pytest==9.0.3
 # Optional: faiss-gpu>=1.8.0  # CUDA FAISS
 # Optional: chromadb>=0.5.0   # alternate vector store (FAISS is default)
 # Optional: onnxruntime>=1.18.0
