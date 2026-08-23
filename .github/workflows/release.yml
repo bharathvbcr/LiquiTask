@@ -61,6 +61,14 @@ jobs:
       - name: Run liquitask-core tests
         run: cargo test --manifest-path crates/liquitask-core/Cargo.toml
 
+      - name: Create sidecar stubs for Tauri build
+        run: |
+          mkdir -p src-tauri/binaries
+          for bin in semantic-layer liquitask-agentd liquitask-cli; do
+            touch "src-tauri/binaries/${bin}-aarch64-apple-darwin"
+            chmod +x "src-tauri/binaries/${bin}-aarch64-apple-darwin"
+          done
+
       - name: Run src-tauri tests
         working-directory: src-tauri
         run: cargo test
