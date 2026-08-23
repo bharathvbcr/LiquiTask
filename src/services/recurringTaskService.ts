@@ -77,10 +77,11 @@ export class RecurringTaskService {
 
     for (const originalTask of tasks) {
       if (!originalTask.recurring?.enabled) continue;
-      if (!originalTask.recurring.nextOccurrence) continue;
+      const configuredNext = originalTask.recurring.nextOccurrence;
+      if (!configuredNext) continue;
 
       let config = { ...originalTask.recurring };
-      let nextOccurrence = new Date(config.nextOccurrence);
+      let nextOccurrence = new Date(configuredNext);
       let iterations = 0;
 
       while (now >= nextOccurrence && iterations < MAX_CATCHUP) {

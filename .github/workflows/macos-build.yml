@@ -28,6 +28,12 @@ jobs:
           node-version: 24
           cache: npm
 
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: liquitask-agentd/go.mod
+          cache-dependency-path: liquitask-agentd/go.sum
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88 # stable
         with:

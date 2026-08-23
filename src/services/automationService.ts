@@ -2,7 +2,7 @@ import type { BoardColumn, Task } from "../../types";
 import type { FilterGroup } from "../types/queryTypes";
 import { executeAdvancedFilter } from "../utils/queryEngine";
 import { callNative, isTauri } from "../runtime/runtimeEnvironment";
-import { readAiFeaturesEnabled } from "../utils/aiFeatures";
+import { readAgentExecutionEnabled } from "../utils/agentExecution";
 import deadLetterService from "./deadLetterService";
 import { toCoreTask } from "../runtime/coreDto";
 
@@ -422,7 +422,7 @@ export class AutomationService {
       });
     }
 
-    if (result.assignToAgentIds.length > 0 && onAssignToAgent && readAiFeaturesEnabled()) {
+    if (result.assignToAgentIds.length > 0 && onAssignToAgent && readAgentExecutionEnabled()) {
       const now = Date.now();
       result.assignToAgentIds.forEach((agentId) => {
         const key = `${task.id}:${agentId}`;

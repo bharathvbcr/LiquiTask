@@ -3,7 +3,7 @@ import { STORAGE_KEYS } from "../../constants";
 import { isTauri } from "../../runtime/runtimeEnvironment";
 import { storageService } from "../../services/storageService";
 import { diffProjection, replayTaskEvents } from "./taskEventReducer";
-import { deserializeTask, draftEvent, serializeTask, type TaskEvent, type TaskEventDraft, type TaskEventType } from "./taskEvents";
+import { TASK_EVENT_SCHEMA_VERSION, deserializeTask, draftEvent, serializeTask, type TaskEvent, type TaskEventDraft, type TaskEventType } from "./taskEvents";
 import { commitSqliteTaskMutation, isSqliteTaskStoreActive } from "../../services/sqliteTaskStore";
 
 /**
@@ -178,17 +178,26 @@ class NativeAdapter implements EventStoreAdapter {
         v: number;
       }>
     >("task_events_read", { sinceSeq: sinceSeq ?? null, limit: null });
-    return rows.map((r) => ({
-      id: r.id,
-      seq: r.seq,
-      streamId: r.streamId,
-      type: r.eventType as TaskEvent["type"],
-      payload: parsePayload(r.payload, r.eventType),
-      actor: r.actor,
-      runId: r.runId ?? undefined,
-      ts: r.ts,
-      v: r.v ?? 1,
-    }));
+    return rows.map((r) => {
+      if (typeof r.v === "number" && r.v !== TASK_EVENT_SCHEMA_VERSION) {
+        // Fail loud: events written by a newer schema version must not be
+        // silently replayed into projections this build cannot parse.
+        throw new Error(
+          `Unsupported task event schema version ${r.v} (expected ${TASK_EVENT_SCHEMA_VERSION}) — the event log was written by a newer app version.`,
+        );
+      }
+      return {
+        id: r.id,
+        seq: r.seq,
+        streamId: r.streamId,
+        type: r.eventType as TaskEvent["type"],
+        payload: parsePayload(r.payload, r.eventType),
+        actor: r.actor,
+        runId: r.runId ?? undefined,
+        ts: r.ts,
+        v: TASK_EVENT_SCHEMA_VERSION,
+      };
+    });
   }
 
   async count(): Promise<number> {

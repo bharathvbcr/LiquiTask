@@ -3,12 +3,11 @@
  *
  * Refactor 4: one substrate for revert-to-step and fork-from-step across runtimes.
  */
-import type { AgentProfile, AgentRun, RunTrace, RunTraceStep, RunTraceStepKind, Task } from "../../../types";
+import type { AgentRun, RunTrace, RunTraceStep, RunTraceStepKind, Task } from "../../../types";
 import { isTauri } from "../../runtime/runtimeEnvironment";
 import agentRunService from "./agentRunService";
 import agentService from "./agentService";
 import {
-  countSessionMessages,
   forkSession,
   rewindToCheckpoint,
   runtimeForProvider,

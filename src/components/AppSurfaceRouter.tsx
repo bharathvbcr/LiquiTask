@@ -29,7 +29,8 @@ const ViewLoadingFallback: React.FC = () => (
 
 export interface AppSurfaceRouterProps {
   v3Enabled: boolean;
-  aiFeaturesEnabled: boolean;
+  /** Inbox and Agents are agent-execution surfaces; the Board is always shown. */
+  agentExecutionEnabled: boolean;
   activeSurface: AppSurface;
   onSurfaceChange: (surface: AppSurface) => void;
   activeProjectId: string;
@@ -47,7 +48,7 @@ export interface AppSurfaceRouterProps {
  */
 export const AppSurfaceRouter: React.FC<AppSurfaceRouterProps> = ({
   v3Enabled,
-  aiFeaturesEnabled,
+  agentExecutionEnabled,
   activeSurface,
   onSurfaceChange,
   activeProjectId,
@@ -73,9 +74,9 @@ export const AppSurfaceRouter: React.FC<AppSurfaceRouterProps> = ({
   }
 
   const surfaces = (["inbox", "board", "agents"] as const).filter(
-    (surface) => aiFeaturesEnabled || surface === "board",
+    (surface) => agentExecutionEnabled || surface === "board",
   );
-  const effectiveSurface = aiFeaturesEnabled ? activeSurface : "board";
+  const effectiveSurface = agentExecutionEnabled ? activeSurface : "board";
 
   return (
     <>

@@ -60,6 +60,11 @@ export interface TransitionContext {
   hasPrOpen?: boolean;
   /** The linked PR has been merged on GitHub. */
   prMerged?: boolean;
+  /**
+   * User-confirmed reopen of a merged card: Commit → Task. Agents can never
+   * set this — only humans may un-merge.
+   */
+  reopen?: boolean;
   /** Unresolved `blocked-by` links (blockers not yet in Commit). */
   blockedByOpen?: boolean;
   /** Human-readable label of the first open blocker (for the denial reason). */

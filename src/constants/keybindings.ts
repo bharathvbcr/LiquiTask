@@ -100,20 +100,31 @@ export const SHORTCUT_CATEGORY_ORDER = ["Global", "Navigation", "Tasks", "Inbox"
 
 export interface ShortcutDisplayOptions {
   aiFeaturesEnabled?: boolean;
+  /** Agent runs are configured separately from the in-app AI features. */
+  agentExecutionEnabled?: boolean;
   assistantSidebarEnabled?: boolean;
 }
 
 export function getHiddenShortcutIds(options: ShortcutDisplayOptions = {}): Set<string> {
-  const { aiFeaturesEnabled = true, assistantSidebarEnabled = true } = options;
+  const {
+    aiFeaturesEnabled = true,
+    agentExecutionEnabled = true,
+    assistantSidebarEnabled = true,
+  } = options;
   const hidden = new Set<string>();
 
   if (!assistantSidebarEnabled || !aiFeaturesEnabled) {
     hidden.add("global:toggle-assistant");
   }
   if (!aiFeaturesEnabled) {
+    for (const id of Object.keys(SHORTCUT_META)) {
+      if (id.startsWith("ai:")) hidden.add(id);
+    }
+  }
+  if (!agentExecutionEnabled) {
     hidden.add("task:send-agent");
     for (const id of Object.keys(SHORTCUT_META)) {
-      if (id.startsWith("ai:") || id.startsWith("inbox:") || id.startsWith("dock:")) hidden.add(id);
+      if (id.startsWith("inbox:") || id.startsWith("dock:")) hidden.add(id);
     }
   }
 
@@ -159,7 +170,7 @@ export function buildShortcutGroups(
     const category = meta?.category ?? "Other";
     const label = meta?.label ?? id.replace(/[-:]/g, " ");
     if (!groups.has(category)) groups.set(category, []);
-    groups.get(category)!.push({ id, label, keys });
+    groups.get(category)?.push({ id, label, keys });
   }
 
   return SHORTCUT_CATEGORY_ORDER.filter((c) => groups.has(c)).map((category) => ({

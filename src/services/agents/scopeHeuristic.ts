@@ -23,7 +23,7 @@ const CODE_WORDS =
  * Normalize a planned path for reservation comparison (repo-relative, no leading ./).
  */
 export function normalizeReservationPath(path: string): string {
-  let p = path.trim().replace(/\\/g, "/").replace(/^\.?\//, "").replace(/\/+$/, "");
+  const p = path.trim().replace(/\\/g, "/").replace(/^\.?\//, "").replace(/\/+$/, "");
   if (!p || p === "**") return "**";
   return p;
 }

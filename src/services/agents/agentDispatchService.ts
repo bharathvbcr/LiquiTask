@@ -2,6 +2,7 @@ import agentRunService from "./agentRunService";
 import agentService from "./agentService";
 import agentReservationService from "./agentReservationService";
 import { checkAgentBudget, getAgentDailyStats } from "./agentPolicyService";
+import { readAgentExecutionEnabled } from "../../utils/agentExecution";
 import type { AgentProfile, Task, ToastType } from "../../../types";
 
 /**
@@ -96,6 +97,7 @@ class AgentDispatchService {
   /** True when the board wiring is live and at least one agent can take work. */
   canDispatch(): boolean {
     return (
+      readAgentExecutionEnabled() &&
       this.assignFn !== null &&
       agentService.getAgents().some((a) => Boolean(a.workingDir?.trim()))
     );
@@ -108,7 +110,11 @@ class AgentDispatchService {
 
   /** Whether entry points can offer a guided "set up your first agent" path. */
   canOfferSetup(): boolean {
-    return this.setupFn !== null && agentService.getAgents().length === 0;
+    return (
+      readAgentExecutionEnabled() &&
+      this.setupFn !== null &&
+      agentService.getAgents().length === 0
+    );
   }
 
   /** Open agent setup — called by entry points when no agent exists yet. */

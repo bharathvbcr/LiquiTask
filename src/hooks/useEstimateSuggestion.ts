@@ -21,7 +21,7 @@ export function useEstimateSuggestion(
 
   const suggestion = useMemo(
     () => suggestCalibratedEstimate(task, allTasks, runs),
-    [task.title, task.priority, task.assignee, task.timeEstimate, task.tags, allTasks, runs],
+    [task.title, task.priority, task.assignee, task.timeEstimate, task.tags, allTasks, runs, task],
   );
 
   const hint = useMemo(() => {

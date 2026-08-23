@@ -18,6 +18,7 @@ interface AutomationSettingsProps {
   priorities: PriorityDefinition[];
   addToast: (msg: string, type: ToastType) => void;
   aiFeaturesEnabled?: boolean;
+  agentExecutionEnabled?: boolean;
 }
 
 export const AutomationSettings: React.FC<AutomationSettingsProps> = ({
@@ -25,6 +26,7 @@ export const AutomationSettings: React.FC<AutomationSettingsProps> = ({
   priorities,
   addToast,
   aiFeaturesEnabled = true,
+  agentExecutionEnabled = true,
 }) => {
   const { confirm } = useConfirmation();
   const [rules, setRules] = useState<AutomationRule[]>([]);
@@ -201,8 +203,13 @@ export const AutomationSettings: React.FC<AutomationSettingsProps> = ({
           }}
           availableColumns={availableColumns}
           availablePriorities={availablePriorities}
-          availableAgents={agentService.getAgents().map((a) => ({ id: a.id, name: a.name }))}
+          availableAgents={
+            agentExecutionEnabled
+              ? agentService.getAgents().map((a) => ({ id: a.id, name: a.name }))
+              : []
+          }
           aiFeaturesEnabled={aiFeaturesEnabled}
+          agentExecutionEnabled={agentExecutionEnabled}
         />
       )}
     </div>

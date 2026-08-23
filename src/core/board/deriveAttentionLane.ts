@@ -1,6 +1,7 @@
 import { COLUMN_STATUS } from "../../constants";
 import { isAwaitingReview, isBlockedRun } from "../inbox/deriveInboxItems";
-import type { AgentPermissionRequest, AgentRun, Task } from "../../../types";
+import type { AgentRun, Task } from "../../../types";
+import type { AgentPermissionRequest } from "../../services/agents/agentMcpService";
 
 /** Why a task landed in the derived attention lane. */
 export type AttentionReason =

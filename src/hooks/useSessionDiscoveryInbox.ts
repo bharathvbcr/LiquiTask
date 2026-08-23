@@ -4,7 +4,6 @@ import sessionDiscoveryService, {
   type AdoptableSession,
 } from "../services/agents/sessionDiscoveryService";
 import agentRunService from "../services/agents/agentRunService";
-import { generateTaskId, getBacklogColumnId } from "../utils/taskUtils";
 
 interface UseSessionDiscoveryInboxProps {
   isLoaded: boolean;

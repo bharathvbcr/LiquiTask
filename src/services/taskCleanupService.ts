@@ -13,7 +13,7 @@ import type {
 import { STORAGE_KEYS } from "../constants";
 import { asString } from "../utils/coerce";
 import { isTerminalTaskStatus } from "../utils/taskUtils";
-import { candidateTaskIds, validateMergeSuggestion } from "../utils/aiModalTrust";
+import { validateMergeSuggestion } from "../utils/aiModalTrust";
 import { toCoreTask } from "../runtime/coreDto";
 import { callNative } from "../runtime/runtimeEnvironment";
 import { aiService } from "./aiService";

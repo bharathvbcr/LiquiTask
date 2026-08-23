@@ -2,7 +2,6 @@ import {
   Image as ImageIcon,
   AlertTriangle,
   Check,
-  CheckSquare,
   ChevronDown,
   ChevronRight,
   Eye,
@@ -588,6 +587,7 @@ export const AiAssistPanel: React.FC<AiAssistPanelProps> = ({
                   aria-label="Quick-add completions"
                   aria-activedescendant={`quick-add-completion-${completionSelectedIndex}`}
                   className="absolute left-0 right-0 top-full z-10 mt-1 liquid-surface border border-white/10 rounded-xl overflow-hidden shadow-lg"
+                  tabIndex={0}
                 >
                   <div className="px-3 py-2 text-[10px] uppercase tracking-widest text-slate-500 font-bold border-b border-white/5">
                     Tab Or Arrows To Complete

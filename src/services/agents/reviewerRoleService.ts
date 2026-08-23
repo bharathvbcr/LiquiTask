@@ -37,7 +37,7 @@ export function shouldUseLocalReviewerStage(agent: AgentProfile): boolean {
   return Boolean(agent.reviewerAgentGate || resolveReviewerForCoder(agent));
 }
 
-function buildReviewerPrompt(task: Task, diff: string): string {
+function _buildReviewerPrompt(task: Task, diff: string): string {
   const criteria = (task.subtasks ?? [])
     .filter((s) => !s.completed)
     .map((s) => `- ${s.title}`)

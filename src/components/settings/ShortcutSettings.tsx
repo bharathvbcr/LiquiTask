@@ -16,6 +16,7 @@ interface ShortcutSettingsProps {
   resetKeybindings: () => void;
   addToast: (msg: string, type: ToastType) => void;
   aiFeaturesEnabled?: boolean;
+  agentExecutionEnabled?: boolean;
 }
 
 export const ShortcutSettings: React.FC<ShortcutSettingsProps> = ({
@@ -24,6 +25,7 @@ export const ShortcutSettings: React.FC<ShortcutSettingsProps> = ({
   resetKeybindings,
   addToast,
   aiFeaturesEnabled = true,
+  agentExecutionEnabled = true,
 }) => {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
@@ -31,9 +33,10 @@ export const ShortcutSettings: React.FC<ShortcutSettingsProps> = ({
     () =>
       buildShortcutGroups(keybindings, {
         aiFeaturesEnabled,
+        agentExecutionEnabled,
         assistantSidebarEnabled: FEATURE_FLAGS.AI_ASSISTANT_SIDEBAR_ENABLED,
       }),
-    [keybindings, aiFeaturesEnabled],
+    [keybindings, aiFeaturesEnabled, agentExecutionEnabled],
   );
 
   const handleReset = () => {

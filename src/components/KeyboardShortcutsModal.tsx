@@ -10,12 +10,14 @@ interface KeyboardShortcutsModalProps {
   isOpen: boolean;
   onClose: () => void;
   aiFeaturesEnabled?: boolean;
+  agentExecutionEnabled?: boolean;
 }
 
 export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
   isOpen,
   onClose,
   aiFeaturesEnabled = true,
+  agentExecutionEnabled = true,
 }) => {
   const { keybindings } = useKeybinding();
 
@@ -23,9 +25,10 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
     () =>
       buildShortcutGroups(keybindings, {
         aiFeaturesEnabled,
+        agentExecutionEnabled,
         assistantSidebarEnabled: FEATURE_FLAGS.AI_ASSISTANT_SIDEBAR_ENABLED,
       }),
-    [keybindings, aiFeaturesEnabled],
+    [keybindings, aiFeaturesEnabled, agentExecutionEnabled],
   );
 
   return (

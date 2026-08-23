@@ -78,6 +78,8 @@ interface SettingsModalProps {
   onUpdateShowSubWorkspaceTasks?: (s: boolean) => void;
   aiFeaturesEnabled?: boolean;
   onUpdateAiFeaturesEnabled?: (enabled: boolean) => void;
+  agentExecutionEnabled?: boolean;
+  onUpdateAgentExecutionEnabled?: (enabled: boolean) => void;
   notificationPreferences?: NotificationPreferences;
   onUpdateNotificationPreferences?: (prefs: NotificationPreferences) => void;
   remotePushConfig?: RemotePushConfig;
@@ -110,6 +112,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onUpdateShowSubWorkspaceTasks,
   aiFeaturesEnabled = true,
   onUpdateAiFeaturesEnabled,
+  agentExecutionEnabled = true,
+  onUpdateAgentExecutionEnabled,
   notificationPreferences,
   onUpdateNotificationPreferences,
   remotePushConfig,
@@ -261,13 +265,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     { id: "automation", icon: <Zap size={16} />, label: "Automation" },
     { id: "ai", icon: <Sparkles size={16} />, label: "AI Settings" },
     { id: "agents", icon: <Bot size={16} />, label: "Agents" },
-  ].filter((tab) => aiFeaturesEnabled || (tab.id !== "ai" && tab.id !== "agents"));
+  ].filter((tab) => {
+    if (tab.id === "ai") return aiFeaturesEnabled;
+    if (tab.id === "agents") return agentExecutionEnabled;
+    return true;
+  });
 
   useEffect(() => {
-    if (!aiFeaturesEnabled && (activeTab === "ai" || activeTab === "agents")) {
+    if (
+      (!aiFeaturesEnabled && activeTab === "ai") ||
+      (!agentExecutionEnabled && activeTab === "agents")
+    ) {
       setActiveTab("general");
     }
-  }, [activeTab, aiFeaturesEnabled]);
+  }, [activeTab, aiFeaturesEnabled, agentExecutionEnabled]);
 
   return (
     <ModalWrapper
@@ -301,6 +312,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onUpdateShowSubWorkspaceTasks={onUpdateShowSubWorkspaceTasks}
                 aiFeaturesEnabled={aiFeaturesEnabled}
                 onUpdateAiFeaturesEnabled={onUpdateAiFeaturesEnabled}
+                agentExecutionEnabled={agentExecutionEnabled}
+                onUpdateAgentExecutionEnabled={onUpdateAgentExecutionEnabled}
                 notificationPreferences={notificationPreferences}
                 onUpdateNotificationPreferences={onUpdateNotificationPreferences}
                 remotePushConfig={remotePushConfig}

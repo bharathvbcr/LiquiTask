@@ -13,6 +13,10 @@ const STARTUP_RETRY_DELAY_MS = 500;
 const HEALTH_CHECK_INTERVAL_MS = 30_000;
 const RESTART_COOLDOWN_MS = 60_000;
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export const DEFAULT_SEMANTIC_LAYER_SETTINGS: Required<
   Pick<
     SemanticLayerSettings,
@@ -119,7 +123,7 @@ function mergeAbortSignals(signals: AbortSignal[]): AbortSignal {
   return controller.signal;
 }
 
-function useRustEngine(): boolean {
+function rustEngineActive(): boolean {
   return getRuntimeState().kind === "tauri";
 }
 
@@ -219,7 +223,7 @@ class SemanticLayerService {
       return;
     }
 
-    if (settings.autoStart !== false && useRustEngine()) {
+    if (settings.autoStart !== false && rustEngineActive()) {
       const spawned = await this.trySpawnEngine(settings);
       if (spawned) {
         for (let attempt = 0; attempt < STARTUP_RETRIES; attempt += 1) {
@@ -263,7 +267,7 @@ class SemanticLayerService {
 
     if (
       settings.autoStart !== false &&
-      useRustEngine() &&
+      rustEngineActive() &&
       Date.now() - this.lastRestartAttempt >= RESTART_COOLDOWN_MS
     ) {
       this.lastRestartAttempt = Date.now();
@@ -285,7 +289,7 @@ class SemanticLayerService {
 
   async shutdown(): Promise<void> {
     this.stopHealthMonitor();
-    if (!this.spawnedByApp || !useRustEngine()) {
+    if (!this.spawnedByApp || !rustEngineActive()) {
       this.available = false;
       this.initPromise = null;
       this.setStatus(isSemanticLayerEnabled() ? "degraded" : "off");
@@ -312,7 +316,7 @@ class SemanticLayerService {
     }
     if (!this.available) return null;
 
-    if (useRustEngine()) {
+    if (rustEngineActive()) {
       return this.chatViaRust(request);
     }
 
@@ -322,7 +326,7 @@ class SemanticLayerService {
   async recordFeedback(accepted: boolean, similarity = 1.0): Promise<void> {
     if (!this.lastCacheEntryId || !this.available) return;
 
-    if (useRustEngine()) {
+    if (rustEngineActive()) {
       try {
         const { invoke } = await import("@tauri-apps/api/core");
         await invoke("semantic_layer_feedback", {
@@ -461,7 +465,7 @@ class SemanticLayerService {
   }
 
   private async healthCheck(settings: SemanticLayerSettings): Promise<boolean> {
-    if (useRustEngine()) {
+    if (rustEngineActive()) {
       try {
         const { invoke } = await import("@tauri-apps/api/core");
         const data = (await invoke("semantic_layer_health")) as { status?: string };
@@ -492,7 +496,7 @@ class SemanticLayerService {
   private async syncConfig(settings: SemanticLayerSettings): Promise<void> {
     const aiConfig = storageService.get<AIConfig | null>(STORAGE_KEYS.AI_CONFIG, null);
 
-    if (useRustEngine()) {
+    if (rustEngineActive()) {
       try {
         const { invoke } = await import("@tauri-apps/api/core");
         await invoke("semantic_layer_config", {

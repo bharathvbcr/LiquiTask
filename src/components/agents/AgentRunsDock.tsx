@@ -601,7 +601,7 @@ export const AgentRunsDock: React.FC<AgentRunsDockProps> = ({
 
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [collapsed, dockFocused, pendingBatchCount, pendingPermissions, reviewAwaitingApproval, rejectFeedback, onApprove, onReject]);
+  }, [collapsed, dockFocused, pendingBatchCount, handleApproveAllPending, handleDenyAllPending]);
 
   const renderRunCard = (run: AgentRun, group: RunGroup) => {
     const task = taskById.get(run.taskId);

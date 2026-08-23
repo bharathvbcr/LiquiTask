@@ -101,7 +101,7 @@ export function isMutatingToolCall(
   input?: unknown,
 ): boolean {
   const lower = toolName.toLowerCase();
-  const obj =
+  const _obj =
     input && typeof input === "object" && !Array.isArray(input)
       ? (input as Record<string, unknown>)
       : {};

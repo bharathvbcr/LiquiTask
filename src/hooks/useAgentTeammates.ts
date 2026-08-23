@@ -44,6 +44,14 @@ import { generateTaskId, getBacklogColumnId } from "../utils/taskUtils";
 
 interface UseAgentTeammatesArgs {
   isLoaded: boolean;
+  /**
+   * Agent execution master switch (Settings > General). When false the hook
+   * stays mounted for its manual callbacks but starts no background work:
+   * no agentd init/stream subscription, no auto-pickup, no CI/PR polling,
+   * no dock badge. Runs already live in the daemon are durable and reattach
+   * when this flips back on.
+   */
+  agentExecutionEnabled?: boolean;
   tasks: Task[];
   columns: BoardColumn[];
   projects: Project[];
@@ -88,6 +96,7 @@ const activityEntry = (agentName: string, details: string): ActivityItem => ({
  */
 export const useAgentTeammates = ({
   isLoaded,
+  agentExecutionEnabled = true,
   tasks,
   columns,
   projects,
@@ -96,6 +105,9 @@ export const useAgentTeammates = ({
   handleCreateTask,
   addToast,
 }: UseAgentTeammatesArgs) => {
+  /** Every background loop below hangs off this, not off `isLoaded` alone. */
+  const executionReady = isLoaded && agentExecutionEnabled;
+
   const [agents, setAgents] = useState<AgentProfile[]>([]);
   const [runs, setRuns] = useState<AgentRun[]>([]);
   const [pendingPlans, setPendingPlans] = useState<PendingPlan[]>([]);
@@ -170,7 +182,11 @@ export const useAgentTeammates = ({
           agentService.getAgents().find((a) => a.name === agentName) ??
           agentService.getAgents().find((a) => a.id === agentName);
         if (!task || !agent) throw new Error("Task or agent not found for dispatch");
-        const run = await agentRunService.startRun(task, agent);
+        // Public entry point — honors the agent-execution gate, assign locks,
+        // and the per-agent queue (startRun is an internal primitive).
+        const assigned: Task = { ...task, assignee: agent.name };
+        const run = await agentRunService.assign(assigned, agent);
+        if (!run) throw new Error("Dispatch failed — agent execution unavailable");
         return run.id;
       },
     });
@@ -402,7 +418,7 @@ export const useAgentTeammates = ({
   // -- service lifecycle ------------------------------------------------------
 
   useEffect(() => {
-    if (!isLoaded || !isTauri()) return;
+    if (!executionReady || !isTauri()) return;
     void notificationService.requestPermission();
     void agentRunService
       .initialize()
@@ -441,7 +457,7 @@ export const useAgentTeammates = ({
     return () => {
       unsubscribe();
     };
-  }, [isLoaded, refreshAgents]);
+  }, [executionReady, refreshAgents]);
 
   // -- dead-letter retry strategies -------------------------------------------
   // "run" letters re-dispatch the task to its agent; "mcp-action" letters are
@@ -597,16 +613,16 @@ export const useAgentTeammates = ({
 
   // Export board snapshot for liquitask CLI / meta-agent tools.
   useEffect(() => {
-    if (!isLoaded) return;
+    if (!executionReady) return;
     scheduleBoardSnapshotExport(tasks, columns, agentService.getAgents());
-  }, [isLoaded, tasks, columns]);
+  }, [executionReady, tasks, columns]);
 
   // CI + PR review polling for runs with open pull requests (Tier 2 loops).
   useEffect(() => {
-    if (!isLoaded || !isTauri()) return;
+    if (!executionReady || !isTauri()) return;
     feedbackLoopService.startPolling(() => agentRunService.getRuns());
     return () => feedbackLoopService.stopPolling();
-  }, [isLoaded]);
+  }, [executionReady]);
 
   // -- plan gate ----------------------------------------------------------------
   // Mirror the planner service's pending-plan store into state so the Inbox can
@@ -622,7 +638,7 @@ export const useAgentTeammates = ({
   }, []);
 
   useEffect(() => {
-    if (!isLoaded || !isTauri()) return;
+    if (!executionReady || !isTauri()) return;
     return agentMcpService.subscribePermissions((requests) => {
       for (const req of requests) {
         if (seenPermissionIdsRef.current.has(req.requestId)) continue;
@@ -636,7 +652,7 @@ export const useAgentTeammates = ({
         notificationService.notifyPermissionRequest(req.requestId, req.toolName);
       }
     });
-  }, [isLoaded, addToast]);
+  }, [executionReady, addToast]);
 
   const awaitingReviewCount = useMemo(() => {
     const taskById = new Map(tasks.map((t) => [t.id, t]));
@@ -649,12 +665,12 @@ export const useAgentTeammates = ({
 
   // macOS dock badge: pending permissions + runs awaiting human review.
   useEffect(() => {
-    if (!isLoaded || !isTauri()) return;
+    if (!executionReady || !isTauri()) return;
     const count = pendingPermissions.length + awaitingReviewCount;
     void import("@tauri-apps/api/core").then(({ invoke }) =>
       invoke("tray_update_dock_badge", { count }).catch(() => undefined),
     );
-  }, [isLoaded, pendingPermissions.length, awaitingReviewCount]);
+  }, [executionReady, pendingPermissions.length, awaitingReviewCount]);
 
   // -- auto-pickup ------------------------------------------------------------
   // Only tasks sitting in the backlog ("Task") column are auto-picked. Cards in
@@ -662,7 +678,7 @@ export const useAgentTeammates = ({
   // column qualified, which re-ran finished work after an app restart).
 
   useEffect(() => {
-    if (!isLoaded || !isTauri()) return;
+    if (!executionReady || !isTauri()) return;
     let cancelled = false;
     void agentRunService.whenReady().then(() => {
       if (cancelled) return;
@@ -689,7 +705,7 @@ export const useAgentTeammates = ({
     return () => {
       cancelled = true;
     };
-  }, [isLoaded, tasks, columns, addToast]);
+  }, [executionReady, tasks, columns, addToast]);
 
   // -- manual controls --------------------------------------------------------
 

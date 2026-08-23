@@ -247,7 +247,7 @@ function parseFilePaths(input: string): { text: string; filePaths: string[] } {
   const filePaths: string[] = [];
   let text = input;
 
-  for (const match of input.matchAll(/(?:^|\s)@([\w./\\-]+)/g)) {
+  for (const match of input.matchAll(/(?:^|\s)@([\w./-]+)/g)) {
     const token = match[1];
     if (isDateAtToken(token) || !looksLikeFilePath(token)) continue;
     filePaths.push(token);
@@ -298,7 +298,7 @@ export function collectParseWarnings(
     pushWarning("empty_title", 'Provide a title inside $"..." or after $.');
   }
 
-  for (const match of originalInput.matchAll(/(?:^|\s)@([\w./\\-]+)/g)) {
+  for (const match of originalInput.matchAll(/(?:^|\s)@([\w./-]+)/g)) {
     const token = match[1];
     if (isDateAtToken(token) || isWeekdayAtToken(token)) continue;
     if (looksLikeFilePath(token) && parsed.filePaths.includes(token)) continue;
@@ -372,7 +372,7 @@ export function getQuickAddCompletions(
   },
 ): QuickAddCompletion[] {
   const before = input.slice(0, cursor);
-  const atMatch = before.match(/(?:^|\s)@([\w./\\-]*)$/);
+  const atMatch = before.match(/(?:^|\s)@([\w./-]*)$/);
   if (atMatch) {
     const fragment = atMatch[1].toLowerCase();
     const looksLikeFile =
@@ -905,7 +905,7 @@ export function parsedTaskToJson(parsed: ParsedTask): string {
 }
 
 const QUICK_ADD_TOKEN_PATTERN =
-  /(\$"[^"]+"|\$[^\s!#+~>@$%]+(?:\s+(?![!#+~>@$%])[^\s!#+~>@$%]+)*|![a-z]+|\*[\w]+\d*|>>[^\s!#+~>@$%&]+(?:\s+(?![!#+~>@$%&])[^\s!#+~>@$%&]+)*|&[^\s]+|https?:\/\/[^\s]+|@[\w./\\-]+|#(?:project:)?[\w-]+|%[\w.-]+|\+[\w-]+|>[\w.-]+|~[\d.hm]+)/gi;
+  /(\$"[^"]+"|\$[^\s!#+~>@$%]+(?:\s+(?![!#+~>@$%])[^\s!#+~>@$%]+)*|![a-z]+|\*[\w]+\d*|>>[^\s!#+~>@$%&]+(?:\s+(?![!#+~>@$%&])[^\s!#+~>@$%&]+)*|&[^\s]+|https?:\/\/[^\s]+|@[\w./-]+|#(?:project:)?[\w-]+|%[\w.-]+|\+[\w-]+|>[\w.-]+|~[\d.hm]+)/gi;
 
 function classifyQuickAddToken(token: string): QuickAddTokenKind {
   if (token.startsWith("$")) return "title";
@@ -1049,7 +1049,7 @@ export function findSimilarTaskTitles(
 }
 
 const QUICK_ADD_METADATA_TOKEN =
-  /(?:^|\s)(![\w]+|#[\w-]+|\+[\w-]+|~[\d.hm]+|@[\w./\\-]+|>[\w.-]+)/g;
+  /(?:^|\s)(![\w]+|#[\w-]+|\+[\w-]+|~[\d.hm]+|@[\w./-]+|>[\w.-]+)/g;
 
 /** Suggest recurring metadata tokens from recent quick-add history (e.g. "!h #work"). */
 export function suggestQuickAddMetadata(recentEntries: string[]): string {

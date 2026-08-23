@@ -129,7 +129,7 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = (props) => {
   const [pendingPermissions, setPendingPermissions] = useState(() =>
     agentMcpService.getPendingPermissions(),
   );
-  const [deadLetterCount, setDeadLetterCount] = useState(() => deadLetterService.getOpen().length);
+  const [_deadLetterCount, setDeadLetterCount] = useState(() => deadLetterService.getOpen().length);
 
   useEffect(() => agentRunService.subscribe(setAgentRuns), []);
   useEffect(() => agentMcpService.subscribePermissions(setPendingPermissions), []);
@@ -146,7 +146,7 @@ export const ProjectBoard: React.FC<ProjectBoardProps> = (props) => {
       pendingPermissions,
       deadLetterTaskIds,
     });
-  }, [allTasks, tasks, agentRuns, pendingPermissions, deadLetterCount]);
+  }, [allTasks, tasks, agentRuns, pendingPermissions]);
 
   const boardTasks = useMemo(
     () => (laneFilter === "attention" ? tasks.filter((t) => attentionIds.has(t.id)) : tasks),

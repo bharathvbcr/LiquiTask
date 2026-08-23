@@ -1,20 +1,73 @@
-import { Bot, Kanban } from "lucide-react";
+import { Bot, Kanban, Sparkles } from "lucide-react";
 import type React from "react";
 import logo from "../assets/logo.png";
 
-interface ExperienceChoiceGateProps {
-  onChoose: (aiFeaturesEnabled: boolean) => void;
+/** The two preferences the first-run gate sets; both are editable later. */
+export interface ExperienceChoice {
+  aiFeaturesEnabled: boolean;
+  agentExecutionEnabled: boolean;
 }
 
+interface ExperienceChoiceGateProps {
+  onChoose: (choice: ExperienceChoice) => void;
+}
+
+interface ExperienceOption {
+  id: string;
+  eyebrow: string;
+  title: string;
+  description: string;
+  cta: string;
+  icon: React.ReactNode;
+  choice: ExperienceChoice;
+  accent: boolean;
+}
+
+const OPTIONS: ExperienceOption[] = [
+  {
+    id: "simple",
+    eyebrow: "Simplified",
+    title: "Simple Task Management",
+    description:
+      "Kanban boards, projects, and search — without AI assistants, insights, or the agent board.",
+    cta: "Use Simple Mode",
+    icon: <Kanban size={20} aria-hidden="true" />,
+    choice: { aiFeaturesEnabled: false, agentExecutionEnabled: false },
+    accent: false,
+  },
+  {
+    id: "assisted",
+    eyebrow: "Assisted",
+    title: "AI Assisted Board",
+    description:
+      "Kanban plus the AI assistant, insights, and quick-add AI — no agents run in the background.",
+    cta: "Use AI Assist",
+    icon: <Sparkles size={20} aria-hidden="true" />,
+    choice: { aiFeaturesEnabled: true, agentExecutionEnabled: false },
+    accent: false,
+  },
+  {
+    id: "agents",
+    eyebrow: "Full Experience",
+    title: "AI Agent Board",
+    description:
+      "Everything in AI assist plus coding-agent runs, approvals, and the Inbox and Agents surfaces.",
+    cta: "Enable AI Agent Board",
+    icon: <Bot size={20} aria-hidden="true" />,
+    choice: { aiFeaturesEnabled: true, agentExecutionEnabled: true },
+    accent: true,
+  },
+];
+
 /**
- * First-run gate: user picks simple Kanban task management or the full AI Agent
- * Board experience. Blocks the shell until a choice is made (no dismiss).
+ * First-run gate: user picks simple Kanban, AI-assisted Kanban, or the full
+ * agent board. Blocks the shell until a choice is made (no dismiss).
  */
 export const ExperienceChoiceGate: React.FC<ExperienceChoiceGateProps> = ({ onChoose }) => {
   return (
     <div className="min-h-screen bg-[#030000] flex items-center justify-center p-6">
       <div
-        className="w-full max-w-2xl liquid-glass rounded-3xl border border-red-500/20 p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500"
+        className="w-full max-w-4xl liquid-glass rounded-3xl border border-red-500/20 p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500"
         role="dialog"
         aria-modal="true"
         aria-labelledby="experience-choice-title"
@@ -27,62 +80,53 @@ export const ExperienceChoiceGate: React.FC<ExperienceChoiceGateProps> = ({ onCh
               Choose Your Experience
             </h1>
             <p className="text-sm text-slate-400 mt-2 leading-relaxed max-w-md mx-auto">
-              Pick how you want to use LiquiTask. You can change this later in Settings &gt;
-              General.
+              Pick how you want to use LiquiTask. AI assistance and agent execution are separate
+              switches — change either later in Settings &gt; General.
             </p>
           </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <button
-            type="button"
-            onClick={() => onChoose(false)}
-            className="liquid-card group flex flex-col items-start gap-3 rounded-2xl border border-white/10 bg-white/5 p-5 text-left transition-all hover:border-white/20 hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
-          >
-            <div className="flex items-center gap-2">
-              <div className="rounded-xl border border-white/10 bg-white/5 p-2 text-slate-300 group-hover:text-red-300">
-                <Kanban size={20} aria-hidden="true" />
+        <div className="grid gap-4 sm:grid-cols-3">
+          {OPTIONS.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => onChoose(option.choice)}
+              className={`liquid-card group flex flex-col items-start gap-3 rounded-2xl border p-5 text-left transition-all focus:outline-none ${
+                option.accent
+                  ? "border-red-500/25 bg-red-500/5 hover:border-red-500/40 hover:bg-red-500/10 focus-visible:ring-2 focus-visible:ring-red-500"
+                  : "border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/30"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <div
+                  className={`rounded-xl p-2 ${
+                    option.accent
+                      ? "border border-red-500/30 bg-red-500/10 text-red-300"
+                      : "border border-white/10 bg-white/5 text-slate-300 group-hover:text-red-300"
+                  }`}
+                >
+                  {option.icon}
+                </div>
+                <span className="text-[10px] uppercase tracking-widest text-slate-500">
+                  {option.eyebrow}
+                </span>
               </div>
-              <span className="text-[10px] uppercase tracking-widest text-slate-500">
-                Simplified
-              </span>
-            </div>
-            <div className="space-y-1">
-              <h2 className="text-base font-semibold text-white">Simple Task Management</h2>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Kanban boards, projects, and search — without AI assistants, insights, or the
-                agent board.
-              </p>
-            </div>
-            <span className="mt-auto w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-bold text-white transition-colors group-hover:bg-white/10">
-              Use Simple Mode
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onChoose(true)}
-            className="liquid-card group flex flex-col items-start gap-3 rounded-2xl border border-red-500/25 bg-red-500/5 p-5 text-left transition-all hover:border-red-500/40 hover:bg-red-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
-          >
-            <div className="flex items-center gap-2">
-              <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-2 text-red-300">
-                <Bot size={20} aria-hidden="true" />
+              <div className="space-y-1">
+                <h2 className="text-base font-semibold text-white">{option.title}</h2>
+                <p className="text-xs text-slate-400 leading-relaxed">{option.description}</p>
               </div>
-              <span className="text-[10px] uppercase tracking-widest text-slate-500">
-                Full Experience
+              <span
+                className={
+                  option.accent
+                    ? "liquid-button mt-auto w-full rounded-xl px-4 py-2.5 text-sm font-bold text-center"
+                    : "mt-auto w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-bold text-white text-center transition-colors group-hover:bg-white/10"
+                }
+              >
+                {option.cta}
               </span>
-            </div>
-            <div className="space-y-1">
-              <h2 className="text-base font-semibold text-white">AI Agent Board</h2>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Everything in simple mode plus AI assistant, insights, quick-add AI, and agent
-                runs on your board.
-              </p>
-            </div>
-            <span className="liquid-button mt-auto w-full rounded-xl px-4 py-2.5 text-sm font-bold">
-              Enable AI Agent Board
-            </span>
-          </button>
+            </button>
+          ))}
         </div>
       </div>
     </div>

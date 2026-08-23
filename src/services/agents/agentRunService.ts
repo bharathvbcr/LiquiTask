@@ -29,9 +29,7 @@ import {
 import {
   autoRepairMaxAttempts,
   checkAgentBudget,
-  checkAutoRepairAllowed,
   getAgentDailyStats,
-  isAutoRepairEnabled,
   resolveAgentModel,
 } from './agentPolicyService';
 import { parseClaudeStreamLine, parseCouncilReport } from './agentStreamParser';
@@ -47,6 +45,7 @@ import {
   type RunLimitDefaults,
 } from './runLimits';
 import { describeProcessExit } from '../../utils/runProgress';
+import { assertAgentExecutionEnabled } from '../../utils/agentExecution';
 import type {
   AgentProfile,
   AgentRun,
@@ -89,6 +88,8 @@ interface AgentdRunEvent {
   error?: string;
   code?: number;
   durationMs?: number;
+  /** Emitted with permission_request — guards against stale prompt responses. */
+  inputDigest?: string;
   usage?: Record<
     string,
     {
@@ -122,12 +123,14 @@ function providerToRuntime(provider: AgentProfile['provider']): string {
 /**
  * One entry returned by `agent_runs_reattach` on relaunch (Runtime v2 headless
  * runs). `alive` means the agent process is still running detached; otherwise
- * `status` is the outcome reconciled from the run's durable stdout log.
+ * `status` is the outcome reconciled from the run's durable stdout log. The
+ * agentd daemon journal may also report 'queued' (waiting in the sidecar
+ * queue) and 'verifying' (review stage) — both mean the run never finished.
  */
 interface RunReattachInfo {
   runId: string;
   alive: boolean;
-  status: 'running' | 'completed' | 'failed' | 'cancelled';
+  status: 'running' | 'completed' | 'failed' | 'cancelled' | 'queued' | 'verifying';
   sessionId?: string;
   summary?: string;
   exitCode?: number;
@@ -577,6 +580,11 @@ class AgentRunService {
         run.isPaused = info.paused ?? false;
         if (info.sessionId && !run.sessionId) run.sessionId = info.sessionId;
         this.pushEvent(run, 'info', 'Reattached to headless run after relaunch — still working.');
+      } else if (info.status === 'queued') {
+        // The daemon journal still holds this run in its queue — it never
+        // started, so there is nothing to finalize. Keep it queued for
+        // rehydrateActiveRuns to rebuild the wait line.
+        continue;
       } else {
         // Finished while the app was closed — finalize with the real outcome.
         if (info.sessionId && !run.sessionId) run.sessionId = info.sessionId;
@@ -914,6 +922,9 @@ class AgentRunService {
   /** Queue a run; starts immediately when the agent is idle. */
   async assign(task: Task, agent: AgentProfile): Promise<AgentRun | null> {
     if (!isTauri()) return null;
+    // Defense in depth: no run may start while agent execution is switched off,
+    // even if a stale UI surface or automation rule still dispatches.
+    assertAgentExecutionEnabled();
     if (!this.initialized) await this.initialize();
     await this.whenReady();
     return this.withAssignLock(`task:${task.id}`, () =>
@@ -1904,8 +1915,8 @@ class AgentRunService {
       resumeSessionId: run.sessionId,
       devCouncilVerify: agent.devCouncilVerify,
       maxRetries: 2,
-      autoRepairCi: repair?.ci ?? false,
-      autoRepairReview: repair?.review ?? false,
+      autoRepairCi: repair?.ciFailures ?? false,
+      autoRepairReview: repair?.reviewComments ?? false,
       autoRepairMax: autoRepairMaxAttempts(agent),
       prUrl: run.prUrl,
       repoDir: run.repoDir,

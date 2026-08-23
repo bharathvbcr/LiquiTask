@@ -156,9 +156,13 @@ fn run_dev(cwd: &Path, args: &[&str]) -> Result<(i32, String, String), String> {
 }
 
 fn extract_json_object(raw: &str) -> Option<&str> {
+    let start = raw.find('{')?;
     let end = raw.rfind('}')?;
-    let start = raw[..=end].rfind('{')?;
-    Some(&raw[start..=end])
+    if start <= end {
+        Some(&raw[start..=end])
+    } else {
+        None
+    }
 }
 
 pub fn parse_export_tasks(raw: &str) -> Result<(Vec<DevCouncilSubtask>, usize), String> {
@@ -875,6 +879,133 @@ pub fn agent_dev_install_local(source_dir: Option<String>) -> Result<DevCliRunRe
     Ok(DevCliRunResult { success: resolve_dev_cli().is_some(), output: tail(&transcript, 2000) })
 }
 
+/// Pull string paths from a JSON array (plain strings or `{ "path": "…" }` objects).
+fn string_paths(v: Option<&Value>, max: usize) -> Vec<String> {
+    v.and_then(Value::as_array)
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|item| {
+                    item.as_str()
+                        .or_else(|| item.get("path").and_then(Value::as_str))
+                        .map(str::to_string)
+                })
+                .take(max)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Subsystem label: DevCouncil currently emits `area`; older maps used `name`.
+fn subsystem_label(sub: &Value, fallback: &str) -> String {
+    sub.get("area")
+        .and_then(Value::as_str)
+        .or_else(|| sub.get("name").and_then(Value::as_str))
+        .unwrap_or(fallback)
+        .to_string()
+}
+
+fn subsystem_entries(map: &Value) -> Vec<(String, &Value)> {
+    match map.get("subsystems") {
+        Some(Value::Array(arr)) => arr
+            .iter()
+            .enumerate()
+            .map(|(i, s)| (subsystem_label(s, &format!("subsystem-{i}")), s))
+            .collect(),
+        Some(Value::Object(obj)) => obj.iter().map(|(k, v)| (k.clone(), v)).collect(),
+        _ => Vec::new(),
+    }
+}
+
+fn extend_unique(out: &mut Vec<String>, seen: &mut std::collections::HashSet<String>, paths: Vec<String>, max: usize) {
+    for path in paths {
+        if out.len() >= max {
+            return;
+        }
+        if path.is_empty() || !seen.insert(path.clone()) {
+            continue;
+        }
+        out.push(path);
+    }
+}
+
+/// Prefer orientation paths (important / entry roots / subsystem critical) before
+/// the raw file dump so agents see real entry points first.
+fn prioritize_repo_files(map: &Value, max: usize) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+
+    extend_unique(&mut out, &mut seen, string_paths(map.get("important_files"), max), max);
+    extend_unique(&mut out, &mut seen, string_paths(map.get("entry_roots"), max), max);
+    for (_name, sub) in subsystem_entries(map) {
+        if out.len() >= max {
+            break;
+        }
+        extend_unique(&mut out, &mut seen, string_paths(sub.get("entry_points"), max), max);
+        extend_unique(&mut out, &mut seen, string_paths(sub.get("critical_files"), max), max);
+    }
+    if out.len() < max {
+        if let Some(arr) = map.get("files").and_then(Value::as_array) {
+            let rest: Vec<String> = arr
+                .iter()
+                .filter_map(|f| f.get("path").and_then(Value::as_str).map(str::to_string))
+                .collect();
+            extend_unique(&mut out, &mut seen, rest, max);
+        }
+    }
+    out
+}
+
+/// Compact repo-map context injected into agent prompts. Pure so unit tests can
+/// cover the `area`-keyed subsystem shape DevCouncil emits today.
+pub(crate) fn summarize_repo_map(map: &Value) -> Option<String> {
+    const MAX_SUBSYSTEMS: usize = 10;
+    const MAX_LIST: usize = 6;
+    const MAX_CHARS: usize = 4500;
+
+    let mut lines: Vec<String> = Vec::new();
+    if let Some(files) = map.get("files").and_then(Value::as_array) {
+        lines.push(format!("Repo map: {} files indexed.", files.len()));
+    }
+
+    let languages = string_paths(map.get("languages"), 8);
+    if !languages.is_empty() {
+        lines.push(format!("Languages: {}.", languages.join(", ")));
+    }
+
+    let entry_roots = string_paths(map.get("entry_roots"), MAX_LIST);
+    if !entry_roots.is_empty() {
+        lines.push(format!("Entry roots: {}.", entry_roots.join(", ")));
+    }
+
+    let important = string_paths(map.get("important_files"), MAX_LIST);
+    if !important.is_empty() {
+        lines.push(format!("Important files: {}.", important.join(", ")));
+    }
+
+    let subsystems = subsystem_entries(map);
+    if !subsystems.is_empty() {
+        lines.push("Subsystems:".to_string());
+        for (name, sub) in subsystems.iter().take(MAX_SUBSYSTEMS) {
+            let entries = string_paths(sub.get("entry_points"), MAX_LIST);
+            let critical = string_paths(sub.get("critical_files"), MAX_LIST);
+            let mut line = format!("- {name}");
+            if !entries.is_empty() {
+                line.push_str(&format!(" | entry: {}", entries.join(", ")));
+            }
+            if !critical.is_empty() {
+                line.push_str(&format!(" | critical: {}", critical.join(", ")));
+            }
+            lines.push(line);
+        }
+    }
+
+    if lines.is_empty() {
+        return None;
+    }
+    let joined = lines.join("\n");
+    Some(joined.chars().take(MAX_CHARS).collect())
+}
+
 /// Real tracked-file paths from `.devcouncil/repo_map.json`, capped to bound the
 /// payload. Injected into a default (non-council) run's prompt so the agent
 /// orients on actual files instead of blind searching. Empty when unmapped.
@@ -885,18 +1016,7 @@ pub fn agent_dev_repo_files(app: AppHandle, working_dir: String) -> Result<Vec<S
     let Some(map) = read_repo_map(&cwd) else {
         return Ok(Vec::new());
     };
-    let files = map
-        .get("files")
-        .and_then(Value::as_array)
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|f| f.get("path").and_then(Value::as_str))
-                .take(MAX_FILES)
-                .map(str::to_string)
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default();
-    Ok(files)
+    Ok(prioritize_repo_files(&map, MAX_FILES))
 }
 
 /// Compact repo-map context injected into agent prompts: subsystem names,
@@ -907,64 +1027,11 @@ pub fn agent_dev_repo_map_summary(
     app: AppHandle,
     working_dir: String,
 ) -> Result<Option<String>, String> {
-    const MAX_SUBSYSTEMS: usize = 10;
-    const MAX_LIST: usize = 5;
-    const MAX_CHARS: usize = 3500;
-
     let cwd = validate_working_dir(&app, &working_dir)?;
     let Some(map) = read_repo_map(&cwd) else {
         return Ok(None);
     };
-
-    fn string_list(v: Option<&Value>, max: usize) -> Vec<String> {
-        v.and_then(Value::as_array)
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(Value::as_str)
-                    .take(max)
-                    .map(str::to_string)
-                    .collect()
-            })
-            .unwrap_or_default()
-    }
-
-    let mut lines: Vec<String> = Vec::new();
-    if let Some(files) = map.get("files").and_then(Value::as_array) {
-        lines.push(format!("Repo map: {} files indexed.", files.len()));
-    }
-
-    // `subsystems` ships as either an array of objects or a name→object map.
-    let subsystem_entries: Vec<(String, &Value)> = match map.get("subsystems") {
-        Some(Value::Array(arr)) => arr
-            .iter()
-            .filter_map(|s| {
-                s.get("name")
-                    .and_then(Value::as_str)
-                    .map(|n| (n.to_string(), s))
-            })
-            .collect(),
-        Some(Value::Object(obj)) => obj.iter().map(|(k, v)| (k.clone(), v)).collect(),
-        _ => Vec::new(),
-    };
-
-    for (name, sub) in subsystem_entries.iter().take(MAX_SUBSYSTEMS) {
-        let entries = string_list(sub.get("entry_points"), MAX_LIST);
-        let critical = string_list(sub.get("critical_files"), MAX_LIST);
-        let mut line = format!("- {name}");
-        if !entries.is_empty() {
-            line.push_str(&format!(" | entry: {}", entries.join(", ")));
-        }
-        if !critical.is_empty() {
-            line.push_str(&format!(" | critical: {}", critical.join(", ")));
-        }
-        lines.push(line);
-    }
-
-    if lines.is_empty() {
-        return Ok(None);
-    }
-    let joined = lines.join("\n");
-    Ok(Some(joined.chars().take(MAX_CHARS).collect()))
+    Ok(summarize_repo_map(&map))
 }
 
 #[cfg(test)]
@@ -1086,6 +1153,60 @@ mod tests {
         let result = run_dev_plan(Path::new("/tmp"), "  ");
         assert!(!result.success);
         assert!(result.error.unwrap_or_default().contains("empty"));
+    }
+
+    #[test]
+    fn summarize_repo_map_reads_area_keyed_subsystems() {
+        let map = serde_json::json!({
+            "files": [{"path": "App.tsx"}, {"path": "src/a.ts"}],
+            "languages": ["typescript", "go"],
+            "entry_roots": ["App.tsx", "liquitask-agentd/cmd/liquitask-agentd/main.go"],
+            "important_files": ["README.md", "package.json"],
+            "subsystems": [
+                {
+                    "area": "liquitask-agentd",
+                    "entry_points": ["liquitask-agentd/cmd/liquitask-agentd/main.go"],
+                    "critical_files": ["liquitask-agentd/internal/agent/agent.go"]
+                },
+                {
+                    "name": "legacy-named",
+                    "entry_points": ["src/legacy.ts"],
+                    "critical_files": []
+                }
+            ]
+        });
+        let summary = summarize_repo_map(&map).expect("summary");
+        assert!(summary.contains("2 files indexed"));
+        assert!(summary.contains("Languages: typescript, go"));
+        assert!(summary.contains("Entry roots: App.tsx"));
+        assert!(summary.contains("Important files: README.md"));
+        assert!(summary.contains("liquitask-agentd"));
+        assert!(summary.contains("legacy-named"));
+        assert!(summary.contains("agent.go"));
+    }
+
+    #[test]
+    fn prioritize_repo_files_puts_orientation_paths_first() {
+        let map = serde_json::json!({
+            "files": [
+                {"path": "zzz/last.ts"},
+                {"path": "App.tsx"},
+                {"path": "src/a.ts"}
+            ],
+            "important_files": ["README.md"],
+            "entry_roots": ["App.tsx"],
+            "subsystems": [{
+                "area": "src",
+                "entry_points": ["src/index.ts"],
+                "critical_files": ["src/a.ts"]
+            }]
+        });
+        let files = prioritize_repo_files(&map, 10);
+        assert_eq!(files[0], "README.md");
+        assert_eq!(files[1], "App.tsx");
+        assert!(files.contains(&"src/index.ts".to_string()));
+        assert!(files.contains(&"zzz/last.ts".to_string()));
+        assert_eq!(files.iter().filter(|p| *p == "App.tsx").count(), 1);
     }
 
     const FIXTURE_VERIFY_PASSED: &str = r#"{

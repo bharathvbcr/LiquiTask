@@ -29,6 +29,7 @@ import { indexedDBService } from "../services/indexedDBService";
 import storageService from "../services/storageService";
 import { semanticLayerService } from "../services/semanticLayerService";
 import { readAiFeaturesEnabled } from "../utils/aiFeatures";
+import { readAgentExecutionEnabled } from "../utils/agentExecution";
 import {
   needsOnboardingExperienceChoice,
   skipOnboardingForExistingInstall,
@@ -127,6 +128,7 @@ interface InitializationProps {
   setIsCompactView: (val: boolean) => void;
   setShowSubWorkspaceTasks: (val: boolean) => void;
   setAiFeaturesEnabled: (val: boolean) => void;
+  setAgentExecutionEnabled: (val: boolean) => void;
   setViewMode: (val: ViewMode) => void;
   setCurrentView: (val: CurrentView) => void;
   searchIndexServiceRef: MutableRefObject<SearchIndexServiceLike | null>;
@@ -163,6 +165,7 @@ export const useAppInitialization = ({
   setIsCompactView,
   setShowSubWorkspaceTasks,
   setAiFeaturesEnabled,
+  setAgentExecutionEnabled,
   setViewMode,
   setCurrentView,
   searchIndexServiceRef,
@@ -302,6 +305,8 @@ export const useAppInitialization = ({
       if (subTasks !== undefined) setShowSubWorkspaceTasks(subTasks);
       const aiFeatures = storageService.get(STORAGE_KEYS.AI_FEATURES_ENABLED, true);
       if (aiFeatures !== undefined) setAiFeaturesEnabled(aiFeatures);
+      // Installs predating the AI/agent split inherit the AI toggle once.
+      setAgentExecutionEnabled(readAgentExecutionEnabled());
       const savedViewMode = storageService.get(STORAGE_KEYS.VIEW_MODE, "board");
       if (savedViewMode) setViewMode(savedViewMode);
       const savedCurrentView = storageService.get(STORAGE_KEYS.CURRENT_VIEW, "project");

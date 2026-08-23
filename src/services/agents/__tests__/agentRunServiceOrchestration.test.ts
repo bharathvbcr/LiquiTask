@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
+import { beforeEach, describe, expect, it, vi, } from "vitest";
 import type { AgentProfile, AgentRun, Task } from "../../../../types";
 
 vi.mock("../../../runtime/runtimeEnvironment", () => ({ isTauri: () => true }));

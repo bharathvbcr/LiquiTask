@@ -19,6 +19,7 @@ interface AutomationRuleEditorProps {
   availableColumns: Array<{ id: string; title: string }>;
   availableAgents?: Array<{ id: string; name: string }>;
   aiFeaturesEnabled?: boolean;
+  agentExecutionEnabled?: boolean;
 }
 
 export const AutomationRuleEditor: React.FC<AutomationRuleEditorProps> = ({
@@ -29,6 +30,7 @@ export const AutomationRuleEditor: React.FC<AutomationRuleEditorProps> = ({
   availableColumns,
   availableAgents = [],
   aiFeaturesEnabled = true,
+  agentExecutionEnabled = true,
 }) => {
   const [name, setName] = useState(rule?.name || "");
   const [enabled, setEnabled] = useState(rule?.enabled ?? true);
@@ -279,7 +281,9 @@ export const AutomationRuleEditor: React.FC<AutomationRuleEditorProps> = ({
                       <option value="moveToColumn">Move to Column</option>
                       <option value="setPriority">Set Priority</option>
                       <option value="notify">Notify</option>
-                      <option value="assignToAgent">Hand to Agent</option>
+                      {agentExecutionEnabled && (
+                        <option value="assignToAgent">Hand to Agent</option>
+                      )}
                     </select>
                     <button
                       onClick={() => handleRemoveAction(index)}

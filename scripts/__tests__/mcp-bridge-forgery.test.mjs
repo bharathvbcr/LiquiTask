@@ -42,7 +42,7 @@ function writeInflight(inflightDir, requestId, tool, expiresAt) {
 }
 
 /** Post-fix verifier used by liquitask-mcp-bridge.mjs */
-async function secureWaitForResponse(responsesDir, requestId, secret, inflightDir, tool) {
+async function secureWaitForResponse(responsesDir, requestId, secret, inflightDir, _tool) {
   const bridge = await import(bridgePath);
   return bridge.readAuthenticatedResponse(
     responsesDir,

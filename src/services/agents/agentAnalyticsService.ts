@@ -26,8 +26,9 @@ export function computeAgentAnalytics(
     const gatePassed = withGate.filter((r) => r.verification?.passed);
 
     const durations = finished
-      .filter((r) => r.startedAt && r.finishedAt)
-      .map((r) => r.finishedAt!.getTime() - r.startedAt!.getTime());
+      .flatMap((r) =>
+        r.startedAt && r.finishedAt ? [r.finishedAt.getTime() - r.startedAt.getTime()] : [],
+      );
     const costs = finished.filter((r) => typeof r.costUsd === "number").map((r) => r.costUsd!);
     const turns = finished.filter((r) => typeof r.numTurns === "number").map((r) => r.numTurns!);
 

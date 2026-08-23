@@ -29,6 +29,7 @@
     "semantic:serve": "python3 -m semantic_layer --port 8765",
     "lint": "biome check .",
     "lint:fix": "biome check . --write",
+    "ci:local": "npm run typecheck && npm run lint && npm run test:run && cargo test --manifest-path crates/liquitask-core/Cargo.toml && cargo test --manifest-path src-tauri/Cargo.toml && (cd liquitask-agentd && go test ./...)",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\""
   },
   "dependencies": {

@@ -270,7 +270,7 @@ export const RunView: React.FC<RunViewProps> = ({
   useEffect(() => {
     setPtyTakenOver(false);
     setActiveTab("transcript");
-  }, [run?.id]);
+  }, []);
 
   if (!run || !isOpen) return null;
 

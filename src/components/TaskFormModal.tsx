@@ -1,96 +1,34 @@
 import {
-  Image as ImageIcon,
   AlertTriangle,
   AlignLeft,
-  ArrowRightLeft,
   Calendar,
-  Check,
-  CheckSquare,
-  ChevronRight,
-  ChevronDown,
   Clock,
-  Copy,
   Edit2,
   Eye,
-  EyeOff,
-  FileText,
   Flag,
-  HelpCircle,
   History,
   Kanban,
   Layers,
-  Link,
-  Link as LinkIcon,
   Loader2,
-  Lock,
-  MessageSquareText,
-  Paperclip,
-  Plus,
-  Repeat,
-  Shield,
   Sparkles,
   Tag,
-  Trash2,
-  Upload,
   User,
-  Wand2,
-  X,
 } from "lucide-react";
 import type React from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import MarkdownRenderer from "./MarkdownRenderer";
 import { Input } from "./common/Input";
 import { LiquidDatePicker } from "./common/LiquidDatePicker";
-import { useEstimateSuggestion } from "../hooks/useEstimateSuggestion";
 import { aiService } from "../services/aiService";
-import { asString, asStringArray, normalizeSubtaskTitles } from "../utils/coerce";
-import { getBacklogColumnId } from "../utils/taskUtils";
 import {
-  exportQuickAddTemplates,
-  extractFilePathsFromPaste,
-  findDuplicateTaskTitles,
-  findSimilarTaskTitles,
-  formatDueDateForForm,
-  formatParsedTaskSummary,
-  getBatchLineStatus,
-  getQuickAddCompletions,
-  hasBatchBlockingErrors,
-  hasQuickAddSyntax,
-  importQuickAddTemplates,
-  parseFormDueDate,
-  parseMultipleQuickTasks,
-  parseQuickAddLibrary,
-  parseQuickTask,
-  parsedTaskToJson,
-  recordCompletionRecency,
-  removeQuickAddTemplate,
-  resolveParsedPriority,
-  safeParseQuickTask,
-  segmentQuickAddInput,
   SIMILAR_TITLE_THRESHOLD,
-  suggestQuickAddMetadata,
-  upsertQuickAddTemplate,
-  validateQuickAddParsed,
-  type ParseWarning,
-  type ParsedTask,
-  type QuickAddSavedTemplate,
 } from "../utils/taskParser";
-import { STORAGE_KEYS } from "../constants";
-import storageService from "../services/storageService";
-import { getDesktopApi } from "../runtime/runtimeEnvironment";
-import { QuickAddPreview } from "./QuickAddPreview";
 import type {
   AIContext,
-  AITaskSchema,
-  Attachment,
   BoardColumn,
   CustomFieldDefinition,
   PriorityDefinition,
   Project,
-  RecurringConfig,
-  Subtask,
   Task,
-  TaskLink,
   ToastType,
 } from "../../types";
 import { ModalWrapper } from "./ModalWrapper";
@@ -103,7 +41,6 @@ import { AiAssistPanel } from "./task-form/AiAssistPanel";
 import { AttachmentsSection } from "./task-form/AttachmentsSection";
 import { CustomFieldsSection } from "./task-form/CustomFieldsSection";
 import { LinksSection } from "./task-form/LinksSection";
-import { QuickAddHint } from "./task-form/QuickAddHint";
 import { RecurrenceField } from "./task-form/RecurrenceField";
 import { SubtasksSection } from "./task-form/SubtasksSection";
 

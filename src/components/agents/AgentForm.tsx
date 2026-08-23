@@ -105,7 +105,7 @@ export const AgentForm: React.FC<AgentFormProps> = ({
   const autoFilledWorkingDirFor = useRef<string | null>(null);
   useEffect(() => {
     autoFilledWorkingDirFor.current = null;
-  }, [draft.id]);
+  }, []);
   useEffect(() => {
     if (!workspaceDefaultDir || draft.workingDir.trim()) return;
     if (autoFilledWorkingDirFor.current === draft.id) return;

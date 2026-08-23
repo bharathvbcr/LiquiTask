@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import type { AgentSkill, Task } from "../../../../types";
-import { buildCouncilGoal, buildTaskPrompt, withRepoFileIndex } from "../agentPrompt";
+import {
+  buildCouncilGoal,
+  buildTaskPrompt,
+  withRepoContext,
+  withRepoFileIndex,
+} from "../agentPrompt";
 
 const makeTask = (overrides: Partial<Task> = {}): Task => ({
   id: "task-1",
@@ -70,6 +75,21 @@ describe("buildTaskPrompt", () => {
   });
 });
 
+describe("withRepoContext", () => {
+  it("no-ops when context is empty", () => {
+    expect(withRepoContext("PROMPT", null)).toBe("PROMPT");
+    expect(withRepoContext("PROMPT", "  ")).toBe("PROMPT");
+  });
+
+  it("appends the map and tells the agent to prefer entry points", () => {
+    const out = withRepoContext("PROMPT", "Repo map: 10 files indexed.\nEntry roots: App.tsx.");
+    expect(out).toContain("## Repository map (DevCouncil)");
+    expect(out).toContain("Entry roots: App.tsx.");
+    expect(out).toContain("Prefer exact paths");
+    expect(out).toContain(".devcouncil/repo_map.json");
+  });
+});
+
 describe("withRepoFileIndex", () => {
   it("appends the real file index and no-ops on empty", () => {
     const base = "PROMPT";
@@ -88,6 +108,13 @@ describe("withRepoFileIndex", () => {
     expect(out).toContain("src/file0.ts");
     expect(out).toContain("and 50 more file(s).");
     expect(out).not.toContain("- src/file150.ts");
+  });
+});
+
+describe("buildTaskPrompt map guidance", () => {
+  it("tells agents to orient from the Repository map when present", () => {
+    const prompt = buildTaskPrompt(makeTask());
+    expect(prompt).toContain("When a Repository map section is present");
   });
 });
 

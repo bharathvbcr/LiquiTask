@@ -286,7 +286,7 @@ export const useBoardDnDController = ({
       setHighlightedZone(null);
       setIsQuickAddDropHover(false);
     },
-    [activeDrag, handleColumnReorder, handleTaskDrop, onAssignToAgent, onQuickAddFromTask],
+    [activeDrag, handleColumnReorder, handleTaskDrop, onAssignToAgent, onQuickAddFromTask, showToast],
   );
 
   const handleDragCancel = useCallback(() => {

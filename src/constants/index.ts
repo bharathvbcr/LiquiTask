@@ -13,8 +13,14 @@ export const STORAGE_KEYS = {
   SEARCH_HISTORY: "liquitask-search-history",
   COMPACT_VIEW: "liquitask-compact-view",
   SHOW_SUB_WORKSPACE_TASKS: "liquitask-show-sub-workspace-tasks",
-  /** When false, hides in-app AI and agent surfaces (simple task mode). */
+  /** When false, hides in-app AI assistance (assistant, insights, auto-organize). */
   AI_FEATURES_ENABLED: "liquitask-ai-features-enabled",
+  /**
+   * When false, hides the agent surfaces and stops all agent execution
+   * (auto-pickup, agentd lifecycle, feedback polling). Independent of
+   * AI_FEATURES_ENABLED — unset installs inherit it once, then diverge.
+   */
+  AGENT_EXECUTION_ENABLED: "liquitask-agent-execution-enabled",
   /** Quiet hours, due-date lead time, overdue nudges. */
   NOTIFICATION_PREFERENCES: "liquitask-notification-preferences",
   /** Pushover / webhook credentials for daemon-side remote push. */

@@ -271,7 +271,7 @@ function sleepMs(ms) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
-function parseResponsePayload(raw) {
+function _parseResponsePayload(raw) {
   let parsed;
   try {
     parsed = JSON.parse(raw);

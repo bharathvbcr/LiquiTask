@@ -388,8 +388,8 @@ function port_exportJSON(report, nowMs) {
   const mapBlock = (map, indent) => {
     const keys = Object.keys(map).sort();
     if (keys.length === 0) return "{}";
-    const inner = indent + "  ";
-    const inner2 = inner + "  ";
+    const inner = `${indent}  `;
+    const inner2 = `${inner}  `;
     const entries = keys.map((k) => {
       const b = map[k];
       return (
@@ -412,7 +412,7 @@ function port_exportJSON(report, nowMs) {
         "}"
       );
     });
-    return "{\n" + entries.join(",\n") + "\n" + indent + "}";
+    return `{\n${entries.join(",\n")}\n${indent}}`;
   };
 
   let tasksBlock;
@@ -441,7 +441,7 @@ function port_exportJSON(report, nowMs) {
         fmtNum(t.variance) +
         "\n    }",
     );
-    tasksBlock = "[\n" + entries.join(",\n") + "\n  ]";
+    tasksBlock = `[\n${entries.join(",\n")}\n  ]`;
   }
 
   return (
@@ -615,10 +615,10 @@ function* fuzz(rng) {
         ? createdAt + Math.floor(rng() * 30) * 86_400_000 + Math.floor(rng() * 86_400_000)
         : undefined;
       tasks.push({
-        id: "t" + i + "_" + j, // unique across the case
+        id: `t${i}_${j}`, // unique across the case
         // Occasionally a jobId with a comma/quote to prove it is written RAW in
         // CSV (unescaped, like the TS) rather than quote-wrapped.
-        jobId: rng() < 0.1 ? 'LT,"' + (100 + j) : "LT-" + (100 + j),
+        jobId: rng() < 0.1 ? `LT,"${100 + j}` : `LT-${100 + j}`,
         projectId: pick(PROJECT_IDS),
         title: pick(TITLES),
         assignee: pick(ASSIGNEES),

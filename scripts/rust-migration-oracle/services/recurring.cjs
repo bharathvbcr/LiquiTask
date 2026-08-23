@@ -113,7 +113,7 @@ function* fuzz(rng) {
     }
     // Reference instant: spread across ~1970..2035 at random ms.
     const fromMs = Math.floor((rng() - 0.05) * 2_000_000_000_000);
-    yield { args: [config, fromMs], label: JSON.stringify(config) + "@" + fromMs };
+    yield { args: [config, fromMs], label: `${JSON.stringify(config)}@${fromMs}` };
   }
 }
 

@@ -1,7 +1,7 @@
 import { GitFork, History, RotateCcw } from "lucide-react";
 import type React from "react";
 
-import type { RunTraceStep } from "../../../types";
+import type { RunTraceStep } from "../../types";
 import { GlassPanel } from "./GlassPanel";
 
 export interface RunTraceTimelineProps {

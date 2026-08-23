@@ -352,7 +352,7 @@ export function useTaskForm({
     setImagePreview(null);
     setImageAnalysisSummary(undefined);
     setRefinePresetChain([]);
-  }, [initialAiInput, initialData, isOpen]);
+  }, [initialAiInput, initialData, isOpen, columns, priorities.length, priorities[0].id, projectId]);
 
   useEffect(() => {
     if (!isOpen || initialData || !focusAiInput) return;
@@ -802,7 +802,7 @@ export function useTaskForm({
   const showWorkspacePathHint = useMemo(() => {
     if (effectiveWorkspacePaths.length > 0) return false;
     const before = aiInput.slice(0, aiInputCursor);
-    const atMatch = before.match(/(?:^|\s)@([\w./\\-]*)$/);
+    const atMatch = before.match(/(?:^|\s)@([\w./-]*)$/);
     if (!atMatch) return false;
     const fragment = atMatch[1];
     return (
@@ -817,7 +817,7 @@ export function useTaskForm({
     }
 
     const before = aiInput.slice(0, aiInputCursor);
-    const atMatch = before.match(/(?:^|\s)@([\w./\\-]*)$/);
+    const atMatch = before.match(/(?:^|\s)@([\w./-]*)$/);
     if (!atMatch) {
       setWorkspaceFileCompletions([]);
       return;
@@ -992,7 +992,7 @@ export function useTaskForm({
       let nextAssignee = formData.assignee;
       if (parsed.assignee) {
         const matchedColumn = columns.find(
-          (c) => c.title.toLowerCase() === parsed.assignee!.toLowerCase(),
+          (c) => c.title.toLowerCase() === parsed.assignee?.toLowerCase(),
         );
         if (matchedColumn) {
           nextStatus = matchedColumn.id;
@@ -1068,7 +1068,7 @@ export function useTaskForm({
       const before = aiInput.slice(0, aiInputCursor);
       const after = aiInput.slice(aiInputCursor);
       const patterns = [
-        /(?:^|\s)(@[\w./\\-]*)$/,
+        /(?:^|\s)(@[\w./-]*)$/,
         /(?:^|\s)>([a-zA-Z0-9_.-]*)$/,
         /(?:^|\s)%([a-zA-Z0-9_.-]*)$/,
         /#(?:project:)?([a-zA-Z0-9_-]*)$/i,
@@ -1864,7 +1864,7 @@ export function useTaskForm({
     if (!el) return;
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 240)}px`;
-  }, [aiInput]);
+  }, []);
 
   // Keyboard Shortcuts
   useEffect(() => {
@@ -1949,7 +1949,7 @@ export function useTaskForm({
 
   useEffect(() => {
     setCompletionSelectedIndex(0);
-  }, [quickAddCompletions]);
+  }, []);
 
   return {
     activeTab,

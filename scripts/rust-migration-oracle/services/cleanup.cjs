@@ -408,8 +408,7 @@ function refRedundancy(allTasks, now) {
       });
     }
     const blockedByCompleted =
-      task.links &&
-      task.links.some(
+      task.links?.some(
         (link) =>
           link.type === "blocked-by" && completedTasks.some((ct) => ct.id === link.targetTaskId),
       );
@@ -482,8 +481,7 @@ function portRedundancy(allTasks, now) {
       });
     }
     const blockedByCompleted =
-      task.links != null &&
-      task.links.some(
+      task.links?.some(
         (link) =>
           link.type === "blocked-by" && completedTasks.some((ct) => ct.id === link.targetTaskId),
       );
@@ -534,7 +532,7 @@ function refSuggestPriority(task, now) {
     if (daysUntilDue < 2) return "high";
     if (daysUntilDue < 7) return "medium";
   }
-  if (task.links && task.links.some((l) => l.type === "blocks")) return "high";
+  if (task.links?.some((l) => l.type === "blocks")) return "high";
   return task.priority || "medium";
 }
 
@@ -559,7 +557,7 @@ function portSuggestPriority(task, now) {
     if (daysUntilDue < 2) return "high";
     if (daysUntilDue < 7) return "medium";
   }
-  const hasBlocks = task.links != null && task.links.some((l) => l.type === "blocks");
+  const hasBlocks = task.links?.some((l) => l.type === "blocks");
   if (hasBlocks) return "high";
   return task.priority === "" || task.priority == null ? "medium" : task.priority;
 }

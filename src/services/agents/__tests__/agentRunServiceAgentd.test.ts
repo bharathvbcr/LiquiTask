@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const TEST_MCP_DIR = "/tmp/liquitask-mcp/test-run";
-const TEST_MCP_SECRET = "0123456789abcdef0123456789abcdef";
+const _TEST_MCP_SECRET = "0123456789abcdef0123456789abcdef";
 
 function mcpInitResponse(dir = TEST_MCP_DIR) {
   return { mcpDir: dir };

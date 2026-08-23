@@ -46,6 +46,7 @@ export const buildTaskPrompt = (task: Task, skills: AgentSkill[] = []): string =
     [
       `- Work only inside the current repository.`,
       `- Follow the repository's CLAUDE.md conventions if present.`,
+      `- When a Repository map section is present, orient from it before searching — use its entry points and file index instead of guessing paths.`,
       `- Prefer minimal, well-tested changes; run the project's tests when available.`,
       `- Do not run \`git commit\`, switch branches, or push unless the task explicitly asks — committing/merging happens from the board's Commit stage.`,
       `- Before large refactors or when stuck, call the \`get_user_guidance\` MCP tool — the user may inject mid-run course corrections from the board.`,
@@ -71,7 +72,15 @@ export const withRepoContext = (prompt: string, repoContext?: string | null): st
   return [
     prompt,
     `## Repository map (DevCouncil)`,
-    `${trimmed}\n\nUse \`.devcouncil/repo_map.json\` for the full index; prefer these entry points over blind searching.`,
+    [
+      trimmed,
+      "",
+      "Use this map before exploring the tree:",
+      "- Start from the listed entry roots / subsystem entry points and critical files.",
+      "- Prefer exact paths from this section (and the Repository files index below) over blind search.",
+      "- Open `.devcouncil/repo_map.json` when you need the full index (seeded into agent worktrees).",
+      "- Skip inventing paths that are not on the map unless you are creating a new file.",
+    ].join("\n"),
   ].join("\n\n");
 };
 

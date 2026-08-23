@@ -321,16 +321,19 @@ export const localApi = {
       return guardedInvoke<
         Array<{
           runId: string;
-          taskId: string;
-          runtime: string;
+          taskId?: string;
+          runtime?: string;
           alive: boolean;
           status: string;
+          sessionId?: string;
         }>
       >('agentd_run_reattach', undefined, { allowWebFallback: true });
     }
     return guardedInvoke<
       Array<{
         runId: string;
+        taskId?: string;
+        runtime?: string;
         alive: boolean;
         status: string;
         sessionId?: string;

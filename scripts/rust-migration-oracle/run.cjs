@@ -12,11 +12,11 @@
 //  civil-date math.)
 
 "use strict";
-const fs = require("fs");
-const path = require("path");
+const fs = require("node:fs");
+const path = require("node:path");
 
 if (process.env.TZ !== "UTC") {
-  const { spawnSync } = require("child_process");
+  const { spawnSync } = require("node:child_process");
   const r = spawnSync(process.execPath, [__filename, ...process.argv.slice(2)], {
     stdio: "inherit",
     env: { ...process.env, TZ: "UTC" },
@@ -26,7 +26,7 @@ if (process.env.TZ !== "UTC") {
 
 // Deterministic RNG so runs are reproducible.
 function mulberry32(seed) {
-  return function () {
+  return () => {
     seed |= 0;
     seed = (seed + 0x6d2b79f5) | 0;
     let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
@@ -74,12 +74,12 @@ for (const file of files) {
     try {
       refOut = stableStringify(mod.reference(...c.args));
     } catch (e) {
-      err = "reference threw: " + e.message;
+      err = `reference threw: ${e.message}`;
     }
     try {
       portOut = stableStringify(mod.port(...c.args));
     } catch (e) {
-      err = (err ? err + "; " : "") + "port threw: " + e.message;
+      err = `${err ? `${err}; ` : ""}port threw: ${e.message}`;
     }
     totalCases++;
     if (err || refOut !== portOut) {

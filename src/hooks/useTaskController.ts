@@ -553,6 +553,8 @@ export const useTaskController = ({
         reopen?: boolean;
         hasPrOpen?: boolean;
         prMerged?: boolean;
+        /** Local reviewer-agent stage (Completed → InReview without PR). */
+        localReviewerGate?: boolean;
       },
     ) => {
       let taskId: string;

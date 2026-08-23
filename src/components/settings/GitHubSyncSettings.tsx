@@ -97,7 +97,7 @@ export const GitHubSyncSettings: React.FC<GitHubSyncSettingsProps> = ({
     if (!config.defaultProjectId && activeProjectId) {
       persist({ ...config, defaultProjectId: activeProjectId });
     }
-  }, [activeProjectId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeProjectId, config, persist]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!isTauri()) {
     return (

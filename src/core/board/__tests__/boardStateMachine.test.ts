@@ -145,6 +145,22 @@ describe("boardStateMachine", () => {
       expect(validateTransition(COMMIT, TASK, user({ reopen: true })).allowed).toBe(true);
       expect(validateTransition(COMMIT, TASK, agent({ reopen: true })).allowed).toBe(false);
     });
+
+    it("reopen only un-merges back to Task — not sideways or forward", () => {
+      expect(validateTransition(COMMIT, IN_PROGRESS, user({ reopen: true })).allowed).toBe(false);
+      expect(validateTransition(COMMIT, COMPLETED, user({ reopen: true })).allowed).toBe(false);
+      expect(validateTransition(COMMIT, IN_REVIEW, user({ reopen: true })).allowed).toBe(false);
+    });
+
+    it("reopen is honored for non-agent actors but never agents", () => {
+      expect(validateTransition(COMMIT, TASK, system({ reopen: true })).allowed).toBe(true);
+      expect(
+        validateTransition(COMMIT, TASK, { actor: "automation", reopen: true }).allowed,
+      ).toBe(true);
+      expect(validateTransition(COMMIT, TASK, agent({ reopen: true })).reason).toMatch(
+        /terminal/i,
+      );
+    });
   });
 
   describe("agent actor restrictions", () => {

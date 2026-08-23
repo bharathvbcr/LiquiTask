@@ -219,7 +219,7 @@ function* fuzz(rng) {
       const projectId = projectPool[Math.floor(rng() * projectPool.length)];
       // Non-unique ids on purpose sometimes? No — ids must be unique for the
       // find()/map() semantics to be well-defined; use the loop index.
-      tasks.push({ id: "T" + k, projectId, title, tags: [] });
+      tasks.push({ id: `T${k}`, projectId, title, tags: [] });
     }
 
     // --- random exclude list + batch cap ---

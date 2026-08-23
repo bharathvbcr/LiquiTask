@@ -285,7 +285,7 @@ function* fuzz(rng) {
 
     const n = 1 + Math.floor(rng() * 8); // 1..8 tasks
     const ids = [];
-    for (let k = 0; k < n; k++) ids.push("T" + k);
+    for (let k = 0; k < n; k++) ids.push(`T${k}`);
 
     const tasks = [];
     for (let k = 0; k < n; k++) {
@@ -326,7 +326,7 @@ function* fuzz(rng) {
         links.push({ targetTaskId: target, type: "blocked-by" });
       }
 
-      tasks.push({ id, title: "Task " + id, status, priority, timeEstimate, dueDate, links });
+      tasks.push({ id, title: `Task ${id}`, status, priority, timeEstimate, dueDate, links });
     }
 
     yield { args: [tasks, nowMs], label: `n=${n}@${nowMs}` };

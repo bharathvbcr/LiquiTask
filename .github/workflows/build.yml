@@ -70,7 +70,7 @@ jobs:
             artifact-path: |
               src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
           - name: Windows
-            os: windows-2025-vs2026
+            os: windows-latest
             rust-targets: ''
             tauri-args: ''
             artifact-name: liquitask-release-windows
@@ -88,6 +88,12 @@ jobs:
         with:
           node-version: 24
           cache: 'npm'
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: liquitask-agentd/go.mod
+          cache-dependency-path: liquitask-agentd/go.sum
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88 # stable
@@ -107,13 +113,14 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Build semantic layer sidecar
+      - name: Build sidecars
         shell: bash
         run: |
           if [ "${{ runner.os }}" = "Windows" ]; then
             npm run prepare:semantic-sidecar-stub:win
           fi
           npm run build:semantic-sidecar
+          npm run build:agentd
 
       - name: Run Type Check
         run: npm run typecheck

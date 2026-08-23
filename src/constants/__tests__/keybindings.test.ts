@@ -46,14 +46,26 @@ describe("keybindings catalog", () => {
     expect(hidden.has("ai:prioritize")).toBe(false);
   });
 
-  it("hides AI and agent shortcuts when AI features are disabled", () => {
+  it("hides AI shortcuts when AI features are disabled, keeping agent ones", () => {
     const hidden = getHiddenShortcutIds({ aiFeaturesEnabled: false });
     expect(hidden.has("global:toggle-assistant")).toBe(true);
-    expect(hidden.has("task:send-agent")).toBe(true);
     expect(hidden.has("ai:prioritize")).toBe(true);
+    // Agent execution is a separate switch — its shortcuts stay available.
+    expect(hidden.has("task:send-agent")).toBe(false);
+    expect(hidden.has("inbox:permission-allow")).toBe(false);
+    expect(hidden.has("dock:approve-all-pending")).toBe(false);
 
     const list = buildShortcutDisplayList(DEFAULT_KEYBINDINGS, { aiFeaturesEnabled: false });
     expect(list.some((item) => item.description.includes("AI"))).toBe(false);
+  });
+
+  it("hides agent shortcuts when agent execution is disabled, keeping AI ones", () => {
+    const hidden = getHiddenShortcutIds({ agentExecutionEnabled: false });
+    expect(hidden.has("task:send-agent")).toBe(true);
+    expect(hidden.has("inbox:permission-allow")).toBe(true);
+    expect(hidden.has("dock:approve-all-pending")).toBe(true);
+    expect(hidden.has("ai:prioritize")).toBe(false);
+    expect(hidden.has("global:toggle-assistant")).toBe(false);
   });
 
   it("respects the live assistant sidebar feature flag", () => {
@@ -105,8 +117,8 @@ describe("keybindings catalog", () => {
     ).toBe(true);
   });
 
-  it("hides inbox shortcuts when AI features are disabled", () => {
-    const hidden = getHiddenShortcutIds({ aiFeaturesEnabled: false });
+  it("hides inbox shortcuts when agent execution is disabled", () => {
+    const hidden = getHiddenShortcutIds({ agentExecutionEnabled: false });
     expect(hidden.has("inbox:permission-allow")).toBe(true);
     expect(hidden.has("dock:approve-all-pending")).toBe(true);
   });

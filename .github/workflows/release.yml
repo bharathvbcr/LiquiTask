@@ -72,7 +72,7 @@ jobs:
       matrix:
         include:
           - name: Windows
-            os: windows-2025-vs2026
+            os: windows-latest
             rust-targets: ''
             package-command: npm run build
             artifact-name: liquitask-release-windows
@@ -125,6 +125,12 @@ jobs:
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 24
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: liquitask-agentd/go.mod
+          cache-dependency-path: liquitask-agentd/go.sum
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88 # stable

@@ -660,10 +660,28 @@ pub fn agent_git_create_worktree(
         },
     );
 
+    // `.devcouncil/repo_map.json` is gitignored, so git worktree won't carry it.
+    // Seed a copy so agents (and DevCouncil MCP) can open the map from cwd.
+    seed_devcouncil_repo_map(repo, &worktree_path);
+
     Ok(GitWorktreeResult {
         branch,
         worktree_path: worktree_path.to_string_lossy().to_string(),
     })
+}
+
+/// Copy the main checkout's DevCouncil repo map into a freshly created worktree.
+/// Best-effort: missing map or I/O errors are ignored so worktree creation never fails.
+fn seed_devcouncil_repo_map(repo: &Path, worktree: &Path) {
+    let src = repo.join(".devcouncil").join("repo_map.json");
+    if !src.is_file() {
+        return;
+    }
+    let dest_dir = worktree.join(".devcouncil");
+    if std::fs::create_dir_all(&dest_dir).is_err() {
+        return;
+    }
+    let _ = std::fs::copy(&src, dest_dir.join("repo_map.json"));
 }
 
 /// Structured outcome of the transactional merge pipeline.

@@ -1,4 +1,13 @@
-import { FolderTree, Kanban, Layout, MonitorSmartphone, Palette, Sparkles, Bell } from "lucide-react";
+import {
+  Bot,
+  FolderTree,
+  Kanban,
+  Layout,
+  MonitorSmartphone,
+  Palette,
+  Sparkles,
+  Bell,
+} from "lucide-react";
 import type React from "react";
 import { useEffect, useState } from "react";
 import type { GroupingOption, ToastType } from "../../../types";
@@ -28,6 +37,8 @@ interface GeneralSettingsProps {
   onUpdateShowSubWorkspaceTasks?: (val: boolean) => void;
   aiFeaturesEnabled: boolean;
   onUpdateAiFeaturesEnabled?: (val: boolean) => void;
+  agentExecutionEnabled: boolean;
+  onUpdateAgentExecutionEnabled?: (val: boolean) => void;
   notificationPreferences?: NotificationPreferences;
   onUpdateNotificationPreferences?: (prefs: NotificationPreferences) => void;
   remotePushConfig?: RemotePushConfig;
@@ -43,6 +54,8 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
   onUpdateShowSubWorkspaceTasks,
   aiFeaturesEnabled,
   onUpdateAiFeaturesEnabled,
+  agentExecutionEnabled,
+  onUpdateAgentExecutionEnabled,
   notificationPreferences = DEFAULT_NOTIFICATION_PREFERENCES,
   onUpdateNotificationPreferences,
   remotePushConfig = DEFAULT_REMOTE_PUSH_CONFIG,
@@ -125,8 +138,8 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
             <div>
               <h4 className="text-sm font-medium text-white">Enable AI Features</h4>
               <p className="text-xs text-slate-500 mt-0.5">
-                Turn off for simple task management. Hides the assistant, insights, auto-organize,
-                and agent surfaces. Your settings and run history are kept.
+                In-app AI assistance: assistant, insights, auto-organize, and quick-add AI. Does
+                not start any agents. Your settings are kept when off.
               </p>
             </div>
           </div>
@@ -137,7 +150,28 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
             aria-label="Toggle AI features"
           />
         </div>
-        {aiFeaturesEnabled && (
+        <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-red-500/20 text-red-400">
+              <Bot size={18} />
+            </div>
+            <div>
+              <h4 className="text-sm font-medium text-white">Enable Agent Execution</h4>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Coding-agent runs on your board — Inbox and Agents surfaces, auto-pickup, and
+                approvals. Turn off to keep AI assistance without agents running. Run history is
+                kept.
+              </p>
+            </div>
+          </div>
+          <SettingsToggle
+            checked={agentExecutionEnabled}
+            onChange={(val) => onUpdateAgentExecutionEnabled?.(val)}
+            color="cyan"
+            aria-label="Toggle agent execution"
+          />
+        </div>
+        {agentExecutionEnabled && (
           <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5">
             <div>
               <h4 className="text-sm font-medium text-white">Max Concurrent Agent Runs</h4>
@@ -248,6 +282,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
             aria-label="Due-date lead time in minutes"
           />
         </div>
+        {agentExecutionEnabled && (
         <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5">
           <div>
             <h4 className="text-sm font-medium text-white">Agent Attention Alerts</h4>
@@ -267,6 +302,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
             aria-label="Toggle agent attention alerts"
           />
         </div>
+        )}
         <div className="space-y-3 p-4 rounded-xl bg-white/5 border border-white/5">
           <div className="flex items-center justify-between gap-3">
             <div>
