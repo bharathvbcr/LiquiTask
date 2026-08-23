@@ -3,8 +3,10 @@
 package agent
 
 import (
+	"errors"
 	"io"
 	"os/exec"
+	"syscall"
 
 	"github.com/creack/pty"
 )
@@ -39,6 +41,10 @@ func (r *ptyTeeReader) Read(p []byte) (int, error) {
 		chunk := make([]byte, n)
 		copy(chunk, p[:n])
 		r.onOutput(chunk)
+	}
+	// On Linux, closing the slave PTY causes master Read to return EIO (treated as EOF).
+	if errors.Is(err, syscall.EIO) {
+		err = io.EOF
 	}
 	return n, err
 }
