@@ -73,7 +73,7 @@ def ensure_model(model_cache: Path, python_cmd: list[str]) -> Path:
             "-c",
             (
                 "from sentence_transformers import SentenceTransformer; "
-                f"SentenceTransformer('{DEFAULT_MODEL}').save('{model_dir.as_posix()}')"
+                f"SentenceTransformer('{DEFAULT_MODEL}', device='cpu').save('{model_dir.as_posix()}')"
             ),
         ]
     )
