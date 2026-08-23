@@ -12,7 +12,6 @@ import (
 	"runtime"
 	"strings"
 	"sync/atomic"
-	"syscall"
 	"time"
 )
 
@@ -202,11 +201,11 @@ func (b *opencodeBackend) Execute(ctx context.Context, prompt string, opts ExecO
 		case <-runCtx.Done():
 		}
 		if cmd.Process != nil {
-			signalProcessGroup(cmd.Process, syscall.SIGTERM)
+			signalProcessGroup(cmd.Process, SigTerm)
 			select {
 			case <-procDone: // exited within the grace window
 			case <-time.After(opencodeTerminateGrace()):
-				signalProcessGroup(cmd.Process, syscall.SIGKILL)
+				signalProcessGroup(cmd.Process, SigKill)
 			}
 		}
 		_ = stdout.Close()

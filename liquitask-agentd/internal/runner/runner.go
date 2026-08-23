@@ -11,7 +11,6 @@ import (
 	"regexp"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/google/uuid"
@@ -240,7 +239,7 @@ func (m *Manager) Shutdown() {
 		ar.cancel()
 		pid := sessionPID(ar)
 		if pid > 0 {
-			agent.SignalProcess(pid, syscall.SIGKILL)
+			agent.KillProcess(pid)
 		}
 		m.perms.clearRun(ar.id)
 	}
@@ -441,7 +440,7 @@ func (m *Manager) HandleCancel(raw json.RawMessage) (any, *rpc.Error) {
 	ar.cancel()
 	pid := sessionPID(ar)
 	if pid > 0 {
-		agent.SignalProcess(pid, syscall.SIGKILL)
+		agent.KillProcess(pid)
 	}
 	return map[string]bool{"ok": true}, nil
 }
@@ -515,12 +514,12 @@ func (m *Manager) HandleResume(raw json.RawMessage) (any, *rpc.Error) {
 }
 
 func agentSignalStop(pid int) error {
-	agent.SignalProcess(pid, syscall.SIGSTOP)
+	agent.StopProcess(pid)
 	return nil
 }
 
 func agentSignalCont(pid int) error {
-	agent.SignalProcess(pid, syscall.SIGCONT)
+	agent.ResumeProcess(pid)
 	return nil
 }
 

@@ -7,7 +7,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -41,10 +40,8 @@ func processStartTimeLinux(pid int) (time.Time, error) {
 	if err != nil {
 		return time.Time{}, err
 	}
-	clkTck := uint64(100)
-	if v, err := syscall.Sysconf(syscall.SC_CLK_TCK); err == nil && v > 0 {
-		clkTck = uint64(v)
-	}
+	// Linux /proc/[pid]/stat starttime is measured in clock ticks (USER_HZ, standard 100 on Linux).
+	const clkTck = uint64(100)
 	boot, err := bootTimeLinux()
 	if err != nil {
 		return time.Time{}, err

@@ -19,7 +19,7 @@ func InstallManagedProcess(cmd *exec.Cmd, waitDelay time.Duration) {
 	configureProcessGroup(cmd)
 	cmd.Cancel = func() error {
 		if cmd.Process != nil {
-			signalProcessGroup(cmd.Process, syscall.SIGKILL)
+			signalProcessGroup(cmd.Process, SigKill)
 		}
 		return nil
 	}

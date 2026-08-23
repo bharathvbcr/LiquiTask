@@ -12,7 +12,6 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
-	"syscall"
 
 	"github.com/liquitask/liquitask-agentd/internal/rpc"
 	"github.com/liquitask/liquitask-agentd/internal/runner"
@@ -66,7 +65,7 @@ func main() {
 
 	if *daemonMode {
 		sigCh := make(chan os.Signal, 1)
-		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+		signal.Notify(sigCh, os.Interrupt)
 		<-sigCh
 		cancel()
 		if socketLn != nil {

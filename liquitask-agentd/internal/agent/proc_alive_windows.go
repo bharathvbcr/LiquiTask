@@ -4,7 +4,6 @@ package agent
 
 import (
 	"syscall"
-	"unsafe"
 )
 
 const processQueryLimitedInformation = 0x1000
