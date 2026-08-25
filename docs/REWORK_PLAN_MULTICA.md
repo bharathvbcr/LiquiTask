@@ -22,7 +22,7 @@ Three pillars:
 
 ## 2. What the Audits Found
 
-### 2.1 LiquiTask today (`/Users/bharath/Code/LiquiTask`)
+### 2.1 LiquiTask today (`/Users/bharath/Code/apps/LiquiTask`)
 
 - **Stack:** React 19 + TypeScript + Tauri 2 + Tailwind; liquid glass theme in `index.css`/`tailwind.config.js` (dark-first glassmorphism, red accent). IndexedDB persistence (`src/services/indexedDBService.ts`), <5ms inverted-index search (`searchIndexService.ts`).
 - **Agent layer is multi-runtime via `liquitask-agentd`.** Go sidecar (`liquitask-agentd/`) drives all 15 coding-agent CLIs for direct runs; Rust bridge (`src-tauri/src/agentd.rs`, `agentd_store.rs`) supervises the sidecar and persists runs/events to SQLite. DevCouncil council-mode subprocesses use `agent_council_runner.rs`; shared CLI helpers (`augmented_path`, `find_executable`) live in `agent_cli_util.rs`. The legacy monolithic `agent_runner.rs` has been deleted. TS side: `src/services/agents/agentRunService.ts` + sibling services, `src/hooks/useAgentTeammates.ts`, UI in `src/components/agents/`.
@@ -38,7 +38,7 @@ Three pillars:
 - **Daemon (`server/internal/daemon` + `execenv/`):** detects installed CLIs, prepares per-run execution environments (codex home isolation, cursor MCP config, git worktrees via `repocache/`, skill mounting, handoff prompts), reconciles orphaned runs, health checks, GC.
 - **Cloud coupling:** everything flows through the Go server (auth, workspaces, realtime WS, billing, Slack/Lark/GitHub/Composio integrations). `packages/core/api` is a REST+WS client. The *daemon and agent package are the least cloud-coupled parts*; the frontend packages are coupled at exactly one seam (the `api` client + TanStack Query).
 
-### 2.3 DevCouncil (`/Users/bharath/Code/DevCouncil`)
+### 2.3 DevCouncil (`/Users/bharath/Code/devtools/DevCouncil`)
 
 - Gated orchestration: council debate (6 LLM roles) → typed `Task`/`Requirement` → **PlannedFile scope whitelist** → executor handoff (Claude Code, Codex, Cursor, Aider CLIs) → **deterministic 4-tier verification** (scope compliance, tests, coverage, rigor) → artifact graph (Requirement → Task → Diff → Evidence) in SQLite (`.devcouncil/state.db`).
 - Integration surfaces: CLI (`dev plan|run|verify` with JSON I/O), MCP server (`dev mcp-server`), SQLite polling, Python import. **Recommended: CLI subprocess + JSON + SQLite polling; MCP server exposed to agent runs.**
