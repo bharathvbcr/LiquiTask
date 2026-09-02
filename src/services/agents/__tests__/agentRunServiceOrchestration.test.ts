@@ -419,4 +419,80 @@ describe("agentRunService orchestration hardening", () => {
     await pending;
     expect(assigned).toBe(true);
   });
+
+  it("releases every assign lock once concurrent assigns for the same task settle", async () => {
+    const svc = await boot();
+    const locks = (svc as unknown as { assignLocks: Map<string, unknown> }).assignLocks;
+    expect(locks.size).toBe(0);
+
+    const results = await Promise.all([
+      svc.assign(task, agent),
+      svc.assign(task, agent),
+      svc.assign(task, agent),
+    ]);
+
+    // Mutual exclusion still holds: the lock serialized the three callers, so
+    // only the first created a run and the others saw it already active.
+    expect(results.filter(Boolean)).toHaveLength(1);
+
+    // Both keys assign() takes (`task:<id>` and `agent:<id>`) must be gone.
+    // Without cleanup the map keeps one entry per task and agent ever
+    // assigned, for the lifetime of the desktop session.
+    expect(locks.size).toBe(0);
+  });
+
+  it("keeps withAssignLock mutually exclusive per key and releases the map", async () => {
+    const svc = await boot();
+    const lock = (
+      svc as unknown as {
+        withAssignLock: <T>(key: string, fn: () => Promise<T>) => Promise<T>;
+        assignLocks: Map<string, unknown>;
+      }
+    );
+
+    let inFlight = 0;
+    let maxOverlap = 0;
+    const order: string[] = [];
+    const section = (tag: string, ticks: number) => async () => {
+      inFlight += 1;
+      maxOverlap = Math.max(maxOverlap, inFlight);
+      // Yield repeatedly so a broken lock would interleave here.
+      for (let i = 0; i < ticks; i += 1) await Promise.resolve();
+      await new Promise((r) => setTimeout(r, 1));
+      order.push(tag);
+      inFlight -= 1;
+      return tag;
+    };
+
+    // Same key: must run one at a time, in call order.
+    const same = await Promise.all([
+      lock.withAssignLock("task:x", section("a", 5)),
+      lock.withAssignLock("task:x", section("b", 1)),
+      lock.withAssignLock("task:x", section("c", 3)),
+    ]);
+    expect(same).toEqual(["a", "b", "c"]);
+    expect(order).toEqual(["a", "b", "c"]);
+    expect(maxOverlap).toBe(1);
+    expect(lock.assignLocks.size).toBe(0);
+
+    // A rejecting critical section must still release the key, not wedge it.
+    await expect(
+      lock.withAssignLock("task:x", async () => {
+        throw new Error("boom");
+      }),
+    ).rejects.toThrow("boom");
+    expect(lock.assignLocks.size).toBe(0);
+    await expect(lock.withAssignLock("task:x", async () => "after")).resolves.toBe("after");
+    expect(lock.assignLocks.size).toBe(0);
+
+    // Distinct keys are independent — they may overlap, and both clean up.
+    inFlight = 0;
+    maxOverlap = 0;
+    await Promise.all([
+      lock.withAssignLock("task:y", section("y", 4)),
+      lock.withAssignLock("agent:z", section("z", 4)),
+    ]);
+    expect(maxOverlap).toBe(2);
+    expect(lock.assignLocks.size).toBe(0);
+  });
 });

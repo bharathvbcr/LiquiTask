@@ -938,15 +938,19 @@ class AgentRunService {
     const gate = new Promise<void>((resolve) => {
       release = resolve;
     });
-    this.assignLocks.set(
-      key,
-      previous.then(() => gate),
-    );
+    // Store `gate` itself, never a derived promise: the release path below
+    // identifies the tail of the queue by object identity, so anything else
+    // here leaks one map entry per key for the lifetime of the process.
+    // Waiting on `gate` alone is still mutually exclusive — it resolves only
+    // after this holder's `fn` ran, which in turn awaited *its* predecessor.
+    this.assignLocks.set(key, gate);
     await previous;
     try {
       return await fn();
     } finally {
       release();
+      // Only the last waiter in line clears the key; if another caller has
+      // since queued behind us the map must keep pointing at their gate.
       if (this.assignLocks.get(key) === gate) {
         this.assignLocks.delete(key);
       }

@@ -20,6 +20,9 @@ build/*
 build-electrobun
 release
 coverage/
+coverage.out
+lcov.info
+*.info
 *.tsbuildinfo
 diff.txt
 test_full_log.txt
