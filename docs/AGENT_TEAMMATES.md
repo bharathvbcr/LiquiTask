@@ -1,5 +1,10 @@
 # Agent Teammates
 
+> **Historical.** LiquiTask is deprecated. Agent handoff, task boards, and
+> DevCouncil continue in GitPulse (`/Users/bharath/Code/devtools/GitPulse`).
+> See [`DEPRECATION.md`](DEPRECATION.md). This page documents the archived
+> `liquitask-agentd` lifecycle only.
+
 Multica-inspired managed agents inside LiquiTask: assign a board task to a
 coding agent like you'd assign it to a colleague. The agent picks up the work in
 your repo, streams progress into the card's activity trail, and the card moves

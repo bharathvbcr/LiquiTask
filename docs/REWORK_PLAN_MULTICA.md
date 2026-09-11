@@ -1,7 +1,12 @@
 # LiquiTask v3 — Multica-Grade Rework Plan
 
+> **Historical.** This plan is not the product direction. LiquiTask is
+> deprecated; continue in `/Users/bharath/Code/devtools/GitPulse`
+> ([GitHub](https://github.com/bharathvbcr/GitPulse)).
+> See [`DEPRECATION.md`](DEPRECATION.md).
+
 **Date:** 2026-07-06 (updated 2026-07-08)
-**Status:** Phase 0 complete · Phase 1 largely shipped (`liquitask-agentd` sidecar + Tauri bridge live; `AGENTD_SIDECAR_ENABLED` on by default) · Phase 2 in progress (run view + Agents surface) · first-run experience choice shipped
+**Status:** **Superseded by GitPulse (2026-09-11).** The phase notes below describe work that shipped in this archive, not ongoing roadmap.
 **Scope:** Full UI/UX rework around Multica patterns, multi-agent execution (Claude Code, Codex, Antigravity, Cursor, +10 more), DevCouncil integration, red liquid glass theme retained.
 
 ---

@@ -3,7 +3,7 @@
   "productName": "LiquiTask",
   "private": true,
   "version": "2.6.1",
-  "description": "A premium Kanban task management desktop app with a stunning liquid glass aesthetic",
+  "description": "DEPRECATED — successor is GitPulse. Frozen local-first agentic task workbench (React 19 / Tauri 2 / liquitask-agentd).",
   "author": {
     "name": "LiquidTask",
     "email": "support@liquitask.com"

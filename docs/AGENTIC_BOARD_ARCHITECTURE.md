@@ -1,7 +1,10 @@
 # The Agentic Board: Git-Aligned State Machine, Event Sourcing & Failure Containment
 
+> **Historical.** LiquiTask is deprecated. Continue in GitPulse
+> (`/Users/bharath/Code/devtools/GitPulse`). See [`DEPRECATION.md`](DEPRECATION.md).
+
 Status: implemented 2026-07-06 on `feature/multica-integration` (updated 2026-07-08).
-Companion docs: `docs/AGENT_TEAMMATES.md` (run lifecycle), `docs/REWORK_PLAN_MULTICA.md` (direction).
+Companion docs: `docs/AGENT_TEAMMATES.md` (run lifecycle), `docs/REWORK_PLAN_MULTICA.md` (**historical** direction).
 
 LiquiTask's board is not a sticky-note wall — it is a **strict, git-aligned state
 machine** whose durable source of truth is an **append-only event log**, whose

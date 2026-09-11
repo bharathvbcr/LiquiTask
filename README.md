@@ -1,6 +1,29 @@
 # LiquiTask
 
+> **Deprecated (2026-09-11).** LiquiTask is frozen. New development lives in
+> **[GitPulse](https://github.com/bharathvbcr/GitPulse)**
+> (`/Users/bharath/Code/devtools/GitPulse`) — a unified, native Git + task +
+> agent control plane. This app's split React / IndexedDB / sidecar architecture
+> is the performance problem the successor was built to avoid. See
+> [`docs/DEPRECATION.md`](docs/DEPRECATION.md) for why, what maps where, and
+> how to move.
+
+<p align="left">
+  <img src="https://img.shields.io/badge/status-deprecated-red" alt="Deprecated">
+  <a href="https://github.com/bharathvbcr/GitPulse"><img src="https://img.shields.io/badge/successor-GitPulse-F97316?style=flat" alt="Successor: GitPulse"></a>
+  <a href="https://gitpulse.vbcr.dev/"><img src="https://img.shields.io/badge/website-gitpulse.vbcr.dev-F97316?style=flat&logo=safari&logoColor=white" alt="GitPulse Website"></a>
+  <a href="https://liquitask.vbcr.dev/"><img src="https://img.shields.io/badge/archive_site-liquitask.vbcr.dev-6B7280?style=flat&logo=safari&logoColor=white" alt="Archive Website"></a>
+  <img src="https://img.shields.io/badge/runtimes-15_coding_agents-purple" alt="15 Agent Runtimes">
+  <img src="https://img.shields.io/badge/built%20with-React_19_%7C_Tauri_2_%7C_Go_Sidecar-blue" alt="Stack">
+</p>
+
 ![LiquiTask Social Preview](src/assets/social-preview.jpg)
+
+<p align="center">
+  <a href="https://gitpulse.vbcr.dev/"><strong>Continue in GitPulse (gitpulse.vbcr.dev) &rarr;</strong></a>
+  &nbsp;·&nbsp;
+  <a href="https://liquitask.vbcr.dev/">Archive showcase</a>
+</p>
 
 LiquiTask is a **local-first agentic task workbench**: a desktop app where every
 task on the board can be handed to a coding agent the way you'd hand it to a
@@ -14,14 +37,11 @@ Built with React 19, TypeScript, Tauri 2 (Rust), a Go agent sidecar
 (`liquitask-agentd`), and a local liquid-glass UI, LiquiTask keeps your work
 graph, agent runs, and evidence entirely on your machine.
 
-> **Direction note.** LiquiTask began as a Kanban task manager with optional
-> AI assistance and is being reworked into the agent workbench described here.
-> The task
-> board, local-first persistence, automation, search, and AI task features are
-> shipped and stable. The multi-agent execution layer (`liquitask-agentd`),
-> DevCouncil gates, and the four-surface v3 shell are built and enabled by
-> default, with pieces still maturing — those are flagged explicitly below so
-> you always know what's solid versus in progress.
+> **Direction note.** This product direction has moved to
+> [GitPulse](https://github.com/bharathvbcr/GitPulse). The description below is
+> an archive of what LiquiTask shipped (Kanban, `liquitask-agentd`, DevCouncil
+> gates, v3 shell). It is not a roadmap. See
+> [`docs/DEPRECATION.md`](docs/DEPRECATION.md).
 
 ## What It Is
 
@@ -588,12 +608,14 @@ Before tagging, update `package.json` and `package-lock.json`.
 
 ## Documentation
 
+- [`docs/DEPRECATION.md`](docs/DEPRECATION.md) — **start here.** Why this repo is
+  frozen, how it maps onto GitPulse, and what did not move 1:1.
 - [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md) — Liquid Glass UI tokens, surfaces,
   typography, and component checklist.
 - [`docs/AGENTIC_BOARD_ARCHITECTURE.md`](docs/AGENTIC_BOARD_ARCHITECTURE.md) — git-aligned
   four-state board, event sourcing, dead-letter queue, and merge pipeline.
-- [`docs/REWORK_PLAN_MULTICA.md`](docs/REWORK_PLAN_MULTICA.md) — the v3 product
-  thesis, target architecture, and phased roadmap.
+- [`docs/REWORK_PLAN_MULTICA.md`](docs/REWORK_PLAN_MULTICA.md) — **historical**
+  v3 thesis. Do not implement; GitPulse superseded it.
 - [`docs/AGENT_TEAMMATES.md`](docs/AGENT_TEAMMATES.md) — agent-run lifecycle,
   durable/headless runs, DevCouncil verification gate, and the sandbox mode.
 - [`docs/RUST_MIGRATION.md`](docs/RUST_MIGRATION.md) — moving deterministic
@@ -614,6 +636,5 @@ MIT
 
 ---
 
-LiquiTask is actively being reworked into the agent workbench described above;
-see [`docs/REWORK_PLAN_MULTICA.md`](docs/REWORK_PLAN_MULTICA.md) for the product
-thesis, target architecture, and phased roadmap.
+LiquiTask is **deprecated**. Use [GitPulse](https://github.com/bharathvbcr/GitPulse)
+(`/Users/bharath/Code/devtools/GitPulse`). See [`docs/DEPRECATION.md`](docs/DEPRECATION.md).
