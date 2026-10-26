@@ -1,0 +1,12 @@
+LiquiTask
+Copyright (c) 2026 Bharath Chandra Vaddaram
+
+This product includes software and architectural patterns adapted from:
+
+- Multica (https://github.com/multica-ai/multica)
+  Copyright (c) Multica AI (multica-ai)
+  Licensed under the MIT License (see vendor/multica-ref/LICENSE and docs/THIRD_PARTY.md).
+  Specifically, the Go agent daemon (`go/liquitask-agentd/`), WebSocket protocol envelope,
+  worktree lifecycle management, and core task/issue domain structures in `crates/liquitask-core`
+  were ported and adapted from Multica's `server/pkg/agent`, `server/internal/daemon`, and
+  frontend issue/board state patterns.

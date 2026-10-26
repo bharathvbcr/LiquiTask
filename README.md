@@ -630,9 +630,11 @@ Before tagging, update `package.json` and `package-lock.json`.
   before high-risk changes to services, hooks, settings, agents, or runtime.
   Regenerate after structural changes: `gitnexus analyze --skills --skip-agents-md`.
 
-## License
+## License & Acknowledgements
 
-MIT
+Released under the [MIT License](LICENSE). See [NOTICE](NOTICE) and [`docs/THIRD_PARTY.md`](docs/THIRD_PARTY.md) for full upstream attribution.
+
+- **[Multica (`multica-ai/multica`)](https://github.com/multica-ai/multica)** (`Copyright (c) Multica AI`, MIT) — `go/liquitask-agentd/` and portions of `crates/liquitask-core` and the React view/store architecture were ported and adapted from Multica (`vendor/multica-ref/LICENSE`).
 
 ---
 
